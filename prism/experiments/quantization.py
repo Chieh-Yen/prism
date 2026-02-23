@@ -216,8 +216,9 @@ class QuantizationExperiment(BaseExperiment):
 
         self.report(results)
         abs_tag = "_absorbed" if absorbed else ""
-        json_filename = f"prism_{task_name}_n{num_samples}{abs_tag}.json"
-        self.save(results, filename=json_filename)
+        stem = f"prism_{task_name}_n{num_samples}{abs_tag}"
+        self.save(results, filename=f"{stem}.json")
+        self.save_csv(results, filename=f"{stem}.csv")
         return results
 
     @staticmethod

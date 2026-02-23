@@ -8,6 +8,7 @@ reporting) is handled uniformly.
 
 from __future__ import annotations
 
+import csv
 import gc
 import json
 import os
@@ -373,3 +374,46 @@ class BaseExperiment(ABC):
         with open(path, "w") as f:
             json.dump(serialised, f, indent=2)
         print(f"Results saved to {path}")
+
+    def save_csv(self, results: List[PRISMResult], filename: str = "prism_results.csv") -> None:
+        """Persist results as a flat CSV matching the report table."""
+        path = os.path.join(self.output_dir, filename)
+
+        absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
+
+        fieldnames = ["Label", "rho_T", "Omega"]
+        if not absorbed:
+            fieldnames.append("Scale")
+        fieldnames += [
+            "Shape", "Head", "Bound", "|dR|",
+            "Loss_T", "Loss_P", "PPL_T", "PPL_P",
+            "K_f", "K_f(emp)", "K_p", "K_p(emp)",
+        ]
+
+        with open(path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for r in results:
+                dr = self._delta_risk(r)
+                row = {
+                    "Label": r.label,
+                    "rho_T": r.extra.get("rho_T", ""),
+                    "Omega": r.omega,
+                    "Shape": r.shape_mismatch,
+                    "Head": r.head_discrepancy,
+                    "Bound": r.risk_bound_total if r.risk_bound_total is not None else "",
+                    "|dR|": f"{dr:.6f}" if dr is not None else "",
+                    "Loss_T": r.loss_target if r.loss_target is not None else "",
+                    "Loss_P": r.loss_proxy if r.loss_proxy is not None else "",
+                    "PPL_T": r.extra.get("perplexity_target", ""),
+                    "PPL_P": r.extra.get("perplexity_proxy", ""),
+                    "K_f": r.extra.get("K_feat_tight", ""),
+                    "K_f(emp)": r.extra.get("K_feat_empirical", ""),
+                    "K_p": r.extra.get("K_pred_theory", ""),
+                    "K_p(emp)": r.extra.get("K_pred_empirical", ""),
+                }
+                if not absorbed:
+                    row["Scale"] = r.scale_mismatch
+                writer.writerow(row)
+
+        print(f"CSV saved to {path}")
