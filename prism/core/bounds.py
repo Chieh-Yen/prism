@@ -28,7 +28,7 @@ rho_T and K_feat^{abs} = rho_T * K_feat^{orig}.
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional
+from typing import Dict
 
 import torch
 from torch import Tensor
@@ -128,9 +128,6 @@ class UnifiedBound:
     @staticmethod
     def theoretical_K(
         H_T: Tensor,
-        *,
-        absorbed: bool = False,
-        rho_T: float = 1.0,
     ) -> Dict[str, float]:
         """Compute tight Lipschitz constants for cross-entropy.
 
@@ -140,10 +137,12 @@ class UnifiedBound:
         K_pred uses the logit-gradient bound (Proposition 1):
             K_pred = sqrt(2)
 
+        These constants are intrinsic properties of the target head and
+        do not depend on the scale-absorbed reparameterisation (the
+        Corollary leaves H_T untouched, so K_feat is invariant).
+
         Args:
-            H_T: (d, C) target head weights (original, not absorbed).
-            absorbed: Whether scale-absorbed mode is used.
-            rho_T: Original rho_T (needed only when absorbed=True).
+            H_T: (d, C) target head weights.
 
         Returns:
             Dict with K_feat, K_pred, K_feat_naive, max_pw_dist,
@@ -155,16 +154,9 @@ class UnifiedBound:
 
         max_pw = _max_pairwise_column_distance(H_T)
 
-        K_feat_naive = L * H_T_spec
-        K_feat_tight = max_pw
-
-        if absorbed:
-            K_feat_tight *= rho_T
-            K_feat_naive *= rho_T
-
         return {
-            "K_feat": K_feat_tight,
-            "K_feat_naive": K_feat_naive,
+            "K_feat": max_pw,
+            "K_feat_naive": L * H_T_spec,
             "K_pred": L,
             "max_pairwise_dist": max_pw,
             "H_T_spectral": H_T_spec,
@@ -225,7 +217,6 @@ class UnifiedBound:
         features: Tensor,
         per_sample_losses: Tensor,
         *,
-        rho_T: Optional[float] = None,
         num_pairs: int = 2000,
         percentile: float = 95.0,
     ) -> Dict[str, float]:
@@ -235,15 +226,12 @@ class UnifiedBound:
 
             K_hat = percentile_p( |l_i - l_j| / ||z_i - z_j||_2 )
 
-        When ``rho_T`` is provided (scale-absorbed mode), features are
-        normalised to Z_bar = Z / rho_T first so the ratio lives in the same
-        coordinate system as eps_bar_feat = sqrt(2(1-Omega)).
+        Under the Corollary reparameterisation the target features Z_T are
+        untouched, so K_feat is the same regardless of absorbed/original mode.
 
         Args:
             features:          (n, d) feature matrix (CPU, float).
             per_sample_losses: (n,) per-sample losses (CPU, float).
-            rho_T:             If given, divide features by this value
-                               (scale-absorbed mode).
             num_pairs:         Number of random pairs.
             percentile:        Percentile of the ratio distribution to use.
 
@@ -251,8 +239,6 @@ class UnifiedBound:
             Dict with ``K_feat_empirical``, ``median``, ``p95``, ``max``.
         """
         features = features.float()
-        if rho_T is not None:
-            features = features / max(rho_T, 1e-12)
         per_sample_losses = per_sample_losses.float()
         n = features.shape[0]
         num_pairs = min(num_pairs, n * (n - 1) // 2)

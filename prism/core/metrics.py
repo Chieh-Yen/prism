@@ -220,7 +220,7 @@ class PRISMMetrics:
         )
 
     # ------------------------------------------------------------------
-    # Scale-absorbed variant: ε_feat = √(2(1−Ω)), scale → head
+    # Scale-absorbed variant  (Corollary: Invariance under Scalar Norm.)
     # ------------------------------------------------------------------
     @staticmethod
     def compute_all_absorbed(
@@ -235,11 +235,15 @@ class PRISMMetrics:
     ) -> PRISMResult:
         """Scale-absorbed PRISM analysis.
 
-        Reparameterises  Z̄ = Z/ρ,  H̄ = ρH  so that the feature error
-        reduces to the pure angular term  √(2(1−Ω))  and the scale
-        difference is absorbed into the head discrepancy.
+        Rescales only the proxy:  Z_P' = c Z_P,  H_P' = H_P / c  with
+        c = ρ_T / ρ_P, forcing ρ_P' = ρ_T and (Δρ)² = 0.  The target
+        is left untouched, so K_feat is the same as in the original mode.
 
-        The predictions are unchanged:  Z̄ H̄ = Z H.
+        The scale mismatch is perfectly conserved and transferred into the
+        head discrepancy:  ‖Σ_P^{1/2}(c W H_T − H_P)‖_F.
+
+        Feature error becomes  ρ_T √(2(1−Ω)).
+        Predictions are unchanged:  Z_P' H_P' = Z_P H_P.
         """
         Z_T = Z_T.float()
         Z_P = Z_P.float()
@@ -249,32 +253,27 @@ class PRISMMetrics:
         omega = PRISMMetrics.procrustes_omega(Z_T, Z_P)
         rho_T = PRISMMetrics.rms_scale(Z_T)
         rho_P = PRISMMetrics.rms_scale(Z_P)
+        c = rho_T / max(rho_P, 1e-12)
 
-        # Normalise features (ρ̄ = 1) and absorb scale into heads
-        Z_T_bar = Z_T / max(rho_T, 1e-12)
-        Z_P_bar = Z_P / max(rho_P, 1e-12)
-        H_T_bar = rho_T * H_T
-        H_P_bar = rho_P * H_P
+        W_use = PRISMMetrics._resolve_W(Z_T, Z_P, W, force_identity)
 
-        W_use = PRISMMetrics._resolve_W(Z_T_bar, Z_P_bar, W, force_identity)
+        n = Z_P.shape[0]
+        Sigma_P = (Z_P.T @ Z_P) / n
 
-        n = Z_P_bar.shape[0]
-        Sigma_P_bar = (Z_P_bar.T @ Z_P_bar) / n
-
-        shape = 2.0 * (1.0 - omega)
+        shape = 2.0 * rho_T * rho_T * (1.0 - omega)
         feat_err = math.sqrt(max(shape, 0.0))
 
         hd_cov = PRISMMetrics.head_discrepancy_covariance(
-            H_T_bar, H_P_bar, W_use, Sigma_P_bar,
+            c * H_T, H_P, W_use, Sigma_P,
         )
         hd_spec = PRISMMetrics.head_discrepancy_spectral(
-            H_T_bar, H_P_bar, W_use,
+            c * H_T, H_P, W_use,
         )
 
         return PRISMResult(
             omega=omega,
-            rho_target=1.0,
-            rho_proxy=1.0,
+            rho_target=rho_T,
+            rho_proxy=rho_T,
             scale_mismatch=0.0,
             shape_mismatch=shape,
             feature_error=feat_err,
@@ -285,5 +284,6 @@ class PRISMMetrics:
                 "mode": "scale_absorbed",
                 "rho_target_original": rho_T,
                 "rho_proxy_original": rho_P,
+                "c": c,
             },
         )

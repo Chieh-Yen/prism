@@ -133,27 +133,23 @@ class QuantizationExperiment(BaseExperiment):
             torch.cuda.empty_cache()
         print("  Target model freed from VRAM.")
 
-        # --- Lipschitz constants ---
+        # --- Lipschitz constants (invariant under Corollary reparameterisation) ---
         rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
-        K_theory = UnifiedBound.theoretical_K(H_T, absorbed=absorbed, rho_T=rho_T_orig)
-        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(
-            Z_T, losses_T,
-            rho_T=rho_T_orig if absorbed else None,
-        )
+        K_theory = UnifiedBound.theoretical_K(H_T)
+        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, losses_T)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
         K_pred_empirical = loss_stats["grad_norm_p95"]
 
-        rho_prefix = "ρ_T·" if absorbed else ""
-        z_label = "‖Δz̄‖" if absorbed else "‖Δz‖"
-        print(f"\n  Lipschitz constants:")
-        print(f"    ρ_T = {rho_T_orig:.4f}   ‖H_T‖_op = {K_theory['H_T_spectral']:.4f}")
-        print(f"    K_feat (tight)     = {rho_prefix}max_jk ‖h_j−h_k‖  = {K_feat:.4f}")
-        print(f"    K_feat (naive)     = √2·{rho_prefix}‖H_T‖_op       = {K_theory['K_feat_naive']:.4f}")
-        print(f"    K_feat (empirical) = p95(|Δℓ|/{z_label})        = {K_empirical_feat['p95']:.4f}  "
+        print(f"\n  ρ_T = {rho_T_orig:.6f}")
+        print(f"\n  Lipschitz constants (invariant across original / absorbed):")
+        print(f"    ‖H_T‖_op = {K_theory['H_T_spectral']:.4f}")
+        print(f"    K_feat (tight)     = max_jk ‖h_j−h_k‖       = {K_feat:.4f}")
+        print(f"    K_feat (naive)     = √2·‖H_T‖_op            = {K_theory['K_feat_naive']:.4f}")
+        print(f"    K_feat (empirical) = p95(|Δℓ|/‖Δz‖)         = {K_empirical_feat['p95']:.4f}  "
               f"(median={K_empirical_feat['median']:.4f}, max={K_empirical_feat['max']:.4f})")
-        print(f"    K_pred (theory)    = √2                    = {K_pred:.4f}")
-        print(f"    K_pred (empirical) = p95(‖p̂−e_y‖)         = {K_pred_empirical:.4f}  "
+        print(f"    K_pred (theory)    = √2                      = {K_pred:.4f}")
+        print(f"    K_pred (empirical) = p95(‖p̂−e_y‖)           = {K_pred_empirical:.4f}  "
               f"(mean={loss_stats['grad_norm_mean']:.4f}, max={loss_stats['grad_norm_max']:.4f})")
 
         # --- Lipschitz summary dict (shared across all pairs) ---
@@ -205,7 +201,7 @@ class QuantizationExperiment(BaseExperiment):
             ppl_p = result.extra["perplexity_proxy"]
             elapsed = time.time() - t0
             scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
-            print(f"    Omega={result.omega:.4f}  {scale_s}"
+            print(f"    ρ_T={rho_T_orig:.4f}  Ω={result.omega:.4f}  {scale_s}"
                   f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
                   f"Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
                   f"Loss_T={loss_target:.4f}  Loss_P={result.loss_proxy:.4f}  "
@@ -242,14 +238,14 @@ class QuantizationExperiment(BaseExperiment):
         kp_hdr = "K_p(emp)"
         if absorbed:
             header = (
-                f"{'Label':<20s} {'Omega':>8s} {'Shape':>10s} "
+                f"{'Label':<20s} {'ρ_T':>8s} {'Omega':>8s} {'Shape':>10s} "
                 f"{'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
                 f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} "
                 f"{'K_f':>8s} {kf_hdr:>8s} {'K_p':>8s} {kp_hdr:>8s}"
             )
         else:
             header = (
-                f"{'Label':<20s} {'Omega':>8s} {'Scale':>10s} {'Shape':>10s} "
+                f"{'Label':<20s} {'ρ_T':>8s} {'Omega':>8s} {'Scale':>10s} {'Shape':>10s} "
                 f"{'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
                 f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} "
                 f"{'K_f':>8s} {kf_hdr:>8s} {'K_p':>8s} {kp_hdr:>8s}"
@@ -263,6 +259,10 @@ class QuantizationExperiment(BaseExperiment):
         print(f"\n{'=' * len(header)}")
         print(f"  PRISM Quantization Results{mode_tag}{ds_tag}")
         print(f"{'=' * len(header)}")
+
+        rho_T_val = r0.extra.get("rho_T")
+        if rho_T_val is not None:
+            print(f"  ρ_T = {rho_T_val:.6f}")
 
         if "K_feat_tight" in r0.extra:
             K_f = r0.extra["K_feat_tight"]
@@ -292,9 +292,10 @@ class QuantizationExperiment(BaseExperiment):
             kfe = f"{r.extra.get('K_feat_empirical', 0):.4f}" if "K_feat_empirical" in r.extra else "—"
             kp = f"{r.extra.get('K_pred_theory', 0):.4f}" if "K_pred_theory" in r.extra else "—"
             kpe = f"{r.extra.get('K_pred_empirical', 0):.4f}" if "K_pred_empirical" in r.extra else "—"
+            rho_s = f"{r.extra.get('rho_T', 0):.4f}" if "rho_T" in r.extra else "—"
             if absorbed:
                 print(
-                    f"{r.label:<20s} {r.omega:>8.4f} "
+                    f"{r.label:<20s} {rho_s:>8s} {r.omega:>8.4f} "
                     f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
                     f"{bt:>10s} {dr_s:>8s} "
                     f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} "
@@ -302,7 +303,7 @@ class QuantizationExperiment(BaseExperiment):
                 )
             else:
                 print(
-                    f"{r.label:<20s} {r.omega:>8.4f} {r.scale_mismatch:>10.6f} "
+                    f"{r.label:<20s} {rho_s:>8s} {r.omega:>8.4f} {r.scale_mismatch:>10.6f} "
                     f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
                     f"{bt:>10s} {dr_s:>8s} "
                     f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} "
