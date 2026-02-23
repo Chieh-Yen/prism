@@ -103,9 +103,16 @@ class BaseExperiment(ABC):
         label: str = "",
         K_feat: float = 1.0,
         K_pred: float = 1.0,
+        absorbed: bool = False,
     ) -> PRISMResult:
-        """Run full PRISM metric suite and fill risk bound."""
-        result = PRISMMetrics.compute_all(
+        """Run full PRISM metric suite and fill risk bound.
+
+        Args:
+            absorbed: If True, use scale-absorbed reparameterisation where
+                feature error = √(2(1−Ω)) and scale is folded into head.
+        """
+        compute_fn = PRISMMetrics.compute_all_absorbed if absorbed else PRISMMetrics.compute_all
+        result = compute_fn(
             Z_T, H_T, Z_P, H_P,
             force_identity=force_identity,
             label=label,
@@ -122,13 +129,35 @@ class BaseExperiment(ABC):
         dataloader: DataLoader,
         device: str,
     ) -> float:
-        """Compute average cross-entropy for a causal LM.
+        """Compute average cross-entropy for a causal LM."""
+        stats = BaseExperiment.compute_lm_loss_per_sample(model, dataloader, device)
+        return stats["losses"].mean().item()
 
-        Processes one sample at a time to avoid OOM from the large
-        (batch, seq, vocab) logits tensor.
+    @staticmethod
+    def compute_lm_loss_per_sample(
+        model: torch.nn.Module,
+        dataloader: DataLoader,
+        device: str,
+    ) -> Dict[str, Tensor]:
+        """Compute per-sample cross-entropy and per-token gradient norms.
+
+        For each sample, also computes the per-token logit-gradient norm
+        ``||softmax(v) - e_y||_2`` which is the local Lipschitz constant
+        of cross-entropy w.r.t. logits (K_pred).  These are aggregated
+        into summary statistics without materialising huge tensors.
+
+        Returns:
+            Dict with:
+                ``losses``       — (n,) per-sample average loss
+                ``grad_norm_p95``— 95th percentile of per-token ||p-e_y||
+                ``grad_norm_max``— max of per-token ||p-e_y||
+                ``grad_norm_mean``— mean of per-token ||p-e_y||
         """
         model.eval()
-        total_loss, total_tokens = 0.0, 0
+        sample_losses: list = []
+        all_grad_norms: list = []
+        CHUNK = 512
+
         with torch.no_grad():
             for batch in dataloader:
                 if isinstance(batch, dict):
@@ -141,12 +170,32 @@ class BaseExperiment(ABC):
                     single = {k: v[j : j + 1] for k, v in batch_on_device.items()}
                     labels = single["input_ids"].clone()
                     outputs = model(**single, labels=labels)
-                    mask = single.get("attention_mask")
-                    n_tokens = mask.sum().item() if mask is not None else labels.numel()
-                    total_loss += outputs.loss.item() * n_tokens
-                    total_tokens += n_tokens
+                    sample_losses.append(outputs.loss.item())
 
-        return total_loss / max(total_tokens, 1)
+                    logits = outputs.logits[0, :-1, :]   # (seq-1, V)
+                    targets = labels[0, 1:]               # (seq-1,)
+                    mask = single.get("attention_mask")
+                    if mask is not None:
+                        token_mask = mask[0, 1:].bool()
+                        logits = logits[token_mask]
+                        targets = targets[token_mask]
+
+                    seq_len = logits.shape[0]
+                    for start in range(0, seq_len, CHUNK):
+                        end = min(start + CHUNK, seq_len)
+                        p = torch.softmax(logits[start:end].float(), dim=-1)
+                        one_hot = torch.zeros_like(p)
+                        one_hot.scatter_(1, targets[start:end].unsqueeze(1), 1.0)
+                        gnorms = (p - one_hot).norm(dim=-1)  # (chunk,)
+                        all_grad_norms.append(gnorms.cpu())
+
+        all_gn = torch.cat(all_grad_norms)
+        return {
+            "losses": torch.tensor(sample_losses),
+            "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
+            "grad_norm_max": all_gn.max().item(),
+            "grad_norm_mean": all_gn.mean().item(),
+        }
 
     @staticmethod
     def compute_classification_loss(
@@ -286,9 +335,9 @@ class BaseExperiment(ABC):
 
         print(f"{'=' * len(header)}\n")
 
-    def save(self, results: List[PRISMResult]) -> None:
+    def save(self, results: List[PRISMResult], filename: str = "prism_results.json") -> None:
         """Persist results as JSON."""
-        path = os.path.join(self.output_dir, "prism_results.json")
+        path = os.path.join(self.output_dir, filename)
         serialised = []
         for r in results:
             dr = self._delta_risk(r)

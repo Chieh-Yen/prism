@@ -137,25 +137,26 @@ class LLMExtractor(FeatureExtractor):
         with torch.no_grad():
             for batch in tqdm(dataloader, desc="Extracting LLM features", leave=False):
                 if isinstance(batch, dict):
-                    inputs = {k: v.to(device) for k, v in batch.items()}
+                    batch_on_device = {k: v.to(device) for k, v in batch.items()}
                 elif isinstance(batch, (list, tuple)):
-                    inputs = {"input_ids": batch[0].to(device), "attention_mask": batch[1].to(device)}
+                    batch_on_device = {"input_ids": batch[0].to(device), "attention_mask": batch[1].to(device)}
                 else:
-                    inputs = {"input_ids": batch.to(device)}
+                    batch_on_device = {"input_ids": batch.to(device)}
 
-                # Call the backbone directly — returns post-norm hidden states
-                # without storing all intermediate layers (saves ~50% VRAM).
-                out = backbone(**inputs)
-                hidden = out.last_hidden_state  # (B, seq, d)
+                bsz = batch_on_device["input_ids"].shape[0]
+                for j in range(bsz):
+                    single = {k: v[j : j + 1] for k, v in batch_on_device.items()}
+                    out = backbone(**single)
+                    hidden = out.last_hidden_state  # (1, seq, d)
 
-                mask = inputs.get("attention_mask")
-                if mask is not None:
-                    lengths = mask.sum(dim=1).long() - 1
-                    last_tokens = hidden[torch.arange(hidden.size(0), device=device), lengths]
-                else:
-                    last_tokens = hidden[:, -1, :]
+                    mask = single.get("attention_mask")
+                    if mask is not None:
+                        length = mask.sum().long() - 1
+                        feat = hidden[0, length, :]
+                    else:
+                        feat = hidden[0, -1, :]
 
-                all_features.append(last_tokens.float().cpu())
+                    all_features.append(feat.float().cpu().unsqueeze(0))
 
         return torch.cat(all_features, dim=0)
 

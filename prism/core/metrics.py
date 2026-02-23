@@ -156,6 +156,20 @@ class PRISMMetrics:
     # Convenience: compute everything at once
     # ------------------------------------------------------------------
     @staticmethod
+    def _resolve_W(
+        Z_T: Tensor, Z_P: Tensor,
+        W: Optional[Tensor], force_identity: bool,
+    ) -> Tensor:
+        if force_identity:
+            assert Z_T.shape[1] == Z_P.shape[1], (
+                f"force_identity requires d_T == d_P, got {Z_T.shape[1]} vs {Z_P.shape[1]}"
+            )
+            return torch.eye(Z_P.shape[1], Z_T.shape[1], dtype=Z_T.dtype, device=Z_T.device)
+        if W is not None:
+            return W.float()
+        return PRISMMetrics.orthogonal_procrustes(Z_T, Z_P)
+
+    @staticmethod
     def compute_all(
         Z_T: Tensor,
         H_T: Tensor,
@@ -185,16 +199,7 @@ class PRISMMetrics:
         omega = PRISMMetrics.procrustes_omega(Z_T, Z_P)
         rho_T = PRISMMetrics.rms_scale(Z_T)
         rho_P = PRISMMetrics.rms_scale(Z_P)
-
-        if force_identity:
-            assert Z_T.shape[1] == Z_P.shape[1], (
-                f"force_identity requires d_T == d_P, got {Z_T.shape[1]} vs {Z_P.shape[1]}"
-            )
-            W_use = torch.eye(Z_P.shape[1], Z_T.shape[1], dtype=Z_T.dtype, device=Z_T.device)
-        elif W is not None:
-            W_use = W.float()
-        else:
-            W_use = PRISMMetrics.orthogonal_procrustes(Z_T, Z_P)
+        W_use = PRISMMetrics._resolve_W(Z_T, Z_P, W, force_identity)
 
         n = Z_P.shape[0]
         Sigma_P = (Z_P.T @ Z_P) / n
@@ -212,4 +217,73 @@ class PRISMMetrics:
             head_discrepancy=hd_cov,
             head_discrepancy_spectral=hd_spec,
             label=label,
+        )
+
+    # ------------------------------------------------------------------
+    # Scale-absorbed variant: ε_feat = √(2(1−Ω)), scale → head
+    # ------------------------------------------------------------------
+    @staticmethod
+    def compute_all_absorbed(
+        Z_T: Tensor,
+        H_T: Tensor,
+        Z_P: Tensor,
+        H_P: Tensor,
+        *,
+        W: Optional[Tensor] = None,
+        force_identity: bool = False,
+        label: str = "",
+    ) -> PRISMResult:
+        """Scale-absorbed PRISM analysis.
+
+        Reparameterises  Z̄ = Z/ρ,  H̄ = ρH  so that the feature error
+        reduces to the pure angular term  √(2(1−Ω))  and the scale
+        difference is absorbed into the head discrepancy.
+
+        The predictions are unchanged:  Z̄ H̄ = Z H.
+        """
+        Z_T = Z_T.float()
+        Z_P = Z_P.float()
+        H_T = H_T.float()
+        H_P = H_P.float()
+
+        omega = PRISMMetrics.procrustes_omega(Z_T, Z_P)
+        rho_T = PRISMMetrics.rms_scale(Z_T)
+        rho_P = PRISMMetrics.rms_scale(Z_P)
+
+        # Normalise features (ρ̄ = 1) and absorb scale into heads
+        Z_T_bar = Z_T / max(rho_T, 1e-12)
+        Z_P_bar = Z_P / max(rho_P, 1e-12)
+        H_T_bar = rho_T * H_T
+        H_P_bar = rho_P * H_P
+
+        W_use = PRISMMetrics._resolve_W(Z_T_bar, Z_P_bar, W, force_identity)
+
+        n = Z_P_bar.shape[0]
+        Sigma_P_bar = (Z_P_bar.T @ Z_P_bar) / n
+
+        shape = 2.0 * (1.0 - omega)
+        feat_err = math.sqrt(max(shape, 0.0))
+
+        hd_cov = PRISMMetrics.head_discrepancy_covariance(
+            H_T_bar, H_P_bar, W_use, Sigma_P_bar,
+        )
+        hd_spec = PRISMMetrics.head_discrepancy_spectral(
+            H_T_bar, H_P_bar, W_use,
+        )
+
+        return PRISMResult(
+            omega=omega,
+            rho_target=1.0,
+            rho_proxy=1.0,
+            scale_mismatch=0.0,
+            shape_mismatch=shape,
+            feature_error=feat_err,
+            head_discrepancy=hd_cov,
+            head_discrepancy_spectral=hd_spec,
+            label=label,
+            extra={
+                "mode": "scale_absorbed",
+                "rho_target_original": rho_T,
+                "rho_proxy_original": rho_P,
+            },
         )

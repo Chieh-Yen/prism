@@ -19,6 +19,7 @@ from typing import Any, Dict, List
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from ..core.bounds import UnifiedBound
 from ..data.loaders import load_task_data
 from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
@@ -80,18 +81,21 @@ class QuantizationExperiment(BaseExperiment):
         cfg_target = self.config.get("target", {})
         cfg_proxy = self.config.get("proxy", {})
         cfg_data = self.config.get("data", {})
+        cfg_align = self.config.get("alignment", {})
 
         target_model_id = cfg_target.get("model", "NousResearch/Llama-2-7b-hf")
         quant_repo = cfg_proxy.get("model", "TheBloke/Llama-2-7b-GGUF")
         quant_bits: List[str] = cfg_proxy.get("quantization_bits", list(_LLAMA2_GGUF_MAP.keys()))
+        absorbed: bool = cfg_align.get("scale_absorbed", False)
 
         task_name = cfg_data.get("task", "wikitext")
         num_samples = cfg_data.get("num_samples", 256)
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
 
+        mode_tag = " (scale-absorbed)" if absorbed else ""
         print(f"{'=' * 72}")
-        print(f"  PRISM Experiment: Quantization Quality Estimation")
+        print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
         print(f"{'=' * 72}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
@@ -116,7 +120,9 @@ class QuantizationExperiment(BaseExperiment):
         print("Caching target features and loss (will free target before loading proxies) ...")
         Z_T = extractor.extract_features(target_model, dataloader, self.device)
         H_T = extractor.extract_head(target_model)
-        loss_target = self.compute_lm_loss(target_model, dataloader, self.device)
+        loss_stats = self.compute_lm_loss_per_sample(target_model, dataloader, self.device)
+        losses_T = loss_stats["losses"]
+        loss_target = losses_T.mean().item()
         ppl_target = math.exp(loss_target)
         print(f"  Target: Loss={loss_target:.4f}  PPL={ppl_target:.2f}  "
               f"Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}")
@@ -126,6 +132,45 @@ class QuantizationExperiment(BaseExperiment):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         print("  Target model freed from VRAM.")
+
+        # --- Lipschitz constants ---
+        rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
+        K_theory = UnifiedBound.theoretical_K(H_T, absorbed=absorbed, rho_T=rho_T_orig)
+        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(
+            Z_T, losses_T,
+            rho_T=rho_T_orig if absorbed else None,
+        )
+        K_feat = K_theory["K_feat"]
+        K_pred = K_theory["K_pred"]
+        K_pred_empirical = loss_stats["grad_norm_p95"]
+
+        rho_prefix = "ρ_T·" if absorbed else ""
+        z_label = "‖Δz̄‖" if absorbed else "‖Δz‖"
+        print(f"\n  Lipschitz constants:")
+        print(f"    ρ_T = {rho_T_orig:.4f}   ‖H_T‖_op = {K_theory['H_T_spectral']:.4f}")
+        print(f"    K_feat (tight)     = {rho_prefix}max_jk ‖h_j−h_k‖  = {K_feat:.4f}")
+        print(f"    K_feat (naive)     = √2·{rho_prefix}‖H_T‖_op       = {K_theory['K_feat_naive']:.4f}")
+        print(f"    K_feat (empirical) = p95(|Δℓ|/{z_label})        = {K_empirical_feat['p95']:.4f}  "
+              f"(median={K_empirical_feat['median']:.4f}, max={K_empirical_feat['max']:.4f})")
+        print(f"    K_pred (theory)    = √2                    = {K_pred:.4f}")
+        print(f"    K_pred (empirical) = p95(‖p̂−e_y‖)         = {K_pred_empirical:.4f}  "
+              f"(mean={loss_stats['grad_norm_mean']:.4f}, max={loss_stats['grad_norm_max']:.4f})")
+
+        # --- Lipschitz summary dict (shared across all pairs) ---
+        lipschitz_info = {
+            "K_feat_tight": K_feat,
+            "K_feat_naive": K_theory["K_feat_naive"],
+            "K_feat_empirical": K_empirical_feat["K_feat_empirical"],
+            "K_feat_empirical_median": K_empirical_feat["median"],
+            "K_feat_empirical_max": K_empirical_feat["max"],
+            "K_pred_theory": K_pred,
+            "K_pred_empirical": K_pred_empirical,
+            "K_pred_empirical_mean": loss_stats["grad_norm_mean"],
+            "K_pred_empirical_max": loss_stats["grad_norm_max"],
+            "H_T_spectral": K_theory["H_T_spectral"],
+            "max_pairwise_dist": K_theory["max_pairwise_dist"],
+            "rho_T": rho_T_orig,
+        }
 
         # --- Phase 2: load each proxy one at a time ---
         results = []
@@ -140,23 +185,33 @@ class QuantizationExperiment(BaseExperiment):
             Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
             H_P = extractor.extract_head(proxy_model)
 
-            result = self.compute_metrics(Z_T, H_T, Z_P, H_P, force_identity=True, label=label)
+            result = self.compute_metrics(
+                Z_T, H_T, Z_P, H_P,
+                force_identity=True, label=label, absorbed=absorbed,
+                K_feat=K_feat, K_pred=K_pred,
+            )
 
             result.loss_target = loss_target
             result.loss_proxy = self.compute_lm_loss(proxy_model, dataloader, self.device)
             result.extra["perplexity_target"] = ppl_target
             result.extra["perplexity_proxy"] = math.exp(result.loss_proxy)
+            result.extra.update(lipschitz_info)
+            result.extra["dataset"] = task_name
+            result.extra["num_samples"] = num_samples
 
             results.append(result)
 
             dr = abs(result.loss_target - result.loss_proxy)
             ppl_p = result.extra["perplexity_proxy"]
             elapsed = time.time() - t0
-            print(f"    Omega={result.omega:.4f}  Scale={result.scale_mismatch:.6f}  "
+            scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
+            print(f"    Omega={result.omega:.4f}  {scale_s}"
                   f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
                   f"Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
                   f"Loss_T={loss_target:.4f}  Loss_P={result.loss_proxy:.4f}  "
-                  f"PPL_T={ppl_target:.2f}  PPL_P={ppl_p:.2f}  ({elapsed:.1f}s)")
+                  f"PPL_T={ppl_target:.2f}  PPL_P={ppl_p:.2f}  "
+                  f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
+                  f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
 
             del proxy_model
             gc.collect()
@@ -164,25 +219,63 @@ class QuantizationExperiment(BaseExperiment):
                 torch.cuda.empty_cache()
 
         self.report(results)
-        self.save(results)
+        json_filename = f"prism_{task_name}_n{num_samples}.json"
+        self.save(results, filename=json_filename)
         return results
 
     @staticmethod
     def report(results: list) -> None:
-        """Print table with perplexity and |ΔR| columns."""
+        """Print table with perplexity and |ΔR| columns.
+
+        Automatically detects scale-absorbed mode and omits the Scale column.
+        Prints Lipschitz constants in the header.
+        """
         if not results:
             print("(no results)")
             return
 
-        header = (
-            f"{'Label':<20s} {'Omega':>8s} {'Scale':>10s} {'Shape':>10s} "
-            f"{'Head':>10s} {'Bound':>8s} {'|dR|':>8s} "
-            f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s}"
-        )
+        absorbed = results[0].extra.get("mode") == "scale_absorbed"
+        r0 = results[0]
+
+        kf_hdr = "K_f(emp)"
+        kp_hdr = "K_p(emp)"
+        if absorbed:
+            header = (
+                f"{'Label':<20s} {'Omega':>8s} {'Shape':>10s} "
+                f"{'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
+                f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} "
+                f"{'K_f':>8s} {kf_hdr:>8s} {'K_p':>8s} {kp_hdr:>8s}"
+            )
+        else:
+            header = (
+                f"{'Label':<20s} {'Omega':>8s} {'Scale':>10s} {'Shape':>10s} "
+                f"{'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
+                f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} "
+                f"{'K_f':>8s} {kf_hdr:>8s} {'K_p':>8s} {kp_hdr:>8s}"
+            )
+
+        mode_tag = " (scale-absorbed)" if absorbed else ""
+        ds_tag = ""
+        if "dataset" in r0.extra:
+            ds_tag = f"  [data: {r0.extra['dataset']}, n={r0.extra.get('num_samples', '?')}]"
         sep = "-" * len(header)
         print(f"\n{'=' * len(header)}")
-        print("  PRISM Quantization Results")
+        print(f"  PRISM Quantization Results{mode_tag}{ds_tag}")
         print(f"{'=' * len(header)}")
+
+        if "K_feat_tight" in r0.extra:
+            K_f = r0.extra["K_feat_tight"]
+            K_fn = r0.extra.get("K_feat_naive")
+            K_fe = r0.extra.get("K_feat_empirical")
+            K_p = r0.extra.get("K_pred_theory")
+            K_pe = r0.extra.get("K_pred_empirical")
+            print(f"  K_feat:  {K_f:.4f} (tight)  "
+                  + (f"{K_fn:.4f} (naive)  " if K_fn is not None else "")
+                  + (f"{K_fe:.4f} (emp)" if K_fe is not None else ""))
+            print(f"  K_pred:  {K_p:.4f} (theory) "
+                  + (f"{K_pe:.4f} (emp)" if K_pe is not None else ""))
+            print(sep)
+
         print(header)
         print(sep)
 
@@ -194,12 +287,26 @@ class QuantizationExperiment(BaseExperiment):
             lp = f"{r.loss_proxy:.4f}" if r.loss_proxy is not None else "—"
             ppl_t = f"{r.extra.get('perplexity_target', 0):.2f}" if "perplexity_target" in r.extra else "—"
             ppl_p = f"{r.extra.get('perplexity_proxy', 0):.2f}" if "perplexity_proxy" in r.extra else "—"
-            print(
-                f"{r.label:<20s} {r.omega:>8.4f} {r.scale_mismatch:>10.6f} "
-                f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
-                f"{bt:>8s} {dr_s:>8s} "
-                f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s}"
-            )
+            kf = f"{r.extra.get('K_feat_tight', 0):.4f}" if "K_feat_tight" in r.extra else "—"
+            kfe = f"{r.extra.get('K_feat_empirical', 0):.4f}" if "K_feat_empirical" in r.extra else "—"
+            kp = f"{r.extra.get('K_pred_theory', 0):.4f}" if "K_pred_theory" in r.extra else "—"
+            kpe = f"{r.extra.get('K_pred_empirical', 0):.4f}" if "K_pred_empirical" in r.extra else "—"
+            if absorbed:
+                print(
+                    f"{r.label:<20s} {r.omega:>8.4f} "
+                    f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
+                    f"{bt:>10s} {dr_s:>8s} "
+                    f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} "
+                    f"{kf:>8s} {kfe:>8s} {kp:>8s} {kpe:>8s}"
+                )
+            else:
+                print(
+                    f"{r.label:<20s} {r.omega:>8.4f} {r.scale_mismatch:>10.6f} "
+                    f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
+                    f"{bt:>10s} {dr_s:>8s} "
+                    f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} "
+                    f"{kf:>8s} {kfe:>8s} {kp:>8s} {kpe:>8s}"
+                )
 
         valid = [(r, abs(r.loss_target - r.loss_proxy))
                  for r in results

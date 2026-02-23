@@ -31,6 +31,7 @@ data:
 
 alignment:
   type: identity
+  scale_absorbed: false   # true → ε_feat = √(2(1−Ω)), scale folded into head
 
 output:
   dir: ./results/quantization
