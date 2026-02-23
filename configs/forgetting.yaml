@@ -1,0 +1,34 @@
+# PRISM — Catastrophic Forgetting Monitoring
+# Rotational Regime: W ∈ O(d), track geometric drift over fine-tuning steps.
+#
+# Usage:
+#   python run.py --config configs/forgetting.yaml
+#   python run.py --config configs/forgetting.yaml proxy.checkpoints='[ckpt/step_100,ckpt/step_500]'
+
+experiment: forgetting
+
+target:
+  model: NousResearch/Llama-2-7b-hf
+  extractor: llm
+
+proxy:
+  extractor: llm
+  checkpoints:
+    - path/to/finetuned_step_100
+    - path/to/finetuned_step_500
+    - path/to/finetuned_step_1000
+    - path/to/finetuned_step_2000
+
+data:
+  task: wikitext
+  split: test
+  num_samples: 256
+  batch_size: 8
+  max_length: 512
+
+output:
+  dir: ./results/forgetting
+  save_features: true
+
+device: cuda
+seed: 42

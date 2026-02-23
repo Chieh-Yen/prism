@@ -1,0 +1,44 @@
+# PRISM — Cross-Scale Coefficient Transfer in Model Merging
+# Projective Regime: d_P ≠ d_T, transfer optimal α from small to large model.
+#
+# Usage:
+#   python run.py --config configs/merging.yaml
+#   python run.py --config configs/merging.yaml merging.n_alphas=50
+
+experiment: merging
+
+target:
+  model: openai/clip-vit-large-patch14
+  extractor: clip
+  fine_tuned:
+    - hf-org/vit-l-14-sun397
+    - hf-org/vit-l-14-stanford-cars
+    - hf-org/vit-l-14-resisc45
+
+proxy:
+  model: openai/clip-vit-base-patch32
+  extractor: clip
+  fine_tuned:
+    - hf-org/vit-b-32-sun397
+    - hf-org/vit-b-32-stanford-cars
+    - hf-org/vit-b-32-resisc45
+
+data:
+  tasks:
+    - sun397
+    - stanford-cars
+    - resisc45
+  num_samples_per_class: 10
+  batch_size: 64
+
+merging:
+  n_alphas: 20
+  alpha_range: [0.0, 1.0]
+  seed: 42
+
+output:
+  dir: ./results/merging
+  save_features: true
+
+device: cuda
+seed: 42

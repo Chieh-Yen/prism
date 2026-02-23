@@ -1,0 +1,40 @@
+# PRISM — Quantization Quality Estimation
+# Identity Regime: W = I, same architecture, different precision.
+#
+# Usage:
+#   python run.py --config configs/quantization.yaml
+#   python run.py --config configs/quantization.yaml target.model=NousResearch/Llama-2-7b-hf
+
+experiment: quantization
+
+target:
+  model: NousResearch/Llama-2-7b-hf
+  extractor: llm
+
+proxy:
+  model: TheBloke/Llama-2-7b-GGUF
+  extractor: llm
+  quantization_bits:
+    - Q8_0
+    - Q6_K
+    - Q5_K_M
+    - Q4_K_M
+    - Q3_K_M
+    - Q2_K
+
+data:
+  task: c4
+  split: test
+  num_samples: 128
+  batch_size: 4
+  max_length: 2048
+
+alignment:
+  type: identity
+
+output:
+  dir: ./results/quantization
+  save_features: true
+
+device: cuda
+seed: 42

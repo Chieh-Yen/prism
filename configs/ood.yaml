@@ -1,0 +1,31 @@
+# PRISM — OOD Detection via Geometric Consistency
+# Rotational Regime: learn W on ID data, detect breakdown on OOD inputs.
+#
+# Usage:
+#   python run.py --config configs/ood.yaml
+#   python run.py --config configs/ood.yaml data.id_task=cifar100 data.ood_tasks='[svhn,mnist]'
+
+experiment: ood
+
+target:
+  model: openai/clip-vit-large-patch14
+  extractor: clip
+
+proxy:
+  model: openai/clip-vit-base-patch32
+  extractor: clip
+
+data:
+  id_task: cifar10
+  ood_tasks:
+    - svhn
+    - mnist
+  num_samples: 1000
+  batch_size: 64
+
+output:
+  dir: ./results/ood
+  save_features: true
+
+device: cuda
+seed: 42
