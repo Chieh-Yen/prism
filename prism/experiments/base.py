@@ -169,6 +169,9 @@ class BaseExperiment(ABC):
                 for j in range(bsz):
                     single = {k: v[j : j + 1] for k, v in batch_on_device.items()}
                     labels = single["input_ids"].clone()
+                    pad_mask = single.get("attention_mask")
+                    if pad_mask is not None:
+                        labels[pad_mask == 0] = -100
                     outputs = model(**single, labels=labels)
                     sample_losses.append(outputs.loss.item())
 
