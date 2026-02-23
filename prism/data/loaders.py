@@ -7,10 +7,47 @@ for any registered task (HuggingFace datasets, image classification, text, …).
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+
+
+# ======================================================================
+# Row → plain-text formatters  (for structured Q&A datasets)
+# ======================================================================
+def _format_gsm8k(row: Dict[str, Any]) -> str:
+    return f"Question: {row['question']}\nAnswer: {row['answer']}"
+
+
+def _format_mmlu(row: Dict[str, Any]) -> str:
+    q = row["question"]
+    choices = row["choices"]
+    ans = row["answer"]
+    if isinstance(ans, int):
+        ans_text = choices[ans]
+    else:
+        ans_text = choices[ord(ans) - ord("A")]
+    labels = ["A", "B", "C", "D"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    return f"Question: {q}\n{opts}\nAnswer: {ans_text}"
+
+
+def _format_arc(row: Dict[str, Any]) -> str:
+    q = row["question"]
+    labels = row["choices"]["label"]
+    texts = row["choices"]["text"]
+    opts = "\n".join(f"{labels[i]}. {texts[i]}" for i in range(len(labels)))
+    key = row["answerKey"]
+    ans_text = texts[labels.index(key)]
+    return f"Question: {q}\n{opts}\nAnswer: {ans_text}"
+
+
+_FORMATTERS: Dict[str, Callable] = {
+    "gsm8k": _format_gsm8k,
+    "mmlu":  _format_mmlu,
+    "arc":   _format_arc,
+}
 
 
 # ======================================================================
@@ -28,11 +65,16 @@ TASK_REGISTRY: Dict[str, Dict] = {
     "dtd":           {"hf_id": "tanganke/dtd",         "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
     "cifar10":       {"hf_id": "uoft-cs/cifar10",      "label_key": "label", "image_key": "img",   "split_map": {"test": "test"}},
     "cifar100":      {"hf_id": "uoft-cs/cifar100",     "label_key": "fine_label", "image_key": "img", "split_map": {"test": "test"}},
-    # Text / LLM
+    # Text / LLM  — plain text
     "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1", "text_key": "text", "split_map": {"test": "test"}},
     "ptb":           {"hf_id": "ptb-text-only/ptb_text_only", "text_key": "sentence", "split_map": {"test": "test"}},
     "c4":            {"hf_id": "allenai/c4",           "hf_subset": "en", "text_key": "text",  "split_map": {"test": "validation"}, "streaming": True},
     "lambada":       {"hf_id": "EleutherAI/lambada_openai", "text_key": "text", "split_map": {"test": "test"}},
+    # Text / LLM  — structured Q&A  (formatter converts row → plain text)
+    "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"}},
+    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"}},
+    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"}},
+    "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"}},
 }
 
 
@@ -63,7 +105,13 @@ class ImageClassificationDataset(Dataset):
 
 
 class TextDataset(Dataset):
-    """Wraps a HuggingFace text dataset into tokenised batches."""
+    """Wraps a HuggingFace text dataset into tokenised batches.
+
+    Supports two modes:
+      1. ``text_key`` — read a named column directly (C4, WikiText, …).
+      2. ``formatter`` — apply a callable ``row → str`` for structured
+         datasets (GSM8K, MMLU, ARC, …).
+    """
 
     def __init__(
         self,
@@ -72,8 +120,13 @@ class TextDataset(Dataset):
         text_key: str = "text",
         max_length: int = 512,
         num_samples: Optional[int] = None,
+        formatter: Optional[Callable[[Dict], str]] = None,
     ):
-        texts = [row[text_key] for row in hf_dataset if row[text_key].strip()]
+        if formatter is not None:
+            texts = [formatter(row) for row in hf_dataset]
+        else:
+            texts = [row[text_key] for row in hf_dataset]
+        texts = [t for t in texts if t.strip()]
         if num_samples is not None:
             texts = texts[:num_samples]
         self.encodings = tokenizer(
@@ -143,10 +196,18 @@ def load_task_data(
     elif num_samples is not None and num_samples < len(hf_dataset):
         hf_dataset = hf_dataset.select(range(num_samples))
 
-    if "text_key" in meta:
+    is_text = "text_key" in meta or "formatter" in meta
+    if is_text:
         if tokenizer is None:
             raise ValueError(f"Task '{task_name}' is text-based: pass a tokenizer.")
-        ds = TextDataset(hf_dataset, tokenizer, text_key=meta["text_key"], max_length=max_length, num_samples=num_samples)
+        fmt_fn = _FORMATTERS.get(meta["formatter"]) if "formatter" in meta else None
+        ds = TextDataset(
+            hf_dataset, tokenizer,
+            text_key=meta.get("text_key", "text"),
+            max_length=max_length,
+            num_samples=num_samples,
+            formatter=fmt_fn,
+        )
         return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=0)
 
     image_key = meta.get("image_key", "image")
