@@ -147,17 +147,27 @@ class BaseExperiment(ABC):
         of cross-entropy w.r.t. logits (K_pred).  These are aggregated
         into summary statistics without materialising huge tensors.
 
+        When batches contain ``prompt_length`` (produced by structured Q&A
+        datasets), an additional *answer-only* loss is computed for each
+        sample by masking the prompt tokens.
+
         Returns:
             Dict with:
-                ``losses``       — (n,) per-sample average loss
-                ``grad_norm_p95``— 95th percentile of per-token ||p-e_y||
-                ``grad_norm_max``— max of per-token ||p-e_y||
+                ``losses``        — (n,) per-sample average loss  (full text)
+                ``answer_losses`` — (n,) per-sample answer-only loss (None if
+                                    no prompt_length in data)
+                ``grad_norm_p95`` — 95th percentile of per-token ||p-e_y||
+                ``grad_norm_max`` — max of per-token ||p-e_y||
                 ``grad_norm_mean``— mean of per-token ||p-e_y||
+                ``has_answer_loss``— bool
         """
         model.eval()
         sample_losses: list = []
+        answer_losses: list = []
+        has_prompt = False
         all_grad_norms: list = []
         CHUNK = 512
+        ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
 
         with torch.no_grad():
             for batch in dataloader:
@@ -165,6 +175,10 @@ class BaseExperiment(ABC):
                     batch_on_device = {k: v.to(device) for k, v in batch.items()}
                 else:
                     batch_on_device = {"input_ids": batch.to(device)}
+
+                prompt_lens = batch_on_device.pop("prompt_length", None)
+                if prompt_lens is not None:
+                    has_prompt = True
 
                 bsz = batch_on_device["input_ids"].shape[0]
                 for j in range(bsz):
@@ -176,6 +190,17 @@ class BaseExperiment(ABC):
                     outputs = model(**single, labels=labels)
                     sample_losses.append(outputs.loss.item())
 
+                    # --- answer-only loss ---
+                    if prompt_lens is not None:
+                        pl = prompt_lens[j].item()
+                        ans_labels = labels.clone()
+                        ans_labels[0, :pl] = -100
+                        shift_logits = outputs.logits[0, :-1, :]
+                        shift_labels = ans_labels[0, 1:]
+                        a_loss = ce_none(shift_logits, shift_labels)
+                        answer_losses.append(a_loss.item())
+
+                    # --- per-token gradient norms ---
                     logits = outputs.logits[0, :-1, :]   # (seq-1, V)
                     targets = labels[0, 1:]               # (seq-1,)
                     mask = single.get("attention_mask")
@@ -194,12 +219,15 @@ class BaseExperiment(ABC):
                         all_grad_norms.append(gnorms.cpu())
 
         all_gn = torch.cat(all_grad_norms)
-        return {
+        result = {
             "losses": torch.tensor(sample_losses),
+            "answer_losses": torch.tensor(answer_losses) if has_prompt else None,
+            "has_answer_loss": has_prompt,
             "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
             "grad_norm_max": all_gn.max().item(),
             "grad_norm_mean": all_gn.mean().item(),
         }
+        return result
 
     @staticmethod
     def compute_classification_loss(
@@ -375,38 +403,49 @@ class BaseExperiment(ABC):
             json.dump(serialised, f, indent=2)
         print(f"Results saved to {path}")
 
-    def save_csv(self, results: List[PRISMResult], filename: str = "prism_results.csv") -> None:
-        """Persist results as a flat CSV matching the report table."""
-        path = os.path.join(self.output_dir, filename)
+    def save_csv(
+        self,
+        results: List[PRISMResult],
+        filename: str = "prism_results.csv",
+        loss_mode: str = "full",
+    ) -> None:
+        """Persist results as a flat CSV.
 
+        Args:
+            results:   List of PRISMResult objects.
+            filename:  Output filename (relative to output_dir).
+            loss_mode: ``"full"``   — question+answer loss columns (Loss_T/P, PPL_T/P).
+                       ``"answer"`` — answer-only loss columns (ALoss_T/P, APPL_T/P).
+                       Both modes include the shared PRISM geometry columns.
+        """
+        path = os.path.join(self.output_dir, filename)
         absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
 
-        fieldnames = ["Label", "rho_T", "Omega"]
+        # Shared geometry columns (same for all modes)
+        geo_fields = ["Label", "rho_T", "Omega"]
         if not absorbed:
-            fieldnames.append("Scale")
-        fieldnames += [
-            "Shape", "Head", "Bound", "|dR|",
-            "Loss_T", "Loss_P", "PPL_T", "PPL_P",
-            "K_f", "K_f(emp)", "K_p", "K_p(emp)",
-        ]
+            geo_fields.append("Scale")
+        geo_fields += ["Shape", "Head", "Bound"]
+
+        if loss_mode == "answer":
+            loss_fields = ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
+        else:
+            loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
+
+        k_fields = ["K_f", "K_f(emp)", "K_p", "K_p(emp)"]
+        fieldnames = geo_fields + loss_fields + k_fields
 
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for r in results:
-                dr = self._delta_risk(r)
-                row = {
+                row: dict = {
                     "Label": r.label,
                     "rho_T": r.extra.get("rho_T", ""),
                     "Omega": r.omega,
                     "Shape": r.shape_mismatch,
                     "Head": r.head_discrepancy,
                     "Bound": r.risk_bound_total if r.risk_bound_total is not None else "",
-                    "|dR|": f"{dr:.6f}" if dr is not None else "",
-                    "Loss_T": r.loss_target if r.loss_target is not None else "",
-                    "Loss_P": r.loss_proxy if r.loss_proxy is not None else "",
-                    "PPL_T": r.extra.get("perplexity_target", ""),
-                    "PPL_P": r.extra.get("perplexity_proxy", ""),
                     "K_f": r.extra.get("K_feat_tight", ""),
                     "K_f(emp)": r.extra.get("K_feat_empirical", ""),
                     "K_p": r.extra.get("K_pred_theory", ""),
@@ -414,6 +453,24 @@ class BaseExperiment(ABC):
                 }
                 if not absorbed:
                     row["Scale"] = r.scale_mismatch
+
+                if loss_mode == "answer":
+                    alt = r.extra.get("answer_loss_target")
+                    alp = r.extra.get("answer_loss_proxy")
+                    adr = abs(alt - alp) if alt is not None and alp is not None else None
+                    row["|AdR|"] = f"{adr:.6f}" if adr is not None else ""
+                    row["ALoss_T"] = alt if alt is not None else ""
+                    row["ALoss_P"] = alp if alp is not None else ""
+                    row["APPL_T"] = r.extra.get("answer_ppl_target", "")
+                    row["APPL_P"] = r.extra.get("answer_ppl_proxy", "")
+                else:
+                    dr = self._delta_risk(r)
+                    row["|dR|"] = f"{dr:.6f}" if dr is not None else ""
+                    row["Loss_T"] = r.loss_target if r.loss_target is not None else ""
+                    row["Loss_P"] = r.loss_proxy if r.loss_proxy is not None else ""
+                    row["PPL_T"] = r.extra.get("perplexity_target", "")
+                    row["PPL_P"] = r.extra.get("perplexity_proxy", "")
+
                 writer.writerow(row)
 
-        print(f"CSV saved to {path}")
+        print(f"CSV saved to {path}  [{loss_mode}]")

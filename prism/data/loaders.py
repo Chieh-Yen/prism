@@ -50,6 +50,35 @@ _FORMATTERS: Dict[str, Callable] = {
 }
 
 
+# Prompt-only extractors (question prefix, no answer) — used to derive
+# ``prompt_length`` so that answer-only loss can be computed later.
+def _prompt_gsm8k(row: Dict[str, Any]) -> str:
+    return f"Question: {row['question']}\nAnswer:"
+
+
+def _prompt_mmlu(row: Dict[str, Any]) -> str:
+    q = row["question"]
+    choices = row["choices"]
+    labels = ["A", "B", "C", "D"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    return f"Question: {q}\n{opts}\nAnswer:"
+
+
+def _prompt_arc(row: Dict[str, Any]) -> str:
+    q = row["question"]
+    labels = row["choices"]["label"]
+    texts = row["choices"]["text"]
+    opts = "\n".join(f"{labels[i]}. {texts[i]}" for i in range(len(labels)))
+    return f"Question: {q}\n{opts}\nAnswer:"
+
+
+_PROMPT_FORMATTERS: Dict[str, Callable] = {
+    "gsm8k": _prompt_gsm8k,
+    "mmlu":  _prompt_mmlu,
+    "arc":   _prompt_arc,
+}
+
+
 # ======================================================================
 # Task registry — maps short names to HuggingFace dataset identifiers
 # ======================================================================
@@ -111,6 +140,10 @@ class TextDataset(Dataset):
       1. ``text_key`` — read a named column directly (C4, WikiText, …).
       2. ``formatter`` — apply a callable ``row → str`` for structured
          datasets (GSM8K, MMLU, ARC, …).
+
+    When ``prompt_formatter`` is supplied, the dataset additionally stores
+    ``prompt_length`` per sample so that downstream code can compute
+    answer-only loss by masking the prompt tokens.
     """
 
     def __init__(
@@ -121,14 +154,20 @@ class TextDataset(Dataset):
         max_length: int = 512,
         num_samples: Optional[int] = None,
         formatter: Optional[Callable[[Dict], str]] = None,
+        prompt_formatter: Optional[Callable[[Dict], str]] = None,
     ):
         if formatter is not None:
-            texts = [formatter(row) for row in hf_dataset]
+            raw = [
+                (formatter(row), prompt_formatter(row) if prompt_formatter else None)
+                for row in hf_dataset
+            ]
         else:
-            texts = [row[text_key] for row in hf_dataset]
-        texts = [t for t in texts if t.strip()]
+            raw = [(row[text_key], None) for row in hf_dataset]
+        raw = [(t, p) for t, p in raw if t.strip()]
         if num_samples is not None:
-            texts = texts[:num_samples]
+            raw = raw[:num_samples]
+
+        texts = [t for t, _ in raw]
         self.encodings = tokenizer(
             texts,
             return_tensors="pt",
@@ -138,11 +177,27 @@ class TextDataset(Dataset):
         )
         self.num_samples = len(texts)
 
+        if prompt_formatter is not None:
+            prompts = [p for _, p in raw]
+            prompt_enc = tokenizer(
+                prompts, truncation=True, max_length=max_length,
+                add_special_tokens=True,
+            )
+            self.prompt_lengths = torch.tensor(
+                [len(ids) for ids in prompt_enc["input_ids"]],
+                dtype=torch.long,
+            )
+        else:
+            self.prompt_lengths = None
+
     def __len__(self):
         return self.encodings["input_ids"].shape[0]
 
     def __getitem__(self, idx):
-        return {k: v[idx] for k, v in self.encodings.items()}
+        item = {k: v[idx] for k, v in self.encodings.items()}
+        if self.prompt_lengths is not None:
+            item["prompt_length"] = self.prompt_lengths[idx]
+        return item
 
 
 # ======================================================================
@@ -200,13 +255,16 @@ def load_task_data(
     if is_text:
         if tokenizer is None:
             raise ValueError(f"Task '{task_name}' is text-based: pass a tokenizer.")
-        fmt_fn = _FORMATTERS.get(meta["formatter"]) if "formatter" in meta else None
+        fmt_key = meta.get("formatter")
+        fmt_fn = _FORMATTERS.get(fmt_key) if fmt_key else None
+        pfmt_fn = _PROMPT_FORMATTERS.get(fmt_key) if fmt_key else None
         ds = TextDataset(
             hf_dataset, tokenizer,
             text_key=meta.get("text_key", "text"),
             max_length=max_length,
             num_samples=num_samples,
             formatter=fmt_fn,
+            prompt_formatter=pfmt_fn,
         )
         return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=0)
 

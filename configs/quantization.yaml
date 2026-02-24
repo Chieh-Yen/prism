@@ -1,9 +1,24 @@
 # PRISM — Quantization Quality Estimation
 # Identity Regime: W = I, same architecture, different precision.
 #
-# Usage:
+# Usage (Llama-2-7b, default):
 #   python run.py --config configs/quantization.yaml
-#   python run.py --config configs/quantization.yaml target.model=NousResearch/Llama-2-7b-hf
+#
+# Usage (Mistral-7B, CLI override):
+#   python run.py --config configs/quantization.yaml \
+#       target.model=mistralai/Mistral-7B-v0.1 \
+#       proxy.model=TheBloke/Mistral-7B-v0.1-GGUF
+#
+# GGUF filename convention  (TheBloke repos):
+#   {gguf_stem}.{QUANT}.gguf
+#   gguf_stem is auto-derived from proxy.model by stripping the org prefix,
+#   removing the "-GGUF" suffix, and lowercasing.
+#   Override with proxy.gguf_stem if the auto-derivation is wrong.
+#
+# Examples:
+#   TheBloke/Llama-2-7b-GGUF      → stem: llama-2-7b
+#   TheBloke/Mistral-7B-v0.1-GGUF → stem: mistral-7b-v0.1
+#   TheBloke/CodeLlama-7B-GGUF    → stem: codellama-7b
 
 experiment: quantization
 
@@ -14,6 +29,7 @@ target:
 proxy:
   model: TheBloke/Llama-2-7b-GGUF
   extractor: llm
+  # gguf_stem: llama-2-7b   # optional: override auto-derived stem
   quantization_bits:
     - Q8_0
     - Q6_K

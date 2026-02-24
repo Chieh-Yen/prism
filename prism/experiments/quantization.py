@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import gc
 import math
+import re
 import time
 from typing import Any, Dict, List
 
@@ -25,14 +26,23 @@ from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
 
 
-_LLAMA2_GGUF_MAP = {
-    "Q8_0": "llama-2-7b.Q8_0.gguf",
-    "Q6_K": "llama-2-7b.Q6_K.gguf",
-    "Q5_K_M": "llama-2-7b.Q5_K_M.gguf",
-    "Q4_K_M": "llama-2-7b.Q4_K_M.gguf",
-    "Q3_K_M": "llama-2-7b.Q3_K_M.gguf",
-    "Q2_K": "llama-2-7b.Q2_K.gguf",
-}
+def _derive_gguf_stem(quant_repo: str) -> str:
+    """Derive the GGUF filename stem from a TheBloke-style repo name.
+
+    Convention on TheBloke HuggingFace repos:
+        repo  : TheBloke/{ModelName}-GGUF
+        files : {model-name}.{QUANT}.gguf   (lowercased, -GGUF suffix stripped)
+
+    Examples:
+        TheBloke/Llama-2-7b-GGUF        → llama-2-7b
+        TheBloke/Mistral-7B-v0.1-GGUF   → mistral-7b-v0.1
+        TheBloke/CodeLlama-7B-GGUF       → codellama-7b
+
+    Override via ``proxy.gguf_stem`` in the YAML config to skip this logic.
+    """
+    name = quant_repo.split("/")[-1]
+    name = re.sub(r"-GGUF$", "", name, flags=re.IGNORECASE)
+    return name.lower()
 
 
 class QuantizationExperiment(BaseExperiment):
@@ -85,7 +95,11 @@ class QuantizationExperiment(BaseExperiment):
 
         target_model_id = cfg_target.get("model", "NousResearch/Llama-2-7b-hf")
         quant_repo = cfg_proxy.get("model", "TheBloke/Llama-2-7b-GGUF")
-        quant_bits: List[str] = cfg_proxy.get("quantization_bits", list(_LLAMA2_GGUF_MAP.keys()))
+        quant_bits: List[str] = cfg_proxy.get("quantization_bits", [
+            "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K",
+        ])
+        # gguf_stem: explicit override or auto-derived from repo name
+        gguf_stem: str = cfg_proxy.get("gguf_stem") or _derive_gguf_stem(quant_repo)
         absorbed: bool = cfg_align.get("scale_absorbed", False)
 
         task_name = cfg_data.get("task", "wikitext")
@@ -97,6 +111,9 @@ class QuantizationExperiment(BaseExperiment):
         print(f"{'=' * 72}")
         print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
         print(f"{'=' * 72}")
+        print(f"  Target : {target_model_id}")
+        print(f"  GGUF   : {quant_repo}  (stem: {gguf_stem})")
+        print(f"  Quants : {', '.join(quant_bits)}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
         tokenizer = AutoTokenizer.from_pretrained(target_model_id, trust_remote_code=True)
@@ -124,8 +141,14 @@ class QuantizationExperiment(BaseExperiment):
         losses_T = loss_stats["losses"]
         loss_target = losses_T.mean().item()
         ppl_target = math.exp(loss_target)
-        print(f"  Target: Loss={loss_target:.4f}  PPL={ppl_target:.2f}  "
-              f"Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}")
+        has_answer = loss_stats["has_answer_loss"]
+        aloss_target = loss_stats["answer_losses"].mean().item() if has_answer else None
+        appl_target = math.exp(aloss_target) if aloss_target is not None else None
+        target_info = (f"  Target: Loss={loss_target:.4f}  PPL={ppl_target:.2f}")
+        if aloss_target is not None:
+            target_info += f"  ALoss={aloss_target:.4f}  APPL={appl_target:.2f}"
+        target_info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}"
+        print(target_info)
 
         del target_model
         gc.collect()
@@ -171,7 +194,7 @@ class QuantizationExperiment(BaseExperiment):
         # --- Phase 2: load each proxy one at a time ---
         results = []
         for i, bit_label in enumerate(quant_bits):
-            filename = _LLAMA2_GGUF_MAP.get(bit_label, bit_label)
+            filename = f"{gguf_stem}.{bit_label}.gguf"
             label = f"FP16 vs {bit_label}"
             print(f"\n--- [{i+1}/{len(quant_bits)}] {label} ---")
             t0 = time.time()
@@ -187,10 +210,17 @@ class QuantizationExperiment(BaseExperiment):
                 K_feat=K_feat, K_pred=K_pred,
             )
 
+            proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.device)
             result.loss_target = loss_target
-            result.loss_proxy = self.compute_lm_loss(proxy_model, dataloader, self.device)
+            result.loss_proxy = proxy_stats["losses"].mean().item()
             result.extra["perplexity_target"] = ppl_target
             result.extra["perplexity_proxy"] = math.exp(result.loss_proxy)
+            if has_answer:
+                aloss_proxy = proxy_stats["answer_losses"].mean().item()
+                result.extra["answer_loss_target"] = aloss_target
+                result.extra["answer_loss_proxy"] = aloss_proxy
+                result.extra["answer_ppl_target"] = appl_target
+                result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
             result.extra.update(lipschitz_info)
             result.extra["dataset"] = task_name
             result.extra["num_samples"] = num_samples
@@ -201,13 +231,19 @@ class QuantizationExperiment(BaseExperiment):
             ppl_p = result.extra["perplexity_proxy"]
             elapsed = time.time() - t0
             scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
-            print(f"    ρ_T={rho_T_orig:.4f}  Ω={result.omega:.4f}  {scale_s}"
+            print(f"  [Full]   ρ_T={rho_T_orig:.4f}  Ω={result.omega:.4f}  {scale_s}"
                   f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
                   f"Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
                   f"Loss_T={loss_target:.4f}  Loss_P={result.loss_proxy:.4f}  "
                   f"PPL_T={ppl_target:.2f}  PPL_P={ppl_p:.2f}  "
                   f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
                   f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
+            if has_answer:
+                adr = abs(aloss_target - aloss_proxy)
+                print(f"  [Answer] |AdR|={adr:.4f}  Bound={result.risk_bound_total:.4f}  "
+                      f"{'PASS' if result.risk_bound_total >= adr else 'VIOLATED'}  "
+                      f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
+                      f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
 
             del proxy_model
             gc.collect()
@@ -215,10 +251,13 @@ class QuantizationExperiment(BaseExperiment):
                 torch.cuda.empty_cache()
 
         self.report(results)
+        model_slug = target_model_id.split("/")[-1].lower()
         abs_tag = "_absorbed" if absorbed else ""
-        stem = f"prism_{task_name}_n{num_samples}{abs_tag}"
+        stem = f"prism_{model_slug}_{task_name}_n{num_samples}{abs_tag}"
         self.save(results, filename=f"{stem}.json")
-        self.save_csv(results, filename=f"{stem}.csv")
+        self.save_csv(results, filename=f"{stem}_qa.csv", loss_mode="full")
+        if has_answer:
+            self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
         return results
 
     @staticmethod
@@ -317,7 +356,43 @@ class QuantizationExperiment(BaseExperiment):
         if valid:
             print(sep)
             holds = sum(1 for r, dr in valid if r.risk_bound_total >= dr)
-            print(f"  Bound holds: {holds}/{len(valid)}  "
+            print(f"  Bound holds (full): {holds}/{len(valid)}  "
                   f"({'ALL PASS' if holds == len(valid) else 'SOME VIOLATED'})")
+
+        # --- Answer-only table (if available) ---
+        has_ans = "answer_loss_target" in r0.extra
+        if has_ans:
+            ans_header = (
+                f"{'Label':<20s} {'ALoss_T':>8s} {'ALoss_P':>8s} "
+                f"{'APPL_T':>8s} {'APPL_P':>8s} {'|AdR|':>8s} "
+                f"{'Bound':>10s} {'Status':>8s}"
+            )
+            ans_sep = "-" * len(ans_header)
+            print(f"\n  Answer-only Loss (same bound applies)")
+            print(ans_sep)
+            print(ans_header)
+            print(ans_sep)
+            for r in results:
+                alt = r.extra.get("answer_loss_target")
+                alp = r.extra.get("answer_loss_proxy")
+                if alt is not None and alp is not None:
+                    adr = abs(alt - alp)
+                    bt_val = r.risk_bound_total
+                    status = "PASS" if bt_val is not None and bt_val >= adr else "VIOLATED"
+                    print(
+                        f"{r.label:<20s} {alt:>8.4f} {alp:>8.4f} "
+                        f"{r.extra.get('answer_ppl_target', 0):>8.2f} "
+                        f"{r.extra.get('answer_ppl_proxy', 0):>8.2f} "
+                        f"{adr:>8.4f} "
+                        f"{bt_val:>10.4f} {status:>8s}"
+                    )
+            ans_valid = [(r, abs(r.extra["answer_loss_target"] - r.extra["answer_loss_proxy"]))
+                         for r in results
+                         if "answer_loss_target" in r.extra and r.risk_bound_total is not None]
+            if ans_valid:
+                print(ans_sep)
+                a_holds = sum(1 for r, adr in ans_valid if r.risk_bound_total >= adr)
+                print(f"  Bound holds (answer): {a_holds}/{len(ans_valid)}  "
+                      f"({'ALL PASS' if a_holds == len(ans_valid) else 'SOME VIOLATED'})")
 
         print(f"{'=' * len(header)}\n")
