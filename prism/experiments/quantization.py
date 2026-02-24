@@ -224,6 +224,8 @@ class QuantizationExperiment(BaseExperiment):
             result.extra.update(lipschitz_info)
             result.extra["dataset"] = task_name
             result.extra["num_samples"] = num_samples
+            result.extra["target_model"] = target_model_id
+            result.extra["proxy_model"] = f"{quant_repo}/{filename}"
 
             results.append(result)
 

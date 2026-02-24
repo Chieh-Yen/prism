@@ -422,7 +422,7 @@ class BaseExperiment(ABC):
         absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
 
         # Shared geometry columns (same for all modes)
-        geo_fields = ["Label", "rho_T", "Omega"]
+        geo_fields = ["target_model", "proxy_model", "Label", "rho_T", "Omega"]
         if not absorbed:
             geo_fields.append("Scale")
         geo_fields += ["Shape", "Head", "Bound"]
@@ -440,6 +440,8 @@ class BaseExperiment(ABC):
             writer.writeheader()
             for r in results:
                 row: dict = {
+                    "target_model": r.extra.get("target_model", ""),
+                    "proxy_model": r.extra.get("proxy_model", ""),
                     "Label": r.label,
                     "rho_T": r.extra.get("rho_T", ""),
                     "Omega": r.omega,
