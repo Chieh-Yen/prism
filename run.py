@@ -44,7 +44,11 @@ def _set_nested(d: dict, dotted_key: str, value: Any) -> None:
 
 
 def _parse_value(raw: str) -> Any:
-    """Best-effort cast: int > float > bool > list/dict > str."""
+    """Best-effort cast: int > float > bool > list/dict > str.
+
+    Handles ``[Q8_0,Q6_K,Q5_K_M]`` as a list of strings (items are
+    not valid Python literals, so ``ast.literal_eval`` would fail).
+    """
     for caster in (int, float):
         try:
             return caster(raw)
@@ -57,6 +61,9 @@ def _parse_value(raw: str) -> Any:
             return ast.literal_eval(raw)
         except (ValueError, SyntaxError):
             pass
+        if raw.startswith("[") and raw.endswith("]"):
+            items = [s.strip() for s in raw[1:-1].split(",") if s.strip()]
+            return [_parse_value(item) for item in items]
     return raw
 
 
