@@ -7,6 +7,17 @@ The alignment map W degenerates to the identity.
 
 The simplified bound (Eq. 6) becomes:
     |R_F − R_Q| ≈ K_feat · √[ (ρ_F − ρ_Q)² + 2 ρ_F ρ_Q (1 − Ω) ]
+
+Quantisation backends
+---------------------
+Two backends are supported, selected by a **prefix** in each quant tag:
+
+* **No prefix** (e.g. ``Q8_0``, ``Q4_K_M``) → load from a GGUF repo.
+* **``bnb:``** prefix (e.g. ``bnb:nf4``, ``bnb:int8``) → load from the
+  *target* model with bitsandbytes on-the-fly quantisation.
+
+Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``, ``nf4-dq``
+(NF4 with double quantisation, aka QLoRA-style).
 """
 
 from __future__ import annotations
@@ -18,7 +29,7 @@ import time
 from typing import Any, Dict, List
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from ..core.bounds import UnifiedBound
 from ..data.loaders import load_task_data
@@ -26,19 +37,43 @@ from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
 
 
+# ======================================================================
+# BitsAndBytes config factory
+# ======================================================================
+_BNB_CONFIGS: Dict[str, Any] = {
+    "int8": lambda: BitsAndBytesConfig(load_in_8bit=True),
+    "nf4": lambda: BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+    ),
+    "fp4": lambda: BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="fp4",
+        bnb_4bit_compute_dtype=torch.float16,
+    ),
+    "nf4-dq": lambda: BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.float16,
+    ),
+}
+
+
+def _is_bnb(quant_tag: str) -> bool:
+    return quant_tag.startswith("bnb:")
+
+
+def _bnb_type(quant_tag: str) -> str:
+    return quant_tag[4:]
+
+
+# ======================================================================
+# GGUF helpers
+# ======================================================================
 def _gguf_filename(template: str, quant: str) -> str:
-    """Build a GGUF filename from a template and a quantisation tag.
-
-    Args:
-        template: A Python format string with a ``{quant}`` placeholder.
-        quant:    Quantisation tag, e.g. ``"Q8_0"``, ``"Q4_K_M"``.
-
-    Example:
-        >>> _gguf_filename("llama-2-7b.{quant}.gguf", "Q8_0")
-        'llama-2-7b.Q8_0.gguf'
-        >>> _gguf_filename("Qwen3-8B-{quant}.gguf", "Q4_K_M")
-        'Qwen3-8B-Q4_K_M.gguf'
-    """
+    """Build a GGUF filename from a template and a quantisation tag."""
     return template.format(quant=quant)
 
 
@@ -65,6 +100,13 @@ def _derive_gguf_template(quant_repo: str) -> str:
     return f"{stem}-{{quant}}.gguf"
 
 
+def _display_label(quant_tag: str) -> str:
+    """Human-readable name for a quant tag."""
+    if _is_bnb(quant_tag):
+        return _bnb_type(quant_tag).upper()
+    return quant_tag
+
+
 class QuantizationExperiment(BaseExperiment):
     """Compare FP16 (target) with quantised variants (proxy), W = I."""
 
@@ -72,13 +114,13 @@ class QuantizationExperiment(BaseExperiment):
         """Not used directly — see ``run()``."""
         return []
 
-    def _load_proxy(self, quant_repo: str, filename: str, fallback_model_id: str) -> torch.nn.Module:
-        """Load a single quantised proxy model."""
-        # Ensure VRAM is clean before loading
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
+    # ------------------------------------------------------------------
+    # Proxy loading — dispatches between GGUF and bitsandbytes
+    # ------------------------------------------------------------------
+    def _load_proxy_gguf(
+        self, quant_repo: str, filename: str, fallback_model_id: str,
+    ) -> torch.nn.Module:
+        """Load a GGUF-quantised proxy, falling back to bnb 8/4-bit."""
         print(f"  Loading proxy: {filename} from {quant_repo} ...")
         try:
             proxy = AutoModelForCausalLM.from_pretrained(
@@ -86,13 +128,13 @@ class QuantizationExperiment(BaseExperiment):
                 gguf_file=filename,
                 dtype=torch.float16,
                 device_map=self.device,
+                trust_remote_code=True,
             )
         except Exception as e:
             print(f"    GGUF load failed ({e}), falling back to bitsandbytes ...")
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            from transformers import BitsAndBytesConfig
             is_4bit = any(tag in filename for tag in ("Q4", "Q3", "Q2"))
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=is_4bit,
@@ -102,7 +144,45 @@ class QuantizationExperiment(BaseExperiment):
                 fallback_model_id,
                 quantization_config=bnb_config,
                 device_map=self.device,
+                trust_remote_code=True,
             )
+        return proxy
+
+    def _load_proxy_bnb(
+        self, bnb_tag: str, model_id: str,
+    ) -> torch.nn.Module:
+        """Load a bitsandbytes-quantised proxy from the original model."""
+        if bnb_tag not in _BNB_CONFIGS:
+            raise ValueError(
+                f"Unknown bnb quant type '{bnb_tag}'. "
+                f"Available: {sorted(_BNB_CONFIGS)}"
+            )
+        print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
+        proxy = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            quantization_config=_BNB_CONFIGS[bnb_tag](),
+            device_map=self.device,
+            trust_remote_code=True,
+        )
+        return proxy
+
+    def _load_proxy(
+        self,
+        quant_tag: str,
+        quant_repo: str,
+        gguf_tpl: str,
+        target_model_id: str,
+    ) -> torch.nn.Module:
+        """Dispatch proxy loading based on quant tag prefix."""
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        if _is_bnb(quant_tag):
+            proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
+        else:
+            filename = _gguf_filename(gguf_tpl, quant_tag)
+            proxy = self._load_proxy_gguf(quant_repo, filename, target_model_id)
         proxy.eval()
         return proxy
 
@@ -126,13 +206,20 @@ class QuantizationExperiment(BaseExperiment):
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
 
+        has_gguf = any(not _is_bnb(q) for q in quant_bits)
+        has_bnb = any(_is_bnb(q) for q in quant_bits)
+
         mode_tag = " (scale-absorbed)" if absorbed else ""
         print(f"{'=' * 72}")
         print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
         print(f"{'=' * 72}")
         print(f"  Target : {target_model_id}")
-        print(f"  GGUF   : {quant_repo}  (template: {gguf_tpl})")
-        print(f"  Quants : {', '.join(quant_bits)}")
+        if has_gguf:
+            print(f"  GGUF   : {quant_repo}  (template: {gguf_tpl})")
+        if has_bnb:
+            bnb_tags = [_bnb_type(q) for q in quant_bits if _is_bnb(q)]
+            print(f"  BnB    : {', '.join(bnb_tags)}")
+        print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
         tokenizer = AutoTokenizer.from_pretrained(target_model_id, trust_remote_code=True)
@@ -214,12 +301,12 @@ class QuantizationExperiment(BaseExperiment):
         # --- Phase 2: load each proxy one at a time ---
         results = []
         for i, bit_label in enumerate(quant_bits):
-            filename = _gguf_filename(gguf_tpl, bit_label)
-            label = f"FP16 vs {bit_label}"
+            disp = _display_label(bit_label)
+            label = f"FP16 vs {disp}"
             print(f"\n--- [{i+1}/{len(quant_bits)}] {label} ---")
             t0 = time.time()
 
-            proxy_model = self._load_proxy(quant_repo, filename, target_model_id)
+            proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
 
             Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
             H_P = extractor.extract_head(proxy_model)
@@ -245,7 +332,10 @@ class QuantizationExperiment(BaseExperiment):
             result.extra["dataset"] = task_name
             result.extra["num_samples"] = num_samples
             result.extra["target_model"] = target_model_id
-            result.extra["proxy_model"] = f"{quant_repo}/{filename}"
+            if _is_bnb(bit_label):
+                result.extra["proxy_model"] = f"{target_model_id} [bnb:{_bnb_type(bit_label)}]"
+            else:
+                result.extra["proxy_model"] = f"{quant_repo}/{_gguf_filename(gguf_tpl, bit_label)}"
 
             results.append(result)
 

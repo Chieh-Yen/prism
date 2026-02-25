@@ -49,13 +49,13 @@ class PRISMMetrics:
     # ------------------------------------------------------------------
     @staticmethod
     def procrustes_omega(Z_T: Tensor, Z_P: Tensor) -> float:
-        """Ω(Z_T, Z_P) = ‖Z_T^T Z_P‖_* / (‖Z_T‖_F ‖Z_P‖_F)."""
+        """Ω(Z_T, Z_P) = ‖Z_T^T Z_P‖_* / (‖Z_T‖_F ‖Z_P‖_F), clamped to [0, 1]."""
         cross = Z_T.T @ Z_P  # (d_T, d_P)
         nuclear_norm = torch.linalg.svdvals(cross).sum().item()
         denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
         if denom < 1e-12:
             return 0.0
-        return nuclear_norm / denom
+        return min(nuclear_norm / denom, 1.0)
 
     # ------------------------------------------------------------------
     # Optimal alignment W  (Orthogonal Procrustes)

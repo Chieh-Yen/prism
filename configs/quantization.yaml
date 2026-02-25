@@ -1,29 +1,29 @@
 # PRISM — Quantization Quality Estimation
 # Identity Regime: W = I, same architecture, different precision.
 #
+# Quantisation backends (mix freely in quantization_bits):
+#   No prefix  → GGUF file from proxy.model repo   (e.g. Q8_0, Q4_K_M)
+#   bnb:       → bitsandbytes from target.model     (e.g. bnb:nf4, bnb:int8)
+#
+# Supported bnb: tags: int8, nf4, fp4, nf4-dq
+#
 # Usage (Llama-2-7b, default):
 #   python run.py --config configs/quantization.yaml
 #
-# Usage (Mistral-7B, CLI override — TheBloke repo, auto-derived template):
+# Usage (mixed GGUF + bitsandbytes):
 #   python run.py --config configs/quantization.yaml \
-#       target.model=mistralai/Mistral-7B-v0.1 \
-#       proxy.model=TheBloke/Mistral-7B-v0.1-GGUF
+#       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,bnb:fp4]'
 #
-# Usage (Qwen3-8B, CLI override — official repo, auto-derived template):
+# Usage (Qwen3-8B with NF4 only — no GGUF repo needed):
 #   python run.py --config configs/quantization.yaml \
 #       target.model=Qwen/Qwen3-8B \
-#       proxy.model=Qwen/Qwen3-8B-GGUF \
-#       'proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M]'
+#       'proxy.quantization_bits=[bnb:int8,bnb:nf4,bnb:fp4]' \
+#       data.max_length=512
 #
 # GGUF filename template (auto-derived from proxy.model):
 #   TheBloke repos  → {stem}.{quant}.gguf   (lowercase, dot separator)
 #   Official repos  → {Stem}-{quant}.gguf   (original case, dash separator)
 #   Override with proxy.gguf_template if the auto-derivation is wrong.
-#
-# Auto-derivation examples:
-#   TheBloke/Llama-2-7b-GGUF      → llama-2-7b.{quant}.gguf
-#   TheBloke/Mistral-7B-v0.1-GGUF → mistral-7b-v0.1.{quant}.gguf
-#   Qwen/Qwen3-8B-GGUF            → Qwen3-8B-{quant}.gguf
 
 experiment: quantization
 
