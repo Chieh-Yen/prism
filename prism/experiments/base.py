@@ -187,34 +187,60 @@ class BaseExperiment(ABC):
                     pad_mask = single.get("attention_mask")
                     if pad_mask is not None:
                         labels[pad_mask == 0] = -100
-                    outputs = model(**single, labels=labels)
-                    sample_losses.append(outputs.loss.item())
+
+                    outputs = model(**single)
+                    shift_logits = outputs.logits[0, :-1, :]  # (seq-1, V)
+                    shift_labels = labels[0, 1:]               # (seq-1,)
+
+                    # Chunked CE to avoid a single huge FP32 allocation
+                    loss_sum = 0.0
+                    n_valid = 0
+                    seq_len = shift_logits.shape[0]
+                    for start in range(0, seq_len, CHUNK):
+                        end = min(start + CHUNK, seq_len)
+                        chunk_labels = shift_labels[start:end]
+                        valid = (chunk_labels != -100).sum().item()
+                        if valid == 0:
+                            continue
+                        chunk_loss = ce_none(shift_logits[start:end], chunk_labels)
+                        loss_sum += chunk_loss.item() * valid
+                        n_valid += valid
+                    sample_losses.append(loss_sum / max(n_valid, 1))
 
                     # --- answer-only loss ---
                     if prompt_lens is not None:
                         pl = prompt_lens[j].item()
                         ans_labels = labels.clone()
                         ans_labels[0, :pl] = -100
-                        shift_logits = outputs.logits[0, :-1, :]
-                        shift_labels = ans_labels[0, 1:]
-                        a_loss = ce_none(shift_logits, shift_labels)
-                        answer_losses.append(a_loss.item())
+                        shift_ans = ans_labels[0, 1:]
+                        a_sum = 0.0
+                        a_valid = 0
+                        for start in range(0, seq_len, CHUNK):
+                            end = min(start + CHUNK, seq_len)
+                            chunk_labels = shift_ans[start:end]
+                            valid = (chunk_labels != -100).sum().item()
+                            if valid == 0:
+                                continue
+                            chunk_loss = ce_none(shift_logits[start:end], chunk_labels)
+                            a_sum += chunk_loss.item() * valid
+                            a_valid += valid
+                        answer_losses.append(a_sum / max(a_valid, 1))
 
                     # --- per-token gradient norms ---
-                    logits = outputs.logits[0, :-1, :]   # (seq-1, V)
-                    targets = labels[0, 1:]               # (seq-1,)
+                    gn_logits = shift_logits
+                    gn_targets = shift_labels
                     mask = single.get("attention_mask")
                     if mask is not None:
                         token_mask = mask[0, 1:].bool()
-                        logits = logits[token_mask]
-                        targets = targets[token_mask]
+                        gn_logits = gn_logits[token_mask]
+                        gn_targets = gn_targets[token_mask]
 
-                    seq_len = logits.shape[0]
-                    for start in range(0, seq_len, CHUNK):
-                        end = min(start + CHUNK, seq_len)
-                        p = torch.softmax(logits[start:end].float(), dim=-1)
+                    gn_len = gn_logits.shape[0]
+                    for start in range(0, gn_len, CHUNK):
+                        end = min(start + CHUNK, gn_len)
+                        p = torch.softmax(gn_logits[start:end].float(), dim=-1)
                         one_hot = torch.zeros_like(p)
-                        one_hot.scatter_(1, targets[start:end].unsqueeze(1), 1.0)
+                        one_hot.scatter_(1, gn_targets[start:end].unsqueeze(1), 1.0)
                         gnorms = (p - one_hot).norm(dim=-1)  # (chunk,)
                         all_grad_norms.append(gnorms.cpu())
 

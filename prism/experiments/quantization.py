@@ -26,23 +26,43 @@ from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
 
 
-def _derive_gguf_stem(quant_repo: str) -> str:
-    """Derive the GGUF filename stem from a TheBloke-style repo name.
+def _gguf_filename(template: str, quant: str) -> str:
+    """Build a GGUF filename from a template and a quantisation tag.
 
-    Convention on TheBloke HuggingFace repos:
-        repo  : TheBloke/{ModelName}-GGUF
-        files : {model-name}.{QUANT}.gguf   (lowercased, -GGUF suffix stripped)
+    Args:
+        template: A Python format string with a ``{quant}`` placeholder.
+        quant:    Quantisation tag, e.g. ``"Q8_0"``, ``"Q4_K_M"``.
 
-    Examples:
-        TheBloke/Llama-2-7b-GGUF        → llama-2-7b
-        TheBloke/Mistral-7B-v0.1-GGUF   → mistral-7b-v0.1
-        TheBloke/CodeLlama-7B-GGUF       → codellama-7b
+    Example:
+        >>> _gguf_filename("llama-2-7b.{quant}.gguf", "Q8_0")
+        'llama-2-7b.Q8_0.gguf'
+        >>> _gguf_filename("Qwen3-8B-{quant}.gguf", "Q4_K_M")
+        'Qwen3-8B-Q4_K_M.gguf'
+    """
+    return template.format(quant=quant)
 
-    Override via ``proxy.gguf_stem`` in the YAML config to skip this logic.
+
+def _derive_gguf_template(quant_repo: str) -> str:
+    """Auto-derive a GGUF filename template from a HuggingFace repo name.
+
+    Two conventions are handled:
+
+    1. **TheBloke** — ``TheBloke/{ModelName}-GGUF``
+       files:  ``{model-name}.{QUANT}.gguf``  (lowercased, dot separator)
+       Example: ``TheBloke/Llama-2-7b-GGUF`` → ``llama-2-7b.{quant}.gguf``
+
+    2. **Official** — ``Org/{ModelName}-GGUF``
+       files:  ``{ModelName}-{QUANT}.gguf``  (original case, dash separator)
+       Example: ``Qwen/Qwen3-8B-GGUF`` → ``Qwen3-8B-{quant}.gguf``
+
+    Override via ``proxy.gguf_template`` in the YAML config to skip this.
     """
     name = quant_repo.split("/")[-1]
-    name = re.sub(r"-GGUF$", "", name, flags=re.IGNORECASE)
-    return name.lower()
+    stem = re.sub(r"-GGUF$", "", name, flags=re.IGNORECASE)
+    org = quant_repo.split("/")[0] if "/" in quant_repo else ""
+    if org.lower() == "thebloke":
+        return f"{stem.lower()}.{{quant}}.gguf"
+    return f"{stem}-{{quant}}.gguf"
 
 
 class QuantizationExperiment(BaseExperiment):
@@ -98,8 +118,7 @@ class QuantizationExperiment(BaseExperiment):
         quant_bits: List[str] = cfg_proxy.get("quantization_bits", [
             "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K",
         ])
-        # gguf_stem: explicit override or auto-derived from repo name
-        gguf_stem: str = cfg_proxy.get("gguf_stem") or _derive_gguf_stem(quant_repo)
+        gguf_tpl: str = cfg_proxy.get("gguf_template") or _derive_gguf_template(quant_repo)
         absorbed: bool = cfg_align.get("scale_absorbed", False)
 
         task_name = cfg_data.get("task", "wikitext")
@@ -112,7 +131,7 @@ class QuantizationExperiment(BaseExperiment):
         print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
         print(f"{'=' * 72}")
         print(f"  Target : {target_model_id}")
-        print(f"  GGUF   : {quant_repo}  (stem: {gguf_stem})")
+        print(f"  GGUF   : {quant_repo}  (template: {gguf_tpl})")
         print(f"  Quants : {', '.join(quant_bits)}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
@@ -130,6 +149,7 @@ class QuantizationExperiment(BaseExperiment):
         print(f"Loading target (FP16): {target_model_id} ...")
         target_model = AutoModelForCausalLM.from_pretrained(
             target_model_id, dtype=torch.float16, device_map=self.device,
+            trust_remote_code=True,
         )
         target_model.eval()
         extractor = LLMExtractor()
@@ -194,7 +214,7 @@ class QuantizationExperiment(BaseExperiment):
         # --- Phase 2: load each proxy one at a time ---
         results = []
         for i, bit_label in enumerate(quant_bits):
-            filename = f"{gguf_stem}.{bit_label}.gguf"
+            filename = _gguf_filename(gguf_tpl, bit_label)
             label = f"FP16 vs {bit_label}"
             print(f"\n--- [{i+1}/{len(quant_bits)}] {label} ---")
             t0 = time.time()
