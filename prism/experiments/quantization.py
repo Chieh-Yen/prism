@@ -10,11 +10,14 @@ The simplified bound (Eq. 6) becomes:
 
 Quantisation backends
 ---------------------
-Two backends are supported, selected by a **prefix** in each quant tag:
+Three backends are supported, selected by a **prefix** in each quant tag:
 
 * **No prefix** (e.g. ``Q8_0``, ``Q4_K_M``) → load from a GGUF repo.
 * **``bnb:``** prefix (e.g. ``bnb:nf4``, ``bnb:int8``) → load from the
   *target* model with bitsandbytes on-the-fly quantisation.
+* **``gptq:``** prefix (e.g. ``gptq:TheBloke/Llama-2-7B-GPTQ``) → load a
+  pre-quantised GPTQ model.  Optionally specify a branch with ``@``:
+  ``gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True``.
 
 Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``, ``nf4-dq``
 (NF4 with double quantisation, aka QLoRA-style).
@@ -70,6 +73,22 @@ def _bnb_type(quant_tag: str) -> str:
 
 
 # ======================================================================
+# GPTQ helpers
+# ======================================================================
+def _is_gptq(quant_tag: str) -> bool:
+    return quant_tag.startswith("gptq:")
+
+
+def _parse_gptq(quant_tag: str) -> tuple:
+    """Parse ``gptq:REPO`` or ``gptq:REPO@REVISION`` → (repo, revision|None)."""
+    body = quant_tag[5:]
+    if "@" in body:
+        repo, rev = body.rsplit("@", 1)
+        return repo, rev
+    return body, None
+
+
+# ======================================================================
 # GGUF helpers
 # ======================================================================
 def _gguf_filename(template: str, quant: str) -> str:
@@ -104,6 +123,10 @@ def _display_label(quant_tag: str) -> str:
     """Human-readable name for a quant tag."""
     if _is_bnb(quant_tag):
         return _bnb_type(quant_tag).upper()
+    if _is_gptq(quant_tag):
+        repo, rev = _parse_gptq(quant_tag)
+        short = repo.split("/")[-1]
+        return f"GPTQ({rev})" if rev else f"GPTQ({short})"
     return quant_tag
 
 
@@ -166,6 +189,21 @@ class QuantizationExperiment(BaseExperiment):
         )
         return proxy
 
+    def _load_proxy_gptq(
+        self, repo: str, revision: str | None,
+    ) -> torch.nn.Module:
+        """Load a pre-quantised GPTQ model from HuggingFace."""
+        rev_tag = f" @{revision}" if revision else ""
+        print(f"  Loading proxy: {repo}{rev_tag} [GPTQ] ...")
+        kwargs: dict = dict(
+            device_map=self.device,
+            trust_remote_code=True,
+        )
+        if revision:
+            kwargs["revision"] = revision
+        proxy = AutoModelForCausalLM.from_pretrained(repo, **kwargs)
+        return proxy
+
     def _load_proxy(
         self,
         quant_tag: str,
@@ -178,7 +216,10 @@ class QuantizationExperiment(BaseExperiment):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        if _is_bnb(quant_tag):
+        if _is_gptq(quant_tag):
+            repo, rev = _parse_gptq(quant_tag)
+            proxy = self._load_proxy_gptq(repo, rev)
+        elif _is_bnb(quant_tag):
             proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
         else:
             filename = _gguf_filename(gguf_tpl, quant_tag)
@@ -206,8 +247,9 @@ class QuantizationExperiment(BaseExperiment):
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
 
-        has_gguf = any(not _is_bnb(q) for q in quant_bits)
+        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) for q in quant_bits)
         has_bnb = any(_is_bnb(q) for q in quant_bits)
+        has_gptq = any(_is_gptq(q) for q in quant_bits)
 
         mode_tag = " (scale-absorbed)" if absorbed else ""
         print(f"{'=' * 72}")
@@ -219,6 +261,13 @@ class QuantizationExperiment(BaseExperiment):
         if has_bnb:
             bnb_tags = [_bnb_type(q) for q in quant_bits if _is_bnb(q)]
             print(f"  BnB    : {', '.join(bnb_tags)}")
+        if has_gptq:
+            gptq_repos = set()
+            for q in quant_bits:
+                if _is_gptq(q):
+                    repo, _ = _parse_gptq(q)
+                    gptq_repos.add(repo)
+            print(f"  GPTQ   : {', '.join(sorted(gptq_repos))}")
         print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
@@ -306,61 +355,77 @@ class QuantizationExperiment(BaseExperiment):
             print(f"\n--- [{i+1}/{len(quant_bits)}] {label} ---")
             t0 = time.time()
 
-            proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
+            proxy_model = None
+            try:
+                proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
 
-            Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
-            H_P = extractor.extract_head(proxy_model)
+                Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
 
-            result = self.compute_metrics(
-                Z_T, H_T, Z_P, H_P,
-                force_identity=True, label=label, absorbed=absorbed,
-                K_feat=K_feat, K_pred=K_pred,
-            )
+                if not torch.isfinite(Z_P).all():
+                    print(f"  WARNING: proxy features contain NaN/Inf — skipping {disp}")
+                    continue
 
-            proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.device)
-            result.loss_target = loss_target
-            result.loss_proxy = proxy_stats["losses"].mean().item()
-            result.extra["perplexity_target"] = ppl_target
-            result.extra["perplexity_proxy"] = math.exp(result.loss_proxy)
-            if has_answer:
-                aloss_proxy = proxy_stats["answer_losses"].mean().item()
-                result.extra["answer_loss_target"] = aloss_target
-                result.extra["answer_loss_proxy"] = aloss_proxy
-                result.extra["answer_ppl_target"] = appl_target
-                result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
-            result.extra.update(lipschitz_info)
-            result.extra["dataset"] = task_name
-            result.extra["num_samples"] = num_samples
-            result.extra["target_model"] = target_model_id
-            if _is_bnb(bit_label):
-                result.extra["proxy_model"] = f"{target_model_id} [bnb:{_bnb_type(bit_label)}]"
-            else:
-                result.extra["proxy_model"] = f"{quant_repo}/{_gguf_filename(gguf_tpl, bit_label)}"
+                H_P = extractor.extract_head(proxy_model)
 
-            results.append(result)
+                result = self.compute_metrics(
+                    Z_T, H_T, Z_P, H_P,
+                    force_identity=True, label=label, absorbed=absorbed,
+                    K_feat=K_feat, K_pred=K_pred,
+                )
 
-            dr = abs(result.loss_target - result.loss_proxy)
-            ppl_p = result.extra["perplexity_proxy"]
-            elapsed = time.time() - t0
-            scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
-            print(f"  [Full]   ρ_T={rho_T_orig:.4f}  Ω={result.omega:.4f}  {scale_s}"
-                  f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
-                  f"Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
-                  f"Loss_T={loss_target:.4f}  Loss_P={result.loss_proxy:.4f}  "
-                  f"PPL_T={ppl_target:.2f}  PPL_P={ppl_p:.2f}  "
-                  f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
-                  f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
-            if has_answer:
-                adr = abs(aloss_target - aloss_proxy)
-                print(f"  [Answer] |AdR|={adr:.4f}  Bound={result.risk_bound_total:.4f}  "
-                      f"{'PASS' if result.risk_bound_total >= adr else 'VIOLATED'}  "
-                      f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
-                      f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
+                proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.device)
+                result.loss_target = loss_target
+                result.loss_proxy = proxy_stats["losses"].mean().item()
+                result.extra["perplexity_target"] = ppl_target
+                result.extra["perplexity_proxy"] = math.exp(result.loss_proxy)
+                if has_answer:
+                    aloss_proxy = proxy_stats["answer_losses"].mean().item()
+                    result.extra["answer_loss_target"] = aloss_target
+                    result.extra["answer_loss_proxy"] = aloss_proxy
+                    result.extra["answer_ppl_target"] = appl_target
+                    result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
+                result.extra.update(lipschitz_info)
+                result.extra["dataset"] = task_name
+                result.extra["num_samples"] = num_samples
+                result.extra["target_model"] = target_model_id
+                if _is_gptq(bit_label):
+                    repo, rev = _parse_gptq(bit_label)
+                    rev_tag = f"@{rev}" if rev else ""
+                    result.extra["proxy_model"] = f"{repo}{rev_tag} [GPTQ]"
+                elif _is_bnb(bit_label):
+                    result.extra["proxy_model"] = f"{target_model_id} [bnb:{_bnb_type(bit_label)}]"
+                else:
+                    result.extra["proxy_model"] = f"{quant_repo}/{_gguf_filename(gguf_tpl, bit_label)}"
 
-            del proxy_model
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+                results.append(result)
+
+                dr = abs(result.loss_target - result.loss_proxy)
+                ppl_p = result.extra["perplexity_proxy"]
+                elapsed = time.time() - t0
+                scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
+                print(f"  [Full]   ρ_T={rho_T_orig:.4f}  Ω={result.omega:.4f}  {scale_s}"
+                      f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
+                      f"Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
+                      f"Loss_T={loss_target:.4f}  Loss_P={result.loss_proxy:.4f}  "
+                      f"PPL_T={ppl_target:.2f}  PPL_P={ppl_p:.2f}  "
+                      f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
+                      f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
+                if has_answer:
+                    adr = abs(aloss_target - aloss_proxy)
+                    print(f"  [Answer] |AdR|={adr:.4f}  Bound={result.risk_bound_total:.4f}  "
+                          f"{'PASS' if result.risk_bound_total >= adr else 'VIOLATED'}  "
+                          f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
+                          f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
+
+            except Exception as e:
+                elapsed = time.time() - t0
+                print(f"  ERROR processing {disp}: {e}  ({elapsed:.1f}s) — skipping")
+
+            finally:
+                del proxy_model
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
         self.report(results)
         model_slug = target_model_id.split("/")[-1].lower()

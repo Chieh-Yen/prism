@@ -4,15 +4,21 @@
 # Quantisation backends (mix freely in quantization_bits):
 #   No prefix  → GGUF file from proxy.model repo   (e.g. Q8_0, Q4_K_M)
 #   bnb:       → bitsandbytes from target.model     (e.g. bnb:nf4, bnb:int8)
+#   gptq:      → pre-quantised GPTQ model           (e.g. gptq:TheBloke/Llama-2-7B-GPTQ)
+#               optionally with branch: gptq:REPO@REVISION
 #
 # Supported bnb: tags: int8, nf4, fp4, nf4-dq
 #
 # Usage (Llama-2-7b, default):
 #   python run.py --config configs/quantization.yaml
 #
-# Usage (mixed GGUF + bitsandbytes):
+# Usage (mixed GGUF + bitsandbytes + GPTQ):
 #   python run.py --config configs/quantization.yaml \
-#       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,bnb:fp4]'
+#       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,gptq:TheBloke/Llama-2-7B-GPTQ]'
+#
+# Usage (GPTQ with specific branch):
+#   python run.py --config configs/quantization.yaml \
+#       'proxy.quantization_bits=[gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]'
 #
 # Usage (Qwen3-8B with NF4 only — no GGUF repo needed):
 #   python run.py --config configs/quantization.yaml \

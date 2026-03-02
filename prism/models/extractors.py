@@ -166,7 +166,7 @@ class LLMExtractor(FeatureExtractor):
         **kwargs,
     ) -> Tensor:
         """Return (d, vocab_size)."""
-        head = model.lm_head.weight.data.float().cpu()  # (vocab, d)
+        head = model.lm_head.weight.data.cpu().float()  # (vocab, d)
         return head.T  # (d, vocab)
 
 
