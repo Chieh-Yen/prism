@@ -26,6 +26,7 @@ DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"
 LLAMA_TARGET="target.model=NousResearch/Llama-2-7b-hf"
 LLAMA_GGUF="proxy.model=TheBloke/Llama-2-7b-GGUF"
 LLAMA_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:TheBloke/Llama-2-7B-GPTQ,gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]"
+LLAMA_BITS="proxy.quantization_bits=[gptq:TheBloke/Llama-2-7B-GPTQ,gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]"
 
 for DS in $DATASETS_ALL; do
     run $LLAMA_TARGET $LLAMA_GGUF "$LLAMA_BITS" data.task=$DS data.num_samples=$N
@@ -39,6 +40,7 @@ done
 MISTRAL_TARGET="target.model=mistralai/Mistral-7B-v0.1"
 MISTRAL_GGUF="proxy.model=TheBloke/Mistral-7B-v0.1-GGUF"
 MISTRAL_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:TheBloke/Mistral-7B-v0.1-GPTQ,gptq:TheBloke/Mistral-7B-v0.1-GPTQ@gptq-4bit-32g-actorder_True]"
+MISTRAL_BITS="proxy.quantization_bits=[gptq:TheBloke/Mistral-7B-v0.1-GPTQ,gptq:TheBloke/Mistral-7B-v0.1-GPTQ@gptq-4bit-32g-actorder_True]"
 
 for DS in $DATASETS_ALL; do
     run $MISTRAL_TARGET $MISTRAL_GGUF "$MISTRAL_BITS" data.task=$DS data.num_samples=$N
@@ -53,6 +55,7 @@ done
 QWEN_TARGET="target.model=Qwen/Qwen3-8B"
 QWEN_GGUF="proxy.model=Qwen/Qwen3-8B-GGUF"
 QWEN_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,bnb:int8,bnb:nf4,bnb:fp4,gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
+QWEN_BITS="proxy.quantization_bits=[gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
 QWEN_MAXLEN="data.max_length=512"
 
 for DS in $DATASETS_ALL; do
