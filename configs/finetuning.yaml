@@ -1,0 +1,44 @@
+# PRISM — Instruction-Tuning Forgetting (Base vs Instruct)
+# Rotational Regime: W ∈ O(d), Procrustes alignment.
+#
+# Target = instruct model, Proxy = base model.
+# Measures geometric drift caused by instruction tuning.
+#
+# Usage:
+#   python run.py --config configs/finetuning.yaml
+#   python run.py --config configs/finetuning.yaml \
+#       target.model=NousResearch/Llama-2-7b-chat-hf \
+#       proxy.model=NousResearch/Llama-2-7b-hf \
+#       data.task=c4
+#
+# Model pairs (all verified architecture-compatible, hidden_size=4096):
+#   Llama-2:  target=NousResearch/Llama-2-7b-chat-hf   proxy=NousResearch/Llama-2-7b-hf
+#   Mistral:  target=mistralai/Mistral-7B-Instruct-v0.1 proxy=mistralai/Mistral-7B-v0.1
+#   Qwen3:    target=Qwen/Qwen3-8B                      proxy=Qwen/Qwen3-8B-Base
+#   OLMo-3:   target=allenai/Olmo-3-7B-Instruct         proxy=allenai/Olmo-3-1025-7B
+
+experiment: finetuning
+
+target:
+  model: NousResearch/Llama-2-7b-chat-hf
+  extractor: llm
+
+proxy:
+  model: NousResearch/Llama-2-7b-hf
+  extractor: llm
+
+data:
+  task: wikitext
+  split: test
+  num_samples: 128
+  batch_size: 8
+  max_length: 512
+
+alignment:
+  scale_absorbed: false
+
+output:
+  dir: ./results/finetuning
+
+device: cuda
+seed: 42
