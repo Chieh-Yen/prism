@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 6 datasets × 3 models, GGUF + BnB (NF4/FP4/INT8) + GPTQ
+# 6 datasets × 4 models, GGUF + BnB (NF4/FP4/INT8) + GPTQ
 # ============================================================
 set -euo pipefail
 
@@ -22,11 +22,14 @@ DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"
 # ============================================================
 # Model 1: Llama-2-7b  (GGUF + BnB + GPTQ)
 #   GPTQ main = 4bit-128g;  branch = 4bit-32g
+#   GPTQ: taharmasmaliyev07 8bit-128g (gptqmodel 5.6.12)
+#   No modern 4-bit GPTQ available for Llama-2-7B
 # ============================================================
 LLAMA_TARGET="target.model=NousResearch/Llama-2-7b-hf"
 LLAMA_GGUF="proxy.model=TheBloke/Llama-2-7b-GGUF"
-LLAMA_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:TheBloke/Llama-2-7B-GPTQ,gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]"
-LLAMA_BITS="proxy.quantization_bits=[gptq:TheBloke/Llama-2-7B-GPTQ,gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]"
+#LLAMA_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:TheBloke/Llama-2-7B-GPTQ,gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]"
+#LLAMA_BITS="proxy.quantization_bits=[gptq:TheBloke/Llama-2-7B-GPTQ,gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]"
+LLAMA_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:taharmasmaliyev07/Llama-2-7b-hf-gptq-int8]"
 
 for DS in $DATASETS_ALL; do
     run $LLAMA_TARGET $LLAMA_GGUF "$LLAMA_BITS" data.task=$DS data.num_samples=$N
@@ -34,13 +37,15 @@ done
 
 # ============================================================
 # Model 2: Mistral-7B-v0.1  (GGUF + BnB + GPTQ)
+#   GPTQ: taharmasmaliyev07 8bit-128g (gptqmodel 5.6.12)
 #   GPTQ main = 4bit-128g;  branch = 4bit-32g
-#   (8bit branches use Triton kernels that may crash — omitted)
+#   No modern 4-bit GPTQ available for Mistral-7B-v0.1
 # ============================================================
 MISTRAL_TARGET="target.model=mistralai/Mistral-7B-v0.1"
 MISTRAL_GGUF="proxy.model=TheBloke/Mistral-7B-v0.1-GGUF"
-MISTRAL_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:TheBloke/Mistral-7B-v0.1-GPTQ,gptq:TheBloke/Mistral-7B-v0.1-GPTQ@gptq-4bit-32g-actorder_True]"
-MISTRAL_BITS="proxy.quantization_bits=[gptq:TheBloke/Mistral-7B-v0.1-GPTQ,gptq:TheBloke/Mistral-7B-v0.1-GPTQ@gptq-4bit-32g-actorder_True]"
+#MISTRAL_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:TheBloke/Mistral-7B-v0.1-GPTQ,gptq:TheBloke/Mistral-7B-v0.1-GPTQ@gptq-4bit-32g-actorder_True]"
+#MISTRAL_BITS="proxy.quantization_bits=[gptq:TheBloke/Mistral-7B-v0.1-GPTQ,gptq:TheBloke/Mistral-7B-v0.1-GPTQ@gptq-4bit-32g-actorder_True]"
+MISTRAL_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,bnb:int8,bnb:nf4,bnb:fp4,gptq:taharmasmaliyev07/Mistral-7B-v0.1-gptq-int8]"
 
 for DS in $DATASETS_ALL; do
     run $MISTRAL_TARGET $MISTRAL_GGUF "$MISTRAL_BITS" data.task=$DS data.num_samples=$N
@@ -49,17 +54,33 @@ done
 # ============================================================
 # Model 3: Qwen3-8B  (GGUF + BnB + GPTQ, max_length=512)
 # Qwen3 has 151K vocab → needs shorter sequences on 20GB GPU
-# No Q3/Q2 GGUF available for Qwen3-8B
 #   GPTQ: AlphaGaO 4bit-128g + JunHowie Int8
+# No Q3/Q2 GGUF available for Qwen3-8B
+#   GPTQ: AlphaGaO 4bit-128g + JunHowie Int4/Int8
 # ============================================================
 QWEN_TARGET="target.model=Qwen/Qwen3-8B"
 QWEN_GGUF="proxy.model=Qwen/Qwen3-8B-GGUF"
-QWEN_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,bnb:int8,bnb:nf4,bnb:fp4,gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
-QWEN_BITS="proxy.quantization_bits=[gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
+#QWEN_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,bnb:int8,bnb:nf4,bnb:fp4,gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
+#QWEN_BITS="proxy.quantization_bits=[gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
+QWEN_BITS="proxy.quantization_bits=[Q8_0,Q6_K,Q5_K_M,Q4_K_M,bnb:int8,bnb:nf4,bnb:fp4,gptq:AlphaGaO/Qwen3-8B-GPTQ,gptq:JunHowie/Qwen3-8B-GPTQ-Int4,gptq:JunHowie/Qwen3-8B-GPTQ-Int8]"
 QWEN_MAXLEN="data.max_length=512"
 
 for DS in $DATASETS_ALL; do
     run $QWEN_TARGET $QWEN_GGUF "$QWEN_BITS" $QWEN_MAXLEN data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 4: OLMo-3-1025-7B  (BnB only)
+# Architecture: Olmo3ForCausalLM, vocab=100K, hidden=4096
+# GGUF: not supported (transformers GGUF loader lacks olmo2 arch)
+# GPTQ: not available for base model
+# ============================================================
+OLMO_TARGET="target.model=allenai/Olmo-3-1025-7B"
+OLMO_GGUF="proxy.model=allenai/Olmo-3-1025-7B"
+OLMO_BITS="proxy.quantization_bits=[bnb:int8,bnb:nf4,bnb:fp4]"
+
+for DS in $DATASETS_ALL; do
+    run $OLMO_TARGET $OLMO_GGUF "$OLMO_BITS" data.task=$DS data.num_samples=$N
 done
 
 echo "========================================"
