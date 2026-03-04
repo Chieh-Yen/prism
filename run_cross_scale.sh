@@ -66,7 +66,7 @@ run_qwen3() {
 
     QWEN_TARGET="target.model=Qwen/Qwen3-8B-Base"
     QWEN_PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
-    QWEN_MAXLEN="data.max_length=512"   # Qwen3 151K vocab → shorter seqs on 20GB GPU
+    QWEN_MAXLEN="data.max_length=1024"   # Qwen3 151K vocab → shorter seqs on 20GB GPU
 
     for DS in $DATASETS_ALL; do
         run "$QWEN_TARGET" "$QWEN_PROXIES" "$QWEN_MAXLEN" \
@@ -94,7 +94,7 @@ run_llama2() {
 
     LLAMA_TARGET="target.model=NousResearch/Llama-2-7b-hf"
     LLAMA_PROXIES="proxy.models=[TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T,mistralai/Mistral-7B-v0.1]"
-    LLAMA_MAXLEN="data.max_length=512"
+    LLAMA_MAXLEN="data.max_length=1024"
 
     for DS in $DATASETS_ALL; do
         run "$LLAMA_TARGET" "$LLAMA_PROXIES" "$LLAMA_MAXLEN" \
@@ -122,7 +122,7 @@ run_mistral() {
 
     MISTRAL_TARGET="target.model=mistralai/Mistral-7B-v0.1"
     MISTRAL_PROXIES="proxy.models=[TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T,NousResearch/Llama-2-7b-hf]"
-    MISTRAL_MAXLEN="data.max_length=512"
+    MISTRAL_MAXLEN="data.max_length=1024"
 
     for DS in $DATASETS_ALL; do
         run "$MISTRAL_TARGET" "$MISTRAL_PROXIES" "$MISTRAL_MAXLEN" \
