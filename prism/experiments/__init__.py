@@ -4,6 +4,7 @@ from .forgetting import ForgettingExperiment
 from .finetuning import FinetuningExperiment
 from .ood import OODExperiment
 from .merging import MergingExperiment
+from .cross_scale import CrossScaleExperiment
 
 EXPERIMENT_REGISTRY = {
     "quantization": QuantizationExperiment,
@@ -11,4 +12,5 @@ EXPERIMENT_REGISTRY = {
     "finetuning": FinetuningExperiment,
     "ood": OODExperiment,
     "merging": MergingExperiment,
+    "cross_scale": CrossScaleExperiment,
 }
