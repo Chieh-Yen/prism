@@ -1,0 +1,79 @@
+# PRISM — Cross-Scale Proxy Validation
+# Rotational Regime: W ∈ O(d), Procrustes alignment.
+#
+# Target = large model from a family (7B / 8B).
+# Proxy  = smaller models from the same family (0.6B, 1.7B, 4B, …).
+#
+# The experiment measures whether PRISM metrics computed on a small proxy
+# reliably predict the target model's risk, enabling cheap surrogate search.
+#
+# Tokenizer note
+# --------------
+# All proxies are evaluated with the TARGET model's tokenizer.
+# This is valid for same-family models that share a tokenizer (e.g., all
+# Qwen3 variants share the Qwen3 tokenizer).  Cross-family proxies with a
+# different vocabulary will trigger a head-vocab mismatch warning.
+#
+# Usage (default — Qwen3 family):
+#   python run.py --config configs/cross_scale.yaml
+#
+# Usage (Llama-2 family, TinyLlama proxy):
+#   python run.py --config configs/cross_scale.yaml \
+#       target.model=NousResearch/Llama-2-7b-hf \
+#       'proxy.models=[TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T]' \
+#       data.max_length=512
+#
+# Usage (override dataset):
+#   python run.py --config configs/cross_scale.yaml data.task=c4
+#
+# Supported model families (same tokenizer within a family):
+#
+#   Qwen3    : Qwen/Qwen3-0.6B-Base, Qwen/Qwen3-1.7B-Base, Qwen/Qwen3-4B-Base
+#              → Qwen/Qwen3-8B-Base  (shared Qwen3 tokenizer, vocab=151K)
+#              All Base variants: no instruction tuning, pure LM pre-training.
+#
+#   Llama-2  : TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+#              + mistralai/Mistral-7B-v0.1  (cross-arch, same vocab=32K)
+#              → NousResearch/Llama-2-7b-hf  (LlamaTokenizer, vocab=32K)
+#
+#   Mistral  : TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+#              + NousResearch/Llama-2-7b-hf  (cross-arch, same vocab=32K)
+#              → mistralai/Mistral-7B-v0.1  (LlamaTokenizer, vocab=32K)
+#
+#   Cross-arch note (Llama-2 ↔ Mistral):
+#     Both models share hidden_size=4096 and LlamaTokenizer (vocab=32K).
+#     Comparing them as mutual proxies reveals their feature-space geometry
+#     difference — high Ω means similar representations despite different
+#     training corpora and architecture details.
+
+experiment: cross_scale
+
+target:
+  model: Qwen/Qwen3-8B-Base
+  extractor: llm
+
+proxy:
+  extractor: llm
+  # List of proxy models (same family, smaller scale).
+  # Each entry can be a plain model ID string, or a dict with
+  # 'model' and optional 'label' keys.
+  models:
+    - Qwen/Qwen3-0.6B-Base
+    - Qwen/Qwen3-1.7B-Base
+    - Qwen/Qwen3-4B-Base
+
+data:
+  task: wikitext
+  split: test
+  num_samples: 128
+  batch_size: 4
+  max_length: 512
+
+alignment:
+  scale_absorbed: false   # true → ε_feat = √(2(1−Ω)), scale folded into head
+
+output:
+  dir: ./results/cross_scale
+
+device: cuda
+seed: 42
