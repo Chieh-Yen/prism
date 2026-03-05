@@ -104,25 +104,44 @@ class CLIPExtractor(FeatureExtractor):
 
 
 class LLMExtractor(FeatureExtractor):
-    """Feature extraction for causal language models (Llama, Mistral, …).
+    """Feature extraction for causal language models (Llama, Mistral, Gemma, …).
 
     Z = last hidden state after the final layer norm  (n_tokens, d)
     H = lm_head weight transposed to  (d, vocab_size)
+
+    Supported model structures
+    --------------------------
+    Standard causal LM (Llama / Mistral / Gemma-2 / Qwen / OLMo …):
+        model.model.embed_tokens   — transformer backbone at model.model
+        model.lm_head              — language model head
+
+    GPT-2 / GPT-Neo style:
+        model.transformer          — transformer backbone
+
+    Multimodal conditional-generation (Gemma-3 4B/12B/27B …):
+        model.language_model.model — LM backbone nested under language_model
+        model.language_model.lm_head
     """
 
     @staticmethod
     def _get_backbone(model: torch.nn.Module):
-        """Return the transformer backbone (before lm_head).
-
-        Supports Llama/Mistral (model.model), GPT-2/GPT-Neo (model.transformer).
-        """
+        """Return the transformer backbone (before lm_head)."""
+        # Standard causal LM: Llama / Mistral / Gemma-2 / Qwen / OLMo / Gemma-3 text-only
         if hasattr(model, "model") and hasattr(model.model, "embed_tokens"):
             return model.model
+        # GPT-2 / GPT-Neo style
         if hasattr(model, "transformer"):
             return model.transformer
+        # Multimodal conditional-generation: Gemma-3 4B/12B/27B (Gemma3ForConditionalGeneration)
+        if (hasattr(model, "language_model")
+                and hasattr(model.language_model, "model")
+                and hasattr(model.language_model.model, "embed_tokens")):
+            return model.language_model.model
         raise AttributeError(
             f"Cannot locate backbone in {type(model).__name__}. "
-            "Expected .model (Llama/Mistral) or .transformer (GPT-2)."
+            "Expected .model (Llama/Mistral/Gemma-2), "
+            ".transformer (GPT-2), or "
+            ".language_model.model (Gemma-3 multimodal)."
         )
 
     def extract_features(
@@ -165,8 +184,21 @@ class LLMExtractor(FeatureExtractor):
         model: torch.nn.Module,
         **kwargs,
     ) -> Tensor:
-        """Return (d, vocab_size)."""
-        head = model.lm_head.weight.data.cpu().float()  # (vocab, d)
+        """Return (d, vocab_size).
+
+        Handles both standard causal LM (.lm_head) and multimodal models
+        where the head is nested (.language_model.lm_head).
+        """
+        if hasattr(model, "lm_head"):
+            head = model.lm_head.weight.data.cpu().float()          # (vocab, d)
+        elif (hasattr(model, "language_model")
+              and hasattr(model.language_model, "lm_head")):
+            head = model.language_model.lm_head.weight.data.cpu().float()
+        else:
+            raise AttributeError(
+                f"Cannot locate lm_head in {type(model).__name__}. "
+                "Expected .lm_head or .language_model.lm_head."
+            )
         return head.T  # (d, vocab)
 
 

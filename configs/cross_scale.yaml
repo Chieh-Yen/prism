@@ -1,50 +1,57 @@
 # PRISM — Cross-Scale Proxy Validation
 # Rotational Regime: W ∈ O(d), Procrustes alignment.
 #
-# Target = large model from a family (7B / 8B).
-# Proxy  = smaller models from the same family (0.6B, 1.7B, 4B, …).
+# Target = large model from a family (7B / 8B / 9B / 12B).
+# Proxy  = smaller models from the same family (0.6B, 1.7B, 2B, 4B, …).
 #
 # The experiment measures whether PRISM metrics computed on a small proxy
 # reliably predict the target model's risk, enabling cheap surrogate search.
 #
-# Tokenizer note
-# --------------
-# All proxies are evaluated with the TARGET model's tokenizer.
-# This is valid for same-family models that share a tokenizer (e.g., all
-# Qwen3 variants share the Qwen3 tokenizer).  Cross-family proxies with a
-# different vocabulary will trigger a head-vocab mismatch warning.
+# Tokenizer policy
+# ----------------
+# Each model (target and proxy) is evaluated using its OWN tokenizer on the
+# same raw text documents.  cross_scale.py automatically detects whether
+# tokenizers are identical and reuses the target dataloader for efficiency.
 #
 # Usage (default — Qwen3 family):
 #   python run.py --config configs/cross_scale.yaml
 #
-# Usage (Llama-2 family, TinyLlama proxy):
+# Usage (Gemma-3 family):
 #   python run.py --config configs/cross_scale.yaml \
-#       target.model=NousResearch/Llama-2-7b-hf \
-#       'proxy.models=[TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T]' \
+#       target.model=google/gemma-3-12b-pt \
+#       'proxy.models=[google/gemma-3-270m,google/gemma-3-1b-pt,google/gemma-3-4b-pt]' \
 #       data.max_length=512
 #
 # Usage (override dataset):
 #   python run.py --config configs/cross_scale.yaml data.task=c4
 #
-# Supported model families (same tokenizer within a family):
+# Supported model families:
 #
-#   Qwen3    : Qwen/Qwen3-0.6B-Base, Qwen/Qwen3-1.7B-Base, Qwen/Qwen3-4B-Base
-#              → Qwen/Qwen3-8B-Base  (shared Qwen3 tokenizer, vocab=151K)
-#              All Base variants: no instruction tuning, pure LM pre-training.
+#   Qwen3        : Qwen/Qwen3-0.6B, Qwen/Qwen3-1.7B, Qwen/Qwen3-4B
+#                  → Qwen/Qwen3-8B  (Qwen3 tokenizer, vocab=151K)
 #
-#   Llama-2  : TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-#              + mistralai/Mistral-7B-v0.1  (cross-arch, same vocab=32K)
-#              → NousResearch/Llama-2-7b-hf  (LlamaTokenizer, vocab=32K)
+#   Llama-2      : TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+#                  + mistralai/Mistral-7B-v0.1  (cross-arch, same vocab=32K)
+#                  → NousResearch/Llama-2-7b-hf  (LlamaTokenizer, vocab=32K)
 #
-#   Mistral  : TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-#              + NousResearch/Llama-2-7b-hf  (cross-arch, same vocab=32K)
-#              → mistralai/Mistral-7B-v0.1  (LlamaTokenizer, vocab=32K)
+#   Mistral      : TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+#                  + NousResearch/Llama-2-7b-hf  (cross-arch, same vocab=32K)
+#                  → mistralai/Mistral-7B-v0.1  (LlamaTokenizer, vocab=32K)
 #
-#   Cross-arch note (Llama-2 ↔ Mistral):
-#     Both models share hidden_size=4096 and LlamaTokenizer (vocab=32K).
-#     Comparing them as mutual proxies reveals their feature-space geometry
-#     difference — high Ω means similar representations despite different
-#     training corpora and architecture details.
+#   Ministral-3  : mistralai/Ministral-3-3B-Base-2512  [no HF auth required]
+#                  → mistralai/Ministral-3-8B-Base-2512
+#                  (Tekken v7 tokenizer, vocab=131K; publicly accessible)
+#
+#   Gemma-2      : google/gemma-2-2b                   [Google HF auth required]
+#                  → google/gemma-2-9b
+#                  (Gemma SentencePiece tokenizer, vocab=256K)
+#
+#   Gemma-3      : google/gemma-3-270m, google/gemma-3-1b-pt, google/gemma-3-4b-pt
+#                  → google/gemma-3-12b-pt              [Google HF auth required]
+#                  (Gemma3 tokenizer, vocab=256K)
+#                  270M and 1B: text-only (Gemma3ForCausalLM)
+#                  4B, 12B: multimodal (Gemma3ForConditionalGeneration)
+#                  LLMExtractor handles both via _get_backbone / extract_head.
 
 experiment: cross_scale
 
