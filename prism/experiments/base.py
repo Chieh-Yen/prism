@@ -166,7 +166,7 @@ class BaseExperiment(ABC):
         answer_losses: list = []
         has_prompt = False
         all_grad_norms: list = []
-        CHUNK = 512
+        CHUNK = 512   # small chunk to keep peak VRAM low for large-vocab models (Gemma 256K, Qwen3 151K)
         ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
 
         with torch.no_grad():

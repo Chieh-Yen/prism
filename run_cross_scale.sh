@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Cross-Scale Proxy Validation Experiment Suite
-# 6 datasets × 6 model families (smaller proxy → larger target)
+# 6 datasets × 10 model families (smaller proxy → larger target)
 #
 # Scientific question: do PRISM metrics on a small proxy model
 # reliably predict the large target's performance?
@@ -9,48 +9,32 @@
 # Each model uses its OWN tokenizer for feature extraction and loss
 # computation (per-model tokenizer policy in cross_scale.py).
 #
-# Model families:
-#   Family 1 — Qwen3-Base  (Qwen3 tokenizer, vocab=151K)
-#     Target : Qwen/Qwen3-8B
-#     Proxies: Qwen/Qwen3-0.6B, Qwen/Qwen3-1.7B, Qwen/Qwen3-4B
+# ── Qwen families (all use Qwen tokenizer, vocab=151K) ──────────────
+#   qwen25      — Qwen2.5 Instruct: 0.5B/1.5B/3B-Instruct → 7B-Instruct
+#   qwen25base  — Qwen2.5 Base:     0.5B/1.5B/3B           → 7B
+#   qwen3       — Qwen3  (thinking): 0.6B/1.7B/4B          → 8B
+#   qwen3base   — Qwen3  Base:      0.6B-Base/1.7B-Base/4B-Base → 8B-Base
 #
-#   Family 2 — Llama-2  (LlamaTokenizer, vocab=32K)
-#     Target : NousResearch/Llama-2-7b-hf
-#     Proxies: TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-#              mistralai/Mistral-7B-v0.1  [cross-arch, same vocab=32K]
-#
-#   Family 3 — Mistral  (LlamaTokenizer, vocab=32K)
-#     Target : mistralai/Mistral-7B-v0.1
-#     Proxies: TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
-#              NousResearch/Llama-2-7b-hf  [cross-arch, same vocab=32K]
-#
-#   Family 4 — Ministral-3  (Tekken tokenizer, vocab=131K)  [NO auth required]
-#     Target : mistralai/Ministral-3-8B-Base-2512
-#     Proxies: mistralai/Ministral-3-3B-Base-2512
-#
-#   Family 5 — Gemma-2  (Gemma tokenizer, vocab=256K)  [requires Google HF auth]
-#     Target : google/gemma-2-9b
-#     Proxies: google/gemma-2-2b
-#
-#   Family 6 — Gemma-3  (Gemma3 tokenizer, vocab=256K) [requires Google HF auth]
-#     Target : google/gemma-3-12b-pt
-#     Proxies: google/gemma-3-270m, google/gemma-3-1b-pt, google/gemma-3-4b-pt
-#     Note: 270M and 1B are text-only; 4B and 12B are multimodal
-#           (Gemma3ForConditionalGeneration) — LLMExtractor handles both.
+# ── Other families ───────────────────────────────────────────────────
+#   llama2      — Llama-2 (vocab=32K) + cross-arch Mistral proxy
+#   mistral     — Mistral-7B (vocab=32K) + cross-arch Llama-2 proxy
+#   ministral3  — Ministral-3 2512 (multimodal wrapper, vocab=131K)
+#   gemma2      — Gemma-2 2B→9B (vocab=256K)  [Google HF auth required]
+#   gemma3      — Gemma-3 270M/1B/4B→12B-pt   [Google HF auth required]
 #
 # Usage:
 #   bash run_cross_scale.sh
-#   CUDA_GPU=0 bash run_cross_scale.sh
-#   FAMILIES="qwen3" bash run_cross_scale.sh           # run only one family
-#   FAMILIES="ministral3 gemma2 gemma3" bash run_cross_scale.sh
+#   CUDA_GPU=1 bash run_cross_scale.sh
+#   FAMILIES="qwen25 qwen25base qwen3 qwen3base" bash run_cross_scale.sh
+#   FAMILIES="gemma2 gemma3" bash run_cross_scale.sh
 # ============================================================
 set -euo pipefail
 
-GPU="${CUDA_GPU:-1}"
+GPU="${CUDA_GPU:-0}"
 N="${NUM_SAMPLES:-128}"
 CFG="configs/cross_scale.yaml"
 LOG="screen_cross_scale.log"
-FAMILIES="${FAMILIES:-qwen3 llama2 mistral ministral3 gemma2 gemma3}"
+FAMILIES="${FAMILIES:-qwen25 qwen25base qwen3 qwen3base llama2 mistral ministral3 gemma2 gemma3}"
 
 run() {
     echo ">>> $*" | tee -a "$LOG"
@@ -60,27 +44,91 @@ run() {
 DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"
 
 # ============================================================
-# Family 1: Qwen3-Base  (pure pre-trained, no instruction tuning)
-# All Qwen3-Base models share tokenizer and vocab (151K tokens).
-# Proxies cover 0.6B → 1.7B → 4B vs target 8B-Base.
+# Qwen families — all share Qwen tokenizer (vocab=151K).
+# max_length=1024 to keep logit peak VRAM manageable on 20GB GPUs.
 # ============================================================
+
+# ── Qwen2.5 Instruct ─────────────────────────────────────────────────
+# Instruction-tuned models; useful for Q&A datasets (GSM8K, MMLU, ARC).
+# Target : Qwen/Qwen2.5-7B-Instruct
+# Proxies: Qwen/Qwen2.5-0.5B-Instruct, 1.5B-Instruct, 3B-Instruct
+run_qwen25() {
+    echo "" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+    echo "  Qwen2.5 Instruct  (target=Qwen2.5-7B-Instruct)" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+
+    TARGET="target.model=Qwen/Qwen2.5-7B-Instruct"
+    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-3B-Instruct]"
+    MAXLEN="data.max_length=1024"
+
+    for DS in $DATASETS_ALL; do
+        run "$TARGET" "$PROXIES" "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25
+    done
+}
+
+# ── Qwen2.5 Base ─────────────────────────────────────────────────────
+# Pure pre-trained base models; cleaner comparison for LM perplexity.
+# Target : Qwen/Qwen2.5-7B
+# Proxies: Qwen/Qwen2.5-0.5B, 1.5B, 3B
+run_qwen25base() {
+    echo "" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+    echo "  Qwen2.5 Base  (target=Qwen2.5-7B)" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+
+    TARGET="target.model=Qwen/Qwen2.5-7B"
+    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-3B]"
+    MAXLEN="data.max_length=1024"
+
+    for DS in $DATASETS_ALL; do
+        run "$TARGET" "$PROXIES" "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25base
+    done
+}
+
+# ── Qwen3 (thinking / non-base) ──────────────────────────────────────
+# Default Qwen3 models (thinking mode enabled by default in chat templates).
+# Target : Qwen/Qwen3-8B
+# Proxies: Qwen/Qwen3-0.6B, 1.7B, 4B
 run_qwen3() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Family 1: Qwen3-Base  (target=Qwen3-8B-Base)" | tee -a "$LOG"
+    echo "  Qwen3 (thinking)  (target=Qwen3-8B)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-
-    # QWEN_TARGET="target.model=Qwen/Qwen3-8B-Base"
-    # QWEN_PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
-    QWEN_TARGET="target.model=Qwen/Qwen3-8B"
-    QWEN_PROXIES="proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B,Qwen/Qwen3-4B]"
-    QWEN_MAXLEN="data.max_length=1024"   # Qwen3 151K vocab → shorter seqs on 20GB GPU
+    TARGET="target.model=Qwen/Qwen3-8B"
+    PROXIES="proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B,Qwen/Qwen3-4B]"
+    MAXLEN="data.max_length=1024"
 
     for DS in $DATASETS_ALL; do
-        run "$QWEN_TARGET" "$QWEN_PROXIES" "$QWEN_MAXLEN" \
+        run "$TARGET" "$PROXIES" "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
             output.dir=./results/cross_scale/qwen3
+    done
+}
+
+# ── Qwen3 Base ───────────────────────────────────────────────────────
+# Pure pre-trained base; matches Qwen2.5-Base for apples-to-apples comparison.
+# Target : Qwen/Qwen3-8B-Base
+# Proxies: Qwen/Qwen3-0.6B-Base, 1.7B-Base, 4B-Base
+run_qwen3base() {
+    echo "" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+    echo "  Qwen3 Base  (target=Qwen3-8B-Base)" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+
+    TARGET="target.model=Qwen/Qwen3-8B-Base"
+    PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
+    MAXLEN="data.max_length=1024"
+
+    for DS in $DATASETS_ALL; do
+        run "$TARGET" "$PROXIES" "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3base
     done
 }
 
@@ -156,7 +204,9 @@ run_ministral3() {
 
     M3_TARGET="target.model=mistralai/Ministral-3-8B-Base-2512"
     M3_PROXIES="proxy.models=[mistralai/Ministral-3-3B-Base-2512]"
-    M3_MAXLEN="data.max_length=1024"   # Tekken 131K vocab → same as Qwen3 precaution
+    # Ministral-3 2512 uses Mistral3ForConditionalGeneration (multimodal wrapper).
+    # Text backbone lives at model.language_model — extra memory vs pure causal LM.
+    M3_MAXLEN="data.max_length=512"
 
     for DS in $DATASETS_ALL; do
         run "$M3_TARGET" "$M3_PROXIES" "$M3_MAXLEN" \
@@ -228,14 +278,17 @@ run_gemma3() {
 # ============================================================
 for FAMILY in $FAMILIES; do
     case "$FAMILY" in
+        qwen25)     run_qwen25     ;;
+        qwen25base) run_qwen25base ;;
         qwen3)      run_qwen3      ;;
+        qwen3base)  run_qwen3base  ;;
         llama2)     run_llama2     ;;
         mistral)    run_mistral    ;;
         ministral3) run_ministral3 ;;
         gemma2)     run_gemma2     ;;
         gemma3)     run_gemma3     ;;
         *)
-            echo "Unknown family '$FAMILY'. Choose from: qwen3 llama2 mistral ministral3 gemma2 gemma3" >&2
+            echo "Unknown family '$FAMILY'. Choose from: qwen25 qwen25base qwen3 qwen3base llama2 mistral ministral3 gemma2 gemma3" >&2
             exit 1
             ;;
     esac
