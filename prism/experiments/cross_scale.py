@@ -2,7 +2,7 @@
 Cross-Scale Proxy Validation — Rotational Regime (W ∈ O(d)).
 
 Target = large model from a family (e.g., 7B / 8B).
-Proxy  = smaller models from the same family (0.6B, 1.7B, 3B, 4B, …).
+Proxy  = smaller models from the same or a different family.
 
 Uses Procrustes alignment (W ∈ O(d)) to bridge different hidden dimensions
 and measures whether PRISM metrics on each proxy predict the target's risk.
@@ -17,15 +17,23 @@ Simplified bound (Theorem 1 / Rotational Regime):
     |R_T − R_P| ≤ K_feat · √[(ρ_T − ρ_P)² + 2 ρ_T ρ_P (1 − Ω)]
                 + K_pred · ‖Σ_P^{1/2}(W H_T − H_P)‖_F
 
-Tokenizer note
---------------
-All proxy models are evaluated with the TARGET model's tokenizer so that
-text representations are consistent across the experiment.  This is valid
-for same-family models (e.g., Qwen3-0.6B … Qwen3-8B all share the Qwen3
-tokenizer).  Cross-family proxies with a different vocabulary trigger a
-vocab-mismatch warning; the head matrices are truncated to the shared
-prefix length in that case, which may reduce the accuracy of the head
-discrepancy metric.
+Tokenizer policy
+----------------
+Each model is evaluated using its **own tokenizer** on the same raw text
+documents.  This ensures:
+
+  1. Each model's loss is computed on sequences it was actually trained on,
+     so Loss_T and Loss_P are semantically comparable.
+  2. Feature vectors Z_T[i] and Z_P[i] both represent the same document i
+     (just tokenised differently), satisfying PRISM's row-alignment requirement.
+
+When a proxy tokenizer matches the target's (same-family models), the same
+pre-built dataloader is reused as an optimisation.  A difference is detected
+by tokenising a short test string and comparing the resulting IDs.
+
+Cross-family models with different vocabulary sizes trigger a vocab-mismatch
+warning for the head discrepancy metric; both head matrices are truncated to
+the shared prefix length in that case.
 
 Config example
 --------------
@@ -61,6 +69,12 @@ from .base import BaseExperiment
 # ======================================================================
 # Helpers
 # ======================================================================
+
+def _same_tokenizer(tok_a, tok_b) -> bool:
+    """Return True if two tokenizers produce identical token IDs on a test string."""
+    test = "The quick brown fox jumped over the lazy dog. 1+1=2."
+    return tok_a.encode(test) == tok_b.encode(test)
+
 
 def _parse_proxy_entries(entries: List[Union[str, Dict]]) -> List[Dict[str, str]]:
     """Normalise each proxy entry to ``{"model": ..., "label": ...}``."""
@@ -153,7 +167,7 @@ class CrossScaleExperiment(BaseExperiment):
         print(f"  Dataset: {task_name}  (n={num_samples}, max_len={max_length})")
 
         # ----------------------------------------------------------------
-        # Tokenizer (always from target — ensures consistent tokenisation)
+        # Tokenizer — target model's tokenizer for target's dataloader
         # ----------------------------------------------------------------
         print(f"\nLoading tokenizer from {target_model_id} ...")
         tokenizer = AutoTokenizer.from_pretrained(
@@ -162,8 +176,8 @@ class CrossScaleExperiment(BaseExperiment):
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-        print(f"Loading data: {task_name} (n={num_samples}) ...")
-        dataloader = load_task_data(
+        print(f"Loading data (target tokenizer): {task_name} (n={num_samples}) ...")
+        target_dataloader = load_task_data(
             task_name, split="test", num_samples=num_samples,
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
         )
@@ -177,19 +191,19 @@ class CrossScaleExperiment(BaseExperiment):
         print(f"Loading target (FP16): {target_model_id} ...")
         target_model = AutoModelForCausalLM.from_pretrained(
             target_model_id,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
             device_map=self.device,
             trust_remote_code=True,
         )
         target_model.eval()
 
         print("Extracting target features ...")
-        Z_T = extractor.extract_features(target_model, dataloader, self.device)
+        Z_T = extractor.extract_features(target_model, target_dataloader, self.device)
         H_T = extractor.extract_head(target_model)
 
         print("Computing target loss ...")
         loss_stats_T = self.compute_lm_loss_per_sample(
-            target_model, dataloader, self.device,
+            target_model, target_dataloader, self.device,
         )
         losses_T = loss_stats_T["losses"]
         loss_target = losses_T.mean().item()
@@ -266,17 +280,36 @@ class CrossScaleExperiment(BaseExperiment):
 
             proxy_model = None
             try:
+                # ---- per-proxy tokenizer and dataloader ----
+                print(f"  Loading proxy tokenizer from {proxy_model_id} ...")
+                proxy_tokenizer = AutoTokenizer.from_pretrained(
+                    proxy_model_id, trust_remote_code=True,
+                )
+                if proxy_tokenizer.pad_token is None:
+                    proxy_tokenizer.pad_token = proxy_tokenizer.eos_token
+
+                if _same_tokenizer(tokenizer, proxy_tokenizer):
+                    print(f"  Tokenizer: same as target — reusing target dataloader")
+                    proxy_dataloader = target_dataloader
+                else:
+                    print(f"  Tokenizer: differs from target — building proxy-specific dataloader")
+                    proxy_dataloader = load_task_data(
+                        task_name, split="test", num_samples=num_samples,
+                        batch_size=batch_size, tokenizer=proxy_tokenizer,
+                        max_length=max_length,
+                    )
+
                 print(f"  Loading proxy (FP16): {proxy_model_id} ...")
                 proxy_model = AutoModelForCausalLM.from_pretrained(
                     proxy_model_id,
-                    torch_dtype=torch.float16,
+                    dtype=torch.float16,
                     device_map=self.device,
                     trust_remote_code=True,
                 )
                 proxy_model.eval()
 
                 print("  Extracting proxy features ...")
-                Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
+                Z_P = extractor.extract_features(proxy_model, proxy_dataloader, self.device)
 
                 if not torch.isfinite(Z_P).all():
                     print(f"  WARNING: proxy features contain NaN/Inf — skipping {proxy_label}")
@@ -286,7 +319,7 @@ class CrossScaleExperiment(BaseExperiment):
 
                 print("  Computing proxy loss ...")
                 loss_stats_P = self.compute_lm_loss_per_sample(
-                    proxy_model, dataloader, self.device,
+                    proxy_model, proxy_dataloader, self.device,
                 )
                 loss_proxy = loss_stats_P["losses"].mean().item()
                 ppl_proxy = math.exp(loss_proxy)

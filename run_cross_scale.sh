@@ -40,7 +40,7 @@
 # ============================================================
 set -euo pipefail
 
-GPU="${CUDA_GPU:-0}"
+GPU="${CUDA_GPU:-1}"
 N="${NUM_SAMPLES:-128}"
 CFG="configs/cross_scale.yaml"
 LOG="screen_cross_scale.log"
@@ -66,6 +66,8 @@ run_qwen3() {
 
     QWEN_TARGET="target.model=Qwen/Qwen3-8B-Base"
     QWEN_PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
+    QWEN_TARGET="target.model=Qwen/Qwen3-8B"
+    QWEN_PROXIES="proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B,Qwen/Qwen3-4B]"
     QWEN_MAXLEN="data.max_length=1024"   # Qwen3 151K vocab → shorter seqs on 20GB GPU
 
     for DS in $DATASETS_ALL; do
