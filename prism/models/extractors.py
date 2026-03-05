@@ -121,27 +121,51 @@ class LLMExtractor(FeatureExtractor):
     Multimodal conditional-generation (Gemma-3 4B/12B/27B …):
         model.language_model.model — LM backbone nested under language_model
         model.language_model.lm_head
+
+    Multimodal conditional-generation (Mistral3 / Ministral-3 2512 …):
+        model.model.language_model — text backbone inside Mistral3Model wrapper
+        model.lm_head              — LM head at the outer model level
     """
 
     @staticmethod
     def _get_backbone(model: torch.nn.Module):
-        """Return the transformer backbone (before lm_head)."""
-        # Standard causal LM: Llama / Mistral / Gemma-2 / Qwen / OLMo / Gemma-3 text-only
+        """Return the transformer backbone (before lm_head).
+
+        Probe order (most-specific first):
+          1. model.model.embed_tokens       — standard causal LM (Llama/Mistral/Gemma-2/Qwen)
+          2. model.transformer              — GPT-2 / GPT-Neo
+          3. model.language_model.model     — Gemma-3 4B/12B/27B multimodal
+          4. model.language_model           — multimodal with flat backbone (embed_tokens at top)
+          5. model.model.language_model     — Mistral3ForConditionalGeneration
+             (Mistral3Model wrapper → MistralModel backbone)
+        """
+        # 1. Standard causal LM
         if hasattr(model, "model") and hasattr(model.model, "embed_tokens"):
             return model.model
-        # GPT-2 / GPT-Neo style
+        # 2. GPT-2 / GPT-Neo style
         if hasattr(model, "transformer"):
             return model.transformer
-        # Multimodal conditional-generation: Gemma-3 4B/12B/27B (Gemma3ForConditionalGeneration)
+        # 3. Gemma-3 4B/12B/27B: Gemma3ForConditionalGeneration
+        #    backbone at model.language_model.model
         if (hasattr(model, "language_model")
                 and hasattr(model.language_model, "model")
                 and hasattr(model.language_model.model, "embed_tokens")):
             return model.language_model.model
+        # 4. Flat multimodal: backbone IS model.language_model (embed_tokens directly)
+        if (hasattr(model, "language_model")
+                and hasattr(model.language_model, "embed_tokens")):
+            return model.language_model
+        # 5. Mistral3ForConditionalGeneration:
+        #    model.model = Mistral3Model (vision + language wrapper)
+        #    model.model.language_model = MistralModel (text backbone, has embed_tokens)
+        if (hasattr(model, "model")
+                and hasattr(model.model, "language_model")
+                and hasattr(model.model.language_model, "embed_tokens")):
+            return model.model.language_model
         raise AttributeError(
             f"Cannot locate backbone in {type(model).__name__}. "
-            "Expected .model (Llama/Mistral/Gemma-2), "
-            ".transformer (GPT-2), or "
-            ".language_model.model (Gemma-3 multimodal)."
+            "Tried: .model, .transformer, .language_model.model, "
+            ".language_model, .model.language_model."
         )
 
     def extract_features(

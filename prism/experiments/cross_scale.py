@@ -53,12 +53,13 @@ Config example
 from __future__ import annotations
 
 import gc
+import importlib
 import math
 import time
 from typing import Any, Dict, List, Optional, Union
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..core.bounds import UnifiedBound
 from ..data.loaders import load_task_data
@@ -69,6 +70,87 @@ from .base import BaseExperiment
 # ======================================================================
 # Helpers
 # ======================================================================
+
+def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = True):
+    """Load a CausalLM with a fallback for config types not yet in AutoModelForCausalLM.
+
+    Some newly-released models have their config class registered in transformers
+    under a slightly different name than the one mapped in AutoModelForCausalLM.
+    For example, Ministral-3 2512 models ship with ``"model_type": "mistral3"``
+    in config.json, which resolves to ``Mistral3Config``, but the auto-class
+    registry only contains ``Ministral3Config`` (note the extra 'in').
+
+    Strategy (in order):
+      1. Standard AutoModelForCausalLM.from_pretrained — fastest path.
+      2. Config-class alias table: for known naming mismatches, import the
+         corresponding *ForCausalLM class and call from_pretrained with it.
+      3. Derive *ForCausalLM from the config class name directly (catches
+         future model types where the naming is consistent but the auto
+         registry is simply out of date).
+    """
+    # Known config-class name → (module_path, model_class_name) aliases.
+    # Used when the model's config.json model_type and the auto-registry key differ.
+    _CONFIG_ALIASES: dict = {
+        # Mistral3Config is a MULTIMODAL config (vision + text backbone).
+        # Mistral3ForConditionalGeneration wraps a Mistral text LM under
+        # model.language_model, the same nested structure as Gemma 3 4B/12B.
+        # LLMExtractor._get_backbone / extract_head already handle this path.
+        "Mistral3Config": ("transformers.models.mistral3.modeling_mistral3",
+                           "Mistral3ForConditionalGeneration"),
+    }
+
+    try:
+        return AutoModelForCausalLM.from_pretrained(
+            model_id,
+            dtype=dtype,
+            device_map=device_map,
+            trust_remote_code=trust_remote_code,
+        )
+    except ValueError as exc:
+        if "Unrecognized configuration class" not in str(exc):
+            raise
+
+        cfg = AutoConfig.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+        cfg_cls = type(cfg)
+        cfg_cls_name = cfg_cls.__name__
+
+        # --- Strategy 2: alias table ---
+        if cfg_cls_name in _CONFIG_ALIASES:
+            mod_path, cls_name = _CONFIG_ALIASES[cfg_cls_name]
+            try:
+                mod = importlib.import_module(mod_path)
+                causal_cls = getattr(mod, cls_name)
+                print(f"  [AutoModel fallback] {cfg_cls_name} → {cls_name}")
+                return causal_cls.from_pretrained(
+                    model_id,
+                    config=cfg,
+                    dtype=dtype,
+                    device_map=device_map,
+                    trust_remote_code=trust_remote_code,
+                )
+            except (ImportError, AttributeError) as alias_exc:
+                print(f"  [AutoModel fallback] alias failed ({alias_exc}), trying strategy 3")
+
+        # --- Strategy 3: derive *ForCausalLM from same module as the config ---
+        causal_name = cfg_cls_name.replace("Config", "ForCausalLM")
+        parent_module_path = ".".join(cfg_cls.__module__.split(".")[:-1])
+        try:
+            parent_mod = importlib.import_module(parent_module_path)
+            causal_cls = getattr(parent_mod, causal_name)
+            print(f"  [AutoModel fallback] Using {causal_cls.__name__} directly.")
+            return causal_cls.from_pretrained(
+                model_id,
+                dtype=dtype,
+                device_map=device_map,
+                trust_remote_code=trust_remote_code,
+            )
+        except (ImportError, AttributeError):
+            raise ValueError(
+                f"Cannot load {model_id}: config class {cfg_cls_name} is not mapped "
+                f"in AutoModelForCausalLM and no fallback class was found. "
+                f"Consider upgrading transformers. Original error: {exc}"
+            ) from exc
+
 
 def _same_tokenizer(tok_a, tok_b) -> bool:
     """Return True if two tokenizers produce identical token IDs on a test string."""
@@ -189,11 +271,10 @@ class CrossScaleExperiment(BaseExperiment):
         # ================================================================
         print(f"\n--- Phase 1: Target ---")
         print(f"Loading target (FP16): {target_model_id} ...")
-        target_model = AutoModelForCausalLM.from_pretrained(
+        target_model = _load_causal_lm(
             target_model_id,
             dtype=torch.float16,
             device_map=self.device,
-            trust_remote_code=True,
         )
         target_model.eval()
 
@@ -300,11 +381,10 @@ class CrossScaleExperiment(BaseExperiment):
                     )
 
                 print(f"  Loading proxy (FP16): {proxy_model_id} ...")
-                proxy_model = AutoModelForCausalLM.from_pretrained(
+                proxy_model = _load_causal_lm(
                     proxy_model_id,
                     dtype=torch.float16,
                     device_map=self.device,
-                    trust_remote_code=True,
                 )
                 proxy_model.eval()
 
