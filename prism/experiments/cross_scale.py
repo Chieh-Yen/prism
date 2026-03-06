@@ -262,6 +262,7 @@ class CrossScaleExperiment(BaseExperiment):
         target_dataloader = load_task_data(
             task_name, split="test", num_samples=num_samples,
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
+            seed=self.seed,
         )
 
         extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
@@ -379,7 +380,7 @@ class CrossScaleExperiment(BaseExperiment):
                     proxy_dataloader = load_task_data(
                         task_name, split="test", num_samples=num_samples,
                         batch_size=batch_size, tokenizer=proxy_tokenizer,
-                        max_length=max_length,
+                        max_length=max_length, seed=self.seed,
                     )
 
                 print(f"  Loading proxy: {proxy_model_id} ...")

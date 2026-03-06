@@ -326,6 +326,7 @@ class QuantizationExperiment(BaseExperiment):
         dataloader = load_task_data(
             task_name, split="test", num_samples=num_samples,
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
+            seed=self.seed,
         )
 
         # --- Phase 1: load target, extract everything, then free VRAM ---

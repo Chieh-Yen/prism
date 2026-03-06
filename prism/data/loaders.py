@@ -214,6 +214,7 @@ def load_task_data(
     tokenizer=None,
     max_length: int = 512,
     shuffle: bool = False,
+    seed: Optional[int] = None,
 ) -> DataLoader:
     """Load a task dataset and return a ready-to-use DataLoader.
 
@@ -226,7 +227,10 @@ def load_task_data(
         transform:   Image transform (for vision tasks).
         tokenizer:   HuggingFace tokenizer (required for text tasks).
         max_length:  Maximum token length for text tasks.
-        shuffle:     Whether to shuffle.
+        shuffle:     Whether to shuffle the DataLoader across epochs.
+        seed:        Random seed for reproducible dataset-level shuffling
+                     before selecting ``num_samples``.  Ignored for
+                     streaming datasets (e.g. c4) where order is fixed.
     """
     from datasets import load_dataset  # lazy import to keep startup fast
 
@@ -245,11 +249,17 @@ def load_task_data(
     hf_dataset = load_dataset(meta["hf_id"], **load_kwargs)
 
     if meta.get("streaming"):
+        # Streaming datasets (c4): take first N rows; shuffle not supported.
         rows = list(hf_dataset.take(num_samples or 256))
         from datasets import Dataset as HFDataset
         hf_dataset = HFDataset.from_list(rows)
-    elif num_samples is not None and num_samples < len(hf_dataset):
-        hf_dataset = hf_dataset.select(range(num_samples))
+    else:
+        # Shuffle before selecting so the chosen N samples are random but
+        # reproducible.  Skip when seed is None to preserve legacy behaviour.
+        if seed is not None:
+            hf_dataset = hf_dataset.shuffle(seed=seed)
+        if num_samples is not None and num_samples < len(hf_dataset):
+            hf_dataset = hf_dataset.select(range(num_samples))
 
     is_text = "text_key" in meta or "formatter" in meta
     if is_text:
@@ -262,7 +272,6 @@ def load_task_data(
             hf_dataset, tokenizer,
             text_key=meta.get("text_key", "text"),
             max_length=max_length,
-            num_samples=num_samples,
             formatter=fmt_fn,
             prompt_formatter=pfmt_fn,
         )

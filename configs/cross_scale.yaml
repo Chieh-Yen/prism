@@ -72,9 +72,9 @@ proxy:
 data:
   task: wikitext
   split: test
-  num_samples: 128
+  num_samples: 512
   batch_size: 4
-  max_length: 512
+  max_length: 1024
 
 alignment:
   scale_absorbed: false   # true → ε_feat = √(2(1−Ω)), scale folded into head

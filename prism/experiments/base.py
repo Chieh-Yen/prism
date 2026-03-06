@@ -456,10 +456,10 @@ class BaseExperiment(ABC):
         absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
 
         # Shared geometry columns (same for all modes)
-        geo_fields = ["target_model", "proxy_model", "dataset", "Label", "rho_T", "Omega"]
+        geo_fields = ["target_model", "proxy_model", "dataset", "Label", "rho_T", "rho_P", "Omega"]
         if not absorbed:
             geo_fields.append("Scale")
-        geo_fields += ["Shape", "Head", "Bound"]
+        geo_fields += ["Shape", "Feature", "Head", "Bound"]
 
         if loss_mode == "answer":
             loss_fields = ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
@@ -479,8 +479,10 @@ class BaseExperiment(ABC):
                     "dataset": r.extra.get("dataset", ""),
                     "Label": r.label,
                     "rho_T": r.extra.get("rho_T", ""),
+                    "rho_P": r.rho_proxy,
                     "Omega": r.omega,
                     "Shape": r.shape_mismatch,
+                    "Feature": r.feature_error,
                     "Head": r.head_discrepancy,
                     "Bound": r.risk_bound_total if r.risk_bound_total is not None else "",
                     "K_f": r.extra.get("K_feat_tight", ""),
