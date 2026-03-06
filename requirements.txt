@@ -1,31 +1,70 @@
 # ============================================================
 # PRISM — pinned dependencies (from conda env solver311)
 #
-# torch CUDA build (cu128) must be installed separately:
-#   pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cu128
-#   pip install -r requirements.txt
+# ⚠️  GPTQModel MUST be installed separately after torch.
+#     Its setup.py detects the torch version at BUILD time,
+#     so torch must already exist in the target environment.
+#
+# Recommended: use install.sh (handles the correct order)
+#
+#   bash install.sh
+#
+# Or manually:
+#   Step 1 — torch (CUDA 12.8 wheel, must come first):
+#     pip install torch==2.10.0 torchaudio==2.10.0 torchvision==0.25.0 \
+#         --index-url https://download.pytorch.org/whl/cu128
+#
+#   Step 2 — everything else:
+#     pip install -r requirements.txt
+#
+#   Step 3 — GPTQModel (requires torch at build time):
+#     pip install GPTQModel==5.7.0 --no-build-isolation
+#
+#   --no-build-isolation bypasses pip's isolated build sandbox,
+#   allowing GPTQModel's setup.py to detect the pre-installed torch.
 # ============================================================
 
-# Core ML
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+# ── Core ML ──────────────────────────────────────────────────
 torch==2.10.0
+torchaudio==2.10.0
+torchvision==0.25.0
+triton==3.6.0
+torchao==0.16.0
+
+# ── Transformers ecosystem ────────────────────────────────────
 transformers==5.2.0
 tokenizers==0.22.2
 accelerate==1.12.0
+safetensors==0.7.0
+peft==0.18.1
+optimum==2.1.0
+sentencepiece==0.2.1
 
-# Datasets
+# ── Datasets ──────────────────────────────────────────────────
 datasets==4.5.0
-huggingface-hub==1.5.0
+huggingface_hub==1.5.0
+evaluate==0.4.6
 
-# Quantization
+# ── Quantization (standard) ──────────────────────────────────
 bitsandbytes==0.49.2
 gguf==0.17.1
-GPTQModel==5.7.0
-optimum==2.1.0
+auto-gptq==0.5.1
+# GPTQModel==5.7.0 is NOT listed here intentionally.
+# Install it separately AFTER torch:
+#   pip install GPTQModel==5.7.0 --no-build-isolation
 
-# Config / utils
-pyyaml==6.0.3
+# ── Numerics / data ───────────────────────────────────────────
 numpy==2.2.6
-tqdm==4.67.3
-pandas==3.0.0
 scipy==1.17.0
+pandas==3.0.0
+scikit-learn==1.8.0
+
+# ── Visualisation ─────────────────────────────────────────────
 matplotlib==3.10.8
+
+# ── Config / utils ────────────────────────────────────────────
+pyyaml==6.0.3
+tqdm==4.67.3
+protobuf==6.33.5
