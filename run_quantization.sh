@@ -205,6 +205,154 @@ for DS in $DATASETS_ALL; do
         data.task=$DS data.num_samples=$N
 done
 
+# ============================================================
+# Model 7: DeepSeek-R1-Distill-Llama-8B  (Distilled / Reasoning)
+# Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
+# GGUF  : bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF
+#          files: DeepSeek-R1-Distill-Llama-8B-{quant}.gguf
+# GPTQ  : jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4  INT4-g128  community
+#          (no tier-1 provider GPTQ confirmed at time of writing)
+# ============================================================
+DSR1_TARGET="target.model=deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+DSR1_GGUF="proxy.model=bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF"
+DSR1_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4]"
+
+for DS in $DATASETS_ALL; do
+    run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 8: Qwen2.5-7B  (Base)
+# Arch  : Qwen2ForCausalLM, vocab=151K, hidden=3584
+# GGUF  : QuantFactory/Qwen2.5-7B-GGUF  (community)
+#          files: Qwen2.5-7B.{quant}.gguf  (QuantFactory dot convention)
+#          explicit gguf_template required — auto-derive uses dash separator
+# GPTQ  : no confirmed public repo for the base model — omitted
+# ============================================================
+QWEN25B_TARGET="target.model=Qwen/Qwen2.5-7B"
+QWEN25B_GGUF="proxy.model=QuantFactory/Qwen2.5-7B-GGUF"
+QWEN25B_TPL="proxy.gguf_template=Qwen2.5-7B.{quant}.gguf"
+QWEN25B_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4]"
+
+for DS in $DATASETS_ALL; do
+    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 9: Qwen2.5-7B-Instruct  (Instruct)
+# Arch  : Qwen2ForCausalLM, vocab=151K, hidden=3584
+# GGUF  : Qwen/Qwen2.5-7B-Instruct-GGUF  (official)
+#          files: Qwen2.5-7B-Instruct-{quant}.gguf
+# GPTQ  : Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4  INT4-g128  official AutoGPTQ
+#          Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8  INT8-g128  official AutoGPTQ
+# ============================================================
+QWEN25I_TARGET="target.model=Qwen/Qwen2.5-7B-Instruct"
+QWEN25I_GGUF="proxy.model=Qwen/Qwen2.5-7B-Instruct-GGUF"
+QWEN25I_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4,\
+gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8]"
+
+for DS in $DATASETS_ALL; do
+    run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 10: Gemma-3-4B  (Base)
+# Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
+# GGUF  : no confirmed public GGUF for the base model — BnB only
+# GPTQ  : no confirmed public repo — omitted
+# NOTE  : gated model — requires HuggingFace license acceptance at
+#          https://huggingface.co/google/gemma-3-4b before running
+# ============================================================
+GEMMA3B_TARGET="target.model=google/gemma-3-4b"
+GEMMA3B_GGUF="proxy.model=google/gemma-3-4b"
+GEMMA3B_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+bnb:int8,bnb:nf4,bnb:fp4]"
+
+for DS in $DATASETS_ALL; do
+    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 11: Gemma-3-4B-IT  (Instruct)
+# Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
+# GGUF  : bartowski/google_gemma-3-4b-it-GGUF
+#          files: google_gemma-3-4b-it-{quant}.gguf
+#          (bartowski prefixes Google models with "google_")
+# GPTQ  : circulus/gemma-3-4b-it-gptq  INT4-g128  gptqmodel 2.1.0
+# ============================================================
+GEMMA3I_TARGET="target.model=google/gemma-3-4b-it"
+GEMMA3I_GGUF="proxy.model=bartowski/google_gemma-3-4b-it-GGUF"
+GEMMA3I_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:circulus/gemma-3-4b-it-gptq]"
+
+for DS in $DATASETS_ALL; do
+    run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 12: Gemma-2-9B  (Base)
+# Arch  : Gemma2ForCausalLM, vocab=256K, hidden=3584
+# GGUF  : QuantFactory/gemma-2-9b-GGUF  (community)
+#          files: gemma-2-9b.{quant}.gguf  (QuantFactory dot convention)
+#          explicit gguf_template required — auto-derive uses dash separator
+# GPTQ  : ModelCloud/gemma-2-9b-gptq-4bit  INT4-g128  gptqmodel 0.9.2
+# ============================================================
+GEMMA2B_TARGET="target.model=google/gemma-2-9b"
+GEMMA2B_GGUF="proxy.model=QuantFactory/gemma-2-9b-GGUF"
+GEMMA2B_TPL="proxy.gguf_template=gemma-2-9b.{quant}.gguf"
+GEMMA2B_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:ModelCloud/gemma-2-9b-gptq-4bit]"
+
+for DS in $DATASETS_ALL; do
+    run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 13: Gemma-2-9B-IT  (Instruct)
+# Arch  : Gemma2ForCausalLM, vocab=256K, hidden=3584
+# GGUF  : bartowski/gemma-2-9b-it-GGUF
+#          files: gemma-2-9b-it-{quant}.gguf
+# GPTQ  : ModelCloud/gemma-2-9b-it-gptq-4bit  INT4-g128  gptqmodel 0.9.2
+#          marcsun13/gemma-2-9b-it-GPTQ         INT4-g128  standard transformers
+# ============================================================
+GEMMA2I_TARGET="target.model=google/gemma-2-9b-it"
+GEMMA2I_GGUF="proxy.model=bartowski/gemma-2-9b-it-GGUF"
+GEMMA2I_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:ModelCloud/gemma-2-9b-it-gptq-4bit,\
+gptq:marcsun13/gemma-2-9b-it-GPTQ]"
+
+for DS in $DATASETS_ALL; do
+    run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
 echo "========================================"
 echo "  All experiments complete."
 echo "  Results in: ./results/quantization/"
