@@ -1,7 +1,7 @@
 """
 Quantization Quality Estimation — Identity Regime (W = I).
 
-Target = full-precision model (FP16).
+Target = full-precision model (BF16 by default; configurable via computing.model_dtype).
 Proxy  = quantized model at each bit width.
 The alignment map W degenerates to the identity.
 
@@ -152,7 +152,7 @@ def _display_label(quant_tag: str) -> str:
 
 
 class QuantizationExperiment(BaseExperiment):
-    """Compare FP16 (target) with quantised variants (proxy), W = I."""
+    """Compare full-precision target with quantised variants (proxy), W = I."""
 
     def setup_pairs(self) -> List[Dict[str, Any]]:
         """Not used directly — see ``run()``."""
@@ -330,7 +330,8 @@ class QuantizationExperiment(BaseExperiment):
         )
 
         # --- Phase 1: load target, extract everything, then free VRAM ---
-        print(f"Loading target (FP16): {target_model_id} ...")
+        target_dtype_label = _DTYPE_LABELS.get(str(self.model_dtype).split(".")[-1], str(self.model_dtype).upper())
+        print(f"Loading target ({target_dtype_label}): {target_model_id} ...")
         target_model = AutoModelForCausalLM.from_pretrained(
             target_model_id, dtype=self.model_dtype, device_map=self.device,
             trust_remote_code=True,
@@ -401,7 +402,7 @@ class QuantizationExperiment(BaseExperiment):
         results = []
         for i, bit_label in enumerate(quant_bits):
             disp = _display_label(bit_label)
-            label = f"FP16 vs {disp}"
+            label = f"{target_dtype_label} vs {disp}"
             print(f"\n--- [{i+1}/{len(quant_bits)}] {label} ---")
             t0 = time.time()
 

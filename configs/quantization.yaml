@@ -68,8 +68,8 @@ output:
   save_features: true
 
 computing:
-  offload_to_cpu: true     # set false on L40/A100 (≥40GB) for ~2-3x speedup
-  logit_chunk_size: 512    # increase to 2048 on high-VRAM GPUs
+  offload_to_cpu: false    # set true on ≤24GB GPUs to offload features to CPU
+  logit_chunk_size: 2048   # reduce to 512 on ≤24GB GPUs
   model_dtype: bfloat16    # bf16 is the experiment standard; float16 is added as a proxy entry
 
 device: cuda

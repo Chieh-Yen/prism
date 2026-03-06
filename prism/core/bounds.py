@@ -238,8 +238,7 @@ class UnifiedBound:
         Returns:
             Dict with ``K_feat_empirical``, ``median``, ``p95``, ``max``.
         """
-        features = features.float()
-        per_sample_losses = per_sample_losses.float()
+        features = features.to(per_sample_losses.device)
         n = features.shape[0]
         num_pairs = min(num_pairs, n * (n - 1) // 2)
 
