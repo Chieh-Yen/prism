@@ -35,14 +35,31 @@
 # ============================================================
 set -euo pipefail
 
-GPU="${CUDA_GPU:-0}"
+# ── GPU selection ─────────────────────────────────────────────
+# MULTI_GPU=0 (default) → single GPU selected by CUDA_GPU (default 0)
+# MULTI_GPU=1           → expose both GPU 0 and GPU 1; device=auto
+#                         lets HuggingFace distribute each model across them
+#
+# Examples:
+#   bash run_quantization.sh                     # GPU 0
+#   CUDA_GPU=1 bash run_quantization.sh          # GPU 1
+#   MULTI_GPU=1 bash run_quantization.sh         # GPU 0+1
+MULTI_GPU="${MULTI_GPU:-1}"
+if [[ "$MULTI_GPU" == "1" ]]; then
+    GPUIDS="0,1"
+    DEVICE_OVERRIDE="device=auto"
+else
+    GPUIDS="${CUDA_GPU:-0}"
+    DEVICE_OVERRIDE=""
+fi
+
 N=512
 CFG="configs/quantization.yaml"
 LOG="screen.log"
 
 run() {
     echo ">>> $*" | tee -a "$LOG"
-    CUDA_VISIBLE_DEVICES="$GPU" python run.py --config "$CFG" "$@" 2>&1 | tee -a "$LOG"
+    CUDA_VISIBLE_DEVICES="$GPUIDS" python run.py --config "$CFG" ${DEVICE_OVERRIDE:+"$DEVICE_OVERRIDE"} "$@" 2>&1 | tee -a "$LOG"
 }
 
 DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
@@ -62,11 +79,12 @@ LLAMA31B_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B"
 LLAMA31B_GGUF="proxy.model=QuantFactory/Meta-Llama-3.1-8B-GGUF"
 LLAMA31B_TPL="proxy.gguf_template=Meta-Llama-3.1-8B.{quant}.gguf"
 LLAMA31B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
@@ -93,14 +111,15 @@ QWEN3B_TARGET="target.model=Qwen/Qwen3-8B-Base"
 QWEN3B_GGUF="proxy.model=mradermacher/Qwen3-8B-Base-GGUF"
 QWEN3B_TPL="proxy.gguf_template=Qwen3-8B-Base.{quant}.gguf"
 QWEN3B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-128,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-128,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
 gptq:AlphaGaO/Qwen3-8B-GPTQ]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
@@ -123,10 +142,10 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $MIN3B_TARGET $MIN3B_GGUF "$MIN3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $MIN3B_TARGET $MIN3B_GGUF "$MIN3B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 4: Meta-Llama-3.1-8B-Instruct
@@ -141,12 +160,13 @@ done
 LLAMA31I_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B-Instruct"
 LLAMA31I_GGUF="proxy.model=bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
 LLAMA31I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4,\
 gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
@@ -172,15 +192,16 @@ done
 QWEN3I_TARGET="target.model=Qwen/Qwen3-8B"
 QWEN3I_GGUF="proxy.model=Qwen/Qwen3-8B-GGUF"
 QWEN3I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w4-128,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w8-128,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel,\
 gptq:JunHowie/Qwen3-8B-GPTQ-Int8,\
 gptq:RedHatAI/Qwen3-8B-quantized.w4a16]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
@@ -203,10 +224,10 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $MIN3I_TARGET $MIN3I_GGUF "$MIN3I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $MIN3I_TARGET $MIN3I_GGUF "$MIN3I_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 7: DeepSeek-R1-Distill-Llama-8B  (Distilled / Reasoning)
@@ -219,10 +240,11 @@ done
 DSR1_TARGET="target.model=deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
 DSR1_GGUF="proxy.model=bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF"
 DSR1_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
@@ -245,10 +267,10 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 9: Qwen2.5-7B-Instruct  (Instruct)
@@ -261,11 +283,12 @@ done
 QWEN25I_TARGET="target.model=Qwen/Qwen2.5-7B-Instruct"
 QWEN25I_GGUF="proxy.model=Qwen/Qwen2.5-7B-Instruct-GGUF"
 QWEN25I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4,\
 gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
@@ -286,10 +309,10 @@ GEMMA3B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 11: Gemma-3-4B-IT  (Instruct)
@@ -302,10 +325,11 @@ done
 GEMMA3I_TARGET="target.model=google/gemma-3-4b-it"
 GEMMA3I_GGUF="proxy.model=bartowski/google_gemma-3-4b-it-GGUF"
 GEMMA3I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:circulus/gemma-3-4b-it-gptq]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
@@ -324,10 +348,11 @@ GEMMA2B_TARGET="target.model=google/gemma-2-9b"
 GEMMA2B_GGUF="proxy.model=QuantFactory/gemma-2-9b-GGUF"
 GEMMA2B_TPL="proxy.gguf_template=gemma-2-9b.{quant}.gguf"
 GEMMA2B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-gptq-4bit]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
@@ -345,11 +370,12 @@ done
 GEMMA2I_TARGET="target.model=google/gemma-2-9b-it"
 GEMMA2I_GGUF="proxy.model=bartowski/gemma-2-9b-it-GGUF"
 GEMMA2I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-it-gptq-4bit,\
 gptq:marcsun13/gemma-2-9b-it-GPTQ]"
+#dtype:float16,\
+#Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+#bnb:int8,bnb:nf4,bnb:fp4,\
+
 
 for DS in $DATASETS_ALL; do
     run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \

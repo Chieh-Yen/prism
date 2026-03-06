@@ -198,7 +198,8 @@ class LLMExtractor(FeatureExtractor):
                 masks = inp.get("attention_mask")  # (bsz, seq)
                 bsz = hidden.shape[0]
                 if masks is not None:
-                    lengths = masks.sum(dim=1).long() - 1          # (bsz,)
+                    lengths = masks.sum(dim=1).long() - 1               # (bsz,)
+                    lengths = lengths.to(hidden.device)                 # align to backbone output device (multi-GPU)
                     feats = hidden[torch.arange(bsz, device=hidden.device), lengths]  # (bsz, d)
                 else:
                     feats = hidden[:, -1, :]  # (bsz, d)

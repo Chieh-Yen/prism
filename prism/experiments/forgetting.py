@@ -82,7 +82,7 @@ class ForgettingExperiment(BaseExperiment):
 
         # Pre-extract target features once
         print("Pre-extracting target features ...")
-        Z_T = extractor.extract_features(target_model, dataloader, self.device)
+        Z_T = extractor.extract_features(target_model, dataloader, self.tensor_device)
         H_T = extractor.extract_head(target_model)
 
         pairs: List[Dict[str, Any]] = []
@@ -130,14 +130,14 @@ class ForgettingExperiment(BaseExperiment):
             proxy_model.eval()
 
             dl = pair["dataloader"]
-            Z_P = extractor.extract_features(proxy_model, dl, self.device)
+            Z_P = extractor.extract_features(proxy_model, dl, self.tensor_device)
             H_P = extractor.extract_head(proxy_model)
 
             result = self.compute_metrics(Z_T, H_T, Z_P, H_P, label=label)
 
             # LM loss on pre-training distribution
-            result.loss_target = self.compute_lm_loss(pair["target_model"], dl, self.device)
-            result.loss_proxy = self.compute_lm_loss(proxy_model, dl, self.device)
+            result.loss_target = self.compute_lm_loss(pair["target_model"], dl, self.tensor_device)
+            result.loss_proxy = self.compute_lm_loss(proxy_model, dl, self.tensor_device)
 
             omega_reg = 1.0 - result.omega
             result.extra["omega_regulariser"] = omega_reg

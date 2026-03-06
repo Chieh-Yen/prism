@@ -97,11 +97,11 @@ class OODExperiment(BaseExperiment):
         from transformers import AutoModel, AutoProcessor
 
         print(f"Loading target: {target_model_id} ...")
-        target_model = AutoModel.from_pretrained(target_model_id).to(self.device)
+        target_model = AutoModel.from_pretrained(target_model_id).to(self.tensor_device)
         target_model.eval()
 
         print(f"Loading proxy:  {proxy_model_id} ...")
-        proxy_model = AutoModel.from_pretrained(proxy_model_id).to(self.device)
+        proxy_model = AutoModel.from_pretrained(proxy_model_id).to(self.tensor_device)
         proxy_model.eval()
 
         ext_t = get_extractor(target_ext_name)
@@ -117,8 +117,8 @@ class OODExperiment(BaseExperiment):
         print(f"\nLoading ID data: {id_task} (n={num_samples}) ...")
         id_dl = load_task_data(id_task, num_samples=num_samples, batch_size=batch_size, transform=image_transform)
 
-        Z_T_id = ext_t.extract_features(target_model, id_dl, self.device)
-        Z_P_id = ext_p.extract_features(proxy_model, id_dl, self.device)
+        Z_T_id = ext_t.extract_features(target_model, id_dl, self.tensor_device)
+        Z_P_id = ext_p.extract_features(proxy_model, id_dl, self.tensor_device)
 
         # Learn alignment W on ID data
         W = PRISMMetrics.orthogonal_procrustes(Z_T_id, Z_P_id)
@@ -134,8 +134,8 @@ class OODExperiment(BaseExperiment):
             print(f"\nLoading OOD data: {ood_task} (n={num_samples}) ...")
             ood_dl = load_task_data(ood_task, num_samples=num_samples, batch_size=batch_size, transform=image_transform)
 
-            Z_T_ood = ext_t.extract_features(target_model, ood_dl, self.device)
-            Z_P_ood = ext_p.extract_features(proxy_model, ood_dl, self.device)
+            Z_T_ood = ext_t.extract_features(target_model, ood_dl, self.tensor_device)
+            Z_P_ood = ext_p.extract_features(proxy_model, ood_dl, self.tensor_device)
 
             omega_ood = PRISMMetrics.procrustes_omega(Z_T_ood, Z_P_ood)
             scores_ood = PRISMMetrics.consistency_scores(Z_T_ood, Z_P_ood, W).numpy()

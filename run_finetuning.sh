@@ -5,14 +5,31 @@
 # ============================================================
 set -euo pipefail
 
-GPU="${CUDA_GPU:-1}"
+# ── GPU selection ─────────────────────────────────────────────
+# MULTI_GPU=0 (default) → single GPU selected by CUDA_GPU (default 1)
+# MULTI_GPU=1           → expose both GPU 0 and GPU 1; device=auto
+#                         lets HuggingFace distribute each model across them
+#
+# Examples:
+#   bash run_finetuning.sh                       # GPU 1
+#   CUDA_GPU=0 bash run_finetuning.sh            # GPU 0
+#   MULTI_GPU=1 bash run_finetuning.sh           # GPU 0+1
+MULTI_GPU="${MULTI_GPU:-0}"
+if [[ "$MULTI_GPU" == "1" ]]; then
+    GPUIDS="0,1"
+    DEVICE_OVERRIDE="device=auto"
+else
+    GPUIDS="${CUDA_GPU:-1}"
+    DEVICE_OVERRIDE=""
+fi
+
 N=128
 CFG="configs/finetuning.yaml"
 LOG="screen_finetuning.log"
 
 run() {
     echo ">>> $*" | tee -a "$LOG"
-    CUDA_VISIBLE_DEVICES="$GPU" python run.py --config "$CFG" "$@" 2>&1 | tee -a "$LOG"
+    CUDA_VISIBLE_DEVICES="$GPUIDS" python run.py --config "$CFG" ${DEVICE_OVERRIDE:+"$DEVICE_OVERRIDE"} "$@" 2>&1 | tee -a "$LOG"
 }
 
 DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"

@@ -93,12 +93,12 @@ class FinetuningExperiment(BaseExperiment):
         target_model.eval()
 
         print("Extracting target features ...")
-        Z_T = extractor.extract_features(target_model, dataloader, self.device)
+        Z_T = extractor.extract_features(target_model, dataloader, self.tensor_device)
         H_T = extractor.extract_head(target_model)
 
         print("Computing target loss ...")
         loss_stats_T = self.compute_lm_loss_per_sample(
-            target_model, dataloader, self.device,
+            target_model, dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
             offload_to_cpu=self.offload_to_cpu,
         )
@@ -173,7 +173,7 @@ class FinetuningExperiment(BaseExperiment):
         proxy_model.eval()
 
         print("Extracting proxy features ...")
-        Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
+        Z_P = extractor.extract_features(proxy_model, dataloader, self.tensor_device)
 
         if not torch.isfinite(Z_P).all():
             print("  WARNING: proxy features contain NaN/Inf — aborting.")
@@ -187,7 +187,7 @@ class FinetuningExperiment(BaseExperiment):
 
         print("Computing proxy loss ...")
         loss_stats_P = self.compute_lm_loss_per_sample(
-            proxy_model, dataloader, self.device,
+            proxy_model, dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
             offload_to_cpu=self.offload_to_cpu,
         )

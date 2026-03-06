@@ -280,12 +280,12 @@ class CrossScaleExperiment(BaseExperiment):
         target_model.eval()
 
         print("Extracting target features ...")
-        Z_T = extractor.extract_features(target_model, target_dataloader, self.device)
+        Z_T = extractor.extract_features(target_model, target_dataloader, self.tensor_device)
         H_T = extractor.extract_head(target_model)
 
         print("Computing target loss ...")
         loss_stats_T = self.compute_lm_loss_per_sample(
-            target_model, target_dataloader, self.device,
+            target_model, target_dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
             offload_to_cpu=self.offload_to_cpu,
         )
@@ -392,7 +392,7 @@ class CrossScaleExperiment(BaseExperiment):
                 proxy_model.eval()
 
                 print("  Extracting proxy features ...")
-                Z_P = extractor.extract_features(proxy_model, proxy_dataloader, self.device)
+                Z_P = extractor.extract_features(proxy_model, proxy_dataloader, self.tensor_device)
 
                 if not torch.isfinite(Z_P).all():
                     print(f"  WARNING: proxy features contain NaN/Inf — skipping {proxy_label}")
@@ -402,7 +402,7 @@ class CrossScaleExperiment(BaseExperiment):
 
                 print("  Computing proxy loss ...")
                 loss_stats_P = self.compute_lm_loss_per_sample(
-                    proxy_model, proxy_dataloader, self.device,
+                    proxy_model, proxy_dataloader, self.tensor_device,
                     chunk_size=self.logit_chunk_size,
                     offload_to_cpu=self.offload_to_cpu,
                 )

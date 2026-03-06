@@ -157,8 +157,8 @@ class MergingExperiment(BaseExperiment):
         proxy_tvs = [_task_vector(proxy_base_sd, _state_dict_cpu(ft)) for ft in proxy_ft_ids]
 
         # Reusable GPU models
-        target_model = AutoModel.from_pretrained(target_base_id).to(self.device)
-        proxy_model = AutoModel.from_pretrained(proxy_base_id).to(self.device)
+        target_model = AutoModel.from_pretrained(target_base_id).to(self.tensor_device)
+        proxy_model = AutoModel.from_pretrained(proxy_base_id).to(self.tensor_device)
         ext = CLIPExtractor()
 
         results = []
@@ -167,11 +167,11 @@ class MergingExperiment(BaseExperiment):
             label = f"alpha[{idx}]={np.array2string(alpha, precision=2, separator=',')}"
             print(f"\n--- [{idx+1}/{n_alphas}] {label} ---")
 
-            _merge_into(target_model, target_base_sd, target_tvs, alpha, self.device)
-            _merge_into(proxy_model, proxy_base_sd, proxy_tvs, alpha, self.device)
+            _merge_into(target_model, target_base_sd, target_tvs, alpha, self.tensor_device)
+            _merge_into(proxy_model, proxy_base_sd, proxy_tvs, alpha, self.tensor_device)
 
-            Z_T = ext.extract_features(target_model, combined_dl, self.device)
-            Z_P = ext.extract_features(proxy_model, combined_dl, self.device)
+            Z_T = ext.extract_features(target_model, combined_dl, self.tensor_device)
+            Z_P = ext.extract_features(proxy_model, combined_dl, self.tensor_device)
 
             # Use dummy head (identity-like) since head discrepancy is evaluated
             # separately per task in full pipeline.  Here we focus on backbone Omega.

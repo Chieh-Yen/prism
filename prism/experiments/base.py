@@ -39,6 +39,9 @@ class BaseExperiment(ABC):
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+        # "auto" is valid for HuggingFace device_map but not for PyTorch .to().
+        # tensor_device is used wherever a concrete device string is required.
+        self.tensor_device = "cuda" if self.device == "auto" else self.device
         self.seed = config.get("seed")
         if self.seed is not None:
             torch.manual_seed(self.seed)
@@ -94,7 +97,7 @@ class BaseExperiment(ABC):
         head_kwargs: Optional[Dict] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Extract (Z, H) from a model."""
-        Z = extractor.extract_features(model, dataloader, self.device)
+        Z = extractor.extract_features(model, dataloader, self.tensor_device)
         H = extractor.extract_head(model, **(head_kwargs or {}))
         return Z, H
 

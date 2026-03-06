@@ -323,9 +323,9 @@ class QuantizationExperiment(BaseExperiment):
         extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
         print("Caching target features and loss (will free target before loading proxies) ...")
-        Z_T = extractor.extract_features(target_model, dataloader, self.device)
+        Z_T = extractor.extract_features(target_model, dataloader, self.tensor_device)
         H_T = extractor.extract_head(target_model)
-        loss_stats = self.compute_lm_loss_per_sample(target_model, dataloader, self.device,
+        loss_stats = self.compute_lm_loss_per_sample(target_model, dataloader, self.tensor_device,
                                                       chunk_size=self.logit_chunk_size,
                                                       offload_to_cpu=self.offload_to_cpu)
         losses_T = loss_stats["losses"]
@@ -393,7 +393,7 @@ class QuantizationExperiment(BaseExperiment):
             try:
                 proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
 
-                Z_P = extractor.extract_features(proxy_model, dataloader, self.device)
+                Z_P = extractor.extract_features(proxy_model, dataloader, self.tensor_device)
 
                 if not torch.isfinite(Z_P).all():
                     print(f"  WARNING: proxy features contain NaN/Inf — skipping {disp}")
@@ -407,7 +407,7 @@ class QuantizationExperiment(BaseExperiment):
                     K_feat=K_feat, K_pred=K_pred,
                 )
 
-                proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.device,
+                proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.tensor_device,
                                                                chunk_size=self.logit_chunk_size,
                                                                offload_to_cpu=self.offload_to_cpu)
                 result.loss_target = loss_target
