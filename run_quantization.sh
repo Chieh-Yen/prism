@@ -74,9 +74,9 @@ done
 # ============================================================
 # Model 2: Qwen3-8B-Base
 # Arch  : Qwen3ForCausalLM, vocab=151K, hidden=4096
-# GGUF  : Qwen/Qwen3-8B-Base-GGUF
-#          files: Qwen3-8B-Base-{quant}.gguf
-#          (Q3/Q2 availability not guaranteed)
+# GGUF  : mradermacher/Qwen3-8B-Base-GGUF  (community; Qwen org has no Base GGUF)
+#          files: Qwen3-8B-Base.{quant}.gguf  (dot convention)
+#          explicit gguf_template required — auto-derive uses dash separator
 # GPTQ  : Efficient-ML repos below use .pth format — will be skipped
 #          by PRISM unless the GPTQ-for-Qwen3 custom script is active.
 #          Efficient-ML/Qwen3-8B-base-gptq-w4-128      INT4-g128
@@ -88,7 +88,8 @@ done
 #              not reflect clean quantization error; verify before use.
 # ============================================================
 QWEN3B_TARGET="target.model=Qwen/Qwen3-8B-Base"
-QWEN3B_GGUF="proxy.model=Qwen/Qwen3-8B-Base-GGUF"
+QWEN3B_GGUF="proxy.model=mradermacher/Qwen3-8B-Base-GGUF"
+QWEN3B_TPL="proxy.gguf_template=Qwen3-8B-Base.{quant}.gguf"
 QWEN3B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
@@ -100,7 +101,7 @@ gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
 gptq:AlphaGaO/Qwen3-8B-GPTQ]"
 
 for DS in $DATASETS_ALL; do
-    run $QWEN3B_TARGET $QWEN3B_GGUF "$QWEN3B_BITS" \
+    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
         data.task=$DS data.num_samples=$N
 done
 
