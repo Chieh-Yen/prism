@@ -30,5 +30,10 @@ output:
   dir: ./results/forgetting
   save_features: true
 
+computing:
+  offload_to_cpu: false    # set true on ≤24GB GPUs to offload features to CPU
+  logit_chunk_size: 2048   # reduce to 512 on ≤24GB GPUs
+  model_dtype: float16
+
 device: cuda
 seed: 42

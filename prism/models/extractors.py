@@ -128,7 +128,7 @@ class LLMExtractor(FeatureExtractor):
         model.lm_head              — LM head at the outer model level
     """
 
-    def __init__(self, offload_to_cpu: bool = True):
+    def __init__(self, offload_to_cpu: bool = False):
         self.offload_to_cpu = offload_to_cpu
 
     @staticmethod

@@ -79,7 +79,7 @@ class FinetuningExperiment(BaseExperiment):
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
         )
 
-        extractor = LLMExtractor()
+        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
         # =============================================================
         # Phase 1 — Target (instruct): extract, compute loss, free VRAM
@@ -99,6 +99,8 @@ class FinetuningExperiment(BaseExperiment):
         print("Computing target loss ...")
         loss_stats_T = self.compute_lm_loss_per_sample(
             target_model, dataloader, self.device,
+            chunk_size=self.logit_chunk_size,
+            offload_to_cpu=self.offload_to_cpu,
         )
         losses_T = loss_stats_T["losses"]
         loss_target = losses_T.mean().item()
@@ -186,6 +188,8 @@ class FinetuningExperiment(BaseExperiment):
         print("Computing proxy loss ...")
         loss_stats_P = self.compute_lm_loss_per_sample(
             proxy_model, dataloader, self.device,
+            chunk_size=self.logit_chunk_size,
+            offload_to_cpu=self.offload_to_cpu,
         )
         loss_proxy = loss_stats_P["losses"].mean().item()
         ppl_proxy = math.exp(loss_proxy)

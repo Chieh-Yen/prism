@@ -48,8 +48,8 @@ class BaseExperiment(ABC):
         os.makedirs(self.output_dir, exist_ok=True)
 
         cfg_computing = config.get("computing", {})
-        self.offload_to_cpu = cfg_computing.get("offload_to_cpu", True)
-        self.logit_chunk_size = cfg_computing.get("logit_chunk_size", 512)
+        self.offload_to_cpu = cfg_computing.get("offload_to_cpu", False)
+        self.logit_chunk_size = cfg_computing.get("logit_chunk_size", 2048)
         self.model_dtype = getattr(torch, cfg_computing.get("model_dtype", "float16"))
 
     # ------------------------------------------------------------------
@@ -145,8 +145,8 @@ class BaseExperiment(ABC):
         dataloader: DataLoader,
         device: str,
         *,
-        chunk_size: int = 512,
-        offload_to_cpu: bool = True,
+        chunk_size: int = 2048,
+        offload_to_cpu: bool = False,
     ) -> Dict[str, Tensor]:
         """Compute per-sample cross-entropy and per-token gradient norms.
 

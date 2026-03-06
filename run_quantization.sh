@@ -36,7 +36,7 @@
 set -euo pipefail
 
 GPU="${CUDA_GPU:-0}"
-N=512
+N=16
 CFG="configs/quantization.yaml"
 LOG="screen.log"
 
@@ -45,20 +45,22 @@ run() {
     CUDA_VISIBLE_DEVICES="$GPU" python run.py --config "$CFG" "$@" 2>&1 | tee -a "$LOG"
 }
 
-DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"
+DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
 # ============================================================
 # Model 1: Meta-Llama-3.1-8B  (Base)
 # Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
-# GGUF  : bartowski/Meta-Llama-3.1-8B-GGUF
-#          files: Meta-Llama-3.1-8B-{quant}.gguf
+# GGUF  : QuantFactory/Meta-Llama-3.1-8B-GGUF  (community, public)
+#          files: Meta-Llama-3.1-8B.{quant}.gguf  (dot convention — gguf_template required)
+#          NOTE: bartowski/Meta-Llama-3.1-8B-GGUF is gated (inherits Meta license)
 # GPTQ  : ModelCloud/Meta-Llama-3.1-8B-gptq-4bit  INT4-g128  GPTQModel 0.9.9
 #          shuyuej/Meta-Llama-3.1-8B-GPTQ          INT4       ExLlama v1 format
 #          (TechxGenus has Llama-3 only, not 3.1 — omitted)
 #          (No confirmed INT8-group GPTQ for the base model at time of writing)
 # ============================================================
 LLAMA31B_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B"
-LLAMA31B_GGUF="proxy.model=bartowski/Meta-Llama-3.1-8B-GGUF"
+LLAMA31B_GGUF="proxy.model=QuantFactory/Meta-Llama-3.1-8B-GGUF"
+LLAMA31B_TPL="proxy.gguf_template=Meta-Llama-3.1-8B.{quant}.gguf"
 LLAMA31B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
@@ -67,7 +69,7 @@ gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
 
 for DS in $DATASETS_ALL; do
-    run $LLAMA31B_TARGET $LLAMA31B_GGUF "$LLAMA31B_BITS" \
+    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
         data.task=$DS data.num_samples=$N
 done
 
