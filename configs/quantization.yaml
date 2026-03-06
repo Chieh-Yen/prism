@@ -6,6 +6,8 @@
 #   bnb:       → bitsandbytes from target.model     (e.g. bnb:nf4, bnb:int8)
 #   gptq:      → pre-quantised GPTQ model           (e.g. gptq:TheBloke/Llama-2-7B-GPTQ)
 #               optionally with branch: gptq:REPO@REVISION
+#   dtype:     → target model loaded at a different native dtype (e.g. dtype:float16)
+#               used to measure BF16→FP16 precision gap as a reference proxy
 #
 # Supported bnb: tags: int8, nf4, fp4, nf4-dq
 #
@@ -42,6 +44,7 @@ proxy:
   extractor: llm
   # gguf_template: "llama-2-7b.{quant}.gguf"   # optional: override auto-derived
   quantization_bits:
+    - dtype:float16    # FP16 reference proxy (target is BF16)
     - Q8_0
     - Q6_K
     - Q5_K_M
@@ -67,7 +70,7 @@ output:
 computing:
   offload_to_cpu: true     # set false on L40/A100 (≥40GB) for ~2-3x speedup
   logit_chunk_size: 512    # increase to 2048 on high-VRAM GPUs
-  model_dtype: float16     # or bfloat16 (L40/A100 support)
+  model_dtype: bfloat16    # bf16 is the experiment standard; float16 is added as a proxy entry
 
 device: cuda
 seed: 42

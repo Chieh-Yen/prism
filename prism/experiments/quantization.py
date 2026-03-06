@@ -73,6 +73,24 @@ def _bnb_type(quant_tag: str) -> str:
 
 
 # ======================================================================
+# dtype helpers — same model weights, different native precision
+# ======================================================================
+_DTYPE_LABELS: Dict[str, str] = {
+    "float16":  "FP16",
+    "bfloat16": "BF16",
+    "float32":  "FP32",
+}
+
+
+def _is_dtype(quant_tag: str) -> bool:
+    return quant_tag.startswith("dtype:")
+
+
+def _parse_dtype(quant_tag: str) -> str:
+    return quant_tag[6:]   # e.g. "float16"
+
+
+# ======================================================================
 # GPTQ helpers
 # ======================================================================
 def _is_gptq(quant_tag: str) -> bool:
@@ -127,6 +145,9 @@ def _display_label(quant_tag: str) -> str:
         repo, rev = _parse_gptq(quant_tag)
         short = repo.split("/")[-1]
         return f"GPTQ({rev})" if rev else f"GPTQ({short})"
+    if _is_dtype(quant_tag):
+        dt = _parse_dtype(quant_tag)
+        return _DTYPE_LABELS.get(dt, dt.upper())
     return quant_tag
 
 
@@ -204,6 +225,26 @@ class QuantizationExperiment(BaseExperiment):
         proxy = AutoModelForCausalLM.from_pretrained(repo, **kwargs)
         return proxy
 
+    def _load_proxy_dtype(
+        self, dtype_str: str, model_id: str,
+    ) -> torch.nn.Module:
+        """Load target model weights at a different native dtype (precision-only proxy).
+
+        E.g. ``dtype:float16`` loads the same checkpoint the target was loaded from
+        but casts to FP16, letting the experiment measure the BF16→FP16 gap as a
+        reference point against heavier quantisation tiers.
+        """
+        dtype = getattr(torch, dtype_str)
+        label = _DTYPE_LABELS.get(dtype_str, dtype_str.upper())
+        print(f"  Loading proxy: {model_id} [{label}] ...")
+        proxy = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            dtype=dtype,
+            device_map=self.device,
+            trust_remote_code=True,
+        )
+        return proxy
+
     def _load_proxy(
         self,
         quant_tag: str,
@@ -216,7 +257,9 @@ class QuantizationExperiment(BaseExperiment):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        if _is_gptq(quant_tag):
+        if _is_dtype(quant_tag):
+            proxy = self._load_proxy_dtype(_parse_dtype(quant_tag), target_model_id)
+        elif _is_gptq(quant_tag):
             repo, rev = _parse_gptq(quant_tag)
             proxy = self._load_proxy_gptq(repo, rev)
         elif _is_bnb(quant_tag):
@@ -247,15 +290,19 @@ class QuantizationExperiment(BaseExperiment):
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
 
-        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) for q in quant_bits)
+        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_dtype(q) for q in quant_bits)
         has_bnb = any(_is_bnb(q) for q in quant_bits)
         has_gptq = any(_is_gptq(q) for q in quant_bits)
+        has_dtype = any(_is_dtype(q) for q in quant_bits)
 
         mode_tag = " (scale-absorbed)" if absorbed else ""
         print(f"{'=' * 72}")
         print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
         print(f"{'=' * 72}")
-        print(f"  Target : {target_model_id}")
+        print(f"  Target : {target_model_id}  [{_DTYPE_LABELS.get(str(self.model_dtype).split('.')[-1], str(self.model_dtype))}]")
+        if has_dtype:
+            dtype_tags = [_parse_dtype(q) for q in quant_bits if _is_dtype(q)]
+            print(f"  Dtype  : {', '.join(_DTYPE_LABELS.get(d, d.upper()) for d in dtype_tags)}")
         if has_gguf:
             print(f"  GGUF   : {quant_repo}  (template: {gguf_tpl})")
         if has_bnb:
@@ -392,7 +439,10 @@ class QuantizationExperiment(BaseExperiment):
                 result.extra["dataset"] = task_name
                 result.extra["num_samples"] = num_samples
                 result.extra["target_model"] = target_model_id
-                if _is_gptq(bit_label):
+                if _is_dtype(bit_label):
+                    lbl = _DTYPE_LABELS.get(_parse_dtype(bit_label), _parse_dtype(bit_label).upper())
+                    result.extra["proxy_model"] = f"{target_model_id} [{lbl}]"
+                elif _is_gptq(bit_label):
                     repo, rev = _parse_gptq(bit_label)
                     rev_tag = f"@{rev}" if rev else ""
                     result.extra["proxy_model"] = f"{repo}{rev_tag} [GPTQ]"
