@@ -1,11 +1,19 @@
 # ============================================================
 # PRISM — pinned dependencies (from conda env solver311)
 #
-# ⚠️  GPTQModel MUST be installed separately after torch.
-#     Its setup.py detects the torch version at BUILD time,
-#     so torch must already exist in the target environment.
+# ⚠️  GPTQModel MUST be installed separately (two known issues):
 #
-# Recommended: use install.sh (handles the correct order)
+#   Issue A — torch detection:
+#     pip's isolated build sandbox has no torch, so GPTQModel's setup.py
+#     fails with "Unable to detect torch version".
+#     Fix: use --no-build-isolation.
+#
+#   Issue B — pyproject.toml license field:
+#     GPTQModel uses `license = "Apache-2.0"` (PEP 639 SPDX string).
+#     setuptools < 71.0 rejects this format (only accepts {file/text: ...}).
+#     Fix: upgrade setuptools >= 71 before installing GPTQModel.
+#
+# Recommended: use install.sh (handles all of this automatically)
 #
 #   bash install.sh
 #
@@ -14,14 +22,14 @@
 #     pip install torch==2.10.0 torchaudio==2.10.0 torchvision==0.25.0 \
 #         --index-url https://download.pytorch.org/whl/cu128
 #
-#   Step 2 — everything else:
+#   Step 2 — upgrade setuptools (required by GPTQModel pyproject.toml):
+#     pip install "setuptools>=71"
+#
+#   Step 3 — everything else:
 #     pip install -r requirements.txt
 #
-#   Step 3 — GPTQModel (requires torch at build time):
+#   Step 4 — GPTQModel (after torch + setuptools>=71 are present):
 #     pip install GPTQModel==5.7.0 --no-build-isolation
-#
-#   --no-build-isolation bypasses pip's isolated build sandbox,
-#   allowing GPTQModel's setup.py to detect the pre-installed torch.
 # ============================================================
 
 --extra-index-url https://download.pytorch.org/whl/cu128

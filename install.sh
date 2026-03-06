@@ -4,9 +4,19 @@
 #
 # Installs all dependencies in the correct order:
 #   1. torch with CUDA 12.8 wheel  (must come first)
-#   2. requirements.txt            (everything else)
-#   3. GPTQModel with              (requires torch at build time)
+#   2. setuptools >= 71            (GPTQModel pyproject.toml fix)
+#   3. requirements.txt            (everything else)
+#   4. GPTQModel with              (requires torch at build time)
 #      --no-build-isolation
+#
+# Background — two GPTQModel install issues:
+#   a) Without --no-build-isolation:
+#      pip creates an isolated build env that has no torch, so
+#      GPTQModel's setup.py fails with "Unable to detect torch version".
+#   b) With --no-build-isolation + setuptools < 71:
+#      setuptools rejects pyproject.toml's `license = "Apache-2.0"`
+#      (SPDX string, PEP 639) — only accepted by setuptools >= 71.0.
+#   Fix: upgrade setuptools first, then use --no-build-isolation.
 #
 # Usage:
 #   bash install.sh
@@ -26,7 +36,7 @@ echo "============================================"
 # ── Step 1: torch ────────────────────────────────────────────
 if [[ "$SKIP_TORCH" == false ]]; then
     echo ""
-    echo "[1/3] Installing torch==2.10.0 (CUDA 12.8) ..."
+    echo "[1/4] Installing torch==2.10.0 (CUDA 12.8) ..."
     pip install \
         torch==2.10.0 \
         torchaudio==2.10.0 \
@@ -34,7 +44,7 @@ if [[ "$SKIP_TORCH" == false ]]; then
         --index-url https://download.pytorch.org/whl/cu128
     echo "      torch installed."
 else
-    echo "[1/3] Skipping torch (--skip-torch)."
+    echo "[1/4] Skipping torch (--skip-torch)."
 fi
 
 # Verify torch is importable before proceeding to GPTQModel
@@ -43,18 +53,29 @@ python -c "import torch; print('      torch version:', torch.__version__)" || {
     exit 1
 }
 
-# ── Step 2: requirements.txt ─────────────────────────────────
+# ── Step 2: setuptools >= 71 ──────────────────────────────────
+# GPTQModel 5.7.0 pyproject.toml uses `license = "Apache-2.0"` (PEP 639
+# SPDX string). setuptools < 71.0 validates against the PEP 621 schema
+# which only allows {file: ...} or {text: ...}, rejecting the SPDX string.
+# setuptools >= 71.0 (2024-07-04) added full PEP 639 support.
 echo ""
-echo "[2/3] Installing requirements.txt ..."
+echo "[2/4] Upgrading setuptools >= 71 (required by GPTQModel pyproject.toml) ..."
+pip install "setuptools>=71"
+python -c "import setuptools; print('      setuptools version:', setuptools.__version__)"
+
+# ── Step 3: requirements.txt ─────────────────────────────────
+echo ""
+echo "[3/4] Installing requirements.txt ..."
 pip install -r requirements.txt
 echo "      requirements.txt installed."
 
-# ── Step 3: GPTQModel ─────────────────────────────────────────
+# ── Step 4: GPTQModel ─────────────────────────────────────────
 echo ""
-echo "[3/3] Installing GPTQModel==5.7.0 (--no-build-isolation) ..."
-# --no-build-isolation: lets GPTQModel's setup.py see the already-installed
-# torch, so it can detect the torch version without a fresh isolated env.
-pip install GPTQModel==5.7.0 --no-build-isolation
+echo "[4/4] Installing GPTQModel==5.7.0 (--no-build-isolation) ..."
+# --no-build-isolation: skips pip's isolated build sandbox so that
+#   (a) GPTQModel's setup.py can detect the pre-installed torch version
+#   (b) the upgraded setuptools (>= 71) is used for pyproject.toml validation
+pip install -v GPTQModel==5.7.0 --no-build-isolation
 echo "      GPTQModel installed."
 
 # ── Done ──────────────────────────────────────────────────────

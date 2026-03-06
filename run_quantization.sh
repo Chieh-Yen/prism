@@ -36,7 +36,7 @@
 set -euo pipefail
 
 GPU="${CUDA_GPU:-0}"
-N=16
+N=512
 CFG="configs/quantization.yaml"
 LOG="screen.log"
 
