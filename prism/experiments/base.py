@@ -47,6 +47,11 @@ class BaseExperiment(ABC):
         self.output_dir = config.get("output", {}).get("dir", "./results")
         os.makedirs(self.output_dir, exist_ok=True)
 
+        cfg_computing = config.get("computing", {})
+        self.offload_to_cpu = cfg_computing.get("offload_to_cpu", True)
+        self.logit_chunk_size = cfg_computing.get("logit_chunk_size", 512)
+        self.model_dtype = getattr(torch, cfg_computing.get("model_dtype", "float16"))
+
     # ------------------------------------------------------------------
     # Abstract interface for subclasses
     # ------------------------------------------------------------------
@@ -139,6 +144,9 @@ class BaseExperiment(ABC):
         model: torch.nn.Module,
         dataloader: DataLoader,
         device: str,
+        *,
+        chunk_size: int = 512,
+        offload_to_cpu: bool = True,
     ) -> Dict[str, Tensor]:
         """Compute per-sample cross-entropy and per-token gradient norms.
 
@@ -166,7 +174,7 @@ class BaseExperiment(ABC):
         answer_losses: list = []
         has_prompt = False
         all_grad_norms: list = []
-        CHUNK = 512   # small chunk to keep peak VRAM low for large-vocab models (Gemma 256K, Qwen3 151K)
+        CHUNK = chunk_size   # small chunk to keep peak VRAM low for large-vocab models (Gemma 256K, Qwen3 151K)
         ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
 
         with torch.no_grad():
@@ -242,7 +250,7 @@ class BaseExperiment(ABC):
                         one_hot = torch.zeros_like(p)
                         one_hot.scatter_(1, gn_targets[start:end].unsqueeze(1), 1.0)
                         gnorms = (p - one_hot).norm(dim=-1)  # (chunk,)
-                        all_grad_norms.append(gnorms.cpu())
+                        all_grad_norms.append(gnorms.cpu() if offload_to_cpu else gnorms)
 
         all_gn = torch.cat(all_grad_norms)
         result = {

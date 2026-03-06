@@ -82,5 +82,10 @@ alignment:
 output:
   dir: ./results/cross_scale
 
+computing:
+  offload_to_cpu: true     # set false on L40/A100 (≥40GB) for ~2-3x speedup
+  logit_chunk_size: 512    # increase to 2048 on high-VRAM GPUs
+  model_dtype: float16     # or bfloat16 (L40/A100 support)
+
 device: cuda
 seed: 42

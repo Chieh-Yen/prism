@@ -58,8 +58,9 @@ class CLIPExtractor(FeatureExtractor):
     H = normalised zero-shot text embeddings transposed to  (d, C)
     """
 
-    def __init__(self, processor=None):
+    def __init__(self, processor=None, offload_to_cpu: bool = True):
         self.processor = processor
+        self.offload_to_cpu = offload_to_cpu
 
     def extract_features(
         self,
@@ -74,7 +75,7 @@ class CLIPExtractor(FeatureExtractor):
                 images = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch.to(device)
                 feats = model.get_image_features(pixel_values=images)
                 feats = feats / feats.norm(dim=-1, keepdim=True)
-                all_features.append(feats.cpu())
+                all_features.append(feats.cpu() if self.offload_to_cpu else feats)
         return torch.cat(all_features, dim=0)
 
     def extract_head(
@@ -126,6 +127,9 @@ class LLMExtractor(FeatureExtractor):
         model.model.language_model — text backbone inside Mistral3Model wrapper
         model.lm_head              — LM head at the outer model level
     """
+
+    def __init__(self, offload_to_cpu: bool = True):
+        self.offload_to_cpu = offload_to_cpu
 
     @staticmethod
     def _get_backbone(model: torch.nn.Module):
@@ -199,7 +203,8 @@ class LLMExtractor(FeatureExtractor):
                     else:
                         feat = hidden[0, -1, :]
 
-                    all_features.append(feat.float().cpu().unsqueeze(0))
+                    t = feat.float().unsqueeze(0)
+                    all_features.append(t.cpu() if self.offload_to_cpu else t)
 
         return torch.cat(all_features, dim=0)
 
@@ -214,10 +219,12 @@ class LLMExtractor(FeatureExtractor):
         where the head is nested (.language_model.lm_head).
         """
         if hasattr(model, "lm_head"):
-            head = model.lm_head.weight.data.cpu().float()          # (vocab, d)
+            w = model.lm_head.weight.data
+            head = w.cpu().float() if self.offload_to_cpu else w.float()  # (vocab, d)
         elif (hasattr(model, "language_model")
               and hasattr(model.language_model, "lm_head")):
-            head = model.language_model.lm_head.weight.data.cpu().float()
+            w = model.language_model.lm_head.weight.data
+            head = w.cpu().float() if self.offload_to_cpu else w.float()
         else:
             raise AttributeError(
                 f"Cannot locate lm_head in {type(model).__name__}. "

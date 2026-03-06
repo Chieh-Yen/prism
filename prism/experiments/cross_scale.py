@@ -264,16 +264,16 @@ class CrossScaleExperiment(BaseExperiment):
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
         )
 
-        extractor = LLMExtractor()
+        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
         # ================================================================
         # Phase 1 — Target: extract features / loss, then free VRAM
         # ================================================================
         print(f"\n--- Phase 1: Target ---")
-        print(f"Loading target (FP16): {target_model_id} ...")
+        print(f"Loading target: {target_model_id} ...")
         target_model = _load_causal_lm(
             target_model_id,
-            dtype=torch.float16,
+            dtype=self.model_dtype,
             device_map=self.device,
         )
         target_model.eval()
@@ -285,6 +285,8 @@ class CrossScaleExperiment(BaseExperiment):
         print("Computing target loss ...")
         loss_stats_T = self.compute_lm_loss_per_sample(
             target_model, target_dataloader, self.device,
+            chunk_size=self.logit_chunk_size,
+            offload_to_cpu=self.offload_to_cpu,
         )
         losses_T = loss_stats_T["losses"]
         loss_target = losses_T.mean().item()
@@ -380,10 +382,10 @@ class CrossScaleExperiment(BaseExperiment):
                         max_length=max_length,
                     )
 
-                print(f"  Loading proxy (FP16): {proxy_model_id} ...")
+                print(f"  Loading proxy: {proxy_model_id} ...")
                 proxy_model = _load_causal_lm(
                     proxy_model_id,
-                    dtype=torch.float16,
+                    dtype=self.model_dtype,
                     device_map=self.device,
                 )
                 proxy_model.eval()
@@ -400,6 +402,8 @@ class CrossScaleExperiment(BaseExperiment):
                 print("  Computing proxy loss ...")
                 loss_stats_P = self.compute_lm_loss_per_sample(
                     proxy_model, proxy_dataloader, self.device,
+                    chunk_size=self.logit_chunk_size,
+                    offload_to_cpu=self.offload_to_cpu,
                 )
                 loss_proxy = loss_stats_P["losses"].mean().item()
                 ppl_proxy = math.exp(loss_proxy)

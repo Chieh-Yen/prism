@@ -149,7 +149,7 @@ class QuantizationExperiment(BaseExperiment):
             proxy = AutoModelForCausalLM.from_pretrained(
                 quant_repo,
                 gguf_file=filename,
-                dtype=torch.float16,
+                dtype=self.model_dtype,
                 device_map=self.device,
                 trust_remote_code=True,
             )
@@ -284,16 +284,18 @@ class QuantizationExperiment(BaseExperiment):
         # --- Phase 1: load target, extract everything, then free VRAM ---
         print(f"Loading target (FP16): {target_model_id} ...")
         target_model = AutoModelForCausalLM.from_pretrained(
-            target_model_id, dtype=torch.float16, device_map=self.device,
+            target_model_id, dtype=self.model_dtype, device_map=self.device,
             trust_remote_code=True,
         )
         target_model.eval()
-        extractor = LLMExtractor()
+        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
         print("Caching target features and loss (will free target before loading proxies) ...")
         Z_T = extractor.extract_features(target_model, dataloader, self.device)
         H_T = extractor.extract_head(target_model)
-        loss_stats = self.compute_lm_loss_per_sample(target_model, dataloader, self.device)
+        loss_stats = self.compute_lm_loss_per_sample(target_model, dataloader, self.device,
+                                                      chunk_size=self.logit_chunk_size,
+                                                      offload_to_cpu=self.offload_to_cpu)
         losses_T = loss_stats["losses"]
         loss_target = losses_T.mean().item()
         ppl_target = math.exp(loss_target)
@@ -373,7 +375,9 @@ class QuantizationExperiment(BaseExperiment):
                     K_feat=K_feat, K_pred=K_pred,
                 )
 
-                proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.device)
+                proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.device,
+                                                               chunk_size=self.logit_chunk_size,
+                                                               offload_to_cpu=self.offload_to_cpu)
                 result.loss_target = loss_target
                 result.loss_proxy = proxy_stats["losses"].mean().item()
                 result.extra["perplexity_target"] = ppl_target
