@@ -162,34 +162,17 @@ class QuantizationExperiment(BaseExperiment):
     # Proxy loading — dispatches between GGUF and bitsandbytes
     # ------------------------------------------------------------------
     def _load_proxy_gguf(
-        self, quant_repo: str, filename: str, fallback_model_id: str,
+        self, quant_repo: str, filename: str,
     ) -> torch.nn.Module:
-        """Load a GGUF-quantised proxy, falling back to bnb 8/4-bit."""
+        """Load a GGUF-quantised proxy."""
         print(f"  Loading proxy: {filename} from {quant_repo} ...")
-        try:
-            proxy = AutoModelForCausalLM.from_pretrained(
-                quant_repo,
-                gguf_file=filename,
-                dtype=self.model_dtype,
-                device_map=self.device,
-                trust_remote_code=True,
-            )
-        except Exception as e:
-            print(f"    GGUF load failed ({e}), falling back to bitsandbytes ...")
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            is_4bit = any(tag in filename for tag in ("Q4", "Q3", "Q2"))
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=is_4bit,
-                load_in_8bit=not is_4bit,
-            )
-            proxy = AutoModelForCausalLM.from_pretrained(
-                fallback_model_id,
-                quantization_config=bnb_config,
-                device_map=self.device,
-                trust_remote_code=True,
-            )
+        proxy = AutoModelForCausalLM.from_pretrained(
+            quant_repo,
+            gguf_file=filename,
+            dtype=self.model_dtype,
+            device_map=self.device,
+            trust_remote_code=True,
+        )
         return proxy
 
     def _load_proxy_bnb(
@@ -266,7 +249,7 @@ class QuantizationExperiment(BaseExperiment):
             proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
         else:
             filename = _gguf_filename(gguf_tpl, quant_tag)
-            proxy = self._load_proxy_gguf(quant_repo, filename, target_model_id)
+            proxy = self._load_proxy_gguf(quant_repo, filename)
         proxy.eval()
         return proxy
 

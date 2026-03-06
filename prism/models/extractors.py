@@ -190,21 +190,21 @@ class LLMExtractor(FeatureExtractor):
                 else:
                     batch_on_device = {"input_ids": batch.to(device)}
 
-                bsz = batch_on_device["input_ids"].shape[0]
-                for j in range(bsz):
-                    single = {k: v[j : j + 1] for k, v in batch_on_device.items()}
-                    out = backbone(**single)
-                    hidden = out.last_hidden_state  # (1, seq, d)
+                        # Backbone only accepts model inputs, not metadata keys
+                inp = {k: v for k, v in batch_on_device.items() if k != "prompt_length"}
+                out = backbone(**inp)
+                hidden = out.last_hidden_state  # (bsz, seq, d)
 
-                    mask = single.get("attention_mask")
-                    if mask is not None:
-                        length = mask.sum().long() - 1
-                        feat = hidden[0, length, :]
-                    else:
-                        feat = hidden[0, -1, :]
+                masks = inp.get("attention_mask")  # (bsz, seq)
+                bsz = hidden.shape[0]
+                if masks is not None:
+                    lengths = masks.sum(dim=1).long() - 1          # (bsz,)
+                    feats = hidden[torch.arange(bsz, device=hidden.device), lengths]  # (bsz, d)
+                else:
+                    feats = hidden[:, -1, :]  # (bsz, d)
 
-                    t = feat.float().unsqueeze(0)
-                    all_features.append(t.cpu() if self.offload_to_cpu else t)
+                t = feats.float()
+                all_features.append(t.cpu() if self.offload_to_cpu else t)
 
         return torch.cat(all_features, dim=0)
 

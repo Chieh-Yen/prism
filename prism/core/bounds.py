@@ -65,6 +65,20 @@ def _max_pairwise_column_distance(H: Tensor, *, exact: bool = True) -> float:
     return _diameter_heuristic(H, col_norms_sq)
 
 
+def _spectral_norm_power_iter(H: Tensor, n_iter: int = 32) -> float:
+    """Largest singular value via power iteration.
+
+    O(d * C * n_iter) vs O(d² * C) for full SVD — ~100× faster for
+    large-vocab heads (Qwen3 151K, Gemma 256K).
+    """
+    v = torch.randn(H.shape[1], dtype=H.dtype, device=H.device)
+    v = v / v.norm()
+    for _ in range(n_iter):
+        u = H @ v;  u = u / u.norm()   # (d,)
+        v = H.T @ u; v = v / v.norm()  # (C,)
+    return (H @ v).norm().item()
+
+
 def _diameter_exact(H: Tensor, col_norms_sq: Tensor) -> float:
     """Exact column-set diameter via chunked ||h_j-h_k||^2 = ||h_j||^2 + ||h_k||^2 - 2 h_j·h_k."""
     C = H.shape[1]
@@ -149,7 +163,7 @@ class UnifiedBound:
             H_T_spectral, L_loss.
         """
         H_T = H_T.float()
-        H_T_spec = torch.linalg.svdvals(H_T)[0].item()
+        H_T_spec = _spectral_norm_power_iter(H_T)
         L = CROSS_ENTROPY_LIPSCHITZ
 
         max_pw = _max_pairwise_column_distance(H_T)
@@ -242,8 +256,9 @@ class UnifiedBound:
         n = features.shape[0]
         num_pairs = min(num_pairs, n * (n - 1) // 2)
 
-        idx_a = torch.randint(0, n, (num_pairs,))
-        idx_b = torch.randint(0, n, (num_pairs,))
+        device = features.device
+        idx_a = torch.randint(0, n, (num_pairs,), device=device)
+        idx_b = torch.randint(0, n, (num_pairs,), device=device)
         mask = idx_a != idx_b
         idx_a, idx_b = idx_a[mask], idx_b[mask]
 

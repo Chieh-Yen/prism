@@ -188,17 +188,20 @@ class BaseExperiment(ABC):
                 if prompt_lens is not None:
                     has_prompt = True
 
-                bsz = batch_on_device["input_ids"].shape[0]
-                for j in range(bsz):
-                    single = {k: v[j : j + 1] for k, v in batch_on_device.items()}
-                    labels = single["input_ids"].clone()
-                    pad_mask = single.get("attention_mask")
-                    if pad_mask is not None:
-                        labels[pad_mask == 0] = -100
+                # Single batched forward pass for the whole batch
+                outputs = model(**batch_on_device)
+                all_logits = outputs.logits  # (bsz, seq, V)
 
-                    outputs = model(**single)
-                    shift_logits = outputs.logits[0, :-1, :]  # (seq-1, V)
-                    shift_labels = labels[0, 1:]               # (seq-1,)
+                bsz = all_logits.shape[0]
+                pad_mask = batch_on_device.get("attention_mask")  # (bsz, seq)
+
+                for j in range(bsz):
+                    labels = batch_on_device["input_ids"][j].clone()  # (seq,)
+                    if pad_mask is not None:
+                        labels[pad_mask[j] == 0] = -100
+
+                    shift_logits = all_logits[j, :-1, :]  # (seq-1, V)
+                    shift_labels = labels[1:]              # (seq-1,)
 
                     # Chunked CE to avoid a single huge FP32 allocation
                     loss_sum = 0.0
@@ -219,8 +222,8 @@ class BaseExperiment(ABC):
                     if prompt_lens is not None:
                         pl = prompt_lens[j].item()
                         ans_labels = labels.clone()
-                        ans_labels[0, :pl] = -100
-                        shift_ans = ans_labels[0, 1:]
+                        ans_labels[:pl] = -100
+                        shift_ans = ans_labels[1:]
                         a_sum = 0.0
                         a_valid = 0
                         for start in range(0, seq_len, CHUNK):
@@ -237,9 +240,8 @@ class BaseExperiment(ABC):
                     # --- per-token gradient norms ---
                     gn_logits = shift_logits
                     gn_targets = shift_labels
-                    mask = single.get("attention_mask")
-                    if mask is not None:
-                        token_mask = mask[0, 1:].bool()
+                    if pad_mask is not None:
+                        token_mask = pad_mask[j, 1:].bool()
                         gn_logits = gn_logits[token_mask]
                         gn_targets = gn_targets[token_mask]
 
@@ -251,6 +253,8 @@ class BaseExperiment(ABC):
                         one_hot.scatter_(1, gn_targets[start:end].unsqueeze(1), 1.0)
                         gnorms = (p - one_hot).norm(dim=-1)  # (chunk,)
                         all_grad_norms.append(gnorms.cpu() if offload_to_cpu else gnorms)
+
+                del all_logits
 
         all_gn = torch.cat(all_grad_norms)
         result = {
