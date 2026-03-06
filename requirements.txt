@@ -1,15 +1,31 @@
-torch>=2.1
-transformers>=4.40
-datasets>=2.18
-huggingface-hub>=0.23
-tokenizers>=0.19
-accelerate>=0.30
-bitsandbytes>=0.43
-gguf>=0.10.0
-pyyaml>=6.0
-numpy>=1.24
-tqdm>=4.66
-pandas>=1.5
-matplotlib>=3.7
-seaborn>=0.12
-optimum
+# ============================================================
+# PRISM — pinned dependencies (from conda env solver311)
+#
+# torch CUDA build (cu128) must be installed separately:
+#   pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements.txt
+# ============================================================
+
+# Core ML
+torch==2.10.0
+transformers==5.2.0
+tokenizers==0.22.2
+accelerate==1.12.0
+
+# Datasets
+datasets==4.5.0
+huggingface-hub==1.5.0
+
+# Quantization
+bitsandbytes==0.49.2
+gguf==0.17.1
+GPTQModel==5.7.0
+optimum==2.1.0
+
+# Config / utils
+pyyaml==6.0.3
+numpy==2.2.6
+tqdm==4.67.3
+pandas==3.0.0
+scipy==1.17.0
+matplotlib==3.10.8
