@@ -12,3 +12,4 @@ tqdm>=4.66
 pandas>=1.5
 matplotlib>=3.7
 seaborn>=0.12
+optimum
