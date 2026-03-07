@@ -54,6 +54,7 @@ class BaseExperiment(ABC):
         self.offload_to_cpu = cfg_computing.get("offload_to_cpu", False)
         self.logit_chunk_size = cfg_computing.get("logit_chunk_size", 2048)
         self.model_dtype = getattr(torch, cfg_computing.get("model_dtype", "float16"))
+        self.use_flash_attention = cfg_computing.get("use_flash_attention", False)
 
     # ------------------------------------------------------------------
     # Abstract interface for subclasses

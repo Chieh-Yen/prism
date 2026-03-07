@@ -159,6 +159,29 @@ class QuantizationExperiment(BaseExperiment):
         return []
 
     # ------------------------------------------------------------------
+    # Flash Attention 2 helper
+    # ------------------------------------------------------------------
+    def _attn_impl_kwargs(self) -> dict:
+        """Return ``{"attn_implementation": "flash_attention_2"}`` when enabled.
+
+        Checks that the ``flash-attn`` package is importable before adding the
+        flag, so the experiment degrades gracefully on machines without it.
+        Flash Attention 2 requires bf16 or fp16 weights; fp32 models are
+        silently excluded.
+        """
+        if not self.use_flash_attention:
+            return {}
+        try:
+            import flash_attn  # noqa: F401 — availability probe only
+        except ImportError:
+            print("  [flash_attn] package not found — running without Flash Attention 2.")
+            return {}
+        if self.model_dtype == torch.float32:
+            print("  [flash_attn] skipped — flash_attention_2 requires fp16/bf16, not fp32.")
+            return {}
+        return {"attn_implementation": "flash_attention_2"}
+
+    # ------------------------------------------------------------------
     # Proxy loading — dispatches between GGUF and bitsandbytes
     # ------------------------------------------------------------------
     def _load_proxy_gguf(
@@ -172,6 +195,7 @@ class QuantizationExperiment(BaseExperiment):
             dtype=self.model_dtype,
             device_map=self.device,
             trust_remote_code=True,
+            **self._attn_impl_kwargs(),
         )
         return proxy
 
@@ -190,6 +214,7 @@ class QuantizationExperiment(BaseExperiment):
             quantization_config=_BNB_CONFIGS[bnb_tag](),
             device_map=self.device,
             trust_remote_code=True,
+            **self._attn_impl_kwargs(),
         )
         return proxy
 
@@ -202,6 +227,7 @@ class QuantizationExperiment(BaseExperiment):
         kwargs: dict = dict(
             device_map=self.device,
             trust_remote_code=True,
+            **self._attn_impl_kwargs(),
         )
         if revision:
             kwargs["revision"] = revision
@@ -225,6 +251,7 @@ class QuantizationExperiment(BaseExperiment):
             dtype=dtype,
             device_map=self.device,
             trust_remote_code=True,
+            **self._attn_impl_kwargs(),
         )
         return proxy
 
@@ -318,16 +345,17 @@ class QuantizationExperiment(BaseExperiment):
         target_model = AutoModelForCausalLM.from_pretrained(
             target_model_id, dtype=self.model_dtype, device_map=self.device,
             trust_remote_code=True,
+            **self._attn_impl_kwargs(),
         )
         target_model.eval()
         extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
-        print("Caching target features and loss (will free target before loading proxies) ...")
-        Z_T = extractor.extract_features(target_model, dataloader, self.tensor_device)
+        print("Caching target features and loss (single forward pass) ...")
+        Z_T, loss_stats = extractor.extract_features_and_loss_per_sample(
+            target_model, dataloader, self.tensor_device,
+            chunk_size=self.logit_chunk_size,
+        )
         H_T = extractor.extract_head(target_model)
-        loss_stats = self.compute_lm_loss_per_sample(target_model, dataloader, self.tensor_device,
-                                                      chunk_size=self.logit_chunk_size,
-                                                      offload_to_cpu=self.offload_to_cpu)
         losses_T = loss_stats["losses"]
         loss_target = losses_T.mean().item()
         ppl_target = math.exp(loss_target)
@@ -393,7 +421,10 @@ class QuantizationExperiment(BaseExperiment):
             try:
                 proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
 
-                Z_P = extractor.extract_features(proxy_model, dataloader, self.tensor_device)
+                Z_P, proxy_stats = extractor.extract_features_and_loss_per_sample(
+                    proxy_model, dataloader, self.tensor_device,
+                    chunk_size=self.logit_chunk_size,
+                )
 
                 if not torch.isfinite(Z_P).all():
                     print(f"  WARNING: proxy features contain NaN/Inf — skipping {disp}")
@@ -406,10 +437,6 @@ class QuantizationExperiment(BaseExperiment):
                     force_identity=True, label=label, absorbed=absorbed,
                     K_feat=K_feat, K_pred=K_pred,
                 )
-
-                proxy_stats = self.compute_lm_loss_per_sample(proxy_model, dataloader, self.tensor_device,
-                                                               chunk_size=self.logit_chunk_size,
-                                                               offload_to_cpu=self.offload_to_cpu)
                 result.loss_target = loss_target
                 result.loss_proxy = proxy_stats["losses"].mean().item()
                 result.extra["perplexity_target"] = ppl_target

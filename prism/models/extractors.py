@@ -209,6 +209,172 @@ class LLMExtractor(FeatureExtractor):
 
         return torch.cat(all_features, dim=0)
 
+    def extract_features_and_loss_per_sample(
+        self,
+        model: torch.nn.Module,
+        dataloader: DataLoader,
+        device: str = "cuda",
+        *,
+        chunk_size: int = 2048,
+    ) -> Tuple[Tensor, Dict]:
+        """Single forward pass that returns both features AND per-sample loss stats.
+
+        Calls ``model(..., output_hidden_states=True)`` once per batch, obtaining
+        the last hidden state (for features) **and** logits (for loss) in the same
+        pass — halving the number of forward passes versus calling
+        ``extract_features()`` + ``compute_lm_loss_per_sample()`` separately.
+
+        The returned ``loss_stats`` dict has the same structure as
+        ``BaseExperiment.compute_lm_loss_per_sample()``:
+            ``losses``        — (n,) per-sample average CE loss
+            ``answer_losses`` — (n,) answer-only loss, or None
+            ``has_answer_loss``
+            ``grad_norm_p95 / _max / _mean`` — empirical K_pred proxy
+
+        Falls back to the two-pass approach automatically if
+        ``output_hidden_states`` is not supported by the loaded model.
+        """
+        model.eval()
+        all_features: List[Tensor] = []
+        sample_losses: List[float] = []
+        answer_losses: List[float] = []
+        has_prompt = False
+        all_grad_norms: List[Tensor] = []
+        CHUNK = chunk_size
+        ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
+
+        # Probe once whether the model supports output_hidden_states.
+        # Some quantised wrappers silently ignore the flag; we verify on the
+        # first batch and fall back to two passes if hidden_states is absent.
+        _checked = False
+        _use_combined = True  # updated after first batch
+
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="Extracting features + loss", leave=False):
+                if isinstance(batch, dict):
+                    batch_on_device = {k: v.to(device) for k, v in batch.items()}
+                elif isinstance(batch, (list, tuple)):
+                    batch_on_device = {
+                        "input_ids": batch[0].to(device),
+                        "attention_mask": batch[1].to(device),
+                    }
+                else:
+                    batch_on_device = {"input_ids": batch.to(device)}
+
+                prompt_lens = batch_on_device.pop("prompt_length", None)
+                if prompt_lens is not None:
+                    has_prompt = True
+
+                inp = {k: v for k, v in batch_on_device.items()}
+                masks = inp.get("attention_mask")
+                bsz = inp["input_ids"].shape[0]
+
+                # ── Forward pass ──────────────────────────────────────────
+                if not _checked:
+                    try:
+                        out = model(**inp, output_hidden_states=True)
+                        _use_combined = (out.hidden_states is not None
+                                         and len(out.hidden_states) > 0)
+                    except TypeError:
+                        _use_combined = False
+                    _checked = True
+                    if not _use_combined:
+                        # Re-run without the flag for this batch
+                        out = model(**inp)
+                else:
+                    if _use_combined:
+                        out = model(**inp, output_hidden_states=True)
+                    else:
+                        out = model(**inp)
+
+                all_logits = out.logits  # (bsz, seq, V)
+
+                # ── Feature extraction ────────────────────────────────────
+                if _use_combined:
+                    hidden = out.hidden_states[-1]  # post-norm last layer (bsz, seq, d)
+                else:
+                    # Fallback: derive from backbone directly
+                    backbone = self._get_backbone(model)
+                    bb_out = backbone(**inp)
+                    hidden = bb_out.last_hidden_state
+
+                if masks is not None:
+                    lengths = masks.sum(dim=1).long() - 1
+                    lengths = lengths.to(hidden.device)
+                    feats = hidden[torch.arange(bsz, device=hidden.device), lengths]
+                else:
+                    feats = hidden[:, -1, :]
+
+                all_features.append(feats.float().cpu() if self.offload_to_cpu else feats.float())
+
+                # ── Per-sample loss ───────────────────────────────────────
+                for j in range(bsz):
+                    labels = inp["input_ids"][j].clone()
+                    if masks is not None:
+                        labels[masks[j] == 0] = -100
+
+                    shift_logits = all_logits[j, :-1, :]
+                    shift_labels = labels[1:]
+                    seq_len = shift_logits.shape[0]
+
+                    loss_sum, n_valid = 0.0, 0
+                    for s in range(0, seq_len, CHUNK):
+                        e = min(s + CHUNK, seq_len)
+                        cl = shift_labels[s:e]
+                        v = (cl != -100).sum().item()
+                        if v == 0:
+                            continue
+                        loss_sum += ce_none(shift_logits[s:e], cl).item() * v
+                        n_valid += v
+                    sample_losses.append(loss_sum / max(n_valid, 1))
+
+                    # Answer-only loss
+                    if prompt_lens is not None:
+                        pl = int(prompt_lens[j].item())
+                        ans_labels = labels.clone()
+                        ans_labels[:pl] = -100
+                        shift_ans = ans_labels[1:]
+                        a_sum, a_valid = 0.0, 0
+                        for s in range(0, seq_len, CHUNK):
+                            e = min(s + CHUNK, seq_len)
+                            cl = shift_ans[s:e]
+                            v = (cl != -100).sum().item()
+                            if v == 0:
+                                continue
+                            a_sum += ce_none(shift_logits[s:e], cl).item() * v
+                            a_valid += v
+                        answer_losses.append(a_sum / max(a_valid, 1))
+
+                    # Per-token gradient norms (empirical K_pred)
+                    gn_logits = shift_logits
+                    gn_targets = shift_labels
+                    if masks is not None:
+                        token_mask = masks[j, 1:].bool()
+                        gn_logits = gn_logits[token_mask]
+                        gn_targets = gn_targets[token_mask]
+                    gn_len = gn_logits.shape[0]
+                    for s in range(0, gn_len, CHUNK):
+                        e = min(s + CHUNK, gn_len)
+                        p = torch.softmax(gn_logits[s:e].float(), dim=-1)
+                        oh = torch.zeros_like(p)
+                        oh.scatter_(1, gn_targets[s:e].unsqueeze(1), 1.0)
+                        gnorms = (p - oh).norm(dim=-1)
+                        all_grad_norms.append(gnorms.cpu())
+
+                del all_logits
+
+        Z = torch.cat(all_features, dim=0)
+        all_gn = torch.cat(all_grad_norms) if all_grad_norms else torch.zeros(1)
+        loss_stats: Dict = {
+            "losses": torch.tensor(sample_losses),
+            "answer_losses": torch.tensor(answer_losses) if has_prompt else None,
+            "has_answer_loss": has_prompt,
+            "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
+            "grad_norm_max": all_gn.max().item(),
+            "grad_norm_mean": all_gn.mean().item(),
+        }
+        return Z, loss_stats
+
     def extract_head(
         self,
         model: torch.nn.Module,

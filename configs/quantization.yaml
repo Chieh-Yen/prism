@@ -68,9 +68,10 @@ output:
   save_features: true
 
 computing:
-  offload_to_cpu: false    # set true on ≤24GB GPUs to offload features to CPU
-  logit_chunk_size: 2048   # reduce to 512 on ≤24GB GPUs
-  model_dtype: bfloat16    # bf16 is the experiment standard; float16 is added as a proxy entry
+  offload_to_cpu: false        # set true on ≤24GB GPUs to offload features to CPU
+  logit_chunk_size: 2048       # reduce to 512 on ≤24GB GPUs
+  model_dtype: bfloat16        # bf16 is the experiment standard; float16 is added as a proxy entry
+  use_flash_attention: false   # set true on Ampere+ GPUs (A100/L40/H100) after: pip install flash-attn --no-build-isolation
 
 device: cuda
 seed: 42
