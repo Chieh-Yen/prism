@@ -73,7 +73,7 @@ data:
   task: wikitext
   split: test
   num_samples: 512
-  batch_size: 4
+  batch_size: 8
   max_length: 1024
 
 alignment:
@@ -83,9 +83,10 @@ output:
   dir: ./results/cross_scale
 
 computing:
-  offload_to_cpu: false    # set true on ≤24GB GPUs to offload features to CPU
-  logit_chunk_size: 2048   # reduce to 512 on ≤24GB GPUs
-  model_dtype: bfloat16    # bf16 is the experiment standard
+  offload_to_cpu: false        # set true on ≤24GB GPUs to offload features to CPU
+  logit_chunk_size: 2048       # reduce to 512 on ≤24GB GPUs
+  model_dtype: bfloat16        # bf16 is the experiment standard
+  use_flash_attention: true   # set true on Ampere+ GPUs (A100/L40/H100) after: pip install flash-attn --no-build-isolation
 
 device: cuda
 seed: 42
