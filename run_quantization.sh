@@ -160,10 +160,10 @@ bnb:int8,bnb:nf4,bnb:fp4]"
 
 DATASETS_ALL="gsm8k mmlu arc lambada c4 wikitext"
 
-for DS in $DATASETS_ALL; do
-    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 4: Meta-Llama-3.1-8B-Instruct
@@ -222,10 +222,10 @@ gptq:RedHatAI/Qwen3-8B-quantized.w4a16]"
 
 DATASETS_ALL="wikitext gsm8k mmlu arc"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
