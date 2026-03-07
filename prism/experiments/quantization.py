@@ -156,6 +156,84 @@ def _display_label(quant_tag: str) -> str:
     return quant_tag
 
 
+def _bnb_requantize(
+    model: torch.nn.Module,
+    bnb_config: BitsAndBytesConfig,
+    device: str,
+) -> torch.nn.Module:
+    """Replace ``nn.Linear`` layers with BnB-quantised equivalents in-place.
+
+    Intended for checkpoints that carry a pre-applied quantisation (e.g.
+    ``FineGrainedFP8Config``) which ``from_pretrained`` cannot combine with a
+    ``BitsAndBytesConfig`` in a single call.
+
+    The caller must have already loaded the model to CPU with
+    ``dtype=bfloat16``.  On hardware that does not support the checkpoint's
+    native format (e.g. FP8 on a GPU with compute capability < 8.9),
+    transformers automatically dequantises the weights to BF16, so all
+    ``nn.Linear`` layers already hold regular BF16 tensors at this point.
+
+    After in-place layer replacement the model is dispatched to *device*,
+    which triggers bitsandbytes' on-CUDA weight quantisation via the
+    ``Int8Params.to()`` / ``Params4bit.to()`` overrides.
+    """
+    import bitsandbytes as bnb
+    from transformers.integrations.bitsandbytes import should_convert_module
+
+    skip = getattr(bnb_config, "llm_int8_skip_modules", None) or ["lm_head"]
+    is_int8 = bool(bnb_config.load_in_8bit)
+    replaced = 0
+
+    for module_name, module in list(model.named_modules()):
+        if not isinstance(module, torch.nn.Linear):
+            continue
+        if not should_convert_module(module_name, skip):
+            continue
+
+        w = module.weight.data          # BF16, CPU
+        b = module.bias.data if module.bias is not None else None
+
+        if is_int8:
+            new = bnb.nn.Linear8bitLt(
+                module.in_features,
+                module.out_features,
+                bias=b is not None,
+                has_fp16_weights=bnb_config.llm_int8_has_fp16_weight,
+                threshold=bnb_config.llm_int8_threshold,
+            )
+            new.weight = bnb.nn.Int8Params(
+                w,
+                requires_grad=False,
+                has_fp16_weights=bnb_config.llm_int8_has_fp16_weight,
+            )
+        else:
+            new = bnb.nn.Linear4bit(
+                module.in_features,
+                module.out_features,
+                bias=b is not None,
+                compute_dtype=bnb_config.bnb_4bit_compute_dtype,
+                compress_statistics=bnb_config.bnb_4bit_use_double_quant,
+                quant_type=bnb_config.bnb_4bit_quant_type,
+            )
+            new.weight = bnb.nn.Params4bit(
+                w,
+                requires_grad=False,
+                quant_type=bnb_config.bnb_4bit_quant_type,
+                compress_statistics=bnb_config.bnb_4bit_use_double_quant,
+            )
+
+        if b is not None:
+            new.bias = torch.nn.Parameter(b, requires_grad=False)
+        new.source_cls = type(module)
+        new.requires_grad_(False)
+        model.set_submodule(module_name, new)
+        replaced += 1
+
+    print(f"  In-place BnB replacement: {replaced} Linear → {'Int8' if is_int8 else '4bit'} layers.")
+    model.to(device)    # triggers Int8Params.to() / Params4bit.to() → BnB quantisation
+    return model
+
+
 def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
     """Load a model for causal-LM tasks.
 
@@ -241,22 +319,40 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
-        # Pre-load config and clear any existing quantization_config (e.g.
-        # FineGrainedFP8Config present in some official checkpoints such as
-        # Ministral-3-8B-Instruct-2512).  Passing a conflicting quantization
-        # class alongside BitsAndBytesConfig causes transformers to raise an
-        # error; stripping it from the config object prevents the conflict.
+        # Pre-load config to detect whether the checkpoint already has its own
+        # quantisation (e.g. FineGrainedFP8Config for Ministral-3-8B-Instruct).
+        # Passing a BitsAndBytesConfig alongside a different quantisation class
+        # raises a conflict error in transformers.  When a pre-applied config is
+        # detected we use a two-step path:
+        #   1. Load to CPU with dtype=bfloat16 — transformers automatically
+        #      dequantises the weights to BF16 on hardware that does not support
+        #      the native format (e.g. FP8 on compute capability < 8.9).
+        #   2. Replace nn.Linear layers with BnB-quantised equivalents in-place
+        #      via _bnb_requantize, then dispatch to GPU (triggers on-CUDA
+        #      BnB weight quantisation through Int8Params / Params4bit).
         config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
-        if getattr(config, "quantization_config", None) is not None:
-            config.quantization_config = None
-        proxy = _load_model(
-            model_id,
-            config=config,
-            quantization_config=_BNB_CONFIGS[bnb_tag](),
-            device_map=self.device,
-            trust_remote_code=True,
-            **self._attn_impl_kwargs(),
-        )
+        existing_quant = getattr(config, "quantization_config", None)
+
+        if existing_quant is None:
+            proxy = _load_model(
+                model_id,
+                quantization_config=_BNB_CONFIGS[bnb_tag](),
+                device_map=self.device,
+                trust_remote_code=True,
+                **self._attn_impl_kwargs(),
+            )
+        else:
+            print(
+                f"  (pre-quantised checkpoint [{type(existing_quant).__name__}];"
+                f" loading to CPU for dequantisation, then re-quantising with BnB)"
+            )
+            proxy = _load_model(
+                model_id,
+                dtype=torch.bfloat16,
+                device_map="cpu",
+                trust_remote_code=True,
+            )
+            proxy = _bnb_requantize(proxy, _BNB_CONFIGS[bnb_tag](), self.device)
         return proxy
 
     def _load_proxy_gptq(
