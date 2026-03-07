@@ -39,8 +39,12 @@
 #   • Ministral-3: no confirmed public GPTQ repos — omitted.
 #
 # GGUF repo notes:
-#   • Ministral-3 bartowski repos are inferred from naming convention.
-#     Verify on HuggingFace before running.
+#   • Ministral-3 Base   : mradermacher/Ministral-3-8B-Base-2512-GGUF
+#                          files: Ministral-3-8B-Base-2512.{quant}.gguf (dot convention)
+#   • Ministral-3 Instruct: bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF
+#                          files: mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf
+#   NOTE: transformers 5.x GGUF support for mistral3 was patched locally in
+#         transformers/integrations/ggml.py and modeling_gguf_pytorch_utils.py.
 # ============================================================
 set -euo pipefail
 
@@ -139,22 +143,25 @@ gptq:AlphaGaO/Qwen3-8B-GPTQ]"
 
 # ============================================================
 # Model 3: Ministral-3-8B-Base-2512
-# Arch  : Mistral3ForConditionalGeneration (text-only backbone),
-#          vocab=131K (Tekken v7), hidden=5120
-# GGUF  : bartowski/Ministral-3-8B-Base-2512-GGUF
-#          files: Ministral-3-8B-Base-2512-{quant}.gguf
-#          *** Verify this repo exists before running ***
+# Arch  : Mistral3ForConditionalGeneration (VL backbone; text path used),
+#          vocab=131K (Tekken v7), hidden=4096
+# GGUF  : mradermacher/Ministral-3-8B-Base-2512-GGUF
+#          files: Ministral-3-8B-Base-2512.{quant}.gguf  (dot convention)
+#          NOTE: transformers mistral3 GGUF support patched locally.
 # GPTQ  : no confirmed public repo — omitted
 # ============================================================
 MIN3B_TARGET="target.model=mistralai/Ministral-3-8B-Base-2512"
-MIN3B_GGUF="proxy.model=bartowski/Ministral-3-8B-Base-2512-GGUF"
+MIN3B_GGUF="proxy.model=mradermacher/Ministral-3-8B-Base-2512-GGUF"
+MIN3B_TPL="proxy.gguf_template=Ministral-3-8B-Base-2512.{quant}.gguf"
 MIN3B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
+DATASETS_ALL="gsm8k mmlu arc lambada c4 wikitext"
+
 for DS in $DATASETS_ALL; do
-    run $MIN3B_TARGET $MIN3B_GGUF "$MIN3B_BITS" \
+    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
         data.task=$DS data.num_samples=$N
 done
 
@@ -224,22 +231,23 @@ DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
 # ============================================================
 # Model 6: Ministral-3-8B-Instruct-2512
-# Arch  : Mistral3ForConditionalGeneration (text-only backbone),
-#          vocab=131K (Tekken v7), hidden=5120
-# GGUF  : bartowski/Ministral-3-8B-Instruct-2512-GGUF
-#          files: Ministral-3-8B-Instruct-2512-{quant}.gguf
-#          *** Verify this repo exists before running ***
+# Arch  : Mistral3ForConditionalGeneration (VL backbone; text path used),
+#          vocab=131K (Tekken v7), hidden=4096
+# GGUF  : bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF
+#          files: mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf
+#          NOTE: transformers mistral3 GGUF support patched locally.
 # GPTQ  : no confirmed public repo — omitted
 # ============================================================
 MIN3I_TARGET="target.model=mistralai/Ministral-3-8B-Instruct-2512"
-MIN3I_GGUF="proxy.model=bartowski/Ministral-3-8B-Instruct-2512-GGUF"
+MIN3I_GGUF="proxy.model=bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF"
+MIN3I_TPL="proxy.gguf_template=mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf"
 MIN3I_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
 for DS in $DATASETS_ALL; do
-    run $MIN3I_TARGET $MIN3I_GGUF "$MIN3I_BITS" \
+    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
         data.task=$DS data.num_samples=$N
 done
 

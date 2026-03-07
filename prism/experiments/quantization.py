@@ -32,7 +32,13 @@ import time
 from typing import Any, Dict, List
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoModelForImageTextToText,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+)
 
 from ..core.bounds import UnifiedBound
 from ..data.loaders import load_task_data
@@ -151,6 +157,33 @@ def _display_label(quant_tag: str) -> str:
     return quant_tag
 
 
+def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
+    """Load a model for causal-LM tasks.
+
+    Primary path: ``AutoModelForCausalLM`` (pure text models).
+    Fallback: ``AutoModelForImageTextToText`` for vision-language models
+    whose config (e.g. ``Mistral3Config``) is not registered under
+    ``AutoModelForCausalLM``.  The ``LLMExtractor`` handles VL model
+    structures transparently by navigating to the text backbone.
+    """
+    try:
+        return AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
+    except ValueError as exc:
+        if "Unrecognized configuration class" not in str(exc):
+            raise
+        cfg = AutoConfig.from_pretrained(
+            model_id,
+            trust_remote_code=kwargs.get("trust_remote_code", True),
+        )
+        if not hasattr(cfg, "text_config"):
+            raise
+        print(
+            f"  (VL model detected [{cfg.__class__.__name__}];"
+            " loading text backbone via AutoModelForImageTextToText)"
+        )
+        return AutoModelForImageTextToText.from_pretrained(model_id, **kwargs)
+
+
 class QuantizationExperiment(BaseExperiment):
     """Compare full-precision target with quantised variants (proxy), W = I."""
 
@@ -189,7 +222,7 @@ class QuantizationExperiment(BaseExperiment):
     ) -> torch.nn.Module:
         """Load a GGUF-quantised proxy."""
         print(f"  Loading proxy: {filename} from {quant_repo} ...")
-        proxy = AutoModelForCausalLM.from_pretrained(
+        proxy = _load_model(
             quant_repo,
             gguf_file=filename,
             dtype=self.model_dtype,
@@ -209,7 +242,7 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
-        proxy = AutoModelForCausalLM.from_pretrained(
+        proxy = _load_model(
             model_id,
             quantization_config=_BNB_CONFIGS[bnb_tag](),
             device_map=self.device,
@@ -231,7 +264,7 @@ class QuantizationExperiment(BaseExperiment):
         )
         if revision:
             kwargs["revision"] = revision
-        proxy = AutoModelForCausalLM.from_pretrained(repo, **kwargs)
+        proxy = _load_model(repo, **kwargs)
         return proxy
 
     def _load_proxy_dtype(
@@ -246,7 +279,7 @@ class QuantizationExperiment(BaseExperiment):
         dtype = getattr(torch, dtype_str)
         label = _DTYPE_LABELS.get(dtype_str, dtype_str.upper())
         print(f"  Loading proxy: {model_id} [{label}] ...")
-        proxy = AutoModelForCausalLM.from_pretrained(
+        proxy = _load_model(
             model_id,
             dtype=dtype,
             device_map=self.device,
@@ -342,7 +375,7 @@ class QuantizationExperiment(BaseExperiment):
         # --- Phase 1: load target, extract everything, then free VRAM ---
         target_dtype_label = _DTYPE_LABELS.get(str(self.model_dtype).split(".")[-1], str(self.model_dtype).upper())
         print(f"Loading target ({target_dtype_label}): {target_model_id} ...")
-        target_model = AutoModelForCausalLM.from_pretrained(
+        target_model = _load_model(
             target_model_id, dtype=self.model_dtype, device_map=self.device,
             trust_remote_code=True,
             **self._attn_impl_kwargs(),
