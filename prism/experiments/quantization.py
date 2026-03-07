@@ -1,4 +1,3 @@
-"""
 Quantization Quality Estimation — Identity Regime (W = I).
 
 Target = full-precision model (BF16 by default; configurable via computing.model_dtype).
@@ -242,8 +241,17 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
+        # Pre-load config and clear any existing quantization_config (e.g.
+        # FineGrainedFP8Config present in some official checkpoints such as
+        # Ministral-3-8B-Instruct-2512).  Passing a conflicting quantization
+        # class alongside BitsAndBytesConfig causes transformers to raise an
+        # error; stripping it from the config object prevents the conflict.
+        config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+        if getattr(config, "quantization_config", None) is not None:
+            config.quantization_config = None
         proxy = _load_model(
             model_id,
+            config=config,
             quantization_config=_BNB_CONFIGS[bnb_tag](),
             device_map=self.device,
             trust_remote_code=True,
