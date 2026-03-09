@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Cross-Scale Proxy Validation Experiment Suite
-# 6 datasets × 10 model families (smaller proxy → larger target)
+# 6 datasets × 10 model families (dense lower-triangular: every
+# smaller-proxy → every larger-target within each family)
 #
 # Scientific question: do PRISM metrics on a small proxy model
 # reliably predict the large target's performance?
@@ -10,17 +11,21 @@
 # computation (per-model tokenizer policy in cross_scale.py).
 #
 # ── Qwen families (all use Qwen tokenizer, vocab=151K) ──────────────
-#   qwen3base   — Qwen3  Base:      0.6B-Base/1.7B-Base/4B-Base → 8B-Base
-#   qwen3       — Qwen3  (thinking): 0.6B/1.7B/4B          → 8B
-#   qwen25base  — Qwen2.5 Base:     0.5B/1.5B/3B           → 7B
-#   qwen25      — Qwen2.5 Instruct: 0.5B/1.5B/3B-Instruct → 7B-Instruct
+#   qwen3base   — Qwen3  Base:      0.6B/1.7B/4B/8B/14B-Base  (dense ▽)
+#   qwen3       — Qwen3  (thinking): 0.6B/1.7B/4B/8B/14B      (dense ▽)
+#   qwen25base  — Qwen2.5 Base:     0.5B/1.5B/3B/7B/14B       (dense ▽)
+#   qwen25      — Qwen2.5 Instruct: 0.5B/1.5B/3B/7B/14B-Inst  (dense ▽)
 #
 # ── Other families ───────────────────────────────────────────────────
 #   llama2      — Llama-2 (vocab=32K) + cross-arch Mistral proxy
 #   mistral     — Mistral-7B (vocab=32K) + cross-arch Llama-2 proxy
 #   ministral3  — Ministral-3 2512 (multimodal wrapper, vocab=131K)
 #   gemma2      — Gemma-2 2B→9B (vocab=256K)  [Google HF auth required]
-#   gemma3      — Gemma-3 270M/1B/4B→12B-pt   [Google HF auth required]
+#   gemma3      — Gemma-3 270M/1B/4B/12B-pt   (dense ▽) [Google HF auth]
+#
+# Dense lower-triangle (▽): for each target T, proxies = all models
+# smaller than T within the same family.  Results land in per-target
+# subdirs, e.g. results/cross_scale/qwen3base/target_14B/.
 #
 # Usage:
 #   bash run_cross_scale.sh
@@ -64,89 +69,220 @@ DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"
 # ============================================================
 # Qwen families — all share Qwen tokenizer (vocab=151K).
 # max_length=1024 to keep logit peak VRAM manageable on 20GB GPUs.
+#
+# Dense lower-triangle: run every (proxy < target) pair within the
+# family.  Each target level writes to its own subdirectory.
 # ============================================================
 
 # ── Qwen3 Base ───────────────────────────────────────────────────────
-# Pure pre-trained base; matches Qwen2.5-Base for apples-to-apples comparison.
-# Target : Qwen/Qwen3-8B-Base
-# Proxies: Qwen/Qwen3-0.6B-Base, 1.7B-Base, 4B-Base
+# Pure pre-trained base; matches Qwen2.5-Base for apples-to-apples.
+# Sizes : 0.6B-Base  1.7B-Base  4B-Base  8B-Base  14B-Base
+# ▽ pairs:
+#   target=14B-Base  proxies=[0.6B, 1.7B, 4B, 8B]-Base
+#   target= 8B-Base  proxies=[0.6B, 1.7B, 4B]-Base
+#   target= 4B-Base  proxies=[0.6B, 1.7B]-Base
+#   target= 1.7B-Base proxies=[0.6B]-Base
 run_qwen3base() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen3 Base  (target=Qwen3-8B-Base)" | tee -a "$LOG"
+    echo "  Qwen3 Base  (dense lower-triangle, up to 14B-Base)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    TARGET="target.model=Qwen/Qwen3-8B-Base"
-    PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
     MAXLEN="data.max_length=1024"
 
+    # target = 14B-Base
     for DS in $DATASETS_ALL; do
-        run "$TARGET" "$PROXIES" "$MAXLEN" \
+        run "target.model=Qwen/Qwen3-14B-Base" \
+            "proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base,Qwen/Qwen3-8B-Base]" \
+            "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen3base
+            output.dir=./results/cross_scale/qwen3base/target_14B
+    done
+
+    # target = 8B-Base
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen3-8B-Base" \
+            "proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3base/target_8B
+    done
+
+    # target = 4B-Base
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen3-4B-Base" \
+            "proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3base/target_4B
+    done
+
+    # target = 1.7B-Base
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen3-1.7B-Base" \
+            "proxy.models=[Qwen/Qwen3-0.6B-Base]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3base/target_1.7B
     done
 }
 
 # ── Qwen3 (thinking / non-base) ──────────────────────────────────────
 # Default Qwen3 models (thinking mode enabled by default in chat templates).
-# Target : Qwen/Qwen3-8B
-# Proxies: Qwen/Qwen3-0.6B, 1.7B, 4B
+# Sizes : 0.6B  1.7B  4B  8B  14B
+# ▽ pairs:
+#   target=14B  proxies=[0.6B, 1.7B, 4B, 8B]
+#   target= 8B  proxies=[0.6B, 1.7B, 4B]
+#   target= 4B  proxies=[0.6B, 1.7B]
+#   target= 1.7B proxies=[0.6B]
 run_qwen3() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen3 (thinking)  (target=Qwen3-8B)" | tee -a "$LOG"
+    echo "  Qwen3 (thinking)  (dense lower-triangle, up to 14B)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    TARGET="target.model=Qwen/Qwen3-8B"
-    PROXIES="proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B,Qwen/Qwen3-4B]"
     MAXLEN="data.max_length=1024"
 
+    # target = 14B
     for DS in $DATASETS_ALL; do
-        run "$TARGET" "$PROXIES" "$MAXLEN" \
+        run "target.model=Qwen/Qwen3-14B" \
+            "proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B,Qwen/Qwen3-4B,Qwen/Qwen3-8B]" \
+            "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen3
+            output.dir=./results/cross_scale/qwen3/target_14B
+    done
+
+    # target = 8B
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen3-8B" \
+            "proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B,Qwen/Qwen3-4B]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3/target_8B
+    done
+
+    # target = 4B
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen3-4B" \
+            "proxy.models=[Qwen/Qwen3-0.6B,Qwen/Qwen3-1.7B]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3/target_4B
+    done
+
+    # target = 1.7B
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen3-1.7B" \
+            "proxy.models=[Qwen/Qwen3-0.6B]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen3/target_1.7B
     done
 }
 
 # ── Qwen2.5 Base ─────────────────────────────────────────────────────
 # Pure pre-trained base models; cleaner comparison for LM perplexity.
-# Target : Qwen/Qwen2.5-7B
-# Proxies: Qwen/Qwen2.5-0.5B, 1.5B, 3B
+# Sizes : 0.5B  1.5B  3B  7B  14B
+# ▽ pairs:
+#   target=14B  proxies=[0.5B, 1.5B, 3B, 7B]
+#   target= 7B  proxies=[0.5B, 1.5B, 3B]
+#   target= 3B  proxies=[0.5B, 1.5B]
+#   target= 1.5B proxies=[0.5B]
 run_qwen25base() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen2.5 Base  (target=Qwen2.5-7B)" | tee -a "$LOG"
+    echo "  Qwen2.5 Base  (dense lower-triangle, up to 14B)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    TARGET="target.model=Qwen/Qwen2.5-7B"
-    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-3B]"
     MAXLEN="data.max_length=1024"
 
+    # target = 14B
     for DS in $DATASETS_ALL; do
-        run "$TARGET" "$PROXIES" "$MAXLEN" \
+        run "target.model=Qwen/Qwen2.5-14B" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-3B,Qwen/Qwen2.5-7B]" \
+            "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen25base
+            output.dir=./results/cross_scale/qwen25base/target_14B
+    done
+
+    # target = 7B
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen2.5-7B" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-3B]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25base/target_7B
+    done
+
+    # target = 3B
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen2.5-3B" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25base/target_3B
+    done
+
+    # target = 1.5B
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen2.5-1.5B" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25base/target_1.5B
     done
 }
 
 # ── Qwen2.5 Instruct ─────────────────────────────────────────────────
 # Instruction-tuned models; useful for Q&A datasets (GSM8K, MMLU, ARC).
-# Target : Qwen/Qwen2.5-7B-Instruct
-# Proxies: Qwen/Qwen2.5-0.5B-Instruct, 1.5B-Instruct, 3B-Instruct
+# Sizes : 0.5B  1.5B  3B  7B  14B  (all -Instruct)
+# ▽ pairs:
+#   target=14B-Instruct  proxies=[0.5B, 1.5B, 3B, 7B]-Instruct
+#   target= 7B-Instruct  proxies=[0.5B, 1.5B, 3B]-Instruct
+#   target= 3B-Instruct  proxies=[0.5B, 1.5B]-Instruct
+#   target= 1.5B-Instruct proxies=[0.5B]-Instruct
 run_qwen25() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen2.5 Instruct  (target=Qwen2.5-7B-Instruct)" | tee -a "$LOG"
+    echo "  Qwen2.5 Instruct  (dense lower-triangle, up to 14B-Instruct)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    TARGET="target.model=Qwen/Qwen2.5-7B-Instruct"
-    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-3B-Instruct]"
     MAXLEN="data.max_length=1024"
 
+    # target = 14B-Instruct
     for DS in $DATASETS_ALL; do
-        run "$TARGET" "$PROXIES" "$MAXLEN" \
+        run "target.model=Qwen/Qwen2.5-14B-Instruct" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-3B-Instruct,Qwen/Qwen2.5-7B-Instruct]" \
+            "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen25
+            output.dir=./results/cross_scale/qwen25/target_14B
+    done
+
+    # target = 7B-Instruct
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen2.5-7B-Instruct" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-3B-Instruct]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25/target_7B
+    done
+
+    # target = 3B-Instruct
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen2.5-3B-Instruct" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25/target_3B
+    done
+
+    # target = 1.5B-Instruct
+    for DS in $DATASETS_ALL; do
+        run "target.model=Qwen/Qwen2.5-1.5B-Instruct" \
+            "proxy.models=[Qwen/Qwen2.5-0.5B-Instruct]" \
+            "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25/target_1.5B
     done
 }
 
@@ -260,11 +396,11 @@ run_gemma2() {
 
 # ============================================================
 # Family 6: Gemma-3  (requires Google HuggingFace authorization)
-# Target : google/gemma-3-12b-pt  (multimodal, hidden=2560, vocab=256K)
-# Proxies:
-#   - google/gemma-3-270m    [text-only, Gemma3ForCausalLM, hidden=1152]
-#   - google/gemma-3-1b-pt   [text-only, Gemma3ForCausalLM, hidden=1152]
-#   - google/gemma-3-4b-pt   [multimodal, Gemma3ForConditionalGeneration, hidden=2560]
+# Sizes : 270M  1B-pt  4B-pt  12B-pt
+# ▽ pairs:
+#   target=12B-pt  proxies=[270M, 1B-pt, 4B-pt]
+#   target= 4B-pt  proxies=[270M, 1B-pt]
+#   target= 1B-pt  proxies=[270M]
 #
 # Note on architecture:
 #   270M and 1B use Gemma3ForCausalLM (standard backbone at model.model).
@@ -277,17 +413,36 @@ run_gemma2() {
 run_gemma3() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Family 6: Gemma-3  (target=gemma-3-12b-pt)" | tee -a "$LOG"
+    echo "  Family 6: Gemma-3  (dense lower-triangle, up to 12B-pt)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    G3_TARGET="target.model=google/gemma-3-12b-pt"
-    G3_PROXIES="proxy.models=[google/gemma-3-270m,google/gemma-3-1b-pt,google/gemma-3-4b-pt]"
     G3_MAXLEN="data.max_length=512"    # 12B multimodal model — conservative for 20GB GPU
 
+    # target = 12B-pt
     for DS in $DATASETS_ALL; do
-        run "$G3_TARGET" "$G3_PROXIES" "$G3_MAXLEN" \
+        run "target.model=google/gemma-3-12b-pt" \
+            "proxy.models=[google/gemma-3-270m,google/gemma-3-1b-pt,google/gemma-3-4b-pt]" \
+            "$G3_MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/gemma3
+            output.dir=./results/cross_scale/gemma3/target_12B
+    done
+
+    # target = 4B-pt
+    for DS in $DATASETS_ALL; do
+        run "target.model=google/gemma-3-4b-pt" \
+            "proxy.models=[google/gemma-3-270m,google/gemma-3-1b-pt]" \
+            "$G3_MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/gemma3/target_4B
+    done
+
+    # target = 1B-pt
+    for DS in $DATASETS_ALL; do
+        run "target.model=google/gemma-3-1b-pt" \
+            "proxy.models=[google/gemma-3-270m]" \
+            "$G3_MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/gemma3/target_1B
     done
 }
 
