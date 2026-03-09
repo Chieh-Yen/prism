@@ -10,10 +10,10 @@
 # computation (per-model tokenizer policy in cross_scale.py).
 #
 # ── Qwen families (all use Qwen tokenizer, vocab=151K) ──────────────
-#   qwen25      — Qwen2.5 Instruct: 0.5B/1.5B/3B-Instruct → 7B-Instruct
-#   qwen25base  — Qwen2.5 Base:     0.5B/1.5B/3B           → 7B
-#   qwen3       — Qwen3  (thinking): 0.6B/1.7B/4B          → 8B
 #   qwen3base   — Qwen3  Base:      0.6B-Base/1.7B-Base/4B-Base → 8B-Base
+#   qwen3       — Qwen3  (thinking): 0.6B/1.7B/4B          → 8B
+#   qwen25base  — Qwen2.5 Base:     0.5B/1.5B/3B           → 7B
+#   qwen25      — Qwen2.5 Instruct: 0.5B/1.5B/3B-Instruct → 7B-Instruct
 #
 # ── Other families ───────────────────────────────────────────────────
 #   llama2      — Llama-2 (vocab=32K) + cross-arch Mistral proxy
@@ -66,45 +66,24 @@ DATASETS_ALL="c4 lambada wikitext gsm8k mmlu arc"
 # max_length=1024 to keep logit peak VRAM manageable on 20GB GPUs.
 # ============================================================
 
-# ── Qwen2.5 Instruct ─────────────────────────────────────────────────
-# Instruction-tuned models; useful for Q&A datasets (GSM8K, MMLU, ARC).
-# Target : Qwen/Qwen2.5-7B-Instruct
-# Proxies: Qwen/Qwen2.5-0.5B-Instruct, 1.5B-Instruct, 3B-Instruct
-run_qwen25() {
+# ── Qwen3 Base ───────────────────────────────────────────────────────
+# Pure pre-trained base; matches Qwen2.5-Base for apples-to-apples comparison.
+# Target : Qwen/Qwen3-8B-Base
+# Proxies: Qwen/Qwen3-0.6B-Base, 1.7B-Base, 4B-Base
+run_qwen3base() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen2.5 Instruct  (target=Qwen2.5-7B-Instruct)" | tee -a "$LOG"
+    echo "  Qwen3 Base  (target=Qwen3-8B-Base)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    TARGET="target.model=Qwen/Qwen2.5-7B-Instruct"
-    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-3B-Instruct]"
+    TARGET="target.model=Qwen/Qwen3-8B-Base"
+    PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
     MAXLEN="data.max_length=1024"
 
     for DS in $DATASETS_ALL; do
         run "$TARGET" "$PROXIES" "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen25
-    done
-}
-
-# ── Qwen2.5 Base ─────────────────────────────────────────────────────
-# Pure pre-trained base models; cleaner comparison for LM perplexity.
-# Target : Qwen/Qwen2.5-7B
-# Proxies: Qwen/Qwen2.5-0.5B, 1.5B, 3B
-run_qwen25base() {
-    echo "" | tee -a "$LOG"
-    echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen2.5 Base  (target=Qwen2.5-7B)" | tee -a "$LOG"
-    echo "============================================================" | tee -a "$LOG"
-
-    TARGET="target.model=Qwen/Qwen2.5-7B"
-    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-3B]"
-    MAXLEN="data.max_length=1024"
-
-    for DS in $DATASETS_ALL; do
-        run "$TARGET" "$PROXIES" "$MAXLEN" \
-            data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen25base
+            output.dir=./results/cross_scale/qwen3base
     done
 }
 
@@ -129,24 +108,45 @@ run_qwen3() {
     done
 }
 
-# ── Qwen3 Base ───────────────────────────────────────────────────────
-# Pure pre-trained base; matches Qwen2.5-Base for apples-to-apples comparison.
-# Target : Qwen/Qwen3-8B-Base
-# Proxies: Qwen/Qwen3-0.6B-Base, 1.7B-Base, 4B-Base
-run_qwen3base() {
+# ── Qwen2.5 Base ─────────────────────────────────────────────────────
+# Pure pre-trained base models; cleaner comparison for LM perplexity.
+# Target : Qwen/Qwen2.5-7B
+# Proxies: Qwen/Qwen2.5-0.5B, 1.5B, 3B
+run_qwen25base() {
     echo "" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
-    echo "  Qwen3 Base  (target=Qwen3-8B-Base)" | tee -a "$LOG"
+    echo "  Qwen2.5 Base  (target=Qwen2.5-7B)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    TARGET="target.model=Qwen/Qwen3-8B-Base"
-    PROXIES="proxy.models=[Qwen/Qwen3-0.6B-Base,Qwen/Qwen3-1.7B-Base,Qwen/Qwen3-4B-Base]"
+    TARGET="target.model=Qwen/Qwen2.5-7B"
+    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-3B]"
     MAXLEN="data.max_length=1024"
 
     for DS in $DATASETS_ALL; do
         run "$TARGET" "$PROXIES" "$MAXLEN" \
             data.task="$DS" data.num_samples="$N" \
-            output.dir=./results/cross_scale/qwen3base
+            output.dir=./results/cross_scale/qwen25base
+    done
+}
+
+# ── Qwen2.5 Instruct ─────────────────────────────────────────────────
+# Instruction-tuned models; useful for Q&A datasets (GSM8K, MMLU, ARC).
+# Target : Qwen/Qwen2.5-7B-Instruct
+# Proxies: Qwen/Qwen2.5-0.5B-Instruct, 1.5B-Instruct, 3B-Instruct
+run_qwen25() {
+    echo "" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+    echo "  Qwen2.5 Instruct  (target=Qwen2.5-7B-Instruct)" | tee -a "$LOG"
+    echo "============================================================" | tee -a "$LOG"
+
+    TARGET="target.model=Qwen/Qwen2.5-7B-Instruct"
+    PROXIES="proxy.models=[Qwen/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-3B-Instruct]"
+    MAXLEN="data.max_length=1024"
+
+    for DS in $DATASETS_ALL; do
+        run "$TARGET" "$PROXIES" "$MAXLEN" \
+            data.task="$DS" data.num_samples="$N" \
+            output.dir=./results/cross_scale/qwen25
     done
 }
 
@@ -296,10 +296,10 @@ run_gemma3() {
 # ============================================================
 for FAMILY in $FAMILIES; do
     case "$FAMILY" in
-        qwen25)     run_qwen25     ;;
-        qwen25base) run_qwen25base ;;
-        qwen3)      run_qwen3      ;;
         qwen3base)  run_qwen3base  ;;
+        qwen3)      run_qwen3      ;;
+        qwen25base) run_qwen25base ;;
+        qwen25)     run_qwen25     ;;
         llama2)     run_llama2     ;;
         mistral)    run_mistral    ;;
         ministral3) run_ministral3 ;;
