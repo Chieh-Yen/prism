@@ -1,4 +1,3 @@
-"""
 Quantization Quality Estimation — Identity Regime (W = I).
 
 Target = full-precision model (BF16 by default; configurable via computing.model_dtype).
@@ -270,29 +269,6 @@ class QuantizationExperiment(BaseExperiment):
         return []
 
     # ------------------------------------------------------------------
-    # Flash Attention 2 helper
-    # ------------------------------------------------------------------
-    def _attn_impl_kwargs(self) -> dict:
-        """Return ``{"attn_implementation": "flash_attention_2"}`` when enabled.
-
-        Checks that the ``flash-attn`` package is importable before adding the
-        flag, so the experiment degrades gracefully on machines without it.
-        Flash Attention 2 requires bf16 or fp16 weights; fp32 models are
-        silently excluded.
-        """
-        if not self.use_flash_attention:
-            return {}
-        try:
-            import flash_attn  # noqa: F401 — availability probe only
-        except ImportError:
-            print("  [flash_attn] package not found — running without Flash Attention 2.")
-            return {}
-        if self.model_dtype == torch.float32:
-            print("  [flash_attn] skipped — flash_attention_2 requires fp16/bf16, not fp32.")
-            return {}
-        return {"attn_implementation": "flash_attention_2"}
-
-    # ------------------------------------------------------------------
     # Proxy loading — dispatches between GGUF and bitsandbytes
     # ------------------------------------------------------------------
     def _load_proxy_gguf(
@@ -320,6 +296,7 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
+        """ Merge Conflict
         # Pre-load config to detect whether the checkpoint already has its own
         # quantisation (e.g. FineGrainedFP8Config for Ministral-3-8B-Instruct).
         # Passing a BitsAndBytesConfig alongside a different quantisation class
@@ -354,6 +331,23 @@ class QuantizationExperiment(BaseExperiment):
                 trust_remote_code=True,
             )
             proxy = _bnb_requantize(proxy, _BNB_CONFIGS[bnb_tag](), self.device)
+        """
+        # Pre-load config and clear any existing quantization_config (e.g.
+        # FineGrainedFP8Config present in some official checkpoints such as
+        # Ministral-3-8B-Instruct-2512).  Passing a conflicting quantization
+        # class alongside BitsAndBytesConfig causes transformers to raise an
+        # error; stripping it from the config object prevents the conflict.
+        config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+        if getattr(config, "quantization_config", None) is not None:
+            config.quantization_config = None
+        proxy = _load_model(
+            model_id,
+            config=config,
+            quantization_config=_BNB_CONFIGS[bnb_tag](),
+            device_map=self.device,
+            trust_remote_code=True,
+            **self._attn_impl_kwargs(),
+        )
         return proxy
 
     def _load_proxy_gptq(

@@ -57,6 +57,29 @@ class BaseExperiment(ABC):
         self.use_flash_attention = cfg_computing.get("use_flash_attention", False)
 
     # ------------------------------------------------------------------
+    # Flash Attention 2 helper
+    # ------------------------------------------------------------------
+    def _attn_impl_kwargs(self) -> dict:
+        """Return ``{"attn_implementation": "flash_attention_2"}`` when enabled.
+
+        Checks that the ``flash-attn`` package is importable before adding the
+        flag, so the experiment degrades gracefully on machines without it.
+        Flash Attention 2 requires bf16 or fp16 weights; fp32 models are
+        silently excluded.
+        """
+        if not self.use_flash_attention:
+            return {}
+        try:
+            import flash_attn  # noqa: F401 — availability probe only
+        except ImportError:
+            print("  [flash_attn] package not found — running without Flash Attention 2.")
+            return {}
+        if self.model_dtype == torch.float32:
+            print("  [flash_attn] skipped — flash_attention_2 requires fp16/bf16, not fp32.")
+            return {}
+        return {"attn_implementation": "flash_attention_2"}
+
+    # ------------------------------------------------------------------
     # Abstract interface for subclasses
     # ------------------------------------------------------------------
     @abstractmethod
