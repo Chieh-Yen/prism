@@ -57,6 +57,7 @@ class ForgettingExperiment(BaseExperiment):
         num_samples = cfg_data.get("num_samples", 256)
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
+        seed = self.config.get("seed", 42)
 
         if not checkpoint_paths:
             raise ValueError("proxy.checkpoints must list at least one checkpoint path.")
@@ -70,6 +71,7 @@ class ForgettingExperiment(BaseExperiment):
         dataloader = load_task_data(
             task_name, split="test", num_samples=num_samples,
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
+            seed=seed,
         )
 
         print(f"Loading base model (target): {base_model_id} ...")

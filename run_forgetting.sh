@@ -49,7 +49,7 @@ EVAL_TASKS="mmlu arc wikitext"
 
 MAX_STEPS="${MAX_STEPS:-500}"
 SAVE_STEPS="${SAVE_STEPS:-50}"
-N_EVAL="${N_EVAL:-256}"
+N_EVAL="${N_EVAL:-512}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 log() { echo "$*" | tee -a "$LOG"; }

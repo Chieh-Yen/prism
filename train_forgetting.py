@@ -55,6 +55,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--warmup_steps", type=int, default=20)
     p.add_argument("--grad_checkpointing", action="store_true",
                    help="Enable gradient checkpointing to reduce VRAM usage")
+    p.add_argument("--eval_samples",  type=int, default=256,
+                   help="Number of GSM8K test samples for eval; 0 = use all 1319")
+    p.add_argument("--seed",          type=int, default=42,
+                   help="Random seed for shuffling the eval test split")
     return p.parse_args()
 
 
@@ -102,16 +106,23 @@ def main() -> None:
     print(f"Trainable: {trainable:,} / {total:,} ({100 * trainable / total:.1f}%)")
 
     # ── Dataset ───────────────────────────────────────────────────────────────
-    print("Loading GSM8K train split ...")
-    raw = load_dataset("openai/gsm8k", "main", split="train")
-
     def tokenize(batch: dict) -> dict:
         texts = [_format({"question": q, "answer": a})
                  for q, a in zip(batch["question"], batch["answer"])]
         return tokenizer(texts, truncation=True, max_length=args.max_length, padding=False)
 
-    dataset = raw.map(tokenize, batched=True, remove_columns=raw.column_names)
-    print(f"Dataset size: {len(dataset):,} examples")
+    print("Loading GSM8K train split ...")
+    raw_train = load_dataset("openai/gsm8k", "main", split="train")
+    dataset = raw_train.map(tokenize, batched=True, remove_columns=raw_train.column_names)
+    print(f"Train size: {len(dataset):,} examples")
+
+    print("Loading GSM8K test split ...")
+    raw_test = load_dataset("openai/gsm8k", "main", split="test")
+    raw_test = raw_test.shuffle(seed=args.seed)
+    if args.eval_samples and args.eval_samples < len(raw_test):
+        raw_test = raw_test.select(range(args.eval_samples))
+    eval_dataset = raw_test.map(tokenize, batched=True, remove_columns=raw_test.column_names)
+    print(f"Test size:  {len(eval_dataset):,} examples")
 
     # ── Training ──────────────────────────────────────────────────────────────
     collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
@@ -127,6 +138,8 @@ def main() -> None:
         save_steps=args.save_steps,
         save_total_limit=None,      # keep ALL checkpoints for PRISM inference
         logging_steps=10,
+        eval_strategy="steps",
+        eval_steps=args.save_steps,  # eval at every checkpoint
         bf16=True,
         dataloader_num_workers=0,
         report_to="none",
@@ -137,6 +150,7 @@ def main() -> None:
         model=model,
         args=training_args,
         train_dataset=dataset,
+        eval_dataset=eval_dataset,
         data_collator=collator,
     )
 
