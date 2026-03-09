@@ -360,7 +360,7 @@ run_ministral3() {
     M3_PROXIES="proxy.models=[mistralai/Ministral-3-3B-Base-2512]"
     # Ministral-3 2512 uses Mistral3ForConditionalGeneration (multimodal wrapper).
     # Text backbone lives at model.language_model — extra memory vs pure causal LM.
-    M3_MAXLEN="data.max_length=512"
+    M3_MAXLEN="data.max_length=1024"
 
     for DS in $DATASETS_ALL; do
         run "$M3_TARGET" "$M3_PROXIES" "$M3_MAXLEN" \
@@ -416,7 +416,7 @@ run_gemma3() {
     echo "  Family 6: Gemma-3  (dense lower-triangle, up to 12B-pt)" | tee -a "$LOG"
     echo "============================================================" | tee -a "$LOG"
 
-    G3_MAXLEN="data.max_length=512"    # 12B multimodal model — conservative for 20GB GPU
+    G3_MAXLEN="data.max_length=1024"    # 12B multimodal model — conservative for 20GB GPU
 
     # target = 12B-pt
     for DS in $DATASETS_ALL; do
