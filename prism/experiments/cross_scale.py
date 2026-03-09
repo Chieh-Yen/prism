@@ -71,7 +71,7 @@ from .base import BaseExperiment
 # Helpers
 # ======================================================================
 
-def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = True):
+def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = True, **kwargs):
     """Load a CausalLM with a fallback for config types not yet in AutoModelForCausalLM.
 
     Some newly-released models have their config class registered in transformers
@@ -87,6 +87,9 @@ def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = 
       3. Derive *ForCausalLM from the config class name directly (catches
          future model types where the naming is consistent but the auto
          registry is simply out of date).
+
+    Extra keyword arguments (e.g. ``attn_implementation="flash_attention_2"``)
+    are forwarded to every ``from_pretrained`` call.
     """
     # Known config-class name → (module_path, model_class_name) aliases.
     # Used when the model's config.json model_type and the auto-registry key differ.
@@ -105,6 +108,7 @@ def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = 
             dtype=dtype,
             device_map=device_map,
             trust_remote_code=trust_remote_code,
+            **kwargs,
         )
     except ValueError as exc:
         if "Unrecognized configuration class" not in str(exc):
@@ -127,6 +131,7 @@ def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = 
                     dtype=dtype,
                     device_map=device_map,
                     trust_remote_code=trust_remote_code,
+                    **kwargs,
                 )
             except (ImportError, AttributeError) as alias_exc:
                 print(f"  [AutoModel fallback] alias failed ({alias_exc}), trying strategy 3")
@@ -143,6 +148,7 @@ def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = 
                 dtype=dtype,
                 device_map=device_map,
                 trust_remote_code=trust_remote_code,
+                **kwargs,
             )
         except (ImportError, AttributeError):
             raise ValueError(
@@ -276,19 +282,16 @@ class CrossScaleExperiment(BaseExperiment):
             target_model_id,
             dtype=self.model_dtype,
             device_map=self.device,
+            **self._attn_impl_kwargs(),
         )
         target_model.eval()
 
-        print("Extracting target features ...")
-        Z_T = extractor.extract_features(target_model, target_dataloader, self.tensor_device)
-        H_T = extractor.extract_head(target_model)
-
-        print("Computing target loss ...")
-        loss_stats_T = self.compute_lm_loss_per_sample(
+        print("Caching target features and loss (single forward pass) ...")
+        Z_T, loss_stats_T = extractor.extract_features_and_loss_per_sample(
             target_model, target_dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
-            offload_to_cpu=self.offload_to_cpu,
         )
+        H_T = extractor.extract_head(target_model)
         losses_T = loss_stats_T["losses"]
         loss_target = losses_T.mean().item()
         ppl_target = math.exp(loss_target)
@@ -388,24 +391,21 @@ class CrossScaleExperiment(BaseExperiment):
                     proxy_model_id,
                     dtype=self.model_dtype,
                     device_map=self.device,
+                    **self._attn_impl_kwargs(),
                 )
                 proxy_model.eval()
 
-                print("  Extracting proxy features ...")
-                Z_P = extractor.extract_features(proxy_model, proxy_dataloader, self.tensor_device)
+                print("  Extracting proxy features and loss (single forward pass) ...")
+                Z_P, loss_stats_P = extractor.extract_features_and_loss_per_sample(
+                    proxy_model, proxy_dataloader, self.tensor_device,
+                    chunk_size=self.logit_chunk_size,
+                )
 
                 if not torch.isfinite(Z_P).all():
                     print(f"  WARNING: proxy features contain NaN/Inf — skipping {proxy_label}")
                     continue
 
                 H_P = extractor.extract_head(proxy_model)
-
-                print("  Computing proxy loss ...")
-                loss_stats_P = self.compute_lm_loss_per_sample(
-                    proxy_model, proxy_dataloader, self.tensor_device,
-                    chunk_size=self.logit_chunk_size,
-                    offload_to_cpu=self.offload_to_cpu,
-                )
                 loss_proxy = loss_stats_P["losses"].mean().item()
                 ppl_proxy = math.exp(loss_proxy)
                 aloss_proxy: Optional[float] = (

@@ -236,6 +236,11 @@ DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 # GGUF  : bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF
 #          files: mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf
 #          NOTE: transformers mistral3 GGUF support patched locally.
+# BnB   : Hub checkpoint is FP8 (FineGrainedFP8Config).  PRISM handles this
+#          via a two-step path: load to CPU (transformers auto-dequantises FP8
+#          → BF16 on hardware with compute capability < 8.9), then replace
+#          Linear layers with BnB-quantised equivalents in-place and dispatch
+#          to GPU.  See quantization.py:_bnb_requantize().
 # GPTQ  : no confirmed public repo — omitted
 # ============================================================
 MIN3I_TARGET="target.model=mistralai/Ministral-3-8B-Instruct-2512"
