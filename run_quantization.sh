@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 6 datasets × 6 models
+# 6 datasets × 15 models
 #
 # Quantization tiers (all models):
 #   FP16  → dtype:float16           precision-drift reference (BF16→FP16)
@@ -15,12 +15,21 @@
 #   GPTQ  → gptq:REPO              pre-quantised GPTQ (see per-model notes)
 #
 # Target models (all loaded in BF16):
-#   1. meta-llama/Meta-Llama-3.1-8B          Base
-#   2. Qwen/Qwen3-8B-Base                    Base
-#   3. mistralai/Ministral-3-8B-Base-2512    Base
-#   4. meta-llama/Meta-Llama-3.1-8B-Instruct Instruct
-#   5. Qwen/Qwen3-8B                         Instruct / Thinking
-#   6. mistralai/Ministral-3-8B-Instruct-2512 Instruct
+#   1.  meta-llama/Meta-Llama-3.1-8B              Base
+#   2.  Qwen/Qwen3-8B-Base                        Base
+#   3.  mistralai/Ministral-3-8B-Base-2512        Base
+#   4.  meta-llama/Meta-Llama-3.1-8B-Instruct     Instruct
+#   5.  Qwen/Qwen3-8B                             Instruct / Thinking
+#   6.  mistralai/Ministral-3-8B-Instruct-2512    Instruct
+#   7.  mistralai/Mistral-7B-v0.3                 Base
+#   8.  mistralai/Mistral-7B-Instruct-v0.3        Instruct
+#   9.  deepseek-ai/DeepSeek-R1-Distill-Llama-8B  Distilled / Reasoning
+#   10. Qwen/Qwen2.5-7B                           Base
+#   11. Qwen/Qwen2.5-7B-Instruct                  Instruct
+#   12. google/gemma-3-4b                         Base
+#   13. google/gemma-3-4b-it                      Instruct
+#   14. google/gemma-2-9b                         Base
+#   15. google/gemma-2-9b-it                      Instruct
 #
 # GPTQ loading notes:
 #   • All gptq: entries use AutoModelForCausalLM.from_pretrained (standard HF).
@@ -30,8 +39,12 @@
 #   • Ministral-3: no confirmed public GPTQ repos — omitted.
 #
 # GGUF repo notes:
-#   • Ministral-3 bartowski repos are inferred from naming convention.
-#     Verify on HuggingFace before running.
+#   • Ministral-3 Base   : mradermacher/Ministral-3-8B-Base-2512-GGUF
+#                          files: Ministral-3-8B-Base-2512.{quant}.gguf (dot convention)
+#   • Ministral-3 Instruct: bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF
+#                          files: mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf
+#   NOTE: transformers 5.x GGUF support for mistral3 was patched locally in
+#         transformers/integrations/ggml.py and modeling_gguf_pytorch_utils.py.
 # ============================================================
 set -euo pipefail
 
@@ -86,10 +99,12 @@ gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
 
 
-for DS in $DATASETS_ALL; do
-    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
+
+DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
 # ============================================================
 # Model 2: Qwen3-8B-Base
@@ -121,31 +136,34 @@ gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
 gptq:AlphaGaO/Qwen3-8B-GPTQ]"
 
 
-for DS in $DATASETS_ALL; do
-    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 3: Ministral-3-8B-Base-2512
-# Arch  : Mistral3ForConditionalGeneration (text-only backbone),
-#          vocab=131K (Tekken v7), hidden=5120
-# GGUF  : bartowski/Ministral-3-8B-Base-2512-GGUF
-#          files: Ministral-3-8B-Base-2512-{quant}.gguf
-#          *** Verify this repo exists before running ***
+# Arch  : Mistral3ForConditionalGeneration (VL backbone; text path used),
+#          vocab=131K (Tekken v7), hidden=4096
+# GGUF  : mradermacher/Ministral-3-8B-Base-2512-GGUF
+#          files: Ministral-3-8B-Base-2512.{quant}.gguf  (dot convention)
+#          NOTE: transformers mistral3 GGUF support patched locally.
 # GPTQ  : no confirmed public repo — omitted
 # ============================================================
 MIN3B_TARGET="target.model=mistralai/Ministral-3-8B-Base-2512"
-MIN3B_GGUF="proxy.model=bartowski/Ministral-3-8B-Base-2512-GGUF"
+MIN3B_GGUF="proxy.model=mradermacher/Ministral-3-8B-Base-2512-GGUF"
+MIN3B_TPL="proxy.gguf_template=Ministral-3-8B-Base-2512.{quant}.gguf"
 MIN3B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $MIN3B_TARGET $MIN3B_GGUF "$MIN3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+DATASETS_ALL="gsm8k mmlu arc lambada c4 wikitext"
+
+#for DS in $DATASETS_ALL; do
+#    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 4: Meta-Llama-3.1-8B-Instruct
@@ -168,10 +186,10 @@ gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ]"
 
 
-for DS in $DATASETS_ALL; do
-    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
 
 # ============================================================
 # Model 5: Qwen3-8B  (Instruct / Thinking)
@@ -202,35 +220,84 @@ gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel,\
 gptq:JunHowie/Qwen3-8B-GPTQ-Int8,\
 gptq:RedHatAI/Qwen3-8B-quantized.w4a16]"
 
+DATASETS_ALL="wikitext gsm8k mmlu arc"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+#for DS in $DATASETS_ALL; do
+#    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
+#        data.task=$DS data.num_samples=$N
+#done
+
+DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
 # ============================================================
 # Model 6: Ministral-3-8B-Instruct-2512
-# Arch  : Mistral3ForConditionalGeneration (text-only backbone),
-#          vocab=131K (Tekken v7), hidden=5120
-# GGUF  : bartowski/Ministral-3-8B-Instruct-2512-GGUF
-#          files: Ministral-3-8B-Instruct-2512-{quant}.gguf
-#          *** Verify this repo exists before running ***
+# Arch  : Mistral3ForConditionalGeneration (VL backbone; text path used),
+#          vocab=131K (Tekken v7), hidden=4096
+# GGUF  : bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF
+#          files: mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf
+#          NOTE: transformers mistral3 GGUF support patched locally.
+# BnB   : Hub checkpoint is FP8 (FineGrainedFP8Config).  PRISM handles this
+#          via a two-step path: load to CPU (transformers auto-dequantises FP8
+#          → BF16 on hardware with compute capability < 8.9), then replace
+#          Linear layers with BnB-quantised equivalents in-place and dispatch
+#          to GPU.  See quantization.py:_bnb_requantize().
 # GPTQ  : no confirmed public repo — omitted
 # ============================================================
 MIN3I_TARGET="target.model=mistralai/Ministral-3-8B-Instruct-2512"
-MIN3I_GGUF="proxy.model=bartowski/Ministral-3-8B-Instruct-2512-GGUF"
+MIN3I_GGUF="proxy.model=bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF"
+MIN3I_TPL="proxy.gguf_template=mistralai_Ministral-3-8B-Instruct-2512-{quant}.gguf"
 MIN3I_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
 for DS in $DATASETS_ALL; do
-    run $MIN3I_TARGET $MIN3I_GGUF "$MIN3I_BITS" \
+    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
         data.task=$DS data.num_samples=$N
 done
 
 # ============================================================
-# Model 7: DeepSeek-R1-Distill-Llama-8B  (Distilled / Reasoning)
+# Model 7: Mistral-7B-v0.3  (Base)
+# Arch  : MistralForCausalLM, vocab=32768, hidden=4096
+# GGUF  : bartowski/Mistral-7B-v0.3-GGUF
+#          files: Mistral-7B-v0.3-{quant}.gguf
+# GPTQ  : iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128  INT4-g128  AutoGPTQ
+# ============================================================
+MIS7B_TARGET="target.model=mistralai/Mistral-7B-v0.3"
+MIS7B_GGUF="proxy.model=bartowski/Mistral-7B-v0.3-GGUF"
+MIS7B_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128]"
+
+for DS in $DATASETS_ALL; do
+    run $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 8: Mistral-7B-Instruct-v0.3  (Instruct)
+# Arch  : MistralForCausalLM, vocab=32768, hidden=4096
+# GGUF  : bartowski/Mistral-7B-Instruct-v0.3-GGUF
+#          files: Mistral-7B-Instruct-v0.3-{quant}.gguf
+# GPTQ  : thesven/Mistral-7B-Instruct-v0.3-GPTQ  INT4  community AutoGPTQ
+# ============================================================
+MIS7I_TARGET="target.model=mistralai/Mistral-7B-Instruct-v0.3"
+MIS7I_GGUF="proxy.model=bartowski/Mistral-7B-Instruct-v0.3-GGUF"
+MIS7I_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ]"
+
+for DS in $DATASETS_ALL; do
+    run $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS" \
+        data.task=$DS data.num_samples=$N
+done
+
+# ============================================================
+# Model 9: DeepSeek-R1-Distill-Llama-8B  (Distilled / Reasoning)
 # Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
 # GGUF  : bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF
 #          files: DeepSeek-R1-Distill-Llama-8B-{quant}.gguf
@@ -252,7 +319,7 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Model 8: Qwen2.5-7B  (Base)
+# Model 10: Qwen2.5-7B  (Base)
 # Arch  : Qwen2ForCausalLM, vocab=151K, hidden=3584
 # GGUF  : QuantFactory/Qwen2.5-7B-GGUF  (community)
 #          files: Qwen2.5-7B.{quant}.gguf  (QuantFactory dot convention)
@@ -273,7 +340,7 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Model 9: Qwen2.5-7B-Instruct  (Instruct)
+# Model 11: Qwen2.5-7B-Instruct  (Instruct)
 # Arch  : Qwen2ForCausalLM, vocab=151K, hidden=3584
 # GGUF  : Qwen/Qwen2.5-7B-Instruct-GGUF  (official)
 #          files: Qwen2.5-7B-Instruct-{quant}.gguf
@@ -296,7 +363,7 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Model 10: Gemma-3-4B  (Base)
+# Model 12: Gemma-3-4B  (Base)
 # Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
 # GGUF  : no confirmed public GGUF for the base model — BnB only
 # GPTQ  : no confirmed public repo — omitted
@@ -315,7 +382,7 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Model 11: Gemma-3-4B-IT  (Instruct)
+# Model 13: Gemma-3-4B-IT  (Instruct)
 # Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
 # GGUF  : bartowski/google_gemma-3-4b-it-GGUF
 #          files: google_gemma-3-4b-it-{quant}.gguf
@@ -337,7 +404,7 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Model 12: Gemma-2-9B  (Base)
+# Model 14: Gemma-2-9B  (Base)
 # Arch  : Gemma2ForCausalLM, vocab=256K, hidden=3584
 # GGUF  : QuantFactory/gemma-2-9b-GGUF  (community)
 #          files: gemma-2-9b.{quant}.gguf  (QuantFactory dot convention)
@@ -360,7 +427,7 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Model 13: Gemma-2-9B-IT  (Instruct)
+# Model 15: Gemma-2-9B-IT  (Instruct)
 # Arch  : Gemma2ForCausalLM, vocab=256K, hidden=3584
 # GGUF  : bartowski/gemma-2-9b-it-GGUF
 #          files: gemma-2-9b-it-{quant}.gguf
