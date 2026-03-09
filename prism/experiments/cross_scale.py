@@ -179,28 +179,87 @@ def _parse_proxy_entries(entries: List[Union[str, Dict]]) -> List[Dict[str, str]
     return result
 
 
+def _verify_vocab_prefix(tok_T, tok_P, min_vocab: int, proxy_label: str) -> None:
+    """Verify token ID i maps to the same token string in both tokenizers
+    for all i in 0..min_vocab-1.  Samples ~500 positions for efficiency.
+
+    This guarantees that H_T[:, i] and H_P[:, i] correspond to the same
+    token after truncation, making the column-wise head comparison valid.
+
+    Raises ValueError if any mismatch is found.
+    """
+    step = max(1, min_vocab // 500)
+    sample_ids = list(range(0, min_vocab, step))
+    try:
+        toks_T = tok_T.convert_ids_to_tokens(sample_ids)
+        toks_P = tok_P.convert_ids_to_tokens(sample_ids)
+    except Exception:
+        toks_T = [tok_T.decode([i]) for i in sample_ids]
+        toks_P = [tok_P.decode([i]) for i in sample_ids]
+    mismatches = [
+        (sample_ids[i], toks_T[i], toks_P[i])
+        for i in range(len(sample_ids))
+        if toks_T[i] != toks_P[i]
+    ]
+    if mismatches:
+        examples = mismatches[:5]
+        ex_str = ", ".join(
+            f"id={tid}: '{t}' vs '{p}'" for tid, t, p in examples
+        )
+        raise ValueError(
+            f"[{proxy_label}] Vocabulary prefix mismatch: "
+            f"{len(mismatches)}/{len(sample_ids)} sampled token IDs differ "
+            f"in range 0..{min_vocab - 1}. "
+            f"Examples: {ex_str}. "
+            "Head truncation is NOT valid — token IDs do not correspond "
+            "across models at the same index."
+        )
+
+
 def _align_heads(
     H_T: torch.Tensor,
     H_P: torch.Tensor,
     proxy_label: str,
+    tok_T=None,
+    tok_P=None,
 ) -> tuple:
     """Align head matrices to the same vocab dimension.
 
+    When vocab sizes differ and *tok_T* / *tok_P* are provided, first calls
+    ``_verify_vocab_prefix`` to confirm that H_T[:, i] and H_P[:, i] truly
+    correspond to the same token for every i in the shared prefix
+    (0..min_vocab-1).  Raises ValueError if the mapping is misaligned so that
+    a silent, incorrect comparison is never silently accepted.
+
+    Typical safe case — same-family models where the larger model appends
+    extra special tokens at the END of the vocabulary (e.g. Qwen2.5-7B with
+    vocab=152064 vs Qwen2.5-0.5B with vocab=151936: the 128 extra tokens at
+    indices 151936-152063 are special tokens not present in the 0.5B model,
+    and the prefix is identical).
+
     Returns ``(H_T_use, H_P_use, truncated)`` where *truncated* is True
-    when vocab sizes differed and both matrices were clipped to the
-    minimum shared size.
+    when vocab sizes differed and both matrices were clipped to the minimum.
     """
     vocab_T = H_T.shape[1]
     vocab_P = H_P.shape[1]
     if vocab_T == vocab_P:
         return H_T, H_P, False
     min_vocab = min(vocab_T, vocab_P)
-    print(
-        f"  WARNING [{proxy_label}]: vocab size mismatch "
-        f"(target={vocab_T}, proxy={vocab_P}) — "
-        f"truncating both heads to {min_vocab} tokens. "
-        "Head discrepancy metric may be less accurate."
-    )
+    if tok_T is not None and tok_P is not None:
+        _verify_vocab_prefix(tok_T, tok_P, min_vocab, proxy_label)
+        print(
+            f"  WARNING [{proxy_label}]: vocab size mismatch "
+            f"(target={vocab_T}, proxy={vocab_P}) — "
+            f"truncating both heads to {min_vocab} tokens "
+            f"(prefix verified: IDs 0..{min_vocab - 1} are aligned)."
+        )
+    else:
+        print(
+            f"  WARNING [{proxy_label}]: vocab size mismatch "
+            f"(target={vocab_T}, proxy={vocab_P}) — "
+            f"truncating both heads to {min_vocab} tokens. "
+            "Head discrepancy metric may be less accurate."
+        )
     return H_T[:, :min_vocab], H_P[:, :min_vocab], True
 
 
@@ -413,7 +472,9 @@ class CrossScaleExperiment(BaseExperiment):
                 )
 
                 # ---- Align head vocab dimensions if needed ----
-                H_T_use, H_P_use, head_truncated = _align_heads(H_T, H_P, proxy_label)
+                H_T_use, H_P_use, head_truncated = _align_heads(
+                    H_T, H_P, proxy_label, tokenizer, proxy_tokenizer
+                )
 
                 # ---- PRISM metrics (Procrustes, force_identity=False) ----
                 result = self.compute_metrics(
