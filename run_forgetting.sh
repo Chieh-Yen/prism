@@ -47,8 +47,8 @@ MODES="${MODES:-full head_only backbone_only}"
 STAGES="${STAGES:-1 2}"
 EVAL_TASKS="mmlu arc wikitext"
 
-MAX_STEPS="${MAX_STEPS:-500}"
-SAVE_STEPS="${SAVE_STEPS:-50}"
+MAX_STEPS="${MAX_STEPS:-1500}"
+SAVE_STEPS="${SAVE_STEPS:-100}"
 N_EVAL="${N_EVAL:-512}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
