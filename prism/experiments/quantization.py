@@ -296,7 +296,6 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
-        """ Merge Conflict
         # Pre-load config to detect whether the checkpoint already has its own
         # quantisation (e.g. FineGrainedFP8Config for Ministral-3-8B-Instruct).
         # Passing a BitsAndBytesConfig alongside a different quantisation class
@@ -331,7 +330,7 @@ class QuantizationExperiment(BaseExperiment):
                 trust_remote_code=True,
             )
             proxy = _bnb_requantize(proxy, _BNB_CONFIGS[bnb_tag](), self.device)
-        """
+        """ Merge Conflict
         # Pre-load config and clear any existing quantization_config (e.g.
         # FineGrainedFP8Config present in some official checkpoints such as
         # Ministral-3-8B-Instruct-2512).  Passing a conflicting quantization
@@ -348,6 +347,7 @@ class QuantizationExperiment(BaseExperiment):
             trust_remote_code=True,
             **self._attn_impl_kwargs(),
         )
+        """
         return proxy
 
     def _load_proxy_gptq(
