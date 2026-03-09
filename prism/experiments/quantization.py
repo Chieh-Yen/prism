@@ -1,3 +1,4 @@
+"""
 Quantization Quality Estimation — Identity Regime (W = I).
 
 Target = full-precision model (BF16 by default; configurable via computing.model_dtype).
