@@ -172,6 +172,29 @@ li { margin-bottom: 16px; }
   font-weight: 600;
 }
 
+/* Page Number */
+.page-number {
+  position: absolute;
+  bottom: 20px;
+  right: 30px;
+  font-size: 16px;
+  color: #9ca3af;
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+  z-index: 10;
+}
+
+/* Top Subtitle (above main title) */
+.top-subtitle {
+  font-family: "Inter", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
 /* Title Slide Specific */
 .title-slide {
   justify-content: center;
@@ -197,16 +220,20 @@ li { margin-bottom: 16px; }
 <!-- Page 1: Title -->
 <div class="slide-container title-slide">
     <div style="z-index: 1;">
+        <p class="top-subtitle">Geometric Alignment as a Proxy for Performance Transferability</p>
         <h1 style="font-size: 64px;">PRISM: Proxy Risk Estimation<br>via Isomorphic Spectral Matching</h1>
         <div style="margin-top: 80px; border-left: 6px solid #3b82f6; padding-left: 25px;">
             <p class="member-name" style="margin-top: 0; color: #1e293b; font-weight: bold;">Member: Coha Lin, Shao-Hua Sun</p>
+            <p style="margin-top: 12px; font-size: 20px; color: #4b5563; font-weight: 500;">Appier AI Research</p>
         </div>
     </div>
     <div class="title-decoration"></div>
+    <div class="page-number">1 / 15</div>
 </div>
 
 <!-- Page 2: Motivation -->
 <div class="slide-container">
+    <div class="page-number">2 / 15</div>
     <h2>Motivation</h2>
     <div class="content-area">
         <h3>Scenario</h3>
@@ -225,11 +252,12 @@ li { margin-bottom: 16px; }
 
 <!-- Page 3: Idea -->
 <div class="slide-container">
+    <div class="page-number">3 / 15</div>
     <h2>Idea</h2>
     <div class="content-area two-column">
         <div>
             <h3>Proxy Model and Target Model</h3>
-            <p>We want to predict whether a <strong>Proxy Model ($P$)</strong> performs consistently with a <strong>Target Model ($T$)</strong>.</p>
+            <p>Is the <strong>Proxy Model ($P$)</strong> good enough to <strong>estimate the performance of the Target Model ($T$)</strong>?</p>
             <ul>
                 <li><strong>Target ($T$):</strong> The expensive, large, or full-precision model we care about.</li>
                 <li><strong>Proxy ($P$):</strong> The cheap, small, or compressed model we actually compute on.</li>
@@ -245,6 +273,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 4: Requirement -->
 <div class="slide-container">
+    <div class="page-number">4 / 15</div>
     <h2>Requirement</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 20px;">
         <div class="card">
@@ -268,6 +297,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 5: Formulation -->
 <div class="slide-container">
+    <div class="page-number">5 / 15</div>
     <h2>Formulation</h2>
     <div class="content-area">
         <h3>Modern Models: Feature Representation & Linear Projection</h3>
@@ -294,6 +324,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 6: Math (Derivation) -->
 <div class="slide-container">
+    <div class="page-number">6 / 15</div>
     <h2>Math: The Derivation Logic</h2>
     <div class="content-area list-reset">
         
@@ -326,6 +357,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 7: Math Result -->
 <div class="slide-container">
+    <div class="page-number">7 / 15</div>
     <h2>Math Result: Geometric Insights</h2>
     <div class="content-area">
         <p>By solving for the optimal $W$, we achieve an <strong>Exact Geometric Decomposition</strong> of the feature error using the Procrustes Similarity ($\Omega$):</p>
@@ -350,6 +382,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 8: Math Discuss -->
 <div class="slide-container">
+    <div class="page-number">8 / 15</div>
     <h2>Math Discuss: Deep Dive</h2>
     <div class="content-area two-column">
         <div class="card">
@@ -371,6 +404,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 9: Applications (Quantization Intro) -->
 <div class="slide-container">
+    <div class="page-number">9 / 15</div>
     <h2>Applications</h2>
     <div class="content-area flex-center">
         <i class="fa-solid fa-compress" style="font-size: 100px; color: #3b82f6; margin-bottom: 40px;"></i>
@@ -383,6 +417,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 10: Quantization Math -->
 <div class="slide-container">
+    <div class="page-number">10 / 15</div>
     <h2>Quantization</h2>
     <div class="content-area">
         <p>In Quantization, we set Target = Full Precision ($F$) and Proxy = Quantized ($Q$).</p>
@@ -410,6 +445,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 11: Quantization Experiments -->
 <div class="slide-container">
+    <div class="page-number">11 / 15</div>
     <h2>Quantization Experiments</h2>
     <div class="content-area">
         <h3>Experimental Protocol</h3>
@@ -430,6 +466,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 12: Analysis -->
 <div class="slide-container">
+    <div class="page-number">12 / 15</div>
     <h2>Analysis</h2>
     <div class="content-area">
         <div class="card" style="margin-bottom: 30px;">
@@ -447,6 +484,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 13: TODOs -->
 <div class="slide-container">
+    <div class="page-number">13 / 15</div>
     <h2>TODOs</h2>
     <div class="content-area">
         <ul style="font-size: 24px; line-height: 2;">
@@ -460,6 +498,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 14: QA -->
 <div class="slide-container title-slide" style="align-items: center; justify-content: center;">
+    <div class="page-number">14 / 15</div>
     <div style="z-index: 1; text-align: center;">
         <h1 style="font-size: 80px; color: #3b82f6;">Q & A</h1>
         <p style="font-size: 28px; color: #4b5563; margin-top: 20px;">Thank you for listening!</p>
@@ -469,6 +508,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 15: Future works -->
 <div class="slide-container">
+    <div class="page-number">15 / 15</div>
     <h2>Future works</h2>
     <div class="content-area">
         <div class="two-column">
