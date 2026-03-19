@@ -228,12 +228,12 @@ li { margin-bottom: 16px; }
         </div>
     </div>
     <div class="title-decoration"></div>
-    <div class="page-number">1 / 16</div>
+    <div class="page-number">1 / 17</div>
 </div>
 
 <!-- Page 2: Motivation -->
 <div class="slide-container">
-    <div class="page-number">2 / 16</div>
+    <div class="page-number">2 / 17</div>
     <h2>Motivation</h2>
     <div class="content-area">
         <h3>Scenario</h3>
@@ -252,7 +252,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 3: Idea -->
 <div class="slide-container">
-    <div class="page-number">3 / 16</div>
+    <div class="page-number">3 / 17</div>
     <h2>Idea</h2>
     <div class="content-area two-column">
         <div>
@@ -273,7 +273,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 4: Requirement -->
 <div class="slide-container">
-    <div class="page-number">4 / 16</div>
+    <div class="page-number">4 / 17</div>
     <h2>Requirement</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 20px;">
         <div class="card">
@@ -297,7 +297,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 5: Formulation -->
 <div class="slide-container">
-    <div class="page-number">5 / 16</div>
+    <div class="page-number">5 / 17</div>
     <h2>Formulation</h2>
     <div class="content-area">
         <h3 style="margin-top: 30px;">Methodology Choices</h3>
@@ -326,7 +326,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 6: Math (Derivation) -->
 <div class="slide-container">
-    <div class="page-number">6 / 16</div>
+    <div class="page-number">6 / 17</div>
     <h2>Math: The Derivation Logic</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 3fr 2fr; gap: 30px; align-items: start;">
         <div class="list-reset">
@@ -369,7 +369,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 7: Math Result -->
 <div class="slide-container">
-    <div class="page-number">7 / 16</div>
+    <div class="page-number">7 / 17</div>
     <h2>Math Result: Geometric Insights</h2>
     <div class="content-area">
         <p>By solving for the optimal $W$, we achieve an <strong>Exact Geometric Decomposition</strong> of the feature error using the Procrustes Similarity ($\Omega$):</p>
@@ -395,7 +395,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 8: Math Discuss -->
 <div class="slide-container">
-    <div class="page-number">8 / 16</div>
+    <div class="page-number">8 / 17</div>
     <h2>Math Discuss: Deep Dive</h2>
     <div class="content-area two-column">
         <div class="card">
@@ -417,7 +417,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 9: Three Regimes of W -->
 <div class="slide-container">
-    <div class="page-number">9 / 16</div>
+    <div class="page-number">9 / 17</div>
     <h2>Three Regimes of $W$</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; padding-top: 10px;">
 
@@ -453,7 +453,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 10: Applications (Quantization Intro) -->
 <div class="slide-container">
-    <div class="page-number">10 / 16</div>
+    <div class="page-number">10 / 17</div>
     <h2>Applications</h2>
     <div class="content-area flex-center">
         <img src="images/image_q.png" style="height: 360px; object-fit: contain; margin-bottom: 40px;">
@@ -465,9 +465,58 @@ li { margin-bottom: 16px; }
 </div>
 
 
-<!-- Page 11: Quantization Math -->
+<!-- Page 11: Model Merging -->
 <div class="slide-container">
-    <div class="page-number">11 / 16</div>
+    <div class="page-number">11 / 17</div>
+    <h2>Application: Model Merging</h2>
+    <div class="content-area">
+
+        <div class="two-column" style="margin-bottom: 18px;">
+            <div>
+                <h3>Setup</h3>
+                <p style="font-size: 19px;">Parameter interpolation with mixing coefficient $\alpha \in [0,1]$:</p>
+                <div class="math-container" style="padding: 10px 20px; margin: 10px 0; font-size: 0.9em;">
+                    $$\theta_T(\alpha) = \theta_{T,0} + \alpha\,\Delta_T \quad \text{(Target: large model)}$$
+                    $$\theta_P(\alpha) = \theta_{P,0} + \alpha\,\Delta_P \quad \text{(Proxy: small model)}$$
+                </div>
+                <p style="font-size: 18px;"><strong>Goal:</strong> Find $\alpha^* = \arg\min_\alpha \mathcal{R}_P(\alpha)$ cheaply on the proxy, then transfer to the target.</p>
+            </div>
+            <div>
+                <h3>Risk Gap at Any $\alpha$</h3>
+                <p style="font-size: 18px;">Applying PRISM with linear alignment $W \in \mathbb{R}^{d_P \times d_T}$:</p>
+                <div class="math-container" style="padding: 10px 20px; margin: 10px 0; font-size: 0.82em; border-left-color: #10b981; background: #f0fdf4;">
+                    $$|\mathcal{R}_T(\alpha) - \mathcal{R}_P(\alpha)| \;\le\;
+                      \underbrace{K_{feat}\sqrt{(\Delta\rho)^2 + 2\rho_T\rho_P(1-\Omega)}}_{\text{Feature Term}}
+                      \;+\; \underbrace{K_{head}\left\|\Sigma_P^{1/2}(WH_T - H_P)\right\|_F}_{\text{Head Term}}$$
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 28px;">
+            <h3 style="font-size: 22px; margin-bottom: 10px;">Geometric Meaning of Each Term</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div>
+                    <p style="font-size: 17px; margin: 0;"><strong style="color:#3b82f6;">$\Delta\rho$</strong> — Scale Mismatch<br>
+                    Do large and small model features have similar RMS magnitudes at this $\alpha$?</p>
+                </div>
+                <div>
+                    <p style="font-size: 17px; margin: 0;"><strong style="color:#10b981;">$1 - \Omega$</strong> — Shape Mismatch<br>
+                    Is the task manifold structure preserved across model scales as $\alpha$ varies?</p>
+                </div>
+                <div>
+                    <p style="font-size: 17px; margin: 0;"><strong style="color:#f59e0b;">$\|\Sigma_P^{1/2}(WH_T - H_P)\|_F$</strong> — Head Mismatch<br>
+                    Do both classifiers discriminate the same directions in feature space?</p>
+                </div>
+            </div>
+            <p style="font-size: 17px; margin-top: 12px; margin-bottom: 0;"><strong>Key insight:</strong> If the bound is uniformly small across $\alpha$, the optimal $\alpha^*$ found on the cheap proxy safely transfers to the large target.</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- Page 12: Quantization Math -->
+<div class="slide-container">
+    <div class="page-number">12 / 17</div>
     <h2>Quantization</h2>
     <div class="content-area">
         <p>In Quantization, we set Target = Full Precision ($F$) and Proxy = Quantized ($Q$).</p>
@@ -495,7 +544,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 11: Quantization Experiments -->
 <div class="slide-container">
-    <div class="page-number">12 / 16</div>
+    <div class="page-number">13 / 17</div>
     <h2>Quantization Experiments</h2>
     <div class="content-area">
         <h3>Experimental Protocol</h3>
@@ -516,7 +565,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 12: Analysis -->
 <div class="slide-container">
-    <div class="page-number">13 / 16</div>
+    <div class="page-number">14 / 17</div>
     <h2>Analysis</h2>
     <div class="content-area">
         <div class="card" style="margin-bottom: 30px;">
@@ -534,7 +583,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 13: TODOs -->
 <div class="slide-container">
-    <div class="page-number">14 / 16</div>
+    <div class="page-number">15 / 17</div>
     <h2>TODOs</h2>
     <div class="content-area">
         <ul style="font-size: 24px; line-height: 2;">
@@ -548,7 +597,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 14: QA -->
 <div class="slide-container title-slide" style="align-items: center; justify-content: center;">
-    <div class="page-number">15 / 16</div>
+    <div class="page-number">16 / 17</div>
     <div style="z-index: 1; text-align: center;">
         <h1 style="font-size: 80px; color: #3b82f6;">Q & A</h1>
         <p style="font-size: 28px; color: #4b5563; margin-top: 20px;">Thank you for listening!</p>
@@ -558,7 +607,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 15: Future works -->
 <div class="slide-container">
-    <div class="page-number">16 / 16</div>
+    <div class="page-number">17 / 17</div>
     <h2>Future works</h2>
     <div class="content-area">
         <div class="two-column">
