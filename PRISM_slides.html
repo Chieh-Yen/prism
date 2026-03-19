@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRISM: Proxy Risk Estimation via Isomorphic Spectral Matching</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- MathJax Configuration -->
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        packages: {'[+]': ['ams']}
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+      },
+      loader: {load: ['[tex]/ams']}
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+/* SETUP & BASICS */
+* { box-sizing: border-box; }
+
+body {
+  background-color: #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  min-height: 100vh;
+  padding: 40px 0;
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  color: #1f2937;
+}
+
+/* Slide Container */
+.slide-container {
+  background-color: #ffffff;
+  width: 1280px;
+  height: 720px;
+  padding: 60px 80px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* TYPOGRAPHY */
+h1, h2, h3 {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  margin: 0;
+  color: #111827;
+}
+
+h1 { font-size: 56px; line-height: 1.3; margin-bottom: 20px; letter-spacing: -0.02em; }
+h2 { font-size: 40px; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 3px solid #3b82f6; width: 100%; }
+h3 { font-size: 28px; margin-bottom: 16px; color: #2563eb; }
+
+p, li {
+  font-size: 22px;
+  line-height: 1.6;
+  color: #374151;
+  margin-bottom: 16px;
+}
+
+ul { padding-left: 30px; }
+li { margin-bottom: 16px; }
+
+.subtitle {
+  font-family: "Inter", sans-serif;
+  font-size: 28px;
+  color: #4b5563;
+  margin-top: 20px;
+  font-weight: 500;
+}
+
+.member-name {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 24px;
+  color: #6b7280;
+  margin-top: 40px;
+}
+
+/* LAYOUT UTILITIES */
+.content-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: start;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* COMPONENTS */
+.card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 30px;
+  height: 100%;
+}
+
+.math-container {
+  background: #f8fafc;
+  border-left: 6px solid #3b82f6;
+  padding: 25px 40px;
+  margin: 25px 0;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  font-size: 1.3em;
+  overflow-x: auto;
+}
+
+.step-box {
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  padding: 20px 30px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.step-box::before {
+  content: counter(step-counter);
+  counter-increment: step-counter;
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  width: 30px;
+  height: 30px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.list-reset { counter-reset: step-counter; }
+
+.highlight-text {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* Title Slide Specific */
+.title-slide {
+  justify-content: center;
+  align-items: flex-start;
+  text-align: left;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+.title-slide h1 { color: #1e293b; }
+.title-decoration {
+  position: absolute;
+  right: -150px;
+  bottom: -150px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  z-index: 0;
+}
+    </style>
+</head>
+<body>
+
+<!-- Page 1: Title -->
+<div class="slide-container title-slide">
+    <div style="z-index: 1;">
+        <h1 style="font-size: 64px;">PRISM: Proxy Risk Estimation<br>via Isomorphic Spectral Matching</h1>
+        <div style="margin-top: 80px; border-left: 6px solid #3b82f6; padding-left: 25px;">
+            <p class="member-name" style="margin-top: 0; color: #1e293b; font-weight: bold;">Member: Coha Lin, Shao-Hua Sun</p>
+        </div>
+    </div>
+    <div class="title-decoration"></div>
+</div>
+
+<!-- Page 2: Motivation -->
+<div class="slide-container">
+    <h2>Motivation</h2>
+    <div class="content-area">
+        <h3>Scenario</h3>
+        <ul>
+            <li><strong>Model Merging:</strong> Finding the optimal $\alpha$ on a small model and transferring it to a large model.</li>
+            <li><strong>Quantization:</strong> Compressing LLMs from bf16 $\to$ INT8, nf4, or Q2. How much does it break?</li>
+            <li><strong>Continual Learning:</strong> Fine-tune on Task A, but the performance of Task B decays. Why?</li>
+        </ul>
+        
+        <div class="card" style="margin-top: 40px; background: #fef2f2; border-color: #fca5a5; border-left: 6px solid #ef4444;">
+            <h3 style="color: #b91c1c; margin-top:0;"><i class="fa-solid fa-triangle-exclamation"></i> The Core Problem</h3>
+            <p style="margin-bottom:0;">There is a <strong>lack of an analytical/diagnosis formulation</strong> to explain these empirical results. We rely on heuristics and expensive evaluations.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Page 3: Idea -->
+<div class="slide-container">
+    <h2>Idea</h2>
+    <div class="content-area two-column">
+        <div>
+            <h3>Proxy Model and Target Model</h3>
+            <p>We want to predict whether a <strong>Proxy Model ($P$)</strong> performs consistently with a <strong>Target Model ($T$)</strong>.</p>
+            <ul>
+                <li><strong>Target ($T$):</strong> The expensive, large, or full-precision model we care about.</li>
+                <li><strong>Proxy ($P$):</strong> The cheap, small, or compressed model we actually compute on.</li>
+            </ul>
+        </div>
+        <div>
+            <h3>Explainability</h3>
+            <p>We don't just want a black-box predictor. We need a mathematical framework that provides <strong>Explainability</strong>.</p>
+            <p>If the Proxy fails to track the Target, we need to mathematically isolate <em>why</em>.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Page 4: Requirement -->
+<div class="slide-container">
+    <h2>Requirement</h2>
+    <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 20px;">
+        <div class="card">
+            <h3>1. Explainability</h3>
+            <p>The formulation must decouple different sources of errors (e.g., feature mismatch vs. classifier mismatch) so we can diagnose failures.</p>
+        </div>
+        <div class="card">
+            <h3>2. Computable</h3>
+            <p>The metrics must be rigorously calculable from empirical data, without requiring infinite samples or unobservable ground truths.</p>
+        </div>
+        <div class="card">
+            <h3>3. Efficiency</h3>
+            <p>Evaluating the proxy's validity must be significantly cheaper than fully evaluating or training the target model.</p>
+        </div>
+        <div class="card">
+            <h3>4. Robustness</h3>
+            <p>The theory must hold across different architectures, dimensionalities, and varying levels of geometric distortion.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Page 5: Formulation -->
+<div class="slide-container">
+    <h2>Formulation</h2>
+    <div class="content-area">
+        <h3>Modern Models: Feature Representation & Linear Projection</h3>
+        <p>We express any model as a composition: $f(x) = h(\phi(x))$</p>
+        <ul>
+            <li>$\phi(x)$: Non-linear feature representation backbone (maps to $Z$).</li>
+            <li>$h(z)$: Linear prediction head.</li>
+        </ul>
+
+        <h3 style="margin-top: 30px;">Methodology Choices</h3>
+        <div class="two-column">
+            <div style="opacity: 0.6;">
+                <p><strong><i class="fa-solid fa-xmark"></i> Analyze optimal point ($\alpha^*$)</strong></p>
+                <p>Comparing parameters requires extremely <strong>strong assumptions</strong> because different models live in disjoint, non-comparable spaces.</p>
+            </div>
+            <div style="border-left: 4px solid #10b981; padding-left: 20px;">
+                <p><strong><i class="fa-solid fa-check" style="color:#10b981;"></i> Analyze Empirical Risk ($\Delta \mathcal{R}$)</strong></p>
+                <p>We analyze the gap: $\Delta \mathcal{R} = |\mathcal{R}_T - \mathcal{R}_P|$</p>
+                <p><strong>Why?</strong> Risk is a unified scalar. If we can prove the empirical risk landscapes are geometrically bound to each other, their optimal points must be functionally close.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Page 6: Math (Derivation) -->
+<div class="slide-container">
+    <h2>Math: The Derivation Logic</h2>
+    <div class="content-area list-reset">
+        
+        <div class="step-box">
+            <h3 style="font-size: 22px; margin-bottom: 10px;">出發點 (Starting Point)</h3>
+            <p style="margin:0; font-size: 20px;">We want to bound the difference in performance between Target ($T$) and Proxy ($P$):</p>
+            <div style="text-align: center; font-size: 1.2em; margin: 10px 0;">$|\mathcal{R}_T(Z_T) - \mathcal{R}_P(Z_P)|$</div>
+        </div>
+
+        <div class="step-box">
+            <h3 style="font-size: 22px; margin-bottom: 10px;">橋樑 (Bridge: Linear Alignment)</h3>
+            <p style="margin:0; font-size: 20px;">Introduce an optimal linear isometric map $W$ to project Proxy features to Target space ($Z_P W$).</p>
+        </div>
+
+        <div class="step-box">
+            <h3 style="font-size: 22px; margin-bottom: 10px;">三角不等式 (Triangle Inequality)</h3>
+            <p style="margin:0; font-size: 20px;">We decompose the total risk gap into two components:</p>
+            <div class="math-container" style="margin: 10px 0; padding: 15px;">
+                $$|\mathcal{R}_T(Z_T) - \mathcal{R}_P(Z_P)| \le \underbrace{|\mathcal{R}_T(Z_T) - \mathcal{R}_T(Z_P W)|}_{\text{Feature Error}} + \underbrace{|\mathcal{R}_T(Z_P W) - \mathcal{R}_P(Z_P)|}_{\text{Head Error}}$$
+            </div>
+        </div>
+
+        <div class="step-box">
+            <h3 style="font-size: 22px; margin-bottom: 10px;">Prob (Lipschitz Bound)</h3>
+            <p style="margin:0; font-size: 20px;">Using Lipschitz constant $K_{feat}$, the Feature Error is bounded by the geometric distance: $K_{feat} \cdot \|Z_T - Z_P W\|_2$.</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- Page 7: Math Result -->
+<div class="slide-container">
+    <h2>Math Result: Geometric Insights</h2>
+    <div class="content-area">
+        <p>By solving for the optimal $W$, we achieve an <strong>Exact Geometric Decomposition</strong> of the feature error using the Procrustes Similarity ($\Omega$):</p>
+        
+        <div class="math-container" style="text-align: center;">
+            $$\min_{W} \frac{1}{n} \| Z_T - Z_P W \|_F^2 = \underbrace{(\rho_T - \rho_P)^2}_{\text{Scale Mismatch}} + \underbrace{2\rho_T\rho_P(1 - \Omega(Z_T, Z_P))}_{\text{Shape Mismatch}}$$
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>Unified Risk Discrepancy Bound</h3>
+            <div class="math-container" style="border-left-color: #10b981; background-color: #f0fdf4; text-align: center;">
+                $$|\mathcal{R}_T - \mathcal{R}_P| \le K_{feat} \sqrt{ (\Delta \rho)^2 + 2\rho_T\rho_P(1-\Omega) } + \text{Head Error}$$
+            </div>
+            <p style="margin-top: 20px;"><strong>Geometric Insights:</strong> The functional performance gap is strictly bounded by:</p>
+            <ul>
+                <li><strong>Scale ($\Delta \rho$):</strong> Do the feature norms match?</li>
+                <li><strong>Shape ($\Omega$):</strong> Is the intrinsic topology of the manifolds isomorphic?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Page 8: Math Discuss -->
+<div class="slide-container">
+    <h2>Math Discuss: Deep Dive</h2>
+    <div class="content-area two-column">
+        <div class="card">
+            <h3>1. CKA vs. Procrustes ($\Omega$)</h3>
+            <p>CKA uses the Frobenius norm, which provides a looser bound.</p>
+            <p>Our $\Omega$ relies on the <strong>Nuclear Norm</strong> ($\|Z_T^\top Z_P\|_*$). This guarantees an <em>exact</em> geometric decomposition for rotational alignment, strictly tightening the theoretical bound.</p>
+        </div>
+        <div class="card">
+            <h3>2. Head Bound</h3>
+            <p>Head Error is bounded by: $\| \Sigma_P^{1/2} (W H_T - H_P) \|_F$</p>
+            <p>By incorporating the covariance matrix $\Sigma_P$, we project the error onto the <strong>active subspace</strong> of the data. Mismatches in "empty" directions don't penalize the bound.</p>
+        </div>
+    </div>
+    <div class="card" style="margin-top: 30px; height: auto;">
+        <h3>3. $\rho$ (Scale)</h3>
+        <p>$\rho$ represents the Root Mean Square (RMS) energy of the representations. Decoupling $\rho$ from $\Omega$ allows us to distinguish between a model that has structurally collapsed vs. one that is just numerically scaled down.</p>
+    </div>
+</div>
+
+<!-- Page 9: Applications (Quantization Intro) -->
+<div class="slide-container">
+    <h2>Applications</h2>
+    <div class="content-area flex-center">
+        <i class="fa-solid fa-compress" style="font-size: 100px; color: #3b82f6; margin-bottom: 40px;"></i>
+        <h1 style="font-size: 48px; margin-bottom: 20px;">Quantization Quality Estimation</h1>
+        <p style="text-align: center; max-width: 800px;">
+            Can we predict how much a model will degrade after quantization (e.g., to INT4 or Q2) <strong>without</strong> running expensive perplexity benchmarks or needing ground-truth labels?
+        </p>
+    </div>
+</div>
+
+<!-- Page 10: Quantization Math -->
+<div class="slide-container">
+    <h2>Quantization</h2>
+    <div class="content-area">
+        <p>In Quantization, we set Target = Full Precision ($F$) and Proxy = Quantized ($Q$).</p>
+        
+        <div class="two-column" style="margin-top: 20px;">
+            <div>
+                <h3>The Identity Regime</h3>
+                <p>Quantization adds numerical noise but doesn't intentionally rotate the latent space. Thus, the alignment map is the identity: $W = I$.</p>
+            </div>
+            <div>
+                <h3>Head Stability</h3>
+                <p>Modern quantization keeps the final classification head in high precision (FP16). Thus, $H_Q \approx H_F$, and the Head Error vanishes.</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px;">
+            <h3>The Simplified Bound</h3>
+            <div class="math-container">
+                $$|\mathcal{R}_F - \mathcal{R}_Q| \lessapprox K_{feat} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{Scale Collapse}} + \underbrace{2\rho_F\rho_Q(1-\Omega)}_{\text{Feature Distortion}} }$$
+            </div>
+            <p>We can estimate degradation purely from geometric statistics!</p>
+        </div>
+    </div>
+</div>
+
+<!-- Page 11: Quantization Experiments -->
+<div class="slide-container">
+    <h2>Quantization Experiments</h2>
+    <div class="content-area">
+        <h3>Experimental Protocol</h3>
+        <p>Rank different quantization methods (e.g., AWQ vs. GPTQ vs. NF4) purely by calculating $\Omega$ and $\Delta \rho$ on a small unlabeled calibration set.</p>
+        
+        <div class="two-column" style="margin-top: 30px;">
+            <div class="card">
+                <h3 style="color: #10b981;"><i class="fa-solid fa-chart-line"></i> Hypothesis</h3>
+                <p>The geometric distortion score $\sqrt{(\Delta\rho)^2 + 2\rho_F\rho_Q(1-\Omega)}$ will strongly correlate with the actual downstream Perplexity/Zero-shot accuracy drop.</p>
+            </div>
+            <div class="card">
+                <h3 style="color: #f59e0b;"><i class="fa-solid fa-magnifying-glass"></i> Detection</h3>
+                <p>Aggressive quantization (e.g., INT2) will distinctly show <strong>Scale Collapse</strong> ($\rho_Q \ll \rho_F$) before severe structural collapse occurs.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Page 12: Analysis -->
+<div class="slide-container">
+    <h2>Analysis</h2>
+    <div class="content-area">
+        <div class="card" style="margin-bottom: 30px;">
+            <h3>Worst Cases $\to$ Average Cases</h3>
+            <p>Standard Lipschitz or Spectral bounds often assume the <strong>worst-case</strong> adversarial direction. By integrating the empirical data covariance $\Sigma_P^{1/2}$ into the Head Bound, PRISM shifts the analysis to the <strong>average-case</strong> behavior on the actual data manifold, making the bound practically tight.</p>
+        </div>
+        
+        <div class="card">
+            <h3>Remove Scale</h3>
+            <p>By extracting $\rho$ from the formulation, the Procrustes Similarity $\Omega \in [0, 1]$ becomes a strictly <strong>scale-invariant</strong> metric.</p>
+            <p>This is crucial: A feature vector that is simply halved in magnitude preserves its semantic meaning perfectly ($\Omega=1$), but standard distance metrics would flag it as a massive error. PRISM accurately isolates pure structural shape.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Page 13: TODOs -->
+<div class="slide-container">
+    <h2>TODOs</h2>
+    <div class="content-area">
+        <ul style="font-size: 24px; line-height: 2;">
+            <li><i class="fa-regular fa-square" style="color: #9ca3af; margin-right: 10px;"></i> Complete empirical evaluation for Cross-Scale Model Merging.</li>
+            <li><i class="fa-regular fa-square" style="color: #9ca3af; margin-right: 10px;"></i> Generate scatter plots correlating PRISM Bound vs. True Risk Gap.</li>
+            <li><i class="fa-regular fa-square" style="color: #9ca3af; margin-right: 10px;"></i> Refactor the measurement codebase for efficiency (handling billions of parameters).</li>
+            <li><i class="fa-regular fa-square" style="color: #9ca3af; margin-right: 10px;"></i> Finalize the formal proof for $K_{feat}$ tightness on the probability simplex.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Page 14: QA -->
+<div class="slide-container title-slide" style="align-items: center; justify-content: center;">
+    <div style="z-index: 1; text-align: center;">
+        <h1 style="font-size: 80px; color: #3b82f6;">Q & A</h1>
+        <p style="font-size: 28px; color: #4b5563; margin-top: 20px;">Thank you for listening!</p>
+    </div>
+    <div class="title-decoration" style="right: auto; left: -150px; bottom: auto; top: -150px;"></div>
+</div>
+
+<!-- Page 15: Future works -->
+<div class="slide-container">
+    <h2>Future works</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div>
+                <h3><i class="fa-solid fa-arrow-trend-down"></i> Directional Analysis</h3>
+                <p>Current bounds are absolute ($|\mathcal{R}_T - \mathcal{R}_P|$). We will explore L-smoothness and Taylor expansions to determine the <em>direction</em> of risk change (Linear Drive vs. Quadratic Curvature Penalty).</p>
+            </div>
+            <div>
+                <h3><i class="fa-solid fa-bullseye"></i> Distance to Optimum</h3>
+                <p>Develop the <strong>Relative Suboptimality Index (RSI)</strong> to quantify how saturated a task is, defining the safe "Trust Region" for geometric distortion.</p>
+            </div>
+            <div style="margin-top: 20px;">
+                <h3><i class="fa-solid fa-compress-arrows-alt"></i> Tight Bounds</h3>
+                <p>Further constrain $K_{feat}$ and $K_{pred}$ by explicitly modeling specific loss functions (e.g., bounded Softmax, label smoothing).</p>
+            </div>
+            <div style="margin-top: 20px;">
+                <h3><i class="fa-solid fa-layer-group"></i> More Applications</h3>
+                <p>Extend PRISM to Cross-Family Capability Transfer (e.g., Llama $\to$ Gemma) and Out-of-Distribution (OOD) anomaly detection.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
