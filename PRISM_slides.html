@@ -101,6 +101,44 @@ li { margin-bottom: 16px; }
   flex-direction: column;
   flex: 1;
   justify-content: flex-start;
+  min-height: 0;
+}
+
+.pdf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+.pdf-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.pdf-col embed {
+  flex: 1;
+  min-height: 0;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.pdf-zoom {
+  overflow: hidden;
+  border-radius: 6px;
+  height: 270px;
+}
+
+.pdf-zoom iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin-left: 0%;
+  margin-top: 0%;
+  border: none;
 }
 
 .two-column {
@@ -228,12 +266,12 @@ li { margin-bottom: 16px; }
         </div>
     </div>
     <div class="title-decoration"></div>
-    <div class="page-number">1 / 18</div>
+    <div class="page-number">1 / 20</div>
 </div>
 
 <!-- Page 2: Motivation -->
 <div class="slide-container">
-    <div class="page-number">2 / 18</div>
+    <div class="page-number">2 / 20</div>
     <h2>Motivation</h2>
     <div class="content-area">
         <h3>Scenario</h3>
@@ -263,7 +301,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 3: Idea -->
 <div class="slide-container">
-    <div class="page-number">3 / 18</div>
+    <div class="page-number">3 / 20</div>
     <h2>Idea</h2>
     <div class="content-area two-column">
         <div>
@@ -284,7 +322,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 4: Requirement -->
 <div class="slide-container">
-    <div class="page-number">4 / 18</div>
+    <div class="page-number">4 / 20</div>
     <h2>Requirement</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 20px;">
         <div class="card">
@@ -308,7 +346,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 5: Formulation -->
 <div class="slide-container">
-    <div class="page-number">5 / 18</div>
+    <div class="page-number">5 / 20</div>
     <h2>Formulation</h2>
     <div class="content-area">
         <h3 style="margin-top: 30px;">Methodology Choices</h3>
@@ -337,7 +375,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 6: Math (Derivation) -->
 <div class="slide-container">
-    <div class="page-number">6 / 18</div>
+    <div class="page-number">6 / 20</div>
     <h2>Math: The Derivation Logic</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 3fr 2fr; gap: 30px; align-items: start;">
         <div class="list-reset">
@@ -380,7 +418,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 7: Math Result -->
 <div class="slide-container">
-    <div class="page-number">7 / 18</div>
+    <div class="page-number">7 / 20</div>
     <h2>Math Result: Geometric Insights</h2>
     <div class="content-area">
         <p>By solving for the optimal $W$, we achieve an <strong>Exact Geometric Decomposition</strong> of the feature error using the Procrustes Similarity ($\Omega$):</p>
@@ -406,7 +444,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 8: Math Discuss -->
 <div class="slide-container">
-    <div class="page-number">8 / 18</div>
+    <div class="page-number">8 / 20</div>
     <h2>Math Discuss: Deep Dive</h2>
     <div class="content-area two-column">
         <div class="card">
@@ -428,7 +466,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 9: Three Regimes of W -->
 <div class="slide-container">
-    <div class="page-number">9 / 18</div>
+    <div class="page-number">9 / 20</div>
     <h2>Three Regimes of $W$</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; padding-top: 10px;">
 
@@ -464,7 +502,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 10: Application: Model Merging -->
 <div class="slide-container">
-    <div class="page-number">10 / 18</div>
+    <div class="page-number">10 / 20</div>
     <h2>Application: Model Merging</h2>
     <div class="content-area">
 
@@ -513,7 +551,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 11: Application: Quantization Quality Estimation -->
 <div class="slide-container">
-    <div class="page-number">11 / 18</div>
+    <div class="page-number">11 / 20</div>
     <h2>Application: Quantization Quality Estimation</h2>
     <div class="content-area">
         <div class="two-column" style="margin-bottom: 18px; align-items: center;">
@@ -540,7 +578,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 12: Quantization Math -->
 <div class="slide-container">
-    <div class="page-number">12 / 18</div>
+    <div class="page-number">12 / 20</div>
     <h2>Quantization: PRISM Bound</h2>
     <div class="content-area">
         <div class="two-column" style="margin-bottom: 18px;">
@@ -585,7 +623,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 13: Quantization Methods: Head Term Analysis -->
 <div class="slide-container">
-    <div class="page-number">13 / 18</div>
+    <div class="page-number">13 / 20</div>
     <h2>Quantization Methods: Head Term Analysis</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; padding-top: 10px;">
 
@@ -624,7 +662,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 14: Quantization Experiments -->
 <div class="slide-container">
-    <div class="page-number">14 / 18</div>
+    <div class="page-number">14 / 20</div>
     <h2>Quantization Experiments: GSM8K</h2>
     <div class="content-area" style="display: flex; flex-direction: column; gap: 20px;">
 
@@ -648,9 +686,49 @@ li { margin-bottom: 16px; }
     </div>
 </div>
 
-<!-- Page 12: Analysis -->
+<!-- Page 15: Results — PRISM Bound -->
+<div class="slide-container" style="padding: 40px 8px;">
+    <div class="page-number">15 / 20</div>
+    <h2 style="padding-left: 8px;">Results: PRISM Bound</h2>
+    <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto; gap: 4px 4px; align-content: center; min-height: 0;">
+        <p style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; text-align: center;">Llama-2-7B</p>
+        <p style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; text-align: center;">Mistral-7B</p>
+        <p style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; text-align: center;">Qwen3-8B</p>
+        <div class="pdf-zoom">
+            <iframe src="images/prism_llama-2_bound.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+        </div>
+        <div class="pdf-zoom">
+            <iframe src="images/prism_mistral_bound.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+        </div>
+        <div class="pdf-zoom">
+            <iframe src="images/prism_qwen_bound.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+        </div>
+    </div>
+</div>
+
+<!-- Page 16: Results — Procrustes Similarity (Ω) -->
+<div class="slide-container" style="padding: 40px 8px;">
+    <div class="page-number">16 / 20</div>
+    <h2 style="padding-left: 8px;">Results: Procrustes Similarity ($\Omega$)</h2>
+    <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto; gap: 4px 4px; align-content: center; min-height: 0;">
+        <p style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; text-align: center;">Llama-2-7B</p>
+        <p style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; text-align: center;">Mistral-7B</p>
+        <p style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; text-align: center;">Qwen3-8B</p>
+        <div class="pdf-zoom">
+            <iframe src="images/prism_llama-2_omega.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+        </div>
+        <div class="pdf-zoom">
+            <iframe src="images/prism_mistral_omega.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+        </div>
+        <div class="pdf-zoom">
+            <iframe src="images/prism_qwen_omega.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit"></iframe>
+        </div>
+    </div>
+</div>
+
+<!-- Page 18: Analysis -->
 <div class="slide-container">
-    <div class="page-number">15 / 18</div>
+    <div class="page-number">17 / 20</div>
     <h2>Analysis</h2>
     <div class="content-area">
         <div class="card" style="margin-bottom: 30px;">
@@ -668,7 +746,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 13: TODOs -->
 <div class="slide-container">
-    <div class="page-number">16 / 18</div>
+    <div class="page-number">18 / 20</div>
     <h2>TODOs</h2>
     <div class="content-area">
         <ul style="font-size: 24px; line-height: 2;">
@@ -682,7 +760,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 14: QA -->
 <div class="slide-container title-slide" style="align-items: center; justify-content: center;">
-    <div class="page-number">17 / 18</div>
+    <div class="page-number">19 / 20</div>
     <div style="z-index: 1; text-align: center;">
         <h1 style="font-size: 80px; color: #3b82f6;">Q & A</h1>
         <p style="font-size: 28px; color: #4b5563; margin-top: 20px;">Thank you for listening!</p>
@@ -692,7 +770,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 15: Future works -->
 <div class="slide-container">
-    <div class="page-number">18 / 18</div>
+    <div class="page-number">20 / 20</div>
     <h2>Future works</h2>
     <div class="content-area">
         <div class="two-column">
