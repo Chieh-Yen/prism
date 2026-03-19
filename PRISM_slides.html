@@ -257,11 +257,11 @@ li { margin-bottom: 16px; }
     <div class="content-area two-column">
         <div>
             <h3>Proxy Model and Target Model</h3>
-            <p>Is the <strong>Proxy Model ($P$)</strong> good enough to <strong>estimate the performance of the Target Model ($T$)</strong>?</p>
             <ul>
                 <li><strong>Target ($T$):</strong> The expensive, large, or full-precision model we care about.</li>
                 <li><strong>Proxy ($P$):</strong> The cheap, small, or compressed model we actually compute on.</li>
             </ul>
+            <p>Is the <strong>Proxy Model ($P$)</strong> good enough to <strong>estimate the performance of the Target Model ($T$)</strong>?</p>
         </div>
         <div>
             <h3>Explainability</h3>
@@ -300,13 +300,6 @@ li { margin-bottom: 16px; }
     <div class="page-number">5 / 15</div>
     <h2>Formulation</h2>
     <div class="content-area">
-        <h3>Modern Models: Feature Representation & Linear Projection</h3>
-        <p>We express any model as a composition: $f(x) = h(\phi(x))$</p>
-        <ul>
-            <li>$\phi(x)$: Non-linear feature representation backbone (maps to $Z$).</li>
-            <li>$h(z)$: Linear prediction head.</li>
-        </ul>
-
         <h3 style="margin-top: 30px;">Methodology Choices</h3>
         <div class="two-column">
             <div style="opacity: 0.6;">
@@ -319,6 +312,13 @@ li { margin-bottom: 16px; }
                 <p><strong>Why?</strong> Risk is a unified scalar. If we can prove the empirical risk landscapes are geometrically bound to each other, their optimal points must be functionally close.</p>
             </div>
         </div>
+        <h3>Modern Models </h3>
+        <p><strong> Feature Representation & Linear Projection </strong></p>
+        <p>We express any model as a composition: $f(x) = h(\phi(x))$</p>
+        <ul>
+            <li>$\phi(x)$: Non-linear feature representation backbone (maps to $Z$).</li>
+            <li>$h(z)$: Linear prediction head.</li>
+        </ul>
     </div>
 </div>
 
@@ -531,6 +531,30 @@ li { margin-bottom: 16px; }
         </div>
     </div>
 </div>
+
+
+<script>
+window.addEventListener('load', () => {
+  document.querySelectorAll('.slide-container').forEach(slide => {
+    const inner = document.createElement('div');
+    Array.from(slide.children)
+      .filter(c => !c.classList.contains('title-decoration') && !c.classList.contains('page-number'))
+      .forEach(c => inner.appendChild(c));
+    slide.insertBefore(inner, slide.firstChild);
+
+    const available = slide.clientHeight
+      - parseInt(getComputedStyle(slide).paddingTop)
+      - parseInt(getComputedStyle(slide).paddingBottom);
+
+    if (inner.scrollHeight > available) {
+      const scale = available / inner.scrollHeight;
+      inner.style.transformOrigin = 'top left';
+      inner.style.transform = `scale(${scale})`;
+      inner.style.width = `${100 / scale}%`;
+    }
+  });
+});
+</script>
 
 </body>
 </html>
