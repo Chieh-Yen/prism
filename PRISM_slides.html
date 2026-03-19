@@ -228,22 +228,33 @@ li { margin-bottom: 16px; }
         </div>
     </div>
     <div class="title-decoration"></div>
-    <div class="page-number">1 / 17</div>
+    <div class="page-number">1 / 18</div>
 </div>
 
 <!-- Page 2: Motivation -->
 <div class="slide-container">
-    <div class="page-number">2 / 17</div>
+    <div class="page-number">2 / 18</div>
     <h2>Motivation</h2>
     <div class="content-area">
         <h3>Scenario</h3>
         <ul>
-            <li><strong>Model Merging:</strong> Finding the optimal $\alpha$ on a small model and transferring it to a large model.</li>
-            <li><strong>Quantization:</strong> Compressing LLMs from bf16 $\to$ INT8, nf4, or Q2. How much does it break?</li>
-            <li><strong>Continual Learning:</strong> Fine-tune on Task A, but the performance of Task B decays. Why?</li>
+            <li><strong>Model Merging:</strong> Find optimal $\alpha$ on a small proxy → transfer to the large target. <span class="highlight-text">Save large-model tuning cost.</span></li>
+            <li><strong>Quantization:</strong> Compress LLMs (bf16 → INT4/Q2); quantized model acts as proxy. <span class="highlight-text">Estimate quality degradation without expensive benchmarks.</span></li>
+            <li><strong>Continual Learning:</strong> Fine-tune on Task A, use fine-tuned model as proxy. <span class="highlight-text">Estimate Task B forgetting before full re-evaluation.</span></li>
         </ul>
-        
-        <div class="card" style="margin-top: 40px; background: #fef2f2; border-color: #fca5a5; border-left: 6px solid #ef4444;">
+
+        <div class="two-column" style="margin-top: 16px; gap: 30px;">
+            <div style="background: #eff6ff; border-left: 5px solid #3b82f6; padding: 14px 20px; border-radius: 0 8px 8px 0;">
+                <h3 style="color: #1d4ed8; font-size: 22px; margin-bottom: 8px;"><i class="fa-solid fa-bolt"></i> Save Compute</h3>
+                <p style="margin: 0; font-size: 18px;">Evaluate a cheap proxy instead of running full benchmarks on the expensive target model.</p>
+            </div>
+            <div style="background: #f0fdf4; border-left: 5px solid #10b981; padding: 14px 20px; border-radius: 0 8px 8px 0;">
+                <h3 style="color: #065f46; font-size: 22px; margin-bottom: 8px;"><i class="fa-solid fa-chart-simple"></i> Estimate Performance</h3>
+                <p style="margin: 0; font-size: 18px;">Predict the target's performance from the proxy's geometry — without ground-truth labels.</p>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 16px; background: #fef2f2; border-color: #fca5a5; border-left: 6px solid #ef4444;">
             <h3 style="color: #b91c1c; margin-top:0;"><i class="fa-solid fa-triangle-exclamation"></i> The Core Problem</h3>
             <p style="margin-bottom:0;">There is a <strong>lack of an analytical/diagnosis formulation</strong> to explain these empirical results. We rely on heuristics and expensive evaluations.</p>
         </div>
@@ -252,7 +263,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 3: Idea -->
 <div class="slide-container">
-    <div class="page-number">3 / 17</div>
+    <div class="page-number">3 / 18</div>
     <h2>Idea</h2>
     <div class="content-area two-column">
         <div>
@@ -273,7 +284,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 4: Requirement -->
 <div class="slide-container">
-    <div class="page-number">4 / 17</div>
+    <div class="page-number">4 / 18</div>
     <h2>Requirement</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 20px;">
         <div class="card">
@@ -297,7 +308,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 5: Formulation -->
 <div class="slide-container">
-    <div class="page-number">5 / 17</div>
+    <div class="page-number">5 / 18</div>
     <h2>Formulation</h2>
     <div class="content-area">
         <h3 style="margin-top: 30px;">Methodology Choices</h3>
@@ -326,7 +337,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 6: Math (Derivation) -->
 <div class="slide-container">
-    <div class="page-number">6 / 17</div>
+    <div class="page-number">6 / 18</div>
     <h2>Math: The Derivation Logic</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 3fr 2fr; gap: 30px; align-items: start;">
         <div class="list-reset">
@@ -369,7 +380,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 7: Math Result -->
 <div class="slide-container">
-    <div class="page-number">7 / 17</div>
+    <div class="page-number">7 / 18</div>
     <h2>Math Result: Geometric Insights</h2>
     <div class="content-area">
         <p>By solving for the optimal $W$, we achieve an <strong>Exact Geometric Decomposition</strong> of the feature error using the Procrustes Similarity ($\Omega$):</p>
@@ -395,7 +406,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 8: Math Discuss -->
 <div class="slide-container">
-    <div class="page-number">8 / 17</div>
+    <div class="page-number">8 / 18</div>
     <h2>Math Discuss: Deep Dive</h2>
     <div class="content-area two-column">
         <div class="card">
@@ -417,7 +428,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 9: Three Regimes of W -->
 <div class="slide-container">
-    <div class="page-number">9 / 17</div>
+    <div class="page-number">9 / 18</div>
     <h2>Three Regimes of $W$</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; padding-top: 10px;">
 
@@ -451,23 +462,9 @@ li { margin-bottom: 16px; }
     </div>
 </div>
 
-<!-- Page 10: Applications (Quantization Intro) -->
+<!-- Page 10: Application: Model Merging -->
 <div class="slide-container">
-    <div class="page-number">10 / 17</div>
-    <h2>Applications</h2>
-    <div class="content-area flex-center">
-        <img src="images/image_q.png" style="height: 360px; object-fit: contain; margin-bottom: 40px;">
-        <h1 style="font-size: 48px; margin-bottom: 20px;">Quantization Quality Estimation</h1>
-        <p style="text-align: center; max-width: 800px;">
-            Can we predict how much a model will degrade after quantization (e.g., to INT4 or Q2) <strong>without</strong> running expensive perplexity benchmarks or needing ground-truth labels?
-        </p>
-    </div>
-</div>
-
-
-<!-- Page 11: Model Merging -->
-<div class="slide-container">
-    <div class="page-number">11 / 17</div>
+    <div class="page-number">10 / 18</div>
     <h2>Application: Model Merging</h2>
     <div class="content-area">
 
@@ -514,58 +511,146 @@ li { margin-bottom: 16px; }
     </div>
 </div>
 
-<!-- Page 12: Quantization Math -->
+<!-- Page 11: Application: Quantization Quality Estimation -->
 <div class="slide-container">
-    <div class="page-number">12 / 17</div>
-    <h2>Quantization</h2>
+    <div class="page-number">11 / 18</div>
+    <h2>Application: Quantization Quality Estimation</h2>
     <div class="content-area">
-        <p>In Quantization, we set Target = Full Precision ($F$) and Proxy = Quantized ($Q$).</p>
-        
-        <div class="two-column" style="margin-top: 20px;">
-            <div>
-                <h3>The Identity Regime</h3>
-                <p>Quantization adds numerical noise but doesn't intentionally rotate the latent space. Thus, the alignment map is the identity: $W = I$.</p>
+        <div class="two-column" style="margin-bottom: 18px; align-items: center;">
+            <div style="display: flex; align-items: center; justify-content: center;">
+                <img src="images/image_q.png" style="max-width: 100%; max-height: 280px; object-fit: contain;">
             </div>
             <div>
-                <h3>Head Stability</h3>
-                <p>Modern quantization keeps the final classification head in high precision (FP16). Thus, $H_Q \approx H_F$, and the Head Error vanishes.</p>
+                <h3>Idea</h3>
+                <p style="font-size: 19px;">Compress a full-precision model to lower bit-width:</p>
+                <div class="math-container" style="padding: 10px 20px; margin: 10px 0; font-size: 0.9em;">
+                    $$\theta_F \xrightarrow{\text{quantize}} \theta_Q \quad \text{(e.g., bf16} \to \text{INT4, NF4, Q2)}$$
+                </div>
+                <p style="font-size: 18px;"><strong>Target ($F$):</strong> Full-precision model — expensive, ground-truth quality.<br>
+                <strong>Proxy ($Q$):</strong> Quantized model — cheap to run.</p>
+                <p style="font-size: 18px;"><strong>Goal:</strong> Predict quality degradation <em>without</em> running expensive benchmarks.</p>
             </div>
         </div>
-
-        <div style="margin-top: 40px;">
-            <h3>The Simplified Bound</h3>
-            <div class="math-container">
-                $$|\mathcal{R}_F - \mathcal{R}_Q| \lessapprox K_{feat} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{Scale Collapse}} + \underbrace{2\rho_F\rho_Q(1-\Omega)}_{\text{Feature Distortion}} }$$
-            </div>
-            <p>We can estimate degradation purely from geometric statistics!</p>
+        <div class="card" style="background: #fef9ef; border-left: 6px solid #f59e0b;">
+            <h3 style="color: #92400e; font-size: 22px; margin-bottom: 8px;"><i class="fa-solid fa-circle-question"></i> Key Question</h3>
+            <p style="margin: 0; font-size: 19px;">Can we estimate quantization degradation <strong>purely from the geometric alignment</strong> between $Z_F$ and $Z_Q$, on a small unlabeled calibration set?</p>
         </div>
     </div>
 </div>
 
-<!-- Page 11: Quantization Experiments -->
+<!-- Page 12: Quantization Math -->
 <div class="slide-container">
-    <div class="page-number">13 / 17</div>
-    <h2>Quantization Experiments</h2>
+    <div class="page-number">12 / 18</div>
+    <h2>Quantization: PRISM Bound</h2>
     <div class="content-area">
-        <h3>Experimental Protocol</h3>
-        <p>Rank different quantization methods (e.g., AWQ vs. GPTQ vs. NF4) purely by calculating $\Omega$ and $\Delta \rho$ on a small unlabeled calibration set.</p>
-        
-        <div class="two-column" style="margin-top: 30px;">
-            <div class="card">
-                <h3 style="color: #10b981;"><i class="fa-solid fa-chart-line"></i> Hypothesis</h3>
-                <p>The geometric distortion score $\sqrt{(\Delta\rho)^2 + 2\rho_F\rho_Q(1-\Omega)}$ will strongly correlate with the actual downstream Perplexity/Zero-shot accuracy drop.</p>
+        <div class="two-column" style="margin-bottom: 18px;">
+            <div>
+                <h3>Setup</h3>
+                <p style="font-size: 19px;">Target = Full Precision ($F$), Proxy = Quantized ($Q$):</p>
+                <div class="math-container" style="padding: 10px 20px; margin: 10px 0; font-size: 0.9em;">
+                    $$Z_F = \phi(X;\,\theta_F), \quad Z_Q = \phi(X;\,\theta_Q)$$
+                </div>
+                <p style="font-size: 18px;"><strong>$W = I$</strong>: Quantization adds numerical noise but no intentional rotation — same feature space.</p>
+                <p style="font-size: 18px;"><strong>Head:</strong> For <em>some</em> methods (NF4, GPTQ), lm_head stays in FP16, so $H_Q \approx H_F$ and Head Term $\approx 0$. Others (e.g., GGUF) quantize the head too.</p>
             </div>
-            <div class="card">
-                <h3 style="color: #f59e0b;"><i class="fa-solid fa-magnifying-glass"></i> Detection</h3>
-                <p>Aggressive quantization (e.g., INT2) will distinctly show <strong>Scale Collapse</strong> ($\rho_Q \ll \rho_F$) before severe structural collapse occurs.</p>
+            <div>
+                <h3>Simplified Bound ($W = I$)</h3>
+                <p style="font-size: 18px;">Applying PRISM:</p>
+                <div class="math-container" style="padding: 10px 20px; margin: 10px 0; font-size: 0.78em; border-left-color: #10b981; background: #f0fdf4;">
+                    $$|\mathcal{R}_F - \mathcal{R}_Q| \lessapprox K_{feat}\!\sqrt{\underbrace{(\rho_F\!-\!\rho_Q)^2}_{\text{Scale Collapse}} + \underbrace{2\rho_F\rho_Q(1\!-\!\Omega)}_{\text{Feature Distortion}}} + \underbrace{K_{head}\|\Sigma_Q^{1/2}(H_F - H_Q)\|_F}_{\approx\,0 \text{ for some methods}}$$
+                </div>
+                <p style="font-size: 18px;">Degradation estimated purely from geometric statistics!</p>
             </div>
         </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 28px;">
+            <h3 style="font-size: 22px; margin-bottom: 10px;">Geometric Meaning of Each Term</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div>
+                    <p style="font-size: 17px; margin: 0;"><strong style="color:#3b82f6;">Scale Collapse ($\Delta\rho$)</strong><br>
+                    Does aggressive quantization shrink feature magnitudes?</p>
+                </div>
+                <div>
+                    <p style="font-size: 17px; margin: 0;"><strong style="color:#10b981;">Feature Distortion ($1-\Omega$)</strong><br>
+                    Is the structural topology of representations preserved after compression?</p>
+                </div>
+                <div>
+                    <p style="font-size: 17px; margin: 0;"><strong style="color:#f59e0b;">Head Term</strong><br>
+                    Non-zero if lm_head is quantized (GGUF). Drops to zero for NF4 / GPTQ.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Page 13: Quantization Methods: Head Term Analysis -->
+<div class="slide-container">
+    <div class="page-number">13 / 18</div>
+    <h2>Quantization Methods: Head Term Analysis</h2>
+    <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; padding-top: 10px;">
+
+        <div class="card" style="border-top: 4px solid #f59e0b;">
+            <h3 style="font-size: 21px;">GGUF <span style="font-size: 14px; color:#6b7280;">(llama.cpp, Q4_K, Q2_K…)</span></h3>
+            <p style="font-size: 17px;"><strong>Method:</strong> Round-to-nearest with adaptive mixed-precision (k-quants). Bit budget distributed across layers by importance score.</p>
+            <p style="font-size: 17px;"><strong>Head:</strong> lm_head is <strong>quantized by default</strong> (unless explicitly excluded).</p>
+            <div class="math-container" style="padding: 8px 14px; margin: 10px 0; font-size: 0.85em; text-align: center; border-left-color: #f59e0b;">
+                $$H_Q \not\approx H_F \;\Rightarrow\; \text{Head Term} \neq 0$$
+            </div>
+            <p style="font-size: 16px; color: #b45309; margin: 0;"><strong>Must track Head Term in PRISM bound.</strong></p>
+        </div>
+
+        <div class="card" style="border-top: 4px solid #10b981;">
+            <h3 style="font-size: 21px;">NF4 <span style="font-size: 14px; color:#6b7280;">(bitsandbytes / QLoRA)</span></h3>
+            <p style="font-size: 17px;"><strong>Method:</strong> Normal Float 4-bit — quantization levels derived from the normal distribution, optimized for pre-trained weight statistics. Supports double quantization.</p>
+            <p style="font-size: 17px;"><strong>Head:</strong> lm_head kept in <strong>FP16</strong>.</p>
+            <div class="math-container" style="padding: 8px 14px; margin: 10px 0; font-size: 0.85em; text-align: center; border-left-color: #10b981; background: #f0fdf4;">
+                $$H_Q \approx H_F \;\Rightarrow\; \text{Head Term} \approx 0$$
+            </div>
+            <p style="font-size: 16px; color: #065f46; margin: 0;"><strong>Head Term drops out of the bound.</strong></p>
+        </div>
+
+        <div class="card" style="border-top: 4px solid #3b82f6;">
+            <h3 style="font-size: 21px;">GPTQ <span style="font-size: 14px; color:#6b7280;">(AutoGPTQ / ExLlama)</span></h3>
+            <p style="font-size: 17px;"><strong>Method:</strong> Second-order (Hessian-guided) layer-wise quantization. Minimizes reconstruction error using local curvature — more accurate than round-to-nearest at same bit-width.</p>
+            <p style="font-size: 17px;"><strong>Head:</strong> lm_head kept in <strong>FP16</strong> (standard practice).</p>
+            <div class="math-container" style="padding: 8px 14px; margin: 10px 0; font-size: 0.85em; text-align: center; border-left-color: #3b82f6; background: #eff6ff;">
+                $$H_Q \approx H_F \;\Rightarrow\; \text{Head Term} \approx 0$$
+            </div>
+            <p style="font-size: 16px; color: #1d4ed8; margin: 0;"><strong>Head Term drops out of the bound.</strong></p>
+        </div>
+
+    </div>
+</div>
+
+<!-- Page 14: Quantization Experiments -->
+<div class="slide-container">
+    <div class="page-number">14 / 18</div>
+    <h2>Quantization Experiments: GSM8K</h2>
+    <div class="content-area" style="display: flex; flex-direction: column; gap: 20px;">
+
+        <img src="images/image_gsm8k.png" style="width: 100%; border-radius: 8px; display: block;">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <div class="card" style="border-top: 4px solid #10b981;">
+                <h3 style="font-size: 19px; margin-bottom: 6px; color: #10b981;"><i class="fa-solid fa-shapes"></i> Shape ($\Omega$) Dominates</h3>
+                <p style="margin: 0; font-size: 17px;">The Procrustes similarity $\Omega$ is the primary predictor of accuracy drop. As bit-width decreases, structural distortion of the feature manifold drives performance loss.</p>
+            </div>
+            <div class="card" style="border-top: 4px solid #3b82f6;">
+                <h3 style="font-size: 19px; margin-bottom: 6px; color: #3b82f6;"><i class="fa-solid fa-ruler"></i> Scale ($\Delta\rho$) Limited Impact</h3>
+                <p style="margin: 0; font-size: 17px;">Scale mismatch $\Delta\rho$ remains small across quantization levels — quantization shrinks weights uniformly, so RMS magnitudes are well-preserved.</p>
+            </div>
+            <div class="card" style="border-top: 4px solid #9ca3af;">
+                <h3 style="font-size: 19px; margin-bottom: 6px; color: #6b7280;"><i class="fa-solid fa-table-columns"></i> Head Term Negligible</h3>
+                <p style="margin: 0; font-size: 17px;">For NF4 / GPTQ, lm_head stays in FP16, so Head Term $\approx 0$. Even for GGUF, head quantization contributes minimally vs. feature distortion.</p>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <!-- Page 12: Analysis -->
 <div class="slide-container">
-    <div class="page-number">14 / 17</div>
+    <div class="page-number">15 / 18</div>
     <h2>Analysis</h2>
     <div class="content-area">
         <div class="card" style="margin-bottom: 30px;">
@@ -583,7 +668,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 13: TODOs -->
 <div class="slide-container">
-    <div class="page-number">15 / 17</div>
+    <div class="page-number">16 / 18</div>
     <h2>TODOs</h2>
     <div class="content-area">
         <ul style="font-size: 24px; line-height: 2;">
@@ -597,7 +682,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 14: QA -->
 <div class="slide-container title-slide" style="align-items: center; justify-content: center;">
-    <div class="page-number">16 / 17</div>
+    <div class="page-number">17 / 18</div>
     <div style="z-index: 1; text-align: center;">
         <h1 style="font-size: 80px; color: #3b82f6;">Q & A</h1>
         <p style="font-size: 28px; color: #4b5563; margin-top: 20px;">Thank you for listening!</p>
@@ -607,7 +692,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 15: Future works -->
 <div class="slide-container">
-    <div class="page-number">17 / 17</div>
+    <div class="page-number">18 / 18</div>
     <h2>Future works</h2>
     <div class="content-area">
         <div class="two-column">
