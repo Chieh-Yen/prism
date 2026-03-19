@@ -228,12 +228,12 @@ li { margin-bottom: 16px; }
         </div>
     </div>
     <div class="title-decoration"></div>
-    <div class="page-number">1 / 15</div>
+    <div class="page-number">1 / 16</div>
 </div>
 
 <!-- Page 2: Motivation -->
 <div class="slide-container">
-    <div class="page-number">2 / 15</div>
+    <div class="page-number">2 / 16</div>
     <h2>Motivation</h2>
     <div class="content-area">
         <h3>Scenario</h3>
@@ -252,7 +252,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 3: Idea -->
 <div class="slide-container">
-    <div class="page-number">3 / 15</div>
+    <div class="page-number">3 / 16</div>
     <h2>Idea</h2>
     <div class="content-area two-column">
         <div>
@@ -273,7 +273,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 4: Requirement -->
 <div class="slide-container">
-    <div class="page-number">4 / 15</div>
+    <div class="page-number">4 / 16</div>
     <h2>Requirement</h2>
     <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 20px;">
         <div class="card">
@@ -297,7 +297,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 5: Formulation -->
 <div class="slide-container">
-    <div class="page-number">5 / 15</div>
+    <div class="page-number">5 / 16</div>
     <h2>Formulation</h2>
     <div class="content-area">
         <h3 style="margin-top: 30px;">Methodology Choices</h3>
@@ -312,52 +312,64 @@ li { margin-bottom: 16px; }
                 <p><strong>Why?</strong> Risk is a unified scalar. If we can prove the empirical risk landscapes are geometrically bound to each other, their optimal points must be functionally close.</p>
             </div>
         </div>
-        <h3>Modern Models </h3>
-        <p><strong> Feature Representation & Linear Projection </strong></p>
-        <p>We express any model as a composition: $f(x) = h(\phi(x))$</p>
-        <ul>
-            <li>$\phi(x)$: Non-linear feature representation backbone (maps to $Z$).</li>
-            <li>$h(z)$: Linear prediction head.</li>
+        <h3>Modern Models: Feature Representation &amp; Linear Projection</h3>
+        <p>We express any model as a composition: $f(x) = h(\phi(x))$, where $\phi(x)$ is the backbone and $h$ is the linear head. In matrix form over a dataset of $n$ samples:</p>
+        <div class="math-container" style="text-align: center; margin: 14px 0; padding: 16px 30px;">
+            $$F(X) = \underbrace{\phi(X)}_{Z \,\in\, \mathbb{R}^{n \times d}} \underbrace{H}_{H \,\in\, \mathbb{R}^{d \times c}}$$
+        </div>
+        <ul style="margin-top: 6px;">
+            <li>$Z = \phi(X) \in \mathbb{R}^{n \times d}$: feature matrix from the backbone.</li>
+            <li>$H \in \mathbb{R}^{d \times c}$: linear projection head ($c$ = number of classes).</li>
         </ul>
     </div>
 </div>
 
 <!-- Page 6: Math (Derivation) -->
 <div class="slide-container">
-    <div class="page-number">6 / 15</div>
+    <div class="page-number">6 / 16</div>
     <h2>Math: The Derivation Logic</h2>
-    <div class="content-area list-reset">
-        
-        <div class="step-box">
-            <h3 style="font-size: 22px; margin-bottom: 10px;">出發點 (Starting Point)</h3>
-            <p style="margin:0; font-size: 20px;">We want to bound the difference in performance between Target ($T$) and Proxy ($P$):</p>
-            <div style="text-align: center; font-size: 1.2em; margin: 10px 0;">$|\mathcal{R}_T(Z_T) - \mathcal{R}_P(Z_P)|$</div>
-        </div>
+    <div class="content-area" style="display: grid; grid-template-columns: 3fr 2fr; gap: 30px; align-items: start;">
+        <div class="list-reset">
 
-        <div class="step-box">
-            <h3 style="font-size: 22px; margin-bottom: 10px;">橋樑 (Bridge: Linear Alignment)</h3>
-            <p style="margin:0; font-size: 20px;">Introduce an optimal linear isometric map $W$ to project Proxy features to Target space ($Z_P W$).</p>
-        </div>
-
-        <div class="step-box">
-            <h3 style="font-size: 22px; margin-bottom: 10px;">三角不等式 (Triangle Inequality)</h3>
-            <p style="margin:0; font-size: 20px;">We decompose the total risk gap into two components:</p>
-            <div class="math-container" style="margin: 10px 0; padding: 15px;">
-                $$|\mathcal{R}_T(Z_T) - \mathcal{R}_P(Z_P)| \le \underbrace{|\mathcal{R}_T(Z_T) - \mathcal{R}_T(Z_P W)|}_{\text{Feature Error}} + \underbrace{|\mathcal{R}_T(Z_P W) - \mathcal{R}_P(Z_P)|}_{\text{Head Error}}$$
+            <div class="step-box">
+                <h3 style="font-size: 21px; margin-bottom: 8px;">1. Starting Point</h3>
+                <p style="margin:0; font-size: 18px;">Bound the risk gap, expanded by definition:</p>
+                <div class="math-container" style="margin: 8px 0; padding: 10px 16px; font-size: 0.88em;">
+                    $$|\mathcal{R}_T - \mathcal{R}_P| = \left|\frac{1}{n}\sum_i \ell(z_i^T H_T,\, y_i) - \frac{1}{n}\sum_i \ell(z_i^P H_P,\, y_i)\right|$$
+                </div>
             </div>
-        </div>
 
-        <div class="step-box">
-            <h3 style="font-size: 22px; margin-bottom: 10px;">Prob (Lipschitz Bound)</h3>
-            <p style="margin:0; font-size: 20px;">Using Lipschitz constant $K_{feat}$, the Feature Error is bounded by the geometric distance: $K_{feat} \cdot \|Z_T - Z_P W\|_2$.</p>
-        </div>
+            <div class="step-box">
+                <h3 style="font-size: 21px; margin-bottom: 8px;">2. Bridge: Linear Alignment</h3>
+                <p style="margin:0; font-size: 18px;">Introduce an optimal linear map $W$ projecting Proxy features to Target space ($Z_P W$).</p>
+            </div>
 
+            <div class="step-box">
+                <h3 style="font-size: 21px; margin-bottom: 8px;">3. Triangle Inequality</h3>
+                <div class="math-container" style="margin: 8px 0; padding: 10px 16px; font-size: 0.78em;">
+                    $$|\mathcal{R}_T - \mathcal{R}_P| \le \underbrace{|\mathcal{R}_T(Z_T) - \mathcal{R}_T(Z_P W)|}_{\text{Feature Error}} + \underbrace{|\mathcal{R}_T(Z_P W) - \mathcal{R}_P(Z_P)|}_{\text{Head Error}}$$
+                </div>
+            </div>
+
+            <div class="step-box">
+                <h3 style="font-size: 21px; margin-bottom: 8px;">4. Lipschitz Bound</h3>
+                <p style="margin:0; font-size: 18px;">
+                    <strong>Feature Error:</strong> $K_{feat} \cdot \|Z_T - Z_P W\|_F$<br><br>
+                    <strong>Head Error:</strong> $K_{head} \cdot \dfrac{1}{n}\|Z_P(WH_T - H_P)\|_F$<br>
+                    $\quad = K_{head} \cdot \|\Sigma_P^{1/2}(WH_T - H_P)\|_F$ &nbsp; <span style="font-size:15px; color:#6b7280;">(where $\Sigma_P = \tfrac{1}{n}Z_P^\top Z_P$)</span>
+                </p>
+            </div>
+
+        </div>
+        <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+            <img src="images/image_w.png" style="max-width: 100%; max-height: 480px; object-fit: contain; border-radius: 8px;">
+        </div>
     </div>
 </div>
 
 <!-- Page 7: Math Result -->
 <div class="slide-container">
-    <div class="page-number">7 / 15</div>
+    <div class="page-number">7 / 16</div>
     <h2>Math Result: Geometric Insights</h2>
     <div class="content-area">
         <p>By solving for the optimal $W$, we achieve an <strong>Exact Geometric Decomposition</strong> of the feature error using the Procrustes Similarity ($\Omega$):</p>
@@ -366,15 +378,16 @@ li { margin-bottom: 16px; }
             $$\min_{W} \frac{1}{n} \| Z_T - Z_P W \|_F^2 = \underbrace{(\rho_T - \rho_P)^2}_{\text{Scale Mismatch}} + \underbrace{2\rho_T\rho_P(1 - \Omega(Z_T, Z_P))}_{\text{Shape Mismatch}}$$
         </div>
 
-        <div style="margin-top: 30px;">
+        <div style="margin-top: 20px;">
             <h3>Unified Risk Discrepancy Bound</h3>
             <div class="math-container" style="border-left-color: #10b981; background-color: #f0fdf4; text-align: center;">
-                $$|\mathcal{R}_T - \mathcal{R}_P| \le K_{feat} \sqrt{ (\Delta \rho)^2 + 2\rho_T\rho_P(1-\Omega) } + \text{Head Error}$$
+                $$|\mathcal{R}_T - \mathcal{R}_P| \le \underbrace{K_{feat} \sqrt{ (\Delta \rho)^2 + 2\rho_T\rho_P(1-\Omega) }}_{\text{Feature Term}} + \underbrace{K_{head} \left\| \Sigma_P^{1/2}(W H_T - H_P) \right\|_F}_{\text{Head Term}}$$
             </div>
-            <p style="margin-top: 20px;"><strong>Geometric Insights:</strong> The functional performance gap is strictly bounded by:</p>
-            <ul>
+            <p style="margin-top: 16px;"><strong>Geometric Insights:</strong> The performance gap is bounded by three interpretable quantities:</p>
+            <ul style="margin-top: 4px;">
                 <li><strong>Scale ($\Delta \rho$):</strong> Do the feature norms match?</li>
                 <li><strong>Shape ($\Omega$):</strong> Is the intrinsic topology of the manifolds isomorphic?</li>
+                <li><strong>Head ($\|\Sigma_P^{1/2}(WH_T - H_P)\|_F$):</strong> Do the classifiers agree on the data's active subspace?</li>
             </ul>
         </div>
     </div>
@@ -382,7 +395,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 8: Math Discuss -->
 <div class="slide-container">
-    <div class="page-number">8 / 15</div>
+    <div class="page-number">8 / 16</div>
     <h2>Math Discuss: Deep Dive</h2>
     <div class="content-area two-column">
         <div class="card">
@@ -402,12 +415,48 @@ li { margin-bottom: 16px; }
     </div>
 </div>
 
-<!-- Page 9: Applications (Quantization Intro) -->
+<!-- Page 9: Three Regimes of W -->
 <div class="slide-container">
-    <div class="page-number">9 / 15</div>
+    <div class="page-number">9 / 16</div>
+    <h2>Three Regimes of $W$</h2>
+    <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; padding-top: 10px;">
+
+        <div class="card" style="border-top: 4px solid #3b82f6;">
+            <h3 style="font-size: 22px;">$W = I$ <span style="font-size: 15px; color: #6b7280;">(Identity)</span></h3>
+            <p style="font-size: 18px;">Proxy and Target share the <strong>same feature space</strong>. No rotation needed — only noise.</p>
+            <div class="math-container" style="padding: 10px 16px; margin: 12px 0; font-size: 0.85em; text-align: center;">
+                $$\|Z_T - Z_P\|_F$$
+            </div>
+            <p style="font-size: 17px;"><strong>Application:</strong> Quantization (FP16 → INT4 / INT2). Bound simplifies to scale collapse + feature distortion.</p>
+        </div>
+
+        <div class="card" style="border-top: 4px solid #10b981;">
+            <h3 style="font-size: 22px;">$W \in O(d)$ <span style="font-size: 15px; color: #6b7280;">(Procrustes)</span></h3>
+            <p style="font-size: 18px;">Find the best <strong>orthogonal rotation</strong> to align the two spaces. Solved exactly via SVD.</p>
+            <div class="math-container" style="padding: 10px 16px; margin: 12px 0; font-size: 0.85em; text-align: center;">
+                $$W^* = UV^\top, \quad Z_P^\top Z_T = U\Sigma V^\top$$
+            </div>
+            <p style="font-size: 17px;"><strong>Application:</strong> Model Merging — finding optimal interpolation $\alpha$ across same-size models.</p>
+        </div>
+
+        <div class="card" style="border-top: 4px solid #f59e0b;">
+            <h3 style="font-size: 22px;">$W \in \mathbb{R}^{d_P \times d_T}$ <span style="font-size: 15px; color: #6b7280;">(General)</span></h3>
+            <p style="font-size: 18px;">Proxy and Target have <strong>different dimensions</strong>. A general linear map bridges the gap.</p>
+            <div class="math-container" style="padding: 10px 16px; margin: 12px 0; font-size: 0.85em; text-align: center;">
+                $$\min_{W} \|Z_T - Z_P W\|_F^2$$
+            </div>
+            <p style="font-size: 17px;"><strong>Application:</strong> Cross-Scale Transfer (small → large model) and Continual Learning (Task A → Task B).</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- Page 10: Applications (Quantization Intro) -->
+<div class="slide-container">
+    <div class="page-number">10 / 16</div>
     <h2>Applications</h2>
     <div class="content-area flex-center">
-        <i class="fa-solid fa-compress" style="font-size: 100px; color: #3b82f6; margin-bottom: 40px;"></i>
+        <img src="images/image_q.png" style="height: 360px; object-fit: contain; margin-bottom: 40px;">
         <h1 style="font-size: 48px; margin-bottom: 20px;">Quantization Quality Estimation</h1>
         <p style="text-align: center; max-width: 800px;">
             Can we predict how much a model will degrade after quantization (e.g., to INT4 or Q2) <strong>without</strong> running expensive perplexity benchmarks or needing ground-truth labels?
@@ -415,9 +464,10 @@ li { margin-bottom: 16px; }
     </div>
 </div>
 
-<!-- Page 10: Quantization Math -->
+
+<!-- Page 11: Quantization Math -->
 <div class="slide-container">
-    <div class="page-number">10 / 15</div>
+    <div class="page-number">11 / 16</div>
     <h2>Quantization</h2>
     <div class="content-area">
         <p>In Quantization, we set Target = Full Precision ($F$) and Proxy = Quantized ($Q$).</p>
@@ -445,7 +495,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 11: Quantization Experiments -->
 <div class="slide-container">
-    <div class="page-number">11 / 15</div>
+    <div class="page-number">12 / 16</div>
     <h2>Quantization Experiments</h2>
     <div class="content-area">
         <h3>Experimental Protocol</h3>
@@ -466,7 +516,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 12: Analysis -->
 <div class="slide-container">
-    <div class="page-number">12 / 15</div>
+    <div class="page-number">13 / 16</div>
     <h2>Analysis</h2>
     <div class="content-area">
         <div class="card" style="margin-bottom: 30px;">
@@ -484,7 +534,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 13: TODOs -->
 <div class="slide-container">
-    <div class="page-number">13 / 15</div>
+    <div class="page-number">14 / 16</div>
     <h2>TODOs</h2>
     <div class="content-area">
         <ul style="font-size: 24px; line-height: 2;">
@@ -498,7 +548,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 14: QA -->
 <div class="slide-container title-slide" style="align-items: center; justify-content: center;">
-    <div class="page-number">14 / 15</div>
+    <div class="page-number">15 / 16</div>
     <div style="z-index: 1; text-align: center;">
         <h1 style="font-size: 80px; color: #3b82f6;">Q & A</h1>
         <p style="font-size: 28px; color: #4b5563; margin-top: 20px;">Thank you for listening!</p>
@@ -508,7 +558,7 @@ li { margin-bottom: 16px; }
 
 <!-- Page 15: Future works -->
 <div class="slide-container">
-    <div class="page-number">15 / 15</div>
+    <div class="page-number">16 / 16</div>
     <h2>Future works</h2>
     <div class="content-area">
         <div class="two-column">
