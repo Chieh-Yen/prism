@@ -364,10 +364,10 @@ li { margin-bottom: 16px; }
         <h3>Modern Models: Feature Representation &amp; Linear Projection</h3>
         <p>We express any model as a composition: $f(x) = h(\phi(x))$, where $\phi(x)$ is the backbone and $h$ is the linear head. In matrix form over a dataset of $n$ samples:</p>
         <div class="math-container" style="text-align: center; margin: 14px 0; padding: 16px 30px;">
-            $$F(X) = \underbrace{\phi(X)}_{Z \,\in\, \mathbb{R}^{n \times d}} \underbrace{H}_{H \,\in\, \mathbb{R}^{d \times c}}$$
+            $$\underbrace{F(X)}_{n \times c} \;=\; \underbrace{\phi(X)}_{n \times d} \;\cdot\; \underbrace{H}_{d \times c}$$
         </div>
         <ul style="margin-top: 6px;">
-            <li>$Z = \phi(X) \in \mathbb{R}^{n \times d}$: feature matrix from the backbone.</li>
+            <li>$Z = \phi(X) \in \mathbb{R}^{n \times d}$: feature matrix from the backbone ($n$ samples, $d$ dimensions).</li>
             <li>$H \in \mathbb{R}^{d \times c}$: linear projection head ($c$ = number of classes).</li>
         </ul>
     </div>
@@ -384,19 +384,20 @@ li { margin-bottom: 16px; }
                 <h3 style="font-size: 21px; margin-bottom: 8px;">1. Starting Point</h3>
                 <p style="margin:0; font-size: 18px;">Bound the risk gap, expanded by definition:</p>
                 <div class="math-container" style="margin: 8px 0; padding: 10px 16px; font-size: 0.88em;">
-                    $$|\mathcal{R}_T - \mathcal{R}_P| = \left|\frac{1}{n}\sum_i \ell(z_i^T H_T,\, y_i) - \frac{1}{n}\sum_i \ell(z_i^P H_P,\, y_i)\right|$$
+                    $$|\mathcal{R}_T - \mathcal{R}_P| = |\mathcal{R}_T(Z_T) - \mathcal{R}_P(Z_P)| = \left|\frac{1}{n}\sum_i \ell(z_i^T H_T,\, y_i) - \frac{1}{n}\sum_i \ell(z_i^P H_P,\, y_i)\right|$$
                 </div>
             </div>
 
             <div class="step-box">
                 <h3 style="font-size: 21px; margin-bottom: 8px;">2. Bridge: Linear Alignment</h3>
-                <p style="margin:0; font-size: 18px;">Introduce an optimal linear map $W$ projecting Proxy features to Target space ($Z_P W$).</p>
+                <p style="margin:0; font-size: 18px;">Introduce an intermediate term $\mathcal{R}_T(Z_P W)$: evaluate the <em>Target's risk function</em> on <em>Proxy features aligned to Target space</em> via linear map $W$.</p>
+                <p style="margin: 6px 0 0 0; font-size: 16px; color: #6b7280;"><strong>Why?</strong> $Z_P$ and $Z_T$ live in incomparable spaces. $Z_P W$ maps Proxy into Target space, creating a <strong>common ground</strong> — so Feature Error and Head Error can be decoupled cleanly.</p>
             </div>
 
             <div class="step-box">
                 <h3 style="font-size: 21px; margin-bottom: 8px;">3. Triangle Inequality</h3>
-                <div class="math-container" style="margin: 8px 0; padding: 10px 16px; font-size: 0.78em;">
-                    $$|\mathcal{R}_T - \mathcal{R}_P| \le \underbrace{|\mathcal{R}_T(Z_T) - \mathcal{R}_T(Z_P W)|}_{\text{Feature Error}} + \underbrace{|\mathcal{R}_T(Z_P W) - \mathcal{R}_P(Z_P)|}_{\text{Head Error}}$$
+                <div class="math-container" style="margin: 8px 0; padding: 10px 16px; font-size: 0.75em;">
+                    $$|\mathcal{R}_T - \mathcal{R}_P| \;=\; |\mathcal{R}_T(Z_T) - \mathcal{R}_P(Z_P)| \;\le\; \underbrace{|\mathcal{R}_T(Z_T) - \mathcal{R}_T(Z_P W)|}_{\text{Feature Error}} + \underbrace{|\mathcal{R}_T(Z_P W) - \mathcal{R}_P(Z_P)|}_{\text{Head Error}}$$
                 </div>
             </div>
 
