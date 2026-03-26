@@ -119,9 +119,10 @@ class BaseExperiment(ABC):
         model: torch.nn.Module,
         dataloader: DataLoader,
         head_kwargs: Optional[Dict] = None,
+        z_mode: str = "last_token",
     ) -> Tuple[Tensor, Tensor]:
         """Extract (Z, H) from a model."""
-        Z = extractor.extract_features(model, dataloader, self.tensor_device)
+        Z = extractor.extract_features(model, dataloader, self.tensor_device, z_mode=z_mode)
         H = extractor.extract_head(model, **(head_kwargs or {}))
         return Z, H
 
@@ -479,21 +480,27 @@ class BaseExperiment(ABC):
         Args:
             results:   List of PRISMResult objects.
             filename:  Output filename (relative to output_dir).
-            loss_mode: ``"full"``   — question+answer loss columns (Loss_T/P, PPL_T/P).
-                       ``"answer"`` — answer-only loss columns (ALoss_T/P, APPL_T/P).
-                       Both modes include the shared PRISM geometry columns.
+            loss_mode: ``"full"``          — full-text loss columns (Loss_T/P, PPL_T/P).
+                       ``"answer"``        — answer-only loss columns (ALoss_T/P, APPL_T/P).
+                       ``"final_answer"``  — final-number-only loss (GSM8K: FLoss_T/P, FPPL_T/P).
+                       All modes include the shared PRISM geometry columns.
         """
         path = os.path.join(self.output_dir, filename)
         absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
 
         # Shared geometry columns (same for all modes)
-        geo_fields = ["target_model", "proxy_model", "dataset", "Label", "rho_T", "rho_P", "Omega"]
+        geo_fields = ["target_model", "proxy_model", "dataset", "z_mode",
+                       "Label", "rho_T", "rho_P", "Omega"]
         if not absorbed:
             geo_fields.append("Scale")
+        else:
+            geo_fields.append("absorbed")
         geo_fields += ["Shape", "Feature", "Head", "Bound"]
 
         if loss_mode == "answer":
             loss_fields = ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
+        elif loss_mode == "final_answer":
+            loss_fields = ["|FdR|", "FLoss_T", "FLoss_P", "FPPL_T", "FPPL_P"]
         else:
             loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
 
@@ -508,6 +515,7 @@ class BaseExperiment(ABC):
                     "target_model": r.extra.get("target_model", ""),
                     "proxy_model": r.extra.get("proxy_model", ""),
                     "dataset": r.extra.get("dataset", ""),
+                    "z_mode": r.extra.get("z_mode", ""),
                     "Label": r.label,
                     "rho_T": r.extra.get("rho_T", ""),
                     "rho_P": r.rho_proxy,
@@ -523,6 +531,8 @@ class BaseExperiment(ABC):
                 }
                 if not absorbed:
                     row["Scale"] = r.scale_mismatch
+                else:
+                    row["absorbed"] = "yes"
 
                 if loss_mode == "answer":
                     alt = r.extra.get("answer_loss_target")
@@ -533,6 +543,15 @@ class BaseExperiment(ABC):
                     row["ALoss_P"] = alp if alp is not None else ""
                     row["APPL_T"] = r.extra.get("answer_ppl_target", "")
                     row["APPL_P"] = r.extra.get("answer_ppl_proxy", "")
+                elif loss_mode == "final_answer":
+                    flt = r.extra.get("final_loss_target")
+                    flp = r.extra.get("final_loss_proxy")
+                    fdr = abs(flt - flp) if flt is not None and flp is not None else None
+                    row["|FdR|"] = f"{fdr:.6f}" if fdr is not None else ""
+                    row["FLoss_T"] = flt if flt is not None else ""
+                    row["FLoss_P"] = flp if flp is not None else ""
+                    row["FPPL_T"] = r.extra.get("final_ppl_target", "")
+                    row["FPPL_P"] = r.extra.get("final_ppl_proxy", "")
                 else:
                     dr = self._delta_risk(r)
                     row["|dR|"] = f"{dr:.6f}" if dr is not None else ""

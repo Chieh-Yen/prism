@@ -20,6 +20,16 @@ def _format_gsm8k(row: Dict[str, Any]) -> str:
     return f"Question: {row['question']}\nAnswer: {row['answer']}"
 
 
+def _gsm8k_final_answer(answer: str) -> str:
+    """Extract the part from '#### ' onward (the final numeric answer).
+
+    Falls back to the full answer string when '####' is absent.
+    """
+    if "####" in answer:
+        return "#### " + answer.split("####")[-1].strip()
+    return answer
+
+
 def _format_mmlu(row: Dict[str, Any]) -> str:
     q = row["question"]
     choices = row["choices"]
@@ -72,10 +82,52 @@ def _prompt_arc(row: Dict[str, Any]) -> str:
     return f"Question: {q}\n{opts}\nAnswer:"
 
 
+def _prompt_lambada(row: Dict[str, Any]) -> str:
+    """Return the LAMBADA passage minus its final whitespace-delimited word.
+
+    This is used to derive ``prompt_length`` so that the answer-only
+    (= last-word-only) loss can be computed by masking the context tokens.
+    """
+    text = row["text"].rstrip()
+    parts = text.rsplit(maxsplit=1)
+    # If there is only one word (degenerate), keep full text as context so
+    # at least prompt_length is defined; answer_losses will be empty.
+    return parts[0] if len(parts) == 2 else text
+
+
 _PROMPT_FORMATTERS: Dict[str, Callable] = {
-    "gsm8k": _prompt_gsm8k,
-    "mmlu":  _prompt_mmlu,
-    "arc":   _prompt_arc,
+    "gsm8k":   _prompt_gsm8k,
+    "mmlu":    _prompt_mmlu,
+    "arc":     _prompt_arc,
+    "lambada": _prompt_lambada,  # enables last-word-only loss
+}
+
+
+# ======================================================================
+# Secondary prompt formatters for a *second* answer region
+# (currently only used by GSM8K to isolate the final numeric answer).
+# ``reasoning_length`` gives the token boundary after which only the
+# final number appears — enabling "answer-only, no reasoning" loss.
+# ======================================================================
+def _reasoning_prompt_gsm8k(row: Dict[str, Any]) -> str:
+    """Return everything up to (and including) the '#### ' prefix.
+
+    The tokens after this point are the final numeric answer only,
+    which is the region measured by ``reasoning_only_losses``.
+    """
+    answer = row["answer"]
+    question = row["question"]
+    if "####" in answer:
+        # Keep the reasoning chain; stop just before the number itself.
+        reasoning = answer.split("####")[0].rstrip()
+        return f"Question: {question}\nAnswer: {reasoning}\n#### "
+    # Fallback: treat the full prompt as the reasoning boundary so that
+    # reasoning_only_losses falls back to the same region as answer_losses.
+    return f"Question: {question}\nAnswer:"
+
+
+_REASONING_FORMATTERS: Dict[str, Callable] = {
+    "gsm8k": _reasoning_prompt_gsm8k,
 }
 
 
@@ -94,17 +146,35 @@ TASK_REGISTRY: Dict[str, Dict] = {
     "dtd":           {"hf_id": "tanganke/dtd",         "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
     "cifar10":       {"hf_id": "uoft-cs/cifar10",      "label_key": "label", "image_key": "img",   "split_map": {"test": "test"}},
     "cifar100":      {"hf_id": "uoft-cs/cifar100",     "label_key": "fine_label", "image_key": "img", "split_map": {"test": "test"}},
-    # Text / LLM  — plain text
-    "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1", "text_key": "text", "split_map": {"test": "test"}},
-    "ptb":           {"hf_id": "ptb-text-only/ptb_text_only", "text_key": "sentence", "split_map": {"test": "test"}},
-    "c4":            {"hf_id": "allenai/c4",           "hf_subset": "en", "text_key": "text",  "split_map": {"test": "validation"}, "streaming": True},
-    "lambada":       {"hf_id": "EleutherAI/lambada_openai", "text_key": "text", "split_map": {"test": "test"}},
+    # Text / LLM  — plain text  (z_mode: mean_pool, loss_mode: full)
+    "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1", "text_key": "text", "split_map": {"test": "test"},
+                      "z_mode": "mean_pool", "loss_mode": "full"},
+    "ptb":           {"hf_id": "ptb-text-only/ptb_text_only", "text_key": "sentence", "split_map": {"test": "test"},
+                      "z_mode": "mean_pool", "loss_mode": "full"},
+    "c4":            {"hf_id": "allenai/c4",           "hf_subset": "en", "text_key": "text",  "split_map": {"test": "validation"}, "streaming": True,
+                      "z_mode": "mean_pool", "loss_mode": "full"},
+    # Text / LLM  — LAMBADA  (z_mode: last_context_token, loss_mode: answer = last word only)
+    "lambada":       {"hf_id": "EleutherAI/lambada_openai", "text_key": "text", "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
     # Text / LLM  — structured Q&A  (formatter converts row → plain text)
-    "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"}},
-    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"}},
-    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"}},
-    "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"}},
+    "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "gsm8k_dual"},
+    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
+    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
+    "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
 }
+
+
+def get_task_metadata(task_name: str) -> Dict[str, str]:
+    """Return z_mode and loss_mode for a task."""
+    meta = TASK_REGISTRY.get(task_name, {})
+    return {
+        "z_mode": meta.get("z_mode", "last_token"),
+        "loss_mode": meta.get("loss_mode", "full"),
+    }
 
 
 # ======================================================================
@@ -137,13 +207,17 @@ class TextDataset(Dataset):
     """Wraps a HuggingFace text dataset into tokenised batches.
 
     Supports two modes:
-      1. ``text_key`` — read a named column directly (C4, WikiText, …).
+      1. ``text_key`` — read a named column directly (C4, WikiText, LAMBADA …).
       2. ``formatter`` — apply a callable ``row → str`` for structured
          datasets (GSM8K, MMLU, ARC, …).
 
     When ``prompt_formatter`` is supplied, the dataset additionally stores
     ``prompt_length`` per sample so that downstream code can compute
     answer-only loss by masking the prompt tokens.
+
+    When ``reasoning_formatter`` is supplied (GSM8K), the dataset stores
+    ``reasoning_length`` per sample — the token boundary after which only
+    the final numeric answer appears (enabling "answer-only, no reasoning" loss).
     """
 
     def __init__(
@@ -155,19 +229,36 @@ class TextDataset(Dataset):
         num_samples: Optional[int] = None,
         formatter: Optional[Callable[[Dict], str]] = None,
         prompt_formatter: Optional[Callable[[Dict], str]] = None,
+        reasoning_formatter: Optional[Callable[[Dict], str]] = None,
     ):
+        # Build (full_text, prompt_text, reasoning_text) triples per row.
+        # prompt_text / reasoning_text may be None when the corresponding
+        # formatter is not supplied.
         if formatter is not None:
             raw = [
-                (formatter(row), prompt_formatter(row) if prompt_formatter else None)
+                (
+                    formatter(row),
+                    prompt_formatter(row) if prompt_formatter else None,
+                    reasoning_formatter(row) if reasoning_formatter else None,
+                )
                 for row in hf_dataset
             ]
         else:
-            raw = [(row[text_key], None) for row in hf_dataset]
-        raw = [(t, p) for t, p in raw if t.strip()]
+            # Plain-text datasets (C4, WikiText, LAMBADA).
+            # prompt_formatter may still be set (e.g. LAMBADA strips last word).
+            raw = [
+                (
+                    row[text_key],
+                    prompt_formatter(row) if prompt_formatter else None,
+                    None,
+                )
+                for row in hf_dataset
+            ]
+        raw = [(t, p, r) for t, p, r in raw if t.strip()]
         if num_samples is not None:
             raw = raw[:num_samples]
 
-        texts = [t for t, _ in raw]
+        texts = [t for t, _, _ in raw]
         self.encodings = tokenizer(
             texts,
             return_tensors="pt",
@@ -177,8 +268,9 @@ class TextDataset(Dataset):
         )
         self.num_samples = len(texts)
 
+        # Prompt lengths (for answer-only loss and last_context_token Z)
         if prompt_formatter is not None:
-            prompts = [p for _, p in raw]
+            prompts = [p for _, p, _ in raw]
             prompt_enc = tokenizer(
                 prompts, truncation=True, max_length=max_length,
                 add_special_tokens=True,
@@ -190,6 +282,20 @@ class TextDataset(Dataset):
         else:
             self.prompt_lengths = None
 
+        # Reasoning lengths (for GSM8K final-number-only loss)
+        if reasoning_formatter is not None:
+            reasoning_texts = [r for _, _, r in raw]
+            reasoning_enc = tokenizer(
+                reasoning_texts, truncation=True, max_length=max_length,
+                add_special_tokens=True,
+            )
+            self.reasoning_lengths = torch.tensor(
+                [len(ids) for ids in reasoning_enc["input_ids"]],
+                dtype=torch.long,
+            )
+        else:
+            self.reasoning_lengths = None
+
     def __len__(self):
         return self.encodings["input_ids"].shape[0]
 
@@ -197,6 +303,8 @@ class TextDataset(Dataset):
         item = {k: v[idx] for k, v in self.encodings.items()}
         if self.prompt_lengths is not None:
             item["prompt_length"] = self.prompt_lengths[idx]
+        if self.reasoning_lengths is not None:
+            item["reasoning_length"] = self.reasoning_lengths[idx]
         return item
 
 
@@ -267,13 +375,17 @@ def load_task_data(
             raise ValueError(f"Task '{task_name}' is text-based: pass a tokenizer.")
         fmt_key = meta.get("formatter")
         fmt_fn = _FORMATTERS.get(fmt_key) if fmt_key else None
-        pfmt_fn = _PROMPT_FORMATTERS.get(fmt_key) if fmt_key else None
+        # Fall back to task_name for prompt/reasoning formatters so that
+        # plain-text datasets (e.g. LAMBADA) can still define them.
+        pfmt_fn = _PROMPT_FORMATTERS.get(fmt_key) if fmt_key else _PROMPT_FORMATTERS.get(task_name)
+        rfmt_fn = _REASONING_FORMATTERS.get(fmt_key) if fmt_key else _REASONING_FORMATTERS.get(task_name)
         ds = TextDataset(
             hf_dataset, tokenizer,
             text_key=meta.get("text_key", "text"),
             max_length=max_length,
             formatter=fmt_fn,
             prompt_formatter=pfmt_fn,
+            reasoning_formatter=rfmt_fn,
         )
         return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=0)
 

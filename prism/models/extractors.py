@@ -172,11 +172,54 @@ class LLMExtractor(FeatureExtractor):
             ".language_model, .model.language_model."
         )
 
+    @staticmethod
+    def _extract_z(
+        hidden: Tensor,
+        masks: Optional[Tensor],
+        z_mode: str,
+        prompt_lens: Optional[Tensor] = None,
+    ) -> Tensor:
+        """Extract per-sample Z from hidden states based on ``z_mode``.
+
+        Args:
+            hidden: (bsz, seq, d) last hidden states.
+            masks:  (bsz, seq) attention mask (1 = real token).
+            z_mode: ``"last_token"`` | ``"mean_pool"`` | ``"last_context_token"``.
+            prompt_lens: (bsz,) token count of the prompt prefix (required
+                         for ``last_context_token``).
+        Returns:
+            (bsz, d) feature vectors.
+        """
+        bsz = hidden.shape[0]
+        device = hidden.device
+
+        if z_mode == "mean_pool":
+            if masks is not None:
+                mask_f = masks.unsqueeze(-1).to(hidden.dtype)   # (bsz, seq, 1)
+                summed = (hidden * mask_f).sum(dim=1)           # (bsz, d)
+                counts = masks.sum(dim=1, keepdim=True).to(hidden.dtype).clamp(min=1)
+                return summed / counts
+            return hidden.mean(dim=1)
+
+        if z_mode == "last_context_token":
+            if prompt_lens is not None:
+                positions = (prompt_lens - 1).clamp(min=0).to(device)
+                return hidden[torch.arange(bsz, device=device), positions]
+            # Fallback: last valid token (same as last_token)
+
+        # Default: last_token
+        if masks is not None:
+            lengths = masks.sum(dim=1).long() - 1
+            lengths = lengths.to(device)
+            return hidden[torch.arange(bsz, device=device), lengths]
+        return hidden[:, -1, :]
+
     def extract_features(
         self,
         model: torch.nn.Module,
         dataloader: DataLoader,
         device: str = "cuda",
+        z_mode: str = "last_token",
     ) -> Tensor:
         model.eval()
         backbone = self._get_backbone(model)
@@ -190,19 +233,15 @@ class LLMExtractor(FeatureExtractor):
                 else:
                     batch_on_device = {"input_ids": batch.to(device)}
 
-                        # Backbone only accepts model inputs, not metadata keys
-                inp = {k: v for k, v in batch_on_device.items() if k != "prompt_length"}
+                # Extract metadata before passing to backbone
+                prompt_lens = batch_on_device.pop("prompt_length", None)
+                batch_on_device.pop("reasoning_length", None)  # not needed here
+                inp = {k: v for k, v in batch_on_device.items()}
                 out = backbone(**inp)
                 hidden = out.last_hidden_state  # (bsz, seq, d)
 
                 masks = inp.get("attention_mask")  # (bsz, seq)
-                bsz = hidden.shape[0]
-                if masks is not None:
-                    lengths = masks.sum(dim=1).long() - 1               # (bsz,)
-                    lengths = lengths.to(hidden.device)                 # align to backbone output device (multi-GPU)
-                    feats = hidden[torch.arange(bsz, device=hidden.device), lengths]  # (bsz, d)
-                else:
-                    feats = hidden[:, -1, :]  # (bsz, d)
+                feats = self._extract_z(hidden, masks, z_mode, prompt_lens)
 
                 t = feats.float()
                 all_features.append(t.cpu() if self.offload_to_cpu else t)
@@ -216,6 +255,7 @@ class LLMExtractor(FeatureExtractor):
         device: str = "cuda",
         *,
         chunk_size: int = 2048,
+        z_mode: str = "last_token",
     ) -> Tuple[Tensor, Dict]:
         """Single forward pass that returns both features AND per-sample loss stats.
 
@@ -224,11 +264,18 @@ class LLMExtractor(FeatureExtractor):
         pass — halving the number of forward passes versus calling
         ``extract_features()`` + ``compute_lm_loss_per_sample()`` separately.
 
-        The returned ``loss_stats`` dict has the same structure as
-        ``BaseExperiment.compute_lm_loss_per_sample()``:
-            ``losses``        — (n,) per-sample average CE loss
-            ``answer_losses`` — (n,) answer-only loss, or None
+        Args:
+            z_mode: Feature extraction mode — ``"last_token"`` (default),
+                ``"mean_pool"`` (average all non-padding tokens), or
+                ``"last_context_token"`` (last prompt token, requires
+                ``prompt_length`` in data).
+
+        The returned ``loss_stats`` dict contains:
+            ``losses``               — (n,) per-sample average CE loss (full text)
+            ``answer_losses``        — (n,) answer-only loss, or None
             ``has_answer_loss``
+            ``final_answer_losses``  — (n,) final-number-only loss (GSM8K), or None
+            ``has_final_answer_loss``
             ``grad_norm_p95 / _max / _mean`` — empirical K_pred proxy
 
         Falls back to the two-pass approach automatically if
@@ -238,7 +285,9 @@ class LLMExtractor(FeatureExtractor):
         all_features: List[Tensor] = []
         sample_losses: List[float] = []
         answer_losses: List[float] = []
+        final_answer_losses: List[float] = []
         has_prompt = False
+        has_reasoning = False
         all_grad_norms: List[Tensor] = []
         CHUNK = chunk_size
         ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
@@ -262,8 +311,11 @@ class LLMExtractor(FeatureExtractor):
                     batch_on_device = {"input_ids": batch.to(device)}
 
                 prompt_lens = batch_on_device.pop("prompt_length", None)
+                reasoning_lens = batch_on_device.pop("reasoning_length", None)
                 if prompt_lens is not None:
                     has_prompt = True
+                if reasoning_lens is not None:
+                    has_reasoning = True
 
                 inp = {k: v for k, v in batch_on_device.items()}
                 masks = inp.get("attention_mask")
@@ -298,13 +350,7 @@ class LLMExtractor(FeatureExtractor):
                     bb_out = backbone(**inp)
                     hidden = bb_out.last_hidden_state
 
-                if masks is not None:
-                    lengths = masks.sum(dim=1).long() - 1
-                    lengths = lengths.to(hidden.device)
-                    feats = hidden[torch.arange(bsz, device=hidden.device), lengths]
-                else:
-                    feats = hidden[:, -1, :]
-
+                feats = self._extract_z(hidden, masks, z_mode, prompt_lens)
                 all_features.append(feats.float().cpu() if self.offload_to_cpu else feats.float())
 
                 # ── Per-sample loss ───────────────────────────────────────
@@ -328,7 +374,7 @@ class LLMExtractor(FeatureExtractor):
                         n_valid += v
                     sample_losses.append(loss_sum / max(n_valid, 1))
 
-                    # Answer-only loss
+                    # Answer-only loss (tokens after prompt_length)
                     if prompt_lens is not None:
                         pl = int(prompt_lens[j].item())
                         ans_labels = labels.clone()
@@ -344,6 +390,24 @@ class LLMExtractor(FeatureExtractor):
                             a_sum += ce_none(shift_logits[s:e], cl).item() * v
                             a_valid += v
                         answer_losses.append(a_sum / max(a_valid, 1))
+
+                    # Final-answer-only loss (tokens after reasoning_length,
+                    # i.e. only the final number in GSM8K)
+                    if reasoning_lens is not None:
+                        rl = int(reasoning_lens[j].item())
+                        final_labels = labels.clone()
+                        final_labels[:rl] = -100
+                        shift_final = final_labels[1:]
+                        f_sum, f_valid = 0.0, 0
+                        for s in range(0, seq_len, CHUNK):
+                            e = min(s + CHUNK, seq_len)
+                            cl = shift_final[s:e]
+                            v = (cl != -100).sum().item()
+                            if v == 0:
+                                continue
+                            f_sum += ce_none(shift_logits[s:e], cl).item() * v
+                            f_valid += v
+                        final_answer_losses.append(f_sum / max(f_valid, 1))
 
                     # Per-token gradient norms (empirical K_pred)
                     gn_logits = shift_logits
@@ -369,6 +433,8 @@ class LLMExtractor(FeatureExtractor):
             "losses": torch.tensor(sample_losses),
             "answer_losses": torch.tensor(answer_losses) if has_prompt else None,
             "has_answer_loss": has_prompt,
+            "final_answer_losses": torch.tensor(final_answer_losses) if has_reasoning else None,
+            "has_final_answer_loss": has_reasoning,
             "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
             "grad_norm_max": all_gn.max().item(),
             "grad_norm_mean": all_gn.mean().item(),

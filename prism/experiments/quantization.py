@@ -433,6 +433,12 @@ class QuantizationExperiment(BaseExperiment):
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
 
+        # --- Dataset-specific Z extraction and loss modes ---
+        from ..data.loaders import get_task_metadata
+        task_meta = get_task_metadata(task_name)
+        z_mode = task_meta["z_mode"]
+        loss_mode = task_meta["loss_mode"]
+
         has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_dtype(q) for q in quant_bits)
         has_bnb = any(_is_bnb(q) for q in quant_bits)
         has_gptq = any(_is_gptq(q) for q in quant_bits)
@@ -459,6 +465,7 @@ class QuantizationExperiment(BaseExperiment):
                     gptq_repos.add(repo)
             print(f"  GPTQ   : {', '.join(sorted(gptq_repos))}")
         print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
+        print(f"  Data   : {task_name}  z_mode={z_mode}  loss_mode={loss_mode}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
         tokenizer = AutoTokenizer.from_pretrained(target_model_id, trust_remote_code=True)
@@ -483,22 +490,47 @@ class QuantizationExperiment(BaseExperiment):
         target_model.eval()
         extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
-        print("Caching target features and loss (single forward pass) ...")
+        print(f"Caching target features and loss (single forward pass, z_mode={z_mode}) ...")
         Z_T, loss_stats = extractor.extract_features_and_loss_per_sample(
             target_model, dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
+            z_mode=z_mode,
         )
         H_T = extractor.extract_head(target_model)
+
+        # Full-text loss (always computed)
         losses_T = loss_stats["losses"]
-        loss_target = losses_T.mean().item()
-        ppl_target = math.exp(loss_target)
+        full_loss_target = losses_T.mean().item()
+        full_ppl_target = math.exp(full_loss_target)
+
+        # Answer-only loss
         has_answer = loss_stats["has_answer_loss"]
         aloss_target = loss_stats["answer_losses"].mean().item() if has_answer else None
         appl_target = math.exp(aloss_target) if aloss_target is not None else None
-        target_info = (f"  Target: Loss={loss_target:.4f}  PPL={ppl_target:.2f}")
+
+        # Final-answer-only loss (GSM8K)
+        has_final = loss_stats["has_final_answer_loss"]
+        floss_target = loss_stats["final_answer_losses"].mean().item() if has_final else None
+        fppl_target = math.exp(floss_target) if floss_target is not None else None
+
+        # Select primary loss based on loss_mode
+        if loss_mode == "answer":
+            loss_target = aloss_target
+            ppl_target = appl_target
+        elif loss_mode == "gsm8k_dual":
+            # Primary = answer (reasoning + final answer); secondary stored separately
+            loss_target = aloss_target
+            ppl_target = appl_target
+        else:
+            loss_target = full_loss_target
+            ppl_target = full_ppl_target
+
+        target_info = f"  Target: FullLoss={full_loss_target:.4f}  FullPPL={full_ppl_target:.2f}"
         if aloss_target is not None:
             target_info += f"  ALoss={aloss_target:.4f}  APPL={appl_target:.2f}"
-        target_info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}"
+        if floss_target is not None:
+            target_info += f"  FLoss={floss_target:.4f}  FPPL={fppl_target:.2f}"
+        target_info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}  z_mode={z_mode}"
         print(target_info)
 
         del target_model
@@ -557,6 +589,7 @@ class QuantizationExperiment(BaseExperiment):
                 Z_P, proxy_stats = extractor.extract_features_and_loss_per_sample(
                     proxy_model, dataloader, self.tensor_device,
                     chunk_size=self.logit_chunk_size,
+                    z_mode=z_mode,
                 )
 
                 if not torch.isfinite(Z_P).all():
@@ -570,18 +603,52 @@ class QuantizationExperiment(BaseExperiment):
                     force_identity=True, label=label, absorbed=absorbed,
                     K_feat=K_feat, K_pred=K_pred,
                 )
-                result.loss_target = loss_target
-                result.loss_proxy = proxy_stats["losses"].mean().item()
-                result.extra["perplexity_target"] = ppl_target
-                result.extra["perplexity_proxy"] = math.exp(result.loss_proxy)
+
+                # Full-text loss (always stored)
+                full_loss_proxy = proxy_stats["losses"].mean().item()
+                result.extra["full_loss_target"] = full_loss_target
+                result.extra["full_loss_proxy"] = full_loss_proxy
+                result.extra["full_ppl_target"] = full_ppl_target
+                result.extra["full_ppl_proxy"] = math.exp(full_loss_proxy)
+
+                # Answer-only loss
                 if has_answer:
                     aloss_proxy = proxy_stats["answer_losses"].mean().item()
                     result.extra["answer_loss_target"] = aloss_target
                     result.extra["answer_loss_proxy"] = aloss_proxy
                     result.extra["answer_ppl_target"] = appl_target
                     result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
+
+                # Final-answer-only loss (GSM8K)
+                if has_final:
+                    floss_proxy = proxy_stats["final_answer_losses"].mean().item()
+                    result.extra["final_loss_target"] = floss_target
+                    result.extra["final_loss_proxy"] = floss_proxy
+                    result.extra["final_ppl_target"] = fppl_target
+                    result.extra["final_ppl_proxy"] = math.exp(floss_proxy)
+
+                # Select primary loss based on loss_mode
+                if loss_mode == "answer":
+                    result.loss_target = aloss_target
+                    result.loss_proxy = aloss_proxy
+                    result.extra["perplexity_target"] = appl_target
+                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
+                elif loss_mode == "gsm8k_dual":
+                    # Primary = answer (reasoning + final answer)
+                    result.loss_target = aloss_target
+                    result.loss_proxy = aloss_proxy
+                    result.extra["perplexity_target"] = appl_target
+                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
+                else:
+                    result.loss_target = full_loss_target
+                    result.loss_proxy = full_loss_proxy
+                    result.extra["perplexity_target"] = full_ppl_target
+                    result.extra["perplexity_proxy"] = math.exp(full_loss_proxy)
+
                 result.extra.update(lipschitz_info)
                 result.extra["dataset"] = task_name
+                result.extra["z_mode"] = z_mode
+                result.extra["loss_mode"] = loss_mode
                 result.extra["num_samples"] = num_samples
                 result.extra["target_model"] = target_model_id
                 if _is_dtype(bit_label):
@@ -598,23 +665,40 @@ class QuantizationExperiment(BaseExperiment):
 
                 results.append(result)
 
-                dr = abs(result.loss_target - result.loss_proxy)
-                ppl_p = result.extra["perplexity_proxy"]
+                # --- Per-result console output ---
+                rho_P = result.rho_proxy
                 elapsed = time.time() - t0
                 scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
-                print(f"  [Full]   ρ_T={rho_T_orig:.4f}  Ω={result.omega:.4f}  {scale_s}"
+                bound_s = f"{result.risk_bound_total:.4f}" if result.risk_bound_total is not None else "—"
+
+                # Always print full-text loss line
+                full_dr = abs(full_loss_target - full_loss_proxy)
+                print(f"  [Full]   ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  {scale_s}"
                       f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
-                      f"Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
-                      f"Loss_T={loss_target:.4f}  Loss_P={result.loss_proxy:.4f}  "
-                      f"PPL_T={ppl_target:.2f}  PPL_P={ppl_p:.2f}  "
+                      f"Bound={bound_s}  |dR|={full_dr:.4f}  "
+                      f"{'PASS' if result.risk_bound_total is not None and result.risk_bound_total >= full_dr else 'VIOLATED'}  "
+                      f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
+                      f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}  "
                       f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
                       f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
+
+                # Answer-only loss line
                 if has_answer:
                     adr = abs(aloss_target - aloss_proxy)
-                    print(f"  [Answer] |AdR|={adr:.4f}  Bound={result.risk_bound_total:.4f}  "
-                          f"{'PASS' if result.risk_bound_total >= adr else 'VIOLATED'}  "
+                    print(f"  [Answer] ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  "
+                          f"|AdR|={adr:.4f}  Bound={bound_s}  "
+                          f"{'PASS' if result.risk_bound_total is not None and result.risk_bound_total >= adr else 'VIOLATED'}  "
                           f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
                           f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
+
+                # Final-answer-only loss line (GSM8K)
+                if has_final:
+                    fdr = abs(floss_target - floss_proxy)
+                    print(f"  [Final]  ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  "
+                          f"|FdR|={fdr:.4f}  Bound={bound_s}  "
+                          f"{'PASS' if result.risk_bound_total is not None and result.risk_bound_total >= fdr else 'VIOLATED'}  "
+                          f"FLoss_T={floss_target:.4f}  FLoss_P={floss_proxy:.4f}  "
+                          f"FPPL_T={fppl_target:.2f}  FPPL_P={math.exp(floss_proxy):.2f}")
 
             except Exception as e:
                 elapsed = time.time() - t0
@@ -631,9 +715,12 @@ class QuantizationExperiment(BaseExperiment):
         abs_tag = "_absorbed" if absorbed else ""
         stem = f"prism_{model_slug}_{task_name}_n{num_samples}{abs_tag}"
         self.save(results, filename=f"{stem}.json")
-        self.save_csv(results, filename=f"{stem}_qa.csv", loss_mode="full")
+        # Always save full-text CSV
+        self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
         if has_answer:
             self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
+        if has_final:
+            self.save_csv(results, filename=f"{stem}_final.csv", loss_mode="final_answer")
         return results
 
     @staticmethod
@@ -642,6 +729,7 @@ class QuantizationExperiment(BaseExperiment):
 
         Automatically detects scale-absorbed mode and omits the Scale column.
         Prints Lipschitz constants in the header.
+        Includes rho_P per row, z_mode/loss_mode info, and all loss tables.
         """
         if not results:
             print("(no results)")
@@ -654,14 +742,14 @@ class QuantizationExperiment(BaseExperiment):
         kp_hdr = "K_p(emp)"
         if absorbed:
             header = (
-                f"{'Label':<20s} {'ρ_T':>8s} {'Omega':>8s} {'Shape':>10s} "
+                f"{'Label':<20s} {'ρ_T':>8s} {'ρ_P':>8s} {'Omega':>8s} {'Shape':>10s} "
                 f"{'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
                 f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} "
                 f"{'K_f':>8s} {kf_hdr:>8s} {'K_p':>8s} {kp_hdr:>8s}"
             )
         else:
             header = (
-                f"{'Label':<20s} {'ρ_T':>8s} {'Omega':>8s} {'Scale':>10s} {'Shape':>10s} "
+                f"{'Label':<20s} {'ρ_T':>8s} {'ρ_P':>8s} {'Omega':>8s} {'Scale':>10s} {'Shape':>10s} "
                 f"{'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
                 f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} "
                 f"{'K_f':>8s} {kf_hdr:>8s} {'K_p':>8s} {kp_hdr:>8s}"
@@ -670,7 +758,10 @@ class QuantizationExperiment(BaseExperiment):
         mode_tag = " (scale-absorbed)" if absorbed else ""
         ds_tag = ""
         if "dataset" in r0.extra:
-            ds_tag = f"  [data: {r0.extra['dataset']}, n={r0.extra.get('num_samples', '?')}]"
+            z_m = r0.extra.get("z_mode", "?")
+            l_m = r0.extra.get("loss_mode", "?")
+            ds_tag = (f"  [data: {r0.extra['dataset']}, n={r0.extra.get('num_samples', '?')}, "
+                      f"z_mode={z_m}, loss_mode={l_m}]")
         sep = "-" * len(header)
         print(f"\n{'=' * len(header)}")
         print(f"  PRISM Quantization Results{mode_tag}{ds_tag}")
@@ -708,10 +799,11 @@ class QuantizationExperiment(BaseExperiment):
             kfe = f"{r.extra.get('K_feat_empirical', 0):.4f}" if "K_feat_empirical" in r.extra else "—"
             kp = f"{r.extra.get('K_pred_theory', 0):.4f}" if "K_pred_theory" in r.extra else "—"
             kpe = f"{r.extra.get('K_pred_empirical', 0):.4f}" if "K_pred_empirical" in r.extra else "—"
-            rho_s = f"{r.extra.get('rho_T', 0):.4f}" if "rho_T" in r.extra else "—"
+            rho_t_s = f"{r.extra.get('rho_T', 0):.4f}" if "rho_T" in r.extra else "—"
+            rho_p_s = f"{r.rho_proxy:.4f}"
             if absorbed:
                 print(
-                    f"{r.label:<20s} {rho_s:>8s} {r.omega:>8.4f} "
+                    f"{r.label:<20s} {rho_t_s:>8s} {rho_p_s:>8s} {r.omega:>8.4f} "
                     f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
                     f"{bt:>10s} {dr_s:>8s} "
                     f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} "
@@ -719,27 +811,68 @@ class QuantizationExperiment(BaseExperiment):
                 )
             else:
                 print(
-                    f"{r.label:<20s} {rho_s:>8s} {r.omega:>8.4f} {r.scale_mismatch:>10.6f} "
+                    f"{r.label:<20s} {rho_t_s:>8s} {rho_p_s:>8s} {r.omega:>8.4f} {r.scale_mismatch:>10.6f} "
                     f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
                     f"{bt:>10s} {dr_s:>8s} "
                     f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} "
                     f"{kf:>8s} {kfe:>8s} {kp:>8s} {kpe:>8s}"
                 )
 
+        # Primary loss bound validation
         valid = [(r, abs(r.loss_target - r.loss_proxy))
                  for r in results
                  if r.loss_target is not None and r.loss_proxy is not None and r.risk_bound_total is not None]
         if valid:
             print(sep)
+            loss_mode = r0.extra.get("loss_mode", "full")
             holds = sum(1 for r, dr in valid if r.risk_bound_total >= dr)
-            print(f"  Bound holds (full): {holds}/{len(valid)}  "
+            print(f"  Bound holds (primary, loss_mode={loss_mode}): {holds}/{len(valid)}  "
                   f"({'ALL PASS' if holds == len(valid) else 'SOME VIOLATED'})")
+
+        # --- Full-text loss table (always shown for reference) ---
+        has_full = "full_loss_target" in r0.extra
+        if has_full:
+            full_header = (
+                f"{'Label':<20s} {'ρ_P':>8s} {'Omega':>8s} "
+                f"{'FLoss_T':>8s} {'FLoss_P':>8s} "
+                f"{'FPPL_T':>8s} {'FPPL_P':>8s} {'|dR|':>8s} "
+                f"{'Bound':>10s} {'Status':>8s}"
+            )
+            full_sep = "-" * len(full_header)
+            print(f"\n  Full-text Loss (reference)")
+            print(full_sep)
+            print(full_header)
+            print(full_sep)
+            for r in results:
+                flt = r.extra.get("full_loss_target")
+                flp = r.extra.get("full_loss_proxy")
+                if flt is not None and flp is not None:
+                    fdr = abs(flt - flp)
+                    bt_val = r.risk_bound_total
+                    status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOLATED"
+                    print(
+                        f"{r.label:<20s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
+                        f"{flt:>8.4f} {flp:>8.4f} "
+                        f"{r.extra.get('full_ppl_target', 0):>8.2f} "
+                        f"{r.extra.get('full_ppl_proxy', 0):>8.2f} "
+                        f"{fdr:>8.4f} "
+                        f"{bt_val:>10.4f} {status:>8s}"
+                    )
+            full_valid = [(r, abs(r.extra["full_loss_target"] - r.extra["full_loss_proxy"]))
+                          for r in results
+                          if "full_loss_target" in r.extra and r.risk_bound_total is not None]
+            if full_valid:
+                print(full_sep)
+                f_holds = sum(1 for r, fdr in full_valid if r.risk_bound_total >= fdr)
+                print(f"  Bound holds (full): {f_holds}/{len(full_valid)}  "
+                      f"({'ALL PASS' if f_holds == len(full_valid) else 'SOME VIOLATED'})")
 
         # --- Answer-only table (if available) ---
         has_ans = "answer_loss_target" in r0.extra
         if has_ans:
             ans_header = (
-                f"{'Label':<20s} {'ALoss_T':>8s} {'ALoss_P':>8s} "
+                f"{'Label':<20s} {'ρ_P':>8s} {'Omega':>8s} "
+                f"{'ALoss_T':>8s} {'ALoss_P':>8s} "
                 f"{'APPL_T':>8s} {'APPL_P':>8s} {'|AdR|':>8s} "
                 f"{'Bound':>10s} {'Status':>8s}"
             )
@@ -756,7 +889,8 @@ class QuantizationExperiment(BaseExperiment):
                     bt_val = r.risk_bound_total
                     status = "PASS" if bt_val is not None and bt_val >= adr else "VIOLATED"
                     print(
-                        f"{r.label:<20s} {alt:>8.4f} {alp:>8.4f} "
+                        f"{r.label:<20s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
+                        f"{alt:>8.4f} {alp:>8.4f} "
                         f"{r.extra.get('answer_ppl_target', 0):>8.2f} "
                         f"{r.extra.get('answer_ppl_proxy', 0):>8.2f} "
                         f"{adr:>8.4f} "
@@ -770,5 +904,43 @@ class QuantizationExperiment(BaseExperiment):
                 a_holds = sum(1 for r, adr in ans_valid if r.risk_bound_total >= adr)
                 print(f"  Bound holds (answer): {a_holds}/{len(ans_valid)}  "
                       f"({'ALL PASS' if a_holds == len(ans_valid) else 'SOME VIOLATED'})")
+
+        # --- Final-answer-only table (GSM8K) ---
+        has_final = "final_loss_target" in r0.extra
+        if has_final:
+            final_header = (
+                f"{'Label':<20s} {'ρ_P':>8s} {'Omega':>8s} "
+                f"{'FLoss_T':>8s} {'FLoss_P':>8s} "
+                f"{'FPPL_T':>8s} {'FPPL_P':>8s} {'|FdR|':>8s} "
+                f"{'Bound':>10s} {'Status':>8s}"
+            )
+            final_sep = "-" * len(final_header)
+            print(f"\n  Final-answer-only Loss (GSM8K: number only, no reasoning)")
+            print(final_sep)
+            print(final_header)
+            print(final_sep)
+            for r in results:
+                flt = r.extra.get("final_loss_target")
+                flp = r.extra.get("final_loss_proxy")
+                if flt is not None and flp is not None:
+                    fdr = abs(flt - flp)
+                    bt_val = r.risk_bound_total
+                    status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOLATED"
+                    print(
+                        f"{r.label:<20s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
+                        f"{flt:>8.4f} {flp:>8.4f} "
+                        f"{r.extra.get('final_ppl_target', 0):>8.2f} "
+                        f"{r.extra.get('final_ppl_proxy', 0):>8.2f} "
+                        f"{fdr:>8.4f} "
+                        f"{bt_val:>10.4f} {status:>8s}"
+                    )
+            final_valid = [(r, abs(r.extra["final_loss_target"] - r.extra["final_loss_proxy"]))
+                           for r in results
+                           if "final_loss_target" in r.extra and r.risk_bound_total is not None]
+            if final_valid:
+                print(final_sep)
+                f_holds = sum(1 for r, fdr in final_valid if r.risk_bound_total >= fdr)
+                print(f"  Bound holds (final): {f_holds}/{len(final_valid)}  "
+                      f"({'ALL PASS' if f_holds == len(final_valid) else 'SOME VIOLATED'})")
 
         print(f"{'=' * len(header)}\n")
