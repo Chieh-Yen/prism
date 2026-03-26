@@ -553,12 +553,17 @@ class BaseExperiment(ABC):
                     row["FPPL_T"] = r.extra.get("final_ppl_target", "")
                     row["FPPL_P"] = r.extra.get("final_ppl_proxy", "")
                 else:
-                    dr = self._delta_risk(r)
+                    # Use full_loss from extra if available (for datasets where
+                    # primary loss != full loss, e.g. LAMBADA/ARC/MMLU/GSM8K);
+                    # fall back to r.loss_target/proxy for corpus datasets.
+                    flt = r.extra.get("full_loss_target", r.loss_target)
+                    flp = r.extra.get("full_loss_proxy", r.loss_proxy)
+                    dr = abs(flt - flp) if flt is not None and flp is not None else None
                     row["|dR|"] = f"{dr:.6f}" if dr is not None else ""
-                    row["Loss_T"] = r.loss_target if r.loss_target is not None else ""
-                    row["Loss_P"] = r.loss_proxy if r.loss_proxy is not None else ""
-                    row["PPL_T"] = r.extra.get("perplexity_target", "")
-                    row["PPL_P"] = r.extra.get("perplexity_proxy", "")
+                    row["Loss_T"] = flt if flt is not None else ""
+                    row["Loss_P"] = flp if flp is not None else ""
+                    row["PPL_T"] = r.extra.get("full_ppl_target", r.extra.get("perplexity_target", ""))
+                    row["PPL_P"] = r.extra.get("full_ppl_proxy", r.extra.get("perplexity_proxy", ""))
 
                 writer.writerow(row)
 

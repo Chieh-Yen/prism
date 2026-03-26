@@ -671,32 +671,40 @@ class QuantizationExperiment(BaseExperiment):
                 scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
                 bound_s = f"{result.risk_bound_total:.4f}" if result.risk_bound_total is not None else "—"
 
-                # Always print full-text loss line
-                full_dr = abs(full_loss_target - full_loss_proxy)
-                print(f"  [Full]   ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  {scale_s}"
+                # Geometry line (always)
+                print(f"  [Geom]   ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  {scale_s}"
                       f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
-                      f"Bound={bound_s}  |dR|={full_dr:.4f}  "
-                      f"{'PASS' if result.risk_bound_total is not None and result.risk_bound_total >= full_dr else 'VIOLATED'}  "
-                      f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
-                      f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}  "
+                      f"Bound={bound_s}  "
                       f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
                       f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
 
-                # Answer-only loss line
+                # Full-text loss line (always printed)
+                # For corpus datasets (loss_mode=full) this IS the primary paired loss → show PASS/VIOLATED.
+                # For non-corpus datasets this is unpaired reference → no bound check.
+                full_dr = abs(full_loss_target - full_loss_proxy)
+                if loss_mode == "full":
+                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= full_dr else "VIOLATED"
+                    print(f"  [Full]   |dR|={full_dr:.4f}  Bound={bound_s}  {status}  "
+                          f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
+                          f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}")
+                else:
+                    print(f"  [Full*]  |dR|={full_dr:.4f}  (ref, Z unpaired)  "
+                          f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
+                          f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}")
+
+                # Answer-only loss line — paired with last_context_token Z
                 if has_answer:
                     adr = abs(aloss_target - aloss_proxy)
-                    print(f"  [Answer] ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  "
-                          f"|AdR|={adr:.4f}  Bound={bound_s}  "
-                          f"{'PASS' if result.risk_bound_total is not None and result.risk_bound_total >= adr else 'VIOLATED'}  "
+                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= adr else "VIOLATED"
+                    print(f"  [Answer] |AdR|={adr:.4f}  Bound={bound_s}  {status}  "
                           f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
                           f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
 
-                # Final-answer-only loss line (GSM8K)
+                # Final-answer-only loss line (GSM8K) — paired with last_context_token Z
                 if has_final:
                     fdr = abs(floss_target - floss_proxy)
-                    print(f"  [Final]  ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  "
-                          f"|FdR|={fdr:.4f}  Bound={bound_s}  "
-                          f"{'PASS' if result.risk_bound_total is not None and result.risk_bound_total >= fdr else 'VIOLATED'}  "
+                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= fdr else "VIOLATED"
+                    print(f"  [Final]  |FdR|={fdr:.4f}  Bound={bound_s}  {status}  "
                           f"FLoss_T={floss_target:.4f}  FLoss_P={floss_proxy:.4f}  "
                           f"FPPL_T={fppl_target:.2f}  FPPL_P={math.exp(floss_proxy):.2f}")
 
@@ -715,7 +723,7 @@ class QuantizationExperiment(BaseExperiment):
         abs_tag = "_absorbed" if absorbed else ""
         stem = f"prism_{model_slug}_{task_name}_n{num_samples}{abs_tag}"
         self.save(results, filename=f"{stem}.json")
-        # Always save full-text CSV
+        # Always save full-text CSV (for analysis / debug)
         self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
         if has_answer:
             self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
@@ -829,17 +837,21 @@ class QuantizationExperiment(BaseExperiment):
             print(f"  Bound holds (primary, loss_mode={loss_mode}): {holds}/{len(valid)}  "
                   f"({'ALL PASS' if holds == len(valid) else 'SOME VIOLATED'})")
 
-        # --- Full-text loss table (always shown for reference) ---
+        # --- Full-text loss table ---
         has_full = "full_loss_target" in r0.extra
+        loss_mode = r0.extra.get("loss_mode", "full")
         if has_full:
+            is_paired = (loss_mode == "full")
+            tag = "" if is_paired else " (ref, Z unpaired)"
             full_header = (
                 f"{'Label':<20s} {'ρ_P':>8s} {'Omega':>8s} "
-                f"{'FLoss_T':>8s} {'FLoss_P':>8s} "
-                f"{'FPPL_T':>8s} {'FPPL_P':>8s} {'|dR|':>8s} "
-                f"{'Bound':>10s} {'Status':>8s}"
+                f"{'Loss_T':>8s} {'Loss_P':>8s} "
+                f"{'PPL_T':>8s} {'PPL_P':>8s} {'|dR|':>8s}"
             )
+            if is_paired:
+                full_header += f" {'Bound':>10s} {'Status':>8s}"
             full_sep = "-" * len(full_header)
-            print(f"\n  Full-text Loss (reference)")
+            print(f"\n  Full-text Loss{tag}")
             print(full_sep)
             print(full_header)
             print(full_sep)
@@ -848,24 +860,27 @@ class QuantizationExperiment(BaseExperiment):
                 flp = r.extra.get("full_loss_proxy")
                 if flt is not None and flp is not None:
                     fdr = abs(flt - flp)
-                    bt_val = r.risk_bound_total
-                    status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOLATED"
-                    print(
+                    line = (
                         f"{r.label:<20s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
                         f"{flt:>8.4f} {flp:>8.4f} "
                         f"{r.extra.get('full_ppl_target', 0):>8.2f} "
                         f"{r.extra.get('full_ppl_proxy', 0):>8.2f} "
-                        f"{fdr:>8.4f} "
-                        f"{bt_val:>10.4f} {status:>8s}"
+                        f"{fdr:>8.4f}"
                     )
-            full_valid = [(r, abs(r.extra["full_loss_target"] - r.extra["full_loss_proxy"]))
-                          for r in results
-                          if "full_loss_target" in r.extra and r.risk_bound_total is not None]
-            if full_valid:
-                print(full_sep)
-                f_holds = sum(1 for r, fdr in full_valid if r.risk_bound_total >= fdr)
-                print(f"  Bound holds (full): {f_holds}/{len(full_valid)}  "
-                      f"({'ALL PASS' if f_holds == len(full_valid) else 'SOME VIOLATED'})")
+                    if is_paired:
+                        bt_val = r.risk_bound_total
+                        status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOLATED"
+                        line += f" {bt_val:>10.4f} {status:>8s}"
+                    print(line)
+            if is_paired:
+                full_valid = [(r, abs(r.extra["full_loss_target"] - r.extra["full_loss_proxy"]))
+                              for r in results
+                              if "full_loss_target" in r.extra and r.risk_bound_total is not None]
+                if full_valid:
+                    print(full_sep)
+                    f_holds = sum(1 for r, fdr in full_valid if r.risk_bound_total >= fdr)
+                    print(f"  Bound holds (full): {f_holds}/{len(full_valid)}  "
+                          f"({'ALL PASS' if f_holds == len(full_valid) else 'SOME VIOLATED'})")
 
         # --- Answer-only table (if available) ---
         has_ans = "answer_loss_target" in r0.extra
