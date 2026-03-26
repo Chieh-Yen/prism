@@ -542,7 +542,17 @@ class QuantizationExperiment(BaseExperiment):
         # --- Lipschitz constants (invariant under Corollary reparameterisation) ---
         rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
         K_theory = UnifiedBound.theoretical_K(H_T)
-        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, losses_T)
+        # Empirical K_feat must use losses *paired* with Z (Appendix A, Lemma 1):
+        # g_T(z, y) = ℓ(h_T(z), y) — K is the Lipschitz constant of this
+        # single-prediction function.  For last_context_token Z the paired loss
+        # is the answer-only loss (predictions produced by that z), NOT the
+        # full-text loss which includes question tokens predicted by OTHER
+        # hidden states.
+        if loss_mode != "full" and has_answer:
+            paired_losses = loss_stats["answer_losses"]
+        else:
+            paired_losses = losses_T
+        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, paired_losses)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
         K_pred_empirical = loss_stats["grad_norm_p95"]

@@ -411,7 +411,13 @@ class CrossScaleExperiment(BaseExperiment):
         # ----------------------------------------------------------------
         rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
         K_theory = UnifiedBound.theoretical_K(H_T)
-        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, losses_T)
+        # Empirical K_feat must use losses paired with Z (Appendix A):
+        # for last_context_token Z, use answer_losses (not full-text).
+        if loss_mode != "full" and has_answer:
+            paired_losses = loss_stats_T["answer_losses"]
+        else:
+            paired_losses = losses_T
+        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, paired_losses)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
         K_pred_empirical = loss_stats_T["grad_norm_p95"]
