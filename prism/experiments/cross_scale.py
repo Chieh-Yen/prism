@@ -62,7 +62,7 @@ import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..core.bounds import UnifiedBound
-from ..data.loaders import load_task_data
+from ..data.loaders import get_task_metadata, load_task_data
 from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
 
@@ -304,6 +304,11 @@ class CrossScaleExperiment(BaseExperiment):
         batch_size: int = cfg_data.get("batch_size", 8)
         max_length: int = cfg_data.get("max_length", 512)
 
+        # --- Dataset-specific Z extraction and loss modes ---
+        task_meta = get_task_metadata(task_name)
+        z_mode = task_meta["z_mode"]
+        loss_mode = task_meta["loss_mode"]
+
         mode_tag = " (scale-absorbed)" if absorbed else ""
         print(f"{'=' * 72}")
         print(f"  PRISM Experiment: Cross-Scale Proxy Validation{mode_tag}")
@@ -311,7 +316,7 @@ class CrossScaleExperiment(BaseExperiment):
         print(f"  Target : {target_model_id}")
         for i, p in enumerate(proxy_entries):
             print(f"  Proxy {i+1}: {p['model']}  [{p['label']}]")
-        print(f"  Dataset: {task_name}  (n={num_samples}, max_len={max_length})")
+        print(f"  Dataset: {task_name}  z_mode={z_mode}  loss_mode={loss_mode}  (n={num_samples}, max_len={max_length})")
 
         # ----------------------------------------------------------------
         # Tokenizer — target model's tokenizer for target's dataloader
@@ -345,16 +350,20 @@ class CrossScaleExperiment(BaseExperiment):
         )
         target_model.eval()
 
-        print("Caching target features and loss (single forward pass) ...")
+        print(f"Caching target features and loss (single forward pass, z_mode={z_mode}) ...")
         Z_T, loss_stats_T = extractor.extract_features_and_loss_per_sample(
             target_model, target_dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
+            z_mode=z_mode,
         )
         H_T = extractor.extract_head(target_model)
-        losses_T = loss_stats_T["losses"]
-        loss_target = losses_T.mean().item()
-        ppl_target = math.exp(loss_target)
 
+        # Full-text loss (always computed)
+        losses_T = loss_stats_T["losses"]
+        full_loss_target = losses_T.mean().item()
+        full_ppl_target = math.exp(full_loss_target)
+
+        # Answer-only loss
         has_answer = loss_stats_T["has_answer_loss"]
         aloss_target: Optional[float] = (
             loss_stats_T["answer_losses"].mean().item() if has_answer else None
@@ -363,10 +372,32 @@ class CrossScaleExperiment(BaseExperiment):
             math.exp(aloss_target) if aloss_target is not None else None
         )
 
-        info = f"  Target: Loss={loss_target:.4f}  PPL={ppl_target:.2f}"
+        # Final-answer-only loss (GSM8K)
+        has_final = loss_stats_T["has_final_answer_loss"]
+        floss_target: Optional[float] = (
+            loss_stats_T["final_answer_losses"].mean().item() if has_final else None
+        )
+        fppl_target: Optional[float] = (
+            math.exp(floss_target) if floss_target is not None else None
+        )
+
+        # Select primary loss based on loss_mode
+        if loss_mode == "answer":
+            loss_target = aloss_target
+            ppl_target = appl_target
+        elif loss_mode == "gsm8k_dual":
+            loss_target = aloss_target
+            ppl_target = appl_target
+        else:
+            loss_target = full_loss_target
+            ppl_target = full_ppl_target
+
+        info = f"  Target: FullLoss={full_loss_target:.4f}  FullPPL={full_ppl_target:.2f}"
         if aloss_target is not None:
             info += f"  ALoss={aloss_target:.4f}  APPL={appl_target:.2f}"
-        info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}"
+        if floss_target is not None:
+            info += f"  FLoss={floss_target:.4f}  FPPL={fppl_target:.2f}"
+        info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}  z_mode={z_mode}"
         print(info)
 
         del target_model
@@ -378,14 +409,14 @@ class CrossScaleExperiment(BaseExperiment):
         # ----------------------------------------------------------------
         # Lipschitz constants (computed once from target, shared across proxies)
         # ----------------------------------------------------------------
-        rho_T = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
+        rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
         K_theory = UnifiedBound.theoretical_K(H_T)
         K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, losses_T)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
         K_pred_empirical = loss_stats_T["grad_norm_p95"]
 
-        print(f"\n  ρ_T = {rho_T:.6f}")
+        print(f"\n  ρ_T = {rho_T_orig:.6f}")
         print(f"\n  Lipschitz constants (invariant across proxies):")
         print(f"    K_feat (tight)     = {K_feat:.4f}")
         print(f"    K_feat (naive)     = {K_theory['K_feat_naive']:.4f}")
@@ -409,7 +440,7 @@ class CrossScaleExperiment(BaseExperiment):
             "K_pred_empirical_max": loss_stats_T["grad_norm_max"],
             "H_T_spectral": K_theory["H_T_spectral"],
             "max_pairwise_dist": K_theory["max_pairwise_dist"],
-            "rho_T": rho_T,
+            "rho_T": rho_T_orig,
         }
 
         # ================================================================
@@ -454,10 +485,11 @@ class CrossScaleExperiment(BaseExperiment):
                 )
                 proxy_model.eval()
 
-                print("  Extracting proxy features and loss (single forward pass) ...")
+                print(f"  Extracting proxy features and loss (single forward pass, z_mode={z_mode}) ...")
                 Z_P, loss_stats_P = extractor.extract_features_and_loss_per_sample(
                     proxy_model, proxy_dataloader, self.tensor_device,
                     chunk_size=self.logit_chunk_size,
+                    z_mode=z_mode,
                 )
 
                 if not torch.isfinite(Z_P).all():
@@ -465,10 +497,18 @@ class CrossScaleExperiment(BaseExperiment):
                     continue
 
                 H_P = extractor.extract_head(proxy_model)
-                loss_proxy = loss_stats_P["losses"].mean().item()
-                ppl_proxy = math.exp(loss_proxy)
+
+                # Full-text loss (always stored)
+                full_loss_proxy = loss_stats_P["losses"].mean().item()
+
+                # Answer-only loss
                 aloss_proxy: Optional[float] = (
                     loss_stats_P["answer_losses"].mean().item() if has_answer else None
+                )
+
+                # Final-answer-only loss (GSM8K)
+                floss_proxy: Optional[float] = (
+                    loss_stats_P["final_answer_losses"].mean().item() if has_final else None
                 )
 
                 # ---- Align head vocab dimensions if needed ----
@@ -486,17 +526,45 @@ class CrossScaleExperiment(BaseExperiment):
                     K_pred=K_pred,
                 )
 
-                result.loss_target = loss_target
-                result.loss_proxy = loss_proxy
-                result.extra["perplexity_target"] = ppl_target
-                result.extra["perplexity_proxy"] = ppl_proxy
+                # Store all loss variants in extra
+                result.extra["full_loss_target"] = full_loss_target
+                result.extra["full_loss_proxy"] = full_loss_proxy
+                result.extra["full_ppl_target"] = full_ppl_target
+                result.extra["full_ppl_proxy"] = math.exp(full_loss_proxy)
+
                 if has_answer and aloss_proxy is not None:
                     result.extra["answer_loss_target"] = aloss_target
                     result.extra["answer_loss_proxy"] = aloss_proxy
                     result.extra["answer_ppl_target"] = appl_target
                     result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
+
+                if has_final and floss_proxy is not None:
+                    result.extra["final_loss_target"] = floss_target
+                    result.extra["final_loss_proxy"] = floss_proxy
+                    result.extra["final_ppl_target"] = fppl_target
+                    result.extra["final_ppl_proxy"] = math.exp(floss_proxy)
+
+                # Select primary loss based on loss_mode
+                if loss_mode == "answer":
+                    result.loss_target = aloss_target
+                    result.loss_proxy = aloss_proxy
+                    result.extra["perplexity_target"] = appl_target
+                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
+                elif loss_mode == "gsm8k_dual":
+                    result.loss_target = aloss_target
+                    result.loss_proxy = aloss_proxy
+                    result.extra["perplexity_target"] = appl_target
+                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
+                else:
+                    result.loss_target = full_loss_target
+                    result.loss_proxy = full_loss_proxy
+                    result.extra["perplexity_target"] = full_ppl_target
+                    result.extra["perplexity_proxy"] = math.exp(full_loss_proxy)
+
                 result.extra.update(lipschitz_info)
                 result.extra["dataset"] = task_name
+                result.extra["z_mode"] = z_mode
+                result.extra["loss_mode"] = loss_mode
                 result.extra["num_samples"] = num_samples
                 result.extra["target_model"] = target_model_id
                 result.extra["proxy_model"] = proxy_model_id
@@ -504,45 +572,47 @@ class CrossScaleExperiment(BaseExperiment):
                 result.extra["target_hidden_dim"] = Z_T.shape[1]
                 result.extra["head_vocab_truncated"] = head_truncated
 
-                dr = abs(loss_target - loss_proxy)
-                delta_loss = loss_target - loss_proxy
-                result.extra["delta_loss"] = delta_loss
-                direction = "target_worse" if delta_loss > 0 else "proxy_worse"
+                results.append(result)
 
+                # --- Per-result console output ---
+                rho_P = result.rho_proxy
                 elapsed = time.time() - t0
                 scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
-                print(
-                    f"  ρ_T={rho_T:.4f}  ρ_P={result.rho_proxy:.4f}  "
-                    f"Ω={result.omega:.4f}  {scale_s}"
-                    f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}"
-                )
-                print(
-                    f"  Bound={result.risk_bound_total:.4f}  |dR|={dr:.4f}  "
-                    f"delta_loss={delta_loss:+.4f} ({direction})  "
-                    f"d_T={Z_T.shape[1]}  d_P={Z_P.shape[1]}"
-                )
-                print(
-                    f"  Loss_T={loss_target:.4f}  Loss_P={loss_proxy:.4f}  "
-                    f"PPL_T={ppl_target:.2f}  PPL_P={ppl_proxy:.2f}  "
-                    f"({elapsed:.1f}s)"
-                )
-                bound_ok = result.risk_bound_total >= dr
-                print(
-                    f"  Bound {'HOLDS' if bound_ok else 'VIOLATED'}  "
-                    f"(Bound={result.risk_bound_total:.4f} vs |dR|={dr:.4f})"
-                )
+                bound_s = f"{result.risk_bound_total:.4f}" if result.risk_bound_total is not None else "—"
 
-                if has_answer and aloss_proxy is not None and aloss_target is not None:
+                # Geometry line (always)
+                print(f"  [Geom]   ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  {scale_s}"
+                      f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
+                      f"Bound={bound_s}  "
+                      f"d_T={Z_T.shape[1]}  d_P={Z_P.shape[1]}  ({elapsed:.1f}s)")
+
+                # Full-text loss line
+                full_dr = abs(full_loss_target - full_loss_proxy)
+                if loss_mode == "full":
+                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= full_dr else "VIOLATED"
+                    print(f"  [Full]   |dR|={full_dr:.4f}  Bound={bound_s}  {status}  "
+                          f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
+                          f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}")
+                else:
+                    print(f"  [Full*]  |dR|={full_dr:.4f}  (ref, Z unpaired)  "
+                          f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
+                          f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}")
+
+                # Answer-only loss line
+                if has_answer and aloss_proxy is not None:
                     adr = abs(aloss_target - aloss_proxy)
-                    a_delta = aloss_target - aloss_proxy
-                    a_ok = result.risk_bound_total >= adr
-                    print(
-                        f"  [Answer] |AdR|={adr:.4f}  delta={a_delta:+.4f}  "
-                        f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
-                        f"{'PASS' if a_ok else 'VIOLATED'}"
-                    )
+                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= adr else "VIOLATED"
+                    print(f"  [Answer] |AdR|={adr:.4f}  Bound={bound_s}  {status}  "
+                          f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
+                          f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
 
-                results.append(result)
+                # Final-answer-only loss line (GSM8K)
+                if has_final and floss_proxy is not None:
+                    fdr = abs(floss_target - floss_proxy)
+                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= fdr else "VIOLATED"
+                    print(f"  [Final]  |FdR|={fdr:.4f}  Bound={bound_s}  {status}  "
+                          f"FLoss_T={floss_target:.4f}  FLoss_P={floss_proxy:.4f}  "
+                          f"FPPL_T={fppl_target:.2f}  FPPL_P={math.exp(floss_proxy):.2f}")
 
             except Exception as e:
                 elapsed = time.time() - t0
@@ -566,9 +636,12 @@ class CrossScaleExperiment(BaseExperiment):
         abs_tag = "_absorbed" if absorbed else ""
         stem = f"prism_cs_{target_slug}_{task_name}_n{num_samples}{abs_tag}"
         self.save(results, filename=f"{stem}.json")
-        self.save_csv(results, filename=f"{stem}_qa.csv", loss_mode="full")
+        # Always save full-text CSV (for analysis / debug)
+        self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
         if has_answer:
             self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
+        if has_final:
+            self.save_csv(results, filename=f"{stem}_final.csv", loss_mode="final_answer")
         return results
 
     # ------------------------------------------------------------------
@@ -586,7 +659,10 @@ class CrossScaleExperiment(BaseExperiment):
         mode_tag = " (scale-absorbed)" if absorbed else ""
         ds_tag = ""
         if "dataset" in r0.extra:
-            ds_tag = f"  [data: {r0.extra['dataset']}, n={r0.extra.get('num_samples', '?')}]"
+            z_m = r0.extra.get("z_mode", "?")
+            l_m = r0.extra.get("loss_mode", "?")
+            ds_tag = (f"  [data: {r0.extra['dataset']}, n={r0.extra.get('num_samples', '?')}, "
+                      f"z_mode={z_m}, loss_mode={l_m}]")
 
         hdr_title = f"  PRISM Cross-Scale Results{mode_tag}{ds_tag}"
         sep_len = max(len(hdr_title) + 4, 80)
@@ -622,13 +698,13 @@ class CrossScaleExperiment(BaseExperiment):
         # Column header
         if absorbed:
             header = (
-                f"{'Proxy':<26s} {'d_P':>5s} {'ρ_P':>8s} {'Ω':>8s} "
+                f"{'Proxy':<26s} {'d_P':>5s} {'ρ_T':>8s} {'ρ_P':>8s} {'Ω':>8s} "
                 f"{'Shape':>10s} {'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
                 f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} {'Status':>8s}"
             )
         else:
             header = (
-                f"{'Proxy':<26s} {'d_P':>5s} {'ρ_P':>8s} {'Ω':>8s} {'Scale':>10s} "
+                f"{'Proxy':<26s} {'d_P':>5s} {'ρ_T':>8s} {'ρ_P':>8s} {'Ω':>8s} {'Scale':>10s} "
                 f"{'Shape':>10s} {'Head':>10s} {'Bound':>10s} {'|dR|':>8s} "
                 f"{'Loss_T':>8s} {'Loss_P':>8s} {'PPL_T':>8s} {'PPL_P':>8s} {'Status':>8s}"
             )
@@ -645,6 +721,7 @@ class CrossScaleExperiment(BaseExperiment):
             lp    = f"{r.loss_proxy:.4f}" if r.loss_proxy is not None else "—"
             ppl_t = f"{r.extra.get('perplexity_target', 0):.2f}" if "perplexity_target" in r.extra else "—"
             ppl_p = f"{r.extra.get('perplexity_proxy', 0):.2f}" if "perplexity_proxy" in r.extra else "—"
+            rho_t_s = f"{r.extra.get('rho_T', 0):.4f}" if "rho_T" in r.extra else "—"
             rho_p = f"{r.rho_proxy:.4f}"
             d_p   = str(r.extra.get("proxy_hidden_dim", "?"))
 
@@ -659,20 +736,20 @@ class CrossScaleExperiment(BaseExperiment):
 
             if absorbed:
                 print(
-                    f"{proxy_short:<26s} {d_p:>5s} {rho_p:>8s} {r.omega:>8.4f} "
+                    f"{proxy_short:<26s} {d_p:>5s} {rho_t_s:>8s} {rho_p:>8s} {r.omega:>8.4f} "
                     f"{r.shape_mismatch:>10.6f} {r.head_discrepancy:>10.6f} "
                     f"{bt:>10s} {dr_s:>8s} "
                     f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} {status:>8s}"
                 )
             else:
                 print(
-                    f"{proxy_short:<26s} {d_p:>5s} {rho_p:>8s} {r.omega:>8.4f} "
+                    f"{proxy_short:<26s} {d_p:>5s} {rho_t_s:>8s} {rho_p:>8s} {r.omega:>8.4f} "
                     f"{r.scale_mismatch:>10.6f} {r.shape_mismatch:>10.6f} "
                     f"{r.head_discrepancy:>10.6f} {bt:>10s} {dr_s:>8s} "
                     f"{lt:>8s} {lp:>8s} {ppl_t:>8s} {ppl_p:>8s} {status:>8s}"
                 )
 
-        # Summary
+        # Primary loss bound validation
         valid = [
             (r, abs(r.loss_target - r.loss_proxy))
             for r in results
@@ -682,9 +759,10 @@ class CrossScaleExperiment(BaseExperiment):
         ]
         if valid:
             print(inner_sep)
+            loss_mode = r0.extra.get("loss_mode", "full")
             holds = sum(1 for r, dr in valid if r.risk_bound_total >= dr)
             print(
-                f"  Bound holds (full): {holds}/{len(valid)}  "
+                f"  Bound holds (primary, loss_mode={loss_mode}): {holds}/{len(valid)}  "
                 f"({'ALL PASS' if holds == len(valid) else 'SOME VIOLATED'})"
             )
             # Ranking by omega (best proxy = highest Ω)
@@ -695,10 +773,60 @@ class CrossScaleExperiment(BaseExperiment):
                 f"  (Ω={best.omega:.4f})"
             )
 
-        # Answer-only table
-        if "answer_loss_target" in r0.extra:
+        # --- Full-text loss table ---
+        has_full = "full_loss_target" in r0.extra
+        loss_mode = r0.extra.get("loss_mode", "full")
+        if has_full:
+            is_paired = (loss_mode == "full")
+            tag = "" if is_paired else " (ref, Z unpaired)"
+            full_header = (
+                f"{'Proxy':<26s} {'ρ_P':>8s} {'Ω':>8s} "
+                f"{'Loss_T':>8s} {'Loss_P':>8s} "
+                f"{'PPL_T':>8s} {'PPL_P':>8s} {'|dR|':>8s}"
+            )
+            if is_paired:
+                full_header += f" {'Bound':>10s} {'Status':>8s}"
+            full_sep = "-" * len(full_header)
+            print(f"\n  Full-text Loss{tag}")
+            print(full_sep)
+            print(full_header)
+            print(full_sep)
+            for r in results:
+                flt = r.extra.get("full_loss_target")
+                flp = r.extra.get("full_loss_proxy")
+                if flt is not None and flp is not None:
+                    fdr = abs(flt - flp)
+                    proxy_short = r.extra.get("proxy_model", r.label).split("/")[-1]
+                    if len(proxy_short) > 25:
+                        proxy_short = proxy_short[:22] + "..."
+                    line = (
+                        f"{proxy_short:<26s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
+                        f"{flt:>8.4f} {flp:>8.4f} "
+                        f"{r.extra.get('full_ppl_target', 0):>8.2f} "
+                        f"{r.extra.get('full_ppl_proxy', 0):>8.2f} "
+                        f"{fdr:>8.4f}"
+                    )
+                    if is_paired:
+                        bt_val = r.risk_bound_total
+                        status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOLATED"
+                        line += f" {bt_val:>10.4f} {status:>8s}"
+                    print(line)
+            if is_paired:
+                full_valid = [(r, abs(r.extra["full_loss_target"] - r.extra["full_loss_proxy"]))
+                              for r in results
+                              if "full_loss_target" in r.extra and r.risk_bound_total is not None]
+                if full_valid:
+                    print(full_sep)
+                    f_holds = sum(1 for r, fdr in full_valid if r.risk_bound_total >= fdr)
+                    print(f"  Bound holds (full): {f_holds}/{len(full_valid)}  "
+                          f"({'ALL PASS' if f_holds == len(full_valid) else 'SOME VIOLATED'})")
+
+        # --- Answer-only table (if available) ---
+        has_ans = "answer_loss_target" in r0.extra
+        if has_ans:
             ans_header = (
-                f"{'Proxy':<26s} {'ALoss_T':>8s} {'ALoss_P':>8s} "
+                f"{'Proxy':<26s} {'ρ_P':>8s} {'Ω':>8s} "
+                f"{'ALoss_T':>8s} {'ALoss_P':>8s} "
                 f"{'APPL_T':>8s} {'APPL_P':>8s} {'|AdR|':>8s} "
                 f"{'Bound':>10s} {'Status':>8s}"
             )
@@ -718,10 +846,59 @@ class CrossScaleExperiment(BaseExperiment):
                     if len(proxy_short) > 25:
                         proxy_short = proxy_short[:22] + "..."
                     print(
-                        f"{proxy_short:<26s} {alt:>8.4f} {alp:>8.4f} "
+                        f"{proxy_short:<26s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
+                        f"{alt:>8.4f} {alp:>8.4f} "
                         f"{r.extra.get('answer_ppl_target', 0):>8.2f} "
                         f"{r.extra.get('answer_ppl_proxy', 0):>8.2f} "
                         f"{adr:>8.4f} {bt_val:>10.4f} {a_status:>8s}"
                     )
+            ans_valid = [(r, abs(r.extra["answer_loss_target"] - r.extra["answer_loss_proxy"]))
+                         for r in results
+                         if "answer_loss_target" in r.extra and r.risk_bound_total is not None]
+            if ans_valid:
+                print(ans_sep)
+                a_holds = sum(1 for r, adr in ans_valid if r.risk_bound_total >= adr)
+                print(f"  Bound holds (answer): {a_holds}/{len(ans_valid)}  "
+                      f"({'ALL PASS' if a_holds == len(ans_valid) else 'SOME VIOLATED'})")
+
+        # --- Final-answer-only table (GSM8K) ---
+        has_final_rpt = "final_loss_target" in r0.extra
+        if has_final_rpt:
+            final_header = (
+                f"{'Proxy':<26s} {'ρ_P':>8s} {'Ω':>8s} "
+                f"{'FLoss_T':>8s} {'FLoss_P':>8s} "
+                f"{'FPPL_T':>8s} {'FPPL_P':>8s} {'|FdR|':>8s} "
+                f"{'Bound':>10s} {'Status':>8s}"
+            )
+            final_sep = "-" * len(final_header)
+            print(f"\n  Final-answer-only Loss (GSM8K: number only, no reasoning)")
+            print(final_sep)
+            print(final_header)
+            print(final_sep)
+            for r in results:
+                flt = r.extra.get("final_loss_target")
+                flp = r.extra.get("final_loss_proxy")
+                if flt is not None and flp is not None:
+                    fdr = abs(flt - flp)
+                    bt_val = r.risk_bound_total
+                    status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOL"
+                    proxy_short = r.extra.get("proxy_model", r.label).split("/")[-1]
+                    if len(proxy_short) > 25:
+                        proxy_short = proxy_short[:22] + "..."
+                    print(
+                        f"{proxy_short:<26s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
+                        f"{flt:>8.4f} {flp:>8.4f} "
+                        f"{r.extra.get('final_ppl_target', 0):>8.2f} "
+                        f"{r.extra.get('final_ppl_proxy', 0):>8.2f} "
+                        f"{fdr:>8.4f} {bt_val:>10.4f} {status:>8s}"
+                    )
+            final_valid = [(r, abs(r.extra["final_loss_target"] - r.extra["final_loss_proxy"]))
+                           for r in results
+                           if "final_loss_target" in r.extra and r.risk_bound_total is not None]
+            if final_valid:
+                print(final_sep)
+                f_holds = sum(1 for r, fdr in final_valid if r.risk_bound_total >= fdr)
+                print(f"  Bound holds (final): {f_holds}/{len(final_valid)}  "
+                      f"({'ALL PASS' if f_holds == len(final_valid) else 'SOME VIOLATED'})")
 
         print(f"{sep}\n")
