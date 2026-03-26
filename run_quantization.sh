@@ -450,13 +450,17 @@ for DS in $DATASETS_ALL; do
 done
 
 # ============================================================
-# Ablation: z_mode=concat for corpus datasets (C4, WikiText)
+# Ablation: z_mode=concat for all datasets
 #
-# Compares per-token concatenation (theory-paired) vs mean_pool
-# (default).  Same model/quant configs as above; only c4 and
-# wikitext with data.z_mode=concat override.
+# Compares per-token concatenation (theory-paired) vs the
+# default z_mode (mean_pool for corpus, last_context_token for
+# Q&A).  Same model/quant configs as above.
+#
+# Corpus (C4, WikiText): concat all tokens vs mean_pool
+# Q&A (LAMBADA, MMLU, ARC, GSM8K): concat answer-region tokens
+#   vs single last_context_token
 # ============================================================
-DATASETS_CONCAT="c4 wikitext"
+DATASETS_CONCAT="lambada c4 wikitext gsm8k mmlu arc"
 
 for DS in $DATASETS_CONCAT; do
     run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \

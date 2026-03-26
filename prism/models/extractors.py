@@ -190,23 +190,26 @@ class LLMExtractor(FeatureExtractor):
                          for ``last_context_token``).
         Returns:
             For most modes: (bsz, d) feature vectors.
-            For ``"concat"``: (total_valid_tokens, d) — all valid tokens at
-            positions 0 … T−2 per sample (the last token is excluded because
-            it has no next-token label to pair with).
+            For ``"concat"``: (total_valid_tokens, d) — per-token hidden
+            states whose logits predict the next token.  Corpus datasets
+            (no ``prompt_lens``): positions 0 … T−2.  Q&A datasets (with
+            ``prompt_lens``): answer-region positions prompt_len−1 … T−2
+            only, so each z_t is paired with an answer-token loss.
         """
         bsz = hidden.shape[0]
         device = hidden.device
 
         if z_mode == "concat":
-            # Per-token Z: positions 0..T-2 (skip last valid — no paired loss).
             parts: List[Tensor] = []
             for i in range(bsz):
-                if masks is not None:
-                    length = masks[i].sum().long().item()
-                    if length > 1:
-                        parts.append(hidden[i, :length - 1])
-                else:
-                    parts.append(hidden[i, :-1])
+                length = masks[i].sum().long().item() if masks is not None else hidden.shape[1]
+                # Answer-region start: first z that predicts an answer token.
+                # Corpus (no prompt_lens): position 0.
+                # Q&A: position prompt_len - 1 (its logits predict y_{prompt_len}).
+                start = max(int(prompt_lens[i].item()) - 1, 0) if prompt_lens is not None else 0
+                end = length - 1  # exclude last valid token (no next-token label)
+                if end > start:
+                    parts.append(hidden[i, start:end])
             return torch.cat(parts, dim=0) if parts else hidden.new_empty(0, hidden.shape[-1])
 
         if z_mode == "mean_pool":
@@ -395,16 +398,24 @@ class LLMExtractor(FeatureExtractor):
                     sample_losses.append(loss_sum / max(n_valid, 1))
 
                     # Per-token losses (concat mode): each z_t at position t
-                    # is paired with CE(h(z_t), y_{t+1}).  Only valid tokens
-                    # are included, matching _extract_z("concat") which
-                    # returns positions 0..T-2.
+                    # is paired with CE(h(z_t), y_{t+1}).
+                    # Corpus (no prompt_lens): all valid shifted positions.
+                    # Q&A (prompt_lens present): answer-region only, matching
+                    # _extract_z("concat") which returns prompt_len-1..T-2.
                     if is_concat:
+                        if prompt_lens is not None:
+                            pl = int(prompt_lens[j].item())
+                            tok_labels = labels.clone()
+                            tok_labels[:pl] = -100          # mask prompt
+                            shift_tok = tok_labels[1:]      # valid at positions pl-1..T-2
+                        else:
+                            shift_tok = shift_labels
                         ce_per_tok = torch.nn.functional.cross_entropy(
-                            shift_logits, shift_labels,
+                            shift_logits, shift_tok,
                             reduction="none", ignore_index=-100,
                         )
-                        valid = shift_labels != -100
-                        token_losses.append(ce_per_tok[valid].cpu())
+                        valid_tok = shift_tok != -100
+                        token_losses.append(ce_per_tok[valid_tok].cpu())
 
                     # Answer-only loss (tokens after prompt_length)
                     if prompt_lens is not None:
