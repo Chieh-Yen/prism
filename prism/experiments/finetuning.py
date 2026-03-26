@@ -60,7 +60,7 @@ class FinetuningExperiment(BaseExperiment):
 
         # --- Dataset-specific Z extraction and loss modes ---
         task_meta = get_task_metadata(task_name)
-        z_mode = task_meta["z_mode"]
+        z_mode = cfg_data.get("z_mode") or task_meta["z_mode"]
         loss_mode = task_meta["loss_mode"]
 
         mode_tag = " (scale-absorbed)" if absorbed else ""
@@ -154,7 +154,10 @@ class FinetuningExperiment(BaseExperiment):
         K_theory = UnifiedBound.theoretical_K(H_T)
         # Empirical K_feat must use losses paired with Z (Appendix A):
         # for last_context_token Z, use answer_losses (not full-text).
-        if loss_mode != "full" and has_answer:
+        # For concat Z, use per-token losses (1:1 pairing).
+        if z_mode == "concat" and loss_stats_T["token_losses"] is not None:
+            paired_losses = loss_stats_T["token_losses"]
+        elif loss_mode != "full" and has_answer:
             paired_losses = loss_stats_T["answer_losses"]
         else:
             paired_losses = losses_T
@@ -364,7 +367,8 @@ class FinetuningExperiment(BaseExperiment):
         self.report(results)
         target_slug = target_model_id.split("/")[-1].lower()
         abs_tag = "_absorbed" if absorbed else ""
-        stem = f"prism_ft_{target_slug}_{task_name}_n{num_samples}{abs_tag}"
+        z_tag = f"_{z_mode}" if z_mode != task_meta["z_mode"] else ""
+        stem = f"prism_ft_{target_slug}_{task_name}_n{num_samples}{z_tag}{abs_tag}"
         self.save(results, filename=f"{stem}.json")
         # Always save full-text CSV (for analysis / debug)
         self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")

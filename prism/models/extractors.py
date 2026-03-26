@@ -184,14 +184,30 @@ class LLMExtractor(FeatureExtractor):
         Args:
             hidden: (bsz, seq, d) last hidden states.
             masks:  (bsz, seq) attention mask (1 = real token).
-            z_mode: ``"last_token"`` | ``"mean_pool"`` | ``"last_context_token"``.
+            z_mode: ``"last_token"`` | ``"mean_pool"`` | ``"last_context_token"``
+                    | ``"concat"``.
             prompt_lens: (bsz,) token count of the prompt prefix (required
                          for ``last_context_token``).
         Returns:
-            (bsz, d) feature vectors.
+            For most modes: (bsz, d) feature vectors.
+            For ``"concat"``: (total_valid_tokens, d) — all valid tokens at
+            positions 0 … T−2 per sample (the last token is excluded because
+            it has no next-token label to pair with).
         """
         bsz = hidden.shape[0]
         device = hidden.device
+
+        if z_mode == "concat":
+            # Per-token Z: positions 0..T-2 (skip last valid — no paired loss).
+            parts: List[Tensor] = []
+            for i in range(bsz):
+                if masks is not None:
+                    length = masks[i].sum().long().item()
+                    if length > 1:
+                        parts.append(hidden[i, :length - 1])
+                else:
+                    parts.append(hidden[i, :-1])
+            return torch.cat(parts, dim=0) if parts else hidden.new_empty(0, hidden.shape[-1])
 
         if z_mode == "mean_pool":
             if masks is not None:
@@ -272,6 +288,8 @@ class LLMExtractor(FeatureExtractor):
 
         The returned ``loss_stats`` dict contains:
             ``losses``               — (n,) per-sample average CE loss (full text)
+            ``token_losses``         — (N_tokens,) per-token CE, or None
+                                       (only for ``concat`` z_mode; paired with Z)
             ``answer_losses``        — (n,) answer-only loss, or None
             ``has_answer_loss``
             ``final_answer_losses``  — (n,) final-number-only loss (GSM8K), or None
@@ -284,10 +302,12 @@ class LLMExtractor(FeatureExtractor):
         model.eval()
         all_features: List[Tensor] = []
         sample_losses: List[float] = []
+        token_losses: List[Tensor] = []       # per-token CE for concat mode
         answer_losses: List[float] = []
         final_answer_losses: List[float] = []
         has_prompt = False
         has_reasoning = False
+        is_concat = (z_mode == "concat")
         all_grad_norms: List[Tensor] = []
         CHUNK = chunk_size
         ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
@@ -374,6 +394,18 @@ class LLMExtractor(FeatureExtractor):
                         n_valid += v
                     sample_losses.append(loss_sum / max(n_valid, 1))
 
+                    # Per-token losses (concat mode): each z_t at position t
+                    # is paired with CE(h(z_t), y_{t+1}).  Only valid tokens
+                    # are included, matching _extract_z("concat") which
+                    # returns positions 0..T-2.
+                    if is_concat:
+                        ce_per_tok = torch.nn.functional.cross_entropy(
+                            shift_logits, shift_labels,
+                            reduction="none", ignore_index=-100,
+                        )
+                        valid = shift_labels != -100
+                        token_losses.append(ce_per_tok[valid].cpu())
+
                     # Answer-only loss (tokens after prompt_length)
                     if prompt_lens is not None:
                         pl = int(prompt_lens[j].item())
@@ -429,8 +461,10 @@ class LLMExtractor(FeatureExtractor):
 
         Z = torch.cat(all_features, dim=0)
         all_gn = torch.cat(all_grad_norms) if all_grad_norms else torch.zeros(1)
+        _tok_losses = torch.cat(token_losses) if token_losses else None
         loss_stats: Dict = {
             "losses": torch.tensor(sample_losses),
+            "token_losses": _tok_losses,
             "answer_losses": torch.tensor(answer_losses) if has_prompt else None,
             "has_answer_loss": has_prompt,
             "final_answer_losses": torch.tensor(final_answer_losses) if has_reasoning else None,

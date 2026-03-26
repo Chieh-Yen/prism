@@ -449,6 +449,90 @@ for DS in $DATASETS_ALL; do
         data.task=$DS data.num_samples=$N
 done
 
+# ============================================================
+# Ablation: z_mode=concat for corpus datasets (C4, WikiText)
+#
+# Compares per-token concatenation (theory-paired) vs mean_pool
+# (default).  Same model/quant configs as above; only c4 and
+# wikitext with data.z_mode=concat override.
+# ============================================================
+DATASETS_CONCAT="c4 wikitext"
+
+for DS in $DATASETS_CONCAT; do
+    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+for DS in $DATASETS_CONCAT; do
+    run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
 echo "========================================"
 echo "  All experiments complete."
 echo "  Results in: ./results/quantization/"

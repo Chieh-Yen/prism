@@ -436,7 +436,7 @@ class QuantizationExperiment(BaseExperiment):
         # --- Dataset-specific Z extraction and loss modes ---
         from ..data.loaders import get_task_metadata
         task_meta = get_task_metadata(task_name)
-        z_mode = task_meta["z_mode"]
+        z_mode = cfg_data.get("z_mode") or task_meta["z_mode"]
         loss_mode = task_meta["loss_mode"]
 
         has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_dtype(q) for q in quant_bits)
@@ -547,8 +547,10 @@ class QuantizationExperiment(BaseExperiment):
         # single-prediction function.  For last_context_token Z the paired loss
         # is the answer-only loss (predictions produced by that z), NOT the
         # full-text loss which includes question tokens predicted by OTHER
-        # hidden states.
-        if loss_mode != "full" and has_answer:
+        # hidden states.  For concat Z, use per-token losses (1:1 pairing).
+        if z_mode == "concat" and loss_stats["token_losses"] is not None:
+            paired_losses = loss_stats["token_losses"]
+        elif loss_mode != "full" and has_answer:
             paired_losses = loss_stats["answer_losses"]
         else:
             paired_losses = losses_T
@@ -731,7 +733,8 @@ class QuantizationExperiment(BaseExperiment):
         self.report(results)
         model_slug = target_model_id.split("/")[-1].lower()
         abs_tag = "_absorbed" if absorbed else ""
-        stem = f"prism_{model_slug}_{task_name}_n{num_samples}{abs_tag}"
+        z_tag = f"_{z_mode}" if z_mode != task_meta["z_mode"] else ""
+        stem = f"prism_{model_slug}_{task_name}_n{num_samples}{z_tag}{abs_tag}"
         self.save(results, filename=f"{stem}.json")
         # Always save full-text CSV (for analysis / debug)
         self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
