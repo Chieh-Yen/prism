@@ -80,27 +80,18 @@ run() {
     CUDA_VISIBLE_DEVICES="$GPUIDS" python run.py --config "$CFG" ${DEVICE_OVERRIDE:+"$DEVICE_OVERRIDE"} "$@" 2>&1 | tee -a "$LOG"
 }
 
-# z_modes per dataset type
-ZM_CORPUS='data.z_modes=[mean_pool,concat]'
-ZM_QA='data.z_modes=[last_context_token,concat,last_token]'
+# z_modes auto-resolved from TASK_REGISTRY.z_modes_all per dataset:
+#   corpus (c4, wikitext):            [mean_pool, concat]
+#   Q&A (lambada, gsm8k, mmlu, arc):  [last_context_token, concat, last_token]
+
+DATASETS_ALL="c4 wikitext lambada gsm8k mmlu arc"
 
 # Helper: run all 6 datasets for a model
 # Usage: run_all_datasets MODEL_ARGS...
 run_all_datasets() {
     local args=("$@")
-    for DS in c4 wikitext; do
-        run "${args[@]}" data.task=$DS data.num_samples=$N "$ZM_CORPUS"
-    done
-    for DS in lambada gsm8k mmlu arc; do
-        run "${args[@]}" data.task=$DS data.num_samples=$N "$ZM_QA"
-    done
-}
-
-# Helper: run Q&A datasets only
-run_qa_datasets() {
-    local args=("$@")
-    for DS in lambada gsm8k mmlu arc; do
-        run "${args[@]}" data.task=$DS data.num_samples=$N "$ZM_QA"
+    for DS in $DATASETS_ALL; do
+        run "${args[@]}" data.task=$DS data.num_samples=$N
     done
 }
 
