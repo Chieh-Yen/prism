@@ -413,6 +413,18 @@ class QuantizationExperiment(BaseExperiment):
         proxy.eval()
         return proxy
 
+    # ------------------------------------------------------------------
+    # Helpers for multi-z_mode paired-loss selection
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _select_paired_losses(zm, loss_mode, loss_stats):
+        """Return the losses tensor correctly paired with Z for K_feat estimation."""
+        if zm == "concat" and loss_stats["token_losses"] is not None:
+            return loss_stats["token_losses"]
+        if loss_mode != "full" and loss_stats["has_answer_loss"]:
+            return loss_stats["answer_losses"]
+        return loss_stats["losses"]
+
     def run(self) -> list:
         """Cache target features/loss, free VRAM, then load proxies one at a time."""
         cfg_target = self.config.get("target", {})
@@ -436,8 +448,15 @@ class QuantizationExperiment(BaseExperiment):
         # --- Dataset-specific Z extraction and loss modes ---
         from ..data.loaders import get_task_metadata
         task_meta = get_task_metadata(task_name)
-        z_mode = cfg_data.get("z_mode") or task_meta["z_mode"]
         loss_mode = task_meta["loss_mode"]
+
+        # z_modes resolution: explicit list > single override > task default
+        if cfg_data.get("z_modes"):
+            z_modes = list(cfg_data["z_modes"])
+        elif cfg_data.get("z_mode"):
+            z_modes = [cfg_data["z_mode"]]
+        else:
+            z_modes = [task_meta["z_mode"]]
 
         has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_dtype(q) for q in quant_bits)
         has_bnb = any(_is_bnb(q) for q in quant_bits)
@@ -465,7 +484,7 @@ class QuantizationExperiment(BaseExperiment):
                     gptq_repos.add(repo)
             print(f"  GPTQ   : {', '.join(sorted(gptq_repos))}")
         print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
-        print(f"  Data   : {task_name}  z_mode={z_mode}  loss_mode={loss_mode}")
+        print(f"  Data   : {task_name}  z_modes={z_modes}  loss_mode={loss_mode}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
         tokenizer = AutoTokenizer.from_pretrained(target_model_id, trust_remote_code=True)
@@ -479,7 +498,7 @@ class QuantizationExperiment(BaseExperiment):
             seed=self.seed,
         )
 
-        # --- Phase 1: load target, extract everything, then free VRAM ---
+        # --- Phase 1: load target, extract ALL z_modes in one forward pass ---
         target_dtype_label = _DTYPE_LABELS.get(str(self.model_dtype).split(".")[-1], str(self.model_dtype).upper())
         print(f"Loading target ({target_dtype_label}): {target_model_id} ...")
         target_model = _load_model(
@@ -490,11 +509,11 @@ class QuantizationExperiment(BaseExperiment):
         target_model.eval()
         extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
 
-        print(f"Caching target features and loss (single forward pass, z_mode={z_mode}) ...")
-        Z_T, loss_stats = extractor.extract_features_and_loss_per_sample(
+        print(f"Caching target features and loss (single forward pass, z_modes={z_modes}) ...")
+        Z_dict_T, loss_stats = extractor.extract_features_and_loss_per_sample(
             target_model, dataloader, self.tensor_device,
             chunk_size=self.logit_chunk_size,
-            z_mode=z_mode,
+            z_modes=z_modes,
         )
         H_T = extractor.extract_head(target_model)
 
@@ -513,12 +532,8 @@ class QuantizationExperiment(BaseExperiment):
         floss_target = loss_stats["final_answer_losses"].mean().item() if has_final else None
         fppl_target = math.exp(floss_target) if floss_target is not None else None
 
-        # Select primary loss based on loss_mode
-        if loss_mode == "answer":
-            loss_target = aloss_target
-            ppl_target = appl_target
-        elif loss_mode == "gsm8k_dual":
-            # Primary = answer (reasoning + final answer); secondary stored separately
+        # Select primary loss based on loss_mode (same for all z_modes)
+        if loss_mode in ("answer", "gsm8k_dual"):
             loss_target = aloss_target
             ppl_target = appl_target
         else:
@@ -530,7 +545,9 @@ class QuantizationExperiment(BaseExperiment):
             target_info += f"  ALoss={aloss_target:.4f}  APPL={appl_target:.2f}"
         if floss_target is not None:
             target_info += f"  FLoss={floss_target:.4f}  FPPL={fppl_target:.2f}"
-        target_info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}  z_mode={z_mode}"
+        for zm in z_modes:
+            target_info += f"  Z[{zm}]={tuple(Z_dict_T[zm].shape)}"
+        target_info += f"  H={tuple(H_T.shape)}"
         print(target_info)
 
         del target_model
@@ -539,186 +556,157 @@ class QuantizationExperiment(BaseExperiment):
             torch.cuda.empty_cache()
         print("  Target model freed from VRAM.")
 
-        # --- Lipschitz constants (invariant under Corollary reparameterisation) ---
-        rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
+        # --- Lipschitz constants per z_mode ---
         K_theory = UnifiedBound.theoretical_K(H_T)
-        # Empirical K_feat must use losses *paired* with Z (Appendix A, Lemma 1):
-        # g_T(z, y) = ℓ(h_T(z), y) — K is the Lipschitz constant of this
-        # single-prediction function.  For last_context_token Z the paired loss
-        # is the answer-only loss (predictions produced by that z), NOT the
-        # full-text loss which includes question tokens predicted by OTHER
-        # hidden states.  For concat Z, use per-token losses (1:1 pairing).
-        if z_mode == "concat" and loss_stats["token_losses"] is not None:
-            paired_losses = loss_stats["token_losses"]
-        elif loss_mode != "full" and has_answer:
-            paired_losses = loss_stats["answer_losses"]
-        else:
-            paired_losses = losses_T
-        K_empirical_feat = UnifiedBound.estimate_lipschitz_lm(Z_T, paired_losses)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
         K_pred_empirical = loss_stats["grad_norm_p95"]
 
-        print(f"\n  ρ_T = {rho_T_orig:.6f}")
-        print(f"\n  Lipschitz constants (invariant across original / absorbed):")
-        print(f"    ‖H_T‖_op = {K_theory['H_T_spectral']:.4f}")
-        print(f"    K_feat (tight)     = max_jk ‖h_j−h_k‖       = {K_feat:.4f}")
-        print(f"    K_feat (naive)     = √2·‖H_T‖_op            = {K_theory['K_feat_naive']:.4f}")
-        print(f"    K_feat (empirical) = p95(|Δℓ|/‖Δz‖)         = {K_empirical_feat['p95']:.4f}  "
-              f"(median={K_empirical_feat['median']:.4f}, max={K_empirical_feat['max']:.4f})")
-        print(f"    K_pred (theory)    = √2                      = {K_pred:.4f}")
-        print(f"    K_pred (empirical) = p95(‖p̂−e_y‖)           = {K_pred_empirical:.4f}  "
-              f"(mean={loss_stats['grad_norm_mean']:.4f}, max={loss_stats['grad_norm_max']:.4f})")
+        rho_T_per_zm: Dict[str, float] = {}
+        K_emp_per_zm: Dict[str, Dict] = {}
+        lipschitz_per_zm: Dict[str, Dict] = {}
 
-        # --- Lipschitz summary dict (shared across all pairs) ---
-        lipschitz_info = {
-            "K_feat_tight": K_feat,
-            "K_feat_naive": K_theory["K_feat_naive"],
-            "K_feat_empirical": K_empirical_feat["K_feat_empirical"],
-            "K_feat_empirical_median": K_empirical_feat["median"],
-            "K_feat_empirical_max": K_empirical_feat["max"],
-            "K_pred_theory": K_pred,
-            "K_pred_empirical": K_pred_empirical,
-            "K_pred_empirical_mean": loss_stats["grad_norm_mean"],
-            "K_pred_empirical_max": loss_stats["grad_norm_max"],
-            "H_T_spectral": K_theory["H_T_spectral"],
-            "max_pairwise_dist": K_theory["max_pairwise_dist"],
-            "rho_T": rho_T_orig,
-        }
+        for zm in z_modes:
+            Z_T_zm = Z_dict_T[zm]
+            rho_T = Z_T_zm.norm("fro").item() / math.sqrt(Z_T_zm.shape[0])
+            rho_T_per_zm[zm] = rho_T
+            paired = self._select_paired_losses(zm, loss_mode, loss_stats)
+            K_emp = UnifiedBound.estimate_lipschitz_lm(Z_T_zm, paired)
+            K_emp_per_zm[zm] = K_emp
+            lipschitz_per_zm[zm] = {
+                "K_feat_tight": K_feat,
+                "K_feat_naive": K_theory["K_feat_naive"],
+                "K_feat_empirical": K_emp["K_feat_empirical"],
+                "K_feat_empirical_median": K_emp["median"],
+                "K_feat_empirical_max": K_emp["max"],
+                "K_pred_theory": K_pred,
+                "K_pred_empirical": K_pred_empirical,
+                "K_pred_empirical_mean": loss_stats["grad_norm_mean"],
+                "K_pred_empirical_max": loss_stats["grad_norm_max"],
+                "H_T_spectral": K_theory["H_T_spectral"],
+                "max_pairwise_dist": K_theory["max_pairwise_dist"],
+                "rho_T": rho_T,
+            }
+
+        print(f"\n  Lipschitz constants (shared: K_feat_tight={K_feat:.4f}, K_pred={K_pred:.4f}):")
+        for zm in z_modes:
+            rho_T = rho_T_per_zm[zm]
+            K_emp = K_emp_per_zm[zm]
+            print(f"    [{zm}]  ρ_T={rho_T:.6f}  K_feat_emp={K_emp['p95']:.4f}  "
+                  f"(median={K_emp['median']:.4f}, max={K_emp['max']:.4f})")
 
         # --- Phase 2: load each proxy one at a time ---
         results = []
         for i, bit_label in enumerate(quant_bits):
             disp = _display_label(bit_label)
-            label = f"{target_dtype_label} vs {disp}"
-            print(f"\n--- [{i+1}/{len(quant_bits)}] {label} ---")
+            base_label = f"{target_dtype_label} vs {disp}"
+            print(f"\n--- [{i+1}/{len(quant_bits)}] {base_label} ---")
             t0 = time.time()
 
             proxy_model = None
             try:
                 proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
 
-                Z_P, proxy_stats = extractor.extract_features_and_loss_per_sample(
+                Z_dict_P, proxy_stats = extractor.extract_features_and_loss_per_sample(
                     proxy_model, dataloader, self.tensor_device,
                     chunk_size=self.logit_chunk_size,
-                    z_mode=z_mode,
+                    z_modes=z_modes,
                 )
 
-                if not torch.isfinite(Z_P).all():
-                    print(f"  WARNING: proxy features contain NaN/Inf — skipping {disp}")
+                # Check all z_modes for NaN/Inf
+                bad = [zm for zm in z_modes if not torch.isfinite(Z_dict_P[zm]).all()]
+                if bad:
+                    print(f"  WARNING: proxy features contain NaN/Inf in {bad} — skipping {disp}")
                     continue
 
                 H_P = extractor.extract_head(proxy_model)
 
-                result = self.compute_metrics(
-                    Z_T, H_T, Z_P, H_P,
-                    force_identity=True, label=label, absorbed=absorbed,
-                    K_feat=K_feat, K_pred=K_pred,
-                )
-
-                # Full-text loss (always stored)
+                # Proxy losses (same for all z_modes — from same forward pass)
                 full_loss_proxy = proxy_stats["losses"].mean().item()
-                result.extra["full_loss_target"] = full_loss_target
-                result.extra["full_loss_proxy"] = full_loss_proxy
-                result.extra["full_ppl_target"] = full_ppl_target
-                result.extra["full_ppl_proxy"] = math.exp(full_loss_proxy)
+                aloss_proxy = proxy_stats["answer_losses"].mean().item() if has_answer else None
+                floss_proxy = proxy_stats["final_answer_losses"].mean().item() if has_final else None
 
-                # Answer-only loss
-                if has_answer:
-                    aloss_proxy = proxy_stats["answer_losses"].mean().item()
-                    result.extra["answer_loss_target"] = aloss_target
-                    result.extra["answer_loss_proxy"] = aloss_proxy
-                    result.extra["answer_ppl_target"] = appl_target
-                    result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
-
-                # Final-answer-only loss (GSM8K)
-                if has_final:
-                    floss_proxy = proxy_stats["final_answer_losses"].mean().item()
-                    result.extra["final_loss_target"] = floss_target
-                    result.extra["final_loss_proxy"] = floss_proxy
-                    result.extra["final_ppl_target"] = fppl_target
-                    result.extra["final_ppl_proxy"] = math.exp(floss_proxy)
-
-                # Select primary loss based on loss_mode
-                if loss_mode == "answer":
-                    result.loss_target = aloss_target
-                    result.loss_proxy = aloss_proxy
-                    result.extra["perplexity_target"] = appl_target
-                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
-                elif loss_mode == "gsm8k_dual":
-                    # Primary = answer (reasoning + final answer)
-                    result.loss_target = aloss_target
-                    result.loss_proxy = aloss_proxy
-                    result.extra["perplexity_target"] = appl_target
-                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
-                else:
-                    result.loss_target = full_loss_target
-                    result.loss_proxy = full_loss_proxy
-                    result.extra["perplexity_target"] = full_ppl_target
-                    result.extra["perplexity_proxy"] = math.exp(full_loss_proxy)
-
-                result.extra.update(lipschitz_info)
-                result.extra["dataset"] = task_name
-                result.extra["z_mode"] = z_mode
-                result.extra["loss_mode"] = loss_mode
-                result.extra["num_samples"] = num_samples
-                result.extra["target_model"] = target_model_id
+                # Proxy model label (shared across z_modes)
                 if _is_dtype(bit_label):
                     lbl = _DTYPE_LABELS.get(_parse_dtype(bit_label), _parse_dtype(bit_label).upper())
-                    result.extra["proxy_model"] = f"{target_model_id} [{lbl}]"
+                    proxy_model_name = f"{target_model_id} [{lbl}]"
                 elif _is_gptq(bit_label):
                     repo, rev = _parse_gptq(bit_label)
                     rev_tag = f"@{rev}" if rev else ""
-                    result.extra["proxy_model"] = f"{repo}{rev_tag} [GPTQ]"
+                    proxy_model_name = f"{repo}{rev_tag} [GPTQ]"
                 elif _is_bnb(bit_label):
-                    result.extra["proxy_model"] = f"{target_model_id} [bnb:{_bnb_type(bit_label)}]"
+                    proxy_model_name = f"{target_model_id} [bnb:{_bnb_type(bit_label)}]"
                 else:
-                    result.extra["proxy_model"] = f"{quant_repo}/{_gguf_filename(gguf_tpl, bit_label)}"
+                    proxy_model_name = f"{quant_repo}/{_gguf_filename(gguf_tpl, bit_label)}"
 
-                results.append(result)
-
-                # --- Per-result console output ---
-                rho_P = result.rho_proxy
                 elapsed = time.time() - t0
-                scale_s = "" if absorbed else f"Scale={result.scale_mismatch:.6f}  "
-                bound_s = f"{result.risk_bound_total:.4f}" if result.risk_bound_total is not None else "—"
 
-                # Geometry line (always)
-                print(f"  [Geom]   ρ_T={rho_T_orig:.4f}  ρ_P={rho_P:.4f}  Ω={result.omega:.4f}  {scale_s}"
-                      f"Shape={result.shape_mismatch:.6f}  Head={result.head_discrepancy:.6f}  "
-                      f"Bound={bound_s}  "
-                      f"K_f={K_feat:.4f}({K_empirical_feat['p95']:.4f})  "
-                      f"K_p={K_pred:.4f}({K_pred_empirical:.4f})  ({elapsed:.1f}s)")
+                # --- One result per z_mode ---
+                for zm in z_modes:
+                    Z_T_zm = Z_dict_T[zm]
+                    Z_P_zm = Z_dict_P[zm]
+                    rho_T = rho_T_per_zm[zm]
+                    K_emp = K_emp_per_zm[zm]
+                    label = f"{base_label}"
 
-                # Full-text loss line (always printed)
-                # For corpus datasets (loss_mode=full) this IS the primary paired loss → show PASS/VIOLATED.
-                # For non-corpus datasets this is unpaired reference → no bound check.
-                full_dr = abs(full_loss_target - full_loss_proxy)
-                if loss_mode == "full":
-                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= full_dr else "VIOLATED"
-                    print(f"  [Full]   |dR|={full_dr:.4f}  Bound={bound_s}  {status}  "
-                          f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
-                          f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}")
-                else:
-                    print(f"  [Full*]  |dR|={full_dr:.4f}  (ref, Z unpaired)  "
-                          f"Loss_T={full_loss_target:.4f}  Loss_P={full_loss_proxy:.4f}  "
-                          f"PPL_T={full_ppl_target:.2f}  PPL_P={math.exp(full_loss_proxy):.2f}")
+                    result = self.compute_metrics(
+                        Z_T_zm, H_T, Z_P_zm, H_P,
+                        force_identity=True, label=label, absorbed=absorbed,
+                        K_feat=K_feat, K_pred=K_pred,
+                    )
 
-                # Answer-only loss line — paired with last_context_token Z
-                if has_answer:
-                    adr = abs(aloss_target - aloss_proxy)
-                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= adr else "VIOLATED"
-                    print(f"  [Answer] |AdR|={adr:.4f}  Bound={bound_s}  {status}  "
-                          f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
-                          f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
+                    # Store losses (identical for all z_modes)
+                    result.extra["full_loss_target"] = full_loss_target
+                    result.extra["full_loss_proxy"] = full_loss_proxy
+                    result.extra["full_ppl_target"] = full_ppl_target
+                    result.extra["full_ppl_proxy"] = math.exp(full_loss_proxy)
+                    if has_answer:
+                        result.extra["answer_loss_target"] = aloss_target
+                        result.extra["answer_loss_proxy"] = aloss_proxy
+                        result.extra["answer_ppl_target"] = appl_target
+                        result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
+                    if has_final:
+                        result.extra["final_loss_target"] = floss_target
+                        result.extra["final_loss_proxy"] = floss_proxy
+                        result.extra["final_ppl_target"] = fppl_target
+                        result.extra["final_ppl_proxy"] = math.exp(floss_proxy)
 
-                # Final-answer-only loss line (GSM8K) — paired with last_context_token Z
-                if has_final:
-                    fdr = abs(floss_target - floss_proxy)
-                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= fdr else "VIOLATED"
-                    print(f"  [Final]  |FdR|={fdr:.4f}  Bound={bound_s}  {status}  "
-                          f"FLoss_T={floss_target:.4f}  FLoss_P={floss_proxy:.4f}  "
-                          f"FPPL_T={fppl_target:.2f}  FPPL_P={math.exp(floss_proxy):.2f}")
+                    # Primary loss (same for all z_modes — determined by dataset)
+                    if loss_mode in ("answer", "gsm8k_dual"):
+                        result.loss_target = aloss_target
+                        result.loss_proxy = aloss_proxy
+                        result.extra["perplexity_target"] = appl_target
+                        result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
+                    else:
+                        result.loss_target = full_loss_target
+                        result.loss_proxy = full_loss_proxy
+                        result.extra["perplexity_target"] = full_ppl_target
+                        result.extra["perplexity_proxy"] = math.exp(full_loss_proxy)
+
+                    result.extra.update(lipschitz_per_zm[zm])
+                    result.extra["dataset"] = task_name
+                    result.extra["z_mode"] = zm
+                    result.extra["loss_mode"] = loss_mode
+                    result.extra["num_samples"] = num_samples
+                    result.extra["target_model"] = target_model_id
+                    result.extra["proxy_model"] = proxy_model_name
+                    results.append(result)
+
+                    # --- Per-result console output (one line per z_mode) ---
+                    rho_P = result.rho_proxy
+                    scale_s = "" if absorbed else f"Sc={result.scale_mismatch:.6f} "
+                    bound_s = f"{result.risk_bound_total:.4f}" if result.risk_bound_total is not None else "—"
+                    dr = abs(result.loss_target - result.loss_proxy) if result.loss_target is not None and result.loss_proxy is not None else None
+                    dr_s = f"{dr:.4f}" if dr is not None else "—"
+                    status = ""
+                    if dr is not None and result.risk_bound_total is not None:
+                        status = "PASS" if result.risk_bound_total >= dr else "VIOLATED"
+
+                    print(f"  [{zm:<20s}] ρ_T={rho_T:.4f} ρ_P={rho_P:.4f} Ω={result.omega:.4f} "
+                          f"{scale_s}δ={result.shape_mismatch:.6f} γ={result.head_discrepancy:.6f} "
+                          f"Bound={bound_s} |dR|={dr_s} {status} "
+                          f"K_f_emp={K_emp['p95']:.4f}"
+                          + (f"  ({elapsed:.1f}s)" if zm == z_modes[0] else ""))
 
             except Exception as e:
                 elapsed = time.time() - t0
@@ -730,18 +718,24 @@ class QuantizationExperiment(BaseExperiment):
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-        self.report(results)
+        # --- Report and save per z_mode ---
         model_slug = target_model_id.split("/")[-1].lower()
         abs_tag = "_absorbed" if absorbed else ""
-        z_tag = f"_{z_mode}" if z_mode != task_meta["z_mode"] else ""
-        stem = f"prism_{model_slug}_{task_name}_n{num_samples}{z_tag}{abs_tag}"
-        self.save(results, filename=f"{stem}.json")
-        # Always save full-text CSV (for analysis / debug)
-        self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
-        if has_answer:
-            self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
-        if has_final:
-            self.save_csv(results, filename=f"{stem}_final.csv", loss_mode="final_answer")
+        for zm in z_modes:
+            zm_results = [r for r in results if r.extra.get("z_mode") == zm]
+            if not zm_results:
+                continue
+            print(f"\n{'=' * 72}")
+            print(f"  z_mode: {zm}")
+            print(f"{'=' * 72}")
+            self.report(zm_results)
+            stem = f"prism_{model_slug}_{task_name}_n{num_samples}_{zm}{abs_tag}"
+            self.save(zm_results, filename=f"{stem}.json")
+            self.save_csv(zm_results, filename=f"{stem}_full.csv", loss_mode="full")
+            if has_answer:
+                self.save_csv(zm_results, filename=f"{stem}_ans.csv", loss_mode="answer")
+            if has_final:
+                self.save_csv(zm_results, filename=f"{stem}_final.csv", loss_mode="final_answer")
         return results
 
     @staticmethod

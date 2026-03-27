@@ -275,7 +275,8 @@ class LLMExtractor(FeatureExtractor):
         *,
         chunk_size: int = 2048,
         z_mode: str = "last_token",
-    ) -> Tuple[Tensor, Dict]:
+        z_modes: Optional[List[str]] = None,
+    ):
         """Single forward pass that returns both features AND per-sample loss stats.
 
         Calls ``model(..., output_hidden_states=True)`` once per batch, obtaining
@@ -284,15 +285,15 @@ class LLMExtractor(FeatureExtractor):
         ``extract_features()`` + ``compute_lm_loss_per_sample()`` separately.
 
         Args:
-            z_mode: Feature extraction mode — ``"last_token"`` (default),
-                ``"mean_pool"`` (average all non-padding tokens), or
-                ``"last_context_token"`` (last prompt token, requires
-                ``prompt_length`` in data).
+            z_mode:  Single feature extraction mode (legacy API).
+            z_modes: List of modes to extract simultaneously in one forward
+                     pass.  When provided, returns ``(Dict[str, Tensor], Dict)``
+                     instead of ``(Tensor, Dict)``.
 
         The returned ``loss_stats`` dict contains:
             ``losses``               — (n,) per-sample average CE loss (full text)
             ``token_losses``         — (N_tokens,) per-token CE, or None
-                                       (only for ``concat`` z_mode; paired with Z)
+                                       (present when ``"concat"`` is among z_modes)
             ``answer_losses``        — (n,) answer-only loss, or None
             ``has_answer_loss``
             ``final_answer_losses``  — (n,) final-number-only loss (GSM8K), or None
@@ -302,15 +303,19 @@ class LLMExtractor(FeatureExtractor):
         Falls back to the two-pass approach automatically if
         ``output_hidden_states`` is not supported by the loaded model.
         """
+        _return_dict = z_modes is not None
+        if z_modes is None:
+            z_modes = [z_mode]
+
         model.eval()
-        all_features: List[Tensor] = []
+        all_features: Dict[str, List[Tensor]] = {zm: [] for zm in z_modes}
         sample_losses: List[float] = []
         token_losses: List[Tensor] = []       # per-token CE for concat mode
         answer_losses: List[float] = []
         final_answer_losses: List[float] = []
         has_prompt = False
         has_reasoning = False
-        is_concat = (z_mode == "concat")
+        is_concat = ("concat" in z_modes)
         all_grad_norms: List[Tensor] = []
         CHUNK = chunk_size
         ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
@@ -373,8 +378,11 @@ class LLMExtractor(FeatureExtractor):
                     bb_out = backbone(**inp)
                     hidden = bb_out.last_hidden_state
 
-                feats = self._extract_z(hidden, masks, z_mode, prompt_lens)
-                all_features.append(feats.float().cpu() if self.offload_to_cpu else feats.float())
+                for zm in z_modes:
+                    feats = self._extract_z(hidden, masks, zm, prompt_lens)
+                    all_features[zm].append(
+                        feats.float().cpu() if self.offload_to_cpu else feats.float()
+                    )
 
                 # ── Per-sample loss ───────────────────────────────────────
                 for j in range(bsz):
@@ -470,7 +478,7 @@ class LLMExtractor(FeatureExtractor):
 
                 del all_logits
 
-        Z = torch.cat(all_features, dim=0)
+        Z_dict = {zm: torch.cat(all_features[zm], dim=0) for zm in z_modes}
         all_gn = torch.cat(all_grad_norms) if all_grad_norms else torch.zeros(1)
         _tok_losses = torch.cat(token_losses) if token_losses else None
         loss_stats: Dict = {
@@ -484,7 +492,9 @@ class LLMExtractor(FeatureExtractor):
             "grad_norm_max": all_gn.max().item(),
             "grad_norm_mean": all_gn.mean().item(),
         }
-        return Z, loss_stats
+        if _return_dict:
+            return Z_dict, loss_stats
+        return Z_dict[z_modes[0]], loss_stats
 
     def extract_head(
         self,

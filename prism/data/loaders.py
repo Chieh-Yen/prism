@@ -148,32 +148,42 @@ TASK_REGISTRY: Dict[str, Dict] = {
     "cifar100":      {"hf_id": "uoft-cs/cifar100",     "label_key": "fine_label", "image_key": "img", "split_map": {"test": "test"}},
     # Text / LLM  — plain text  (z_mode: mean_pool, loss_mode: full)
     "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1", "text_key": "text", "split_map": {"test": "test"},
-                      "z_mode": "mean_pool", "loss_mode": "full"},
+                      "z_mode": "mean_pool", "loss_mode": "full",
+                      "z_modes_all": ["mean_pool", "concat"]},
     "ptb":           {"hf_id": "ptb-text-only/ptb_text_only", "text_key": "sentence", "split_map": {"test": "test"},
-                      "z_mode": "mean_pool", "loss_mode": "full"},
+                      "z_mode": "mean_pool", "loss_mode": "full",
+                      "z_modes_all": ["mean_pool", "concat"]},
     "c4":            {"hf_id": "allenai/c4",           "hf_subset": "en", "text_key": "text",  "split_map": {"test": "validation"}, "streaming": True,
-                      "z_mode": "mean_pool", "loss_mode": "full"},
+                      "z_mode": "mean_pool", "loss_mode": "full",
+                      "z_modes_all": ["mean_pool", "concat"]},
     # Text / LLM  — LAMBADA  (z_mode: last_context_token, loss_mode: answer = last word only)
     "lambada":       {"hf_id": "EleutherAI/lambada_openai", "text_key": "text", "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
+                      "z_mode": "last_context_token", "loss_mode": "answer",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
     # Text / LLM  — structured Q&A  (formatter converts row → plain text)
     "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "gsm8k_dual"},
+                      "z_mode": "last_context_token", "loss_mode": "gsm8k_dual",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
     "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
+                      "z_mode": "last_context_token", "loss_mode": "answer",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
     "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
+                      "z_mode": "last_context_token", "loss_mode": "answer",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
     "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
+                      "z_mode": "last_context_token", "loss_mode": "answer",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
 }
 
 
-def get_task_metadata(task_name: str) -> Dict[str, str]:
-    """Return z_mode and loss_mode for a task."""
+def get_task_metadata(task_name: str) -> Dict:
+    """Return z_mode, loss_mode, and z_modes_all for a task."""
     meta = TASK_REGISTRY.get(task_name, {})
+    default_zm = meta.get("z_mode", "last_token")
     return {
-        "z_mode": meta.get("z_mode", "last_token"),
+        "z_mode": default_zm,
         "loss_mode": meta.get("loss_mode", "full"),
+        "z_modes_all": meta.get("z_modes_all", [default_zm]),
     }
 
 

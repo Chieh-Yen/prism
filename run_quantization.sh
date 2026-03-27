@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 6 datasets × 15 models
+# 6 datasets × 15 models, multi-z_mode per dataset
+#
+# Each (model, dataset) pair runs ALL z_modes in a single
+# forward pass via data.z_modes=[...]:
+#   Corpus (C4, WikiText):       mean_pool + concat
+#   Q&A (LAMBADA, MMLU, ARC, GSM8K): last_context_token + concat + last_token
 #
 # Quantization tiers (all models):
 #   FP16  → dtype:float16           precision-drift reference (BF16→FP16)
@@ -15,21 +20,17 @@
 #   GPTQ  → gptq:REPO              pre-quantised GPTQ (see per-model notes)
 #
 # Target models (all loaded in BF16):
-#   2.  Qwen/Qwen3-8B-Base                        Base
-#   1.  meta-llama/Meta-Llama-3.1-8B              Base
+#   1.  Qwen/Qwen3-8B-Base                        Base
+#   2.  meta-llama/Meta-Llama-3.1-8B              Base
 #   3.  mistralai/Ministral-3-8B-Base-2512        Base
-#   5.  Qwen/Qwen3-8B                             Instruct / Thinking
-#   4.  meta-llama/Meta-Llama-3.1-8B-Instruct     Instruct
+#   4.  Qwen/Qwen3-8B                             Instruct / Thinking
+#   5.  meta-llama/Meta-Llama-3.1-8B-Instruct     Instruct
 #   6.  mistralai/Ministral-3-8B-Instruct-2512    Instruct
-#
-#   9.  deepseek-ai/DeepSeek-R1-Distill-Llama-8B  Distilled / Reasoning
-#
-#   10. Qwen/Qwen2.5-7B                           Base
-#   11. Qwen/Qwen2.5-7B-Instruct                  Instruct
-#
-#   7.  mistralai/Mistral-7B-v0.3                 Base
-#   8.  mistralai/Mistral-7B-Instruct-v0.3        Instruct
-#
+#   7.  deepseek-ai/DeepSeek-R1-Distill-Llama-8B  Distilled / Reasoning
+#   8.  Qwen/Qwen2.5-7B                           Base
+#   9.  Qwen/Qwen2.5-7B-Instruct                  Instruct
+#   10. mistralai/Mistral-7B-v0.3                 Base
+#   11. mistralai/Mistral-7B-Instruct-v0.3        Instruct
 #   12. google/gemma-3-4b                         Base
 #   13. google/gemma-3-4b-it                      Instruct
 #   14. google/gemma-2-9b                         Base
@@ -72,46 +73,39 @@ fi
 
 N=512
 CFG="configs/quantization.yaml"
-LOG="screen.log"
+LOG="screen.quantization.log"
 
 run() {
     echo ">>> $*" | tee -a "$LOG"
     CUDA_VISIBLE_DEVICES="$GPUIDS" python run.py --config "$CFG" ${DEVICE_OVERRIDE:+"$DEVICE_OVERRIDE"} "$@" 2>&1 | tee -a "$LOG"
 }
 
-DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
+# z_modes per dataset type
+ZM_CORPUS='data.z_modes=[mean_pool,concat]'
+ZM_QA='data.z_modes=[last_context_token,concat,last_token]'
+
+# Helper: run all 6 datasets for a model
+# Usage: run_all_datasets MODEL_ARGS...
+run_all_datasets() {
+    local args=("$@")
+    for DS in c4 wikitext; do
+        run "${args[@]}" data.task=$DS data.num_samples=$N "$ZM_CORPUS"
+    done
+    for DS in lambada gsm8k mmlu arc; do
+        run "${args[@]}" data.task=$DS data.num_samples=$N "$ZM_QA"
+    done
+}
+
+# Helper: run Q&A datasets only
+run_qa_datasets() {
+    local args=("$@")
+    for DS in lambada gsm8k mmlu arc; do
+        run "${args[@]}" data.task=$DS data.num_samples=$N "$ZM_QA"
+    done
+}
 
 # ============================================================
-# Model 1: Meta-Llama-3.1-8B  (Base)
-# Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
-# GGUF  : QuantFactory/Meta-Llama-3.1-8B-GGUF  (community, public)
-#          files: Meta-Llama-3.1-8B.{quant}.gguf  (dot convention — gguf_template required)
-#          NOTE: bartowski/Meta-Llama-3.1-8B-GGUF is gated (inherits Meta license)
-# GPTQ  : ModelCloud/Meta-Llama-3.1-8B-gptq-4bit  INT4-g128  GPTQModel 0.9.9
-#          shuyuej/Meta-Llama-3.1-8B-GPTQ          INT4       ExLlama v1 format
-#          (TechxGenus has Llama-3 only, not 3.1 — omitted)
-#          (No confirmed INT8-group GPTQ for the base model at time of writing)
-# ============================================================
-LLAMA31B_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B"
-LLAMA31B_GGUF="proxy.model=QuantFactory/Meta-Llama-3.1-8B-GGUF"
-LLAMA31B_TPL="proxy.gguf_template=Meta-Llama-3.1-8B.{quant}.gguf"
-LLAMA31B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
-gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
-
-
-for DS in $DATASETS_ALL; do
-    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
-
-DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
-
-# ============================================================
-# Model 2: Qwen3-8B-Base
+# Model 1: Qwen3-8B-Base
 # Arch  : Qwen3ForCausalLM, vocab=151K, hidden=4096
 # GGUF  : mradermacher/Qwen3-8B-Base-GGUF  (community; Qwen org has no Base GGUF)
 #          files: Qwen3-8B-Base.{quant}.gguf  (dot convention)
@@ -139,11 +133,30 @@ gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
 gptq:AlphaGaO/Qwen3-8B-GPTQ]"
 
+run_all_datasets $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+# ============================================================
+# Model 2: Meta-Llama-3.1-8B  (Base)
+# Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
+# GGUF  : QuantFactory/Meta-Llama-3.1-8B-GGUF  (community, public)
+#          files: Meta-Llama-3.1-8B.{quant}.gguf  (dot convention — gguf_template required)
+#          NOTE: bartowski/Meta-Llama-3.1-8B-GGUF is gated (inherits Meta license)
+# GPTQ  : ModelCloud/Meta-Llama-3.1-8B-gptq-4bit  INT4-g128  GPTQModel 0.9.9
+#          shuyuej/Meta-Llama-3.1-8B-GPTQ          INT4       ExLlama v1 format
+#          (TechxGenus has Llama-3 only, not 3.1 — omitted)
+#          (No confirmed INT8-group GPTQ for the base model at time of writing)
+# ============================================================
+LLAMA31B_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B"
+LLAMA31B_GGUF="proxy.model=QuantFactory/Meta-Llama-3.1-8B-GGUF"
+LLAMA31B_TPL="proxy.gguf_template=Meta-Llama-3.1-8B.{quant}.gguf"
+LLAMA31B_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
+gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
+
+run_all_datasets $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS"
 
 # ============================================================
 # Model 3: Ministral-3-8B-Base-2512
@@ -162,41 +175,10 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-DATASETS_ALL="gsm8k mmlu arc lambada c4 wikitext"
-
-for DS in $DATASETS_ALL; do
-    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS"
 
 # ============================================================
-# Model 4: Meta-Llama-3.1-8B-Instruct
-# Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
-# GGUF  : bartowski/Meta-Llama-3.1-8B-Instruct-GGUF
-#          files: Meta-Llama-3.1-8B-Instruct-{quant}.gguf
-# GPTQ  : hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4  INT4-g128 AutoGPTQ
-#          ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit      INT4-g128 GPTQModel
-#          shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ              INT4-g128 ExLlama v1
-#          (No confirmed INT8-group standard GPTQ for Llama-3.1-8B-Instruct)
-# ============================================================
-LLAMA31I_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B-Instruct"
-LLAMA31I_GGUF="proxy.model=bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
-LLAMA31I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4,\
-gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit,\
-gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ]"
-
-
-for DS in $DATASETS_ALL; do
-    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
-
-# ============================================================
-# Model 5: Qwen3-8B  (Instruct / Thinking)
+# Model 4: Qwen3-8B  (Instruct / Thinking)
 # Arch  : Qwen3ForCausalLM, vocab=151K, hidden=4096
 # GGUF  : Qwen/Qwen3-8B-GGUF
 #          files: Qwen3-8B-{quant}.gguf
@@ -224,14 +206,29 @@ gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel,\
 gptq:JunHowie/Qwen3-8B-GPTQ-Int8,\
 gptq:RedHatAI/Qwen3-8B-quantized.w4a16]"
 
-DATASETS_ALL="wikitext gsm8k mmlu arc"
+run_all_datasets $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+# ============================================================
+# Model 5: Meta-Llama-3.1-8B-Instruct
+# Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
+# GGUF  : bartowski/Meta-Llama-3.1-8B-Instruct-GGUF
+#          files: Meta-Llama-3.1-8B-Instruct-{quant}.gguf
+# GPTQ  : hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4  INT4-g128 AutoGPTQ
+#          ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit      INT4-g128 GPTQModel
+#          shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ              INT4-g128 ExLlama v1
+#          (No confirmed INT8-group standard GPTQ for Llama-3.1-8B-Instruct)
+# ============================================================
+LLAMA31I_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B-Instruct"
+LLAMA31I_GGUF="proxy.model=bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
+LLAMA31I_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4,\
+gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit,\
+gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ]"
 
-DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
+run_all_datasets $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS"
 
 # ============================================================
 # Model 6: Ministral-3-8B-Instruct-2512
@@ -255,53 +252,10 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS"
 
 # ============================================================
-# Model 7: Mistral-7B-v0.3  (Base)
-# Arch  : MistralForCausalLM, vocab=32768, hidden=4096
-# GGUF  : bartowski/Mistral-7B-v0.3-GGUF
-#          files: Mistral-7B-v0.3-{quant}.gguf
-# GPTQ  : iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128  INT4-g128  AutoGPTQ
-# ============================================================
-MIS7B_TARGET="target.model=mistralai/Mistral-7B-v0.3"
-MIS7B_GGUF="proxy.model=bartowski/Mistral-7B-v0.3-GGUF"
-MIS7B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128]"
-
-for DS in $DATASETS_ALL; do
-    run $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
-
-# ============================================================
-# Model 8: Mistral-7B-Instruct-v0.3  (Instruct)
-# Arch  : MistralForCausalLM, vocab=32768, hidden=4096
-# GGUF  : bartowski/Mistral-7B-Instruct-v0.3-GGUF
-#          files: Mistral-7B-Instruct-v0.3-{quant}.gguf
-# GPTQ  : thesven/Mistral-7B-Instruct-v0.3-GPTQ  INT4  community AutoGPTQ
-# ============================================================
-MIS7I_TARGET="target.model=mistralai/Mistral-7B-Instruct-v0.3"
-MIS7I_GGUF="proxy.model=bartowski/Mistral-7B-Instruct-v0.3-GGUF"
-MIS7I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ]"
-
-for DS in $DATASETS_ALL; do
-    run $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
-
-# ============================================================
-# Model 9: DeepSeek-R1-Distill-Llama-8B  (Distilled / Reasoning)
+# Model 7: DeepSeek-R1-Distill-Llama-8B  (Distilled / Reasoning)
 # Arch  : LlamaForCausalLM, vocab=128K, hidden=4096
 # GGUF  : bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF
 #          files: DeepSeek-R1-Distill-Llama-8B-{quant}.gguf
@@ -316,14 +270,10 @@ Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4]"
 
-
-for DS in $DATASETS_ALL; do
-    run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS"
 
 # ============================================================
-# Model 10: Qwen2.5-7B  (Base)
+# Model 8: Qwen2.5-7B  (Base)
 # Arch  : Qwen2ForCausalLM, vocab=151K, hidden=3584
 # GGUF  : QuantFactory/Qwen2.5-7B-GGUF  (community)
 #          files: Qwen2.5-7B.{quant}.gguf  (QuantFactory dot convention)
@@ -338,13 +288,10 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS"
 
 # ============================================================
-# Model 11: Qwen2.5-7B-Instruct  (Instruct)
+# Model 9: Qwen2.5-7B-Instruct  (Instruct)
 # Arch  : Qwen2ForCausalLM, vocab=151K, hidden=3584
 # GGUF  : Qwen/Qwen2.5-7B-Instruct-GGUF  (official)
 #          files: Qwen2.5-7B-Instruct-{quant}.gguf
@@ -360,11 +307,41 @@ bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4,\
 gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8]"
 
+run_all_datasets $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS"
 
-for DS in $DATASETS_ALL; do
-    run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+# ============================================================
+# Model 10: Mistral-7B-v0.3  (Base)
+# Arch  : MistralForCausalLM, vocab=32768, hidden=4096
+# GGUF  : bartowski/Mistral-7B-v0.3-GGUF
+#          files: Mistral-7B-v0.3-{quant}.gguf
+# GPTQ  : iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128  INT4-g128  AutoGPTQ
+# ============================================================
+MIS7B_TARGET="target.model=mistralai/Mistral-7B-v0.3"
+MIS7B_GGUF="proxy.model=bartowski/Mistral-7B-v0.3-GGUF"
+MIS7B_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128]"
+
+run_all_datasets $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS"
+
+# ============================================================
+# Model 11: Mistral-7B-Instruct-v0.3  (Instruct)
+# Arch  : MistralForCausalLM, vocab=32768, hidden=4096
+# GGUF  : bartowski/Mistral-7B-Instruct-v0.3-GGUF
+#          files: Mistral-7B-Instruct-v0.3-{quant}.gguf
+# GPTQ  : thesven/Mistral-7B-Instruct-v0.3-GPTQ  INT4  community AutoGPTQ
+# ============================================================
+MIS7I_TARGET="target.model=mistralai/Mistral-7B-Instruct-v0.3"
+MIS7I_GGUF="proxy.model=bartowski/Mistral-7B-Instruct-v0.3-GGUF"
+MIS7I_BITS="proxy.quantization_bits=[\
+dtype:float16,\
+Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
+bnb:int8,bnb:nf4,bnb:fp4,\
+gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ]"
+
+run_all_datasets $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS"
 
 # ============================================================
 # Model 12: Gemma-3-4B  (Base)
@@ -380,10 +357,7 @@ GEMMA3B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 bnb:int8,bnb:nf4,bnb:fp4]"
 
-for DS in $DATASETS_ALL; do
-    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS"
 
 # ============================================================
 # Model 13: Gemma-3-4B-IT  (Instruct)
@@ -401,11 +375,7 @@ Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:circulus/gemma-3-4b-it-gptq]"
 
-
-for DS in $DATASETS_ALL; do
-    run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS"
 
 # ============================================================
 # Model 14: Gemma-2-9B  (Base)
@@ -424,11 +394,7 @@ Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-gptq-4bit]"
 
-
-for DS in $DATASETS_ALL; do
-    run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
-        data.task=$DS data.num_samples=$N
-done
+run_all_datasets $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS"
 
 # ============================================================
 # Model 15: Gemma-2-9B-IT  (Instruct)
@@ -447,188 +413,7 @@ bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-it-gptq-4bit,\
 gptq:marcsun13/gemma-2-9b-it-GPTQ]"
 
-
-for DS in $DATASETS_ALL; do
-    run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
-        data.task=$DS data.num_samples=$N
-done
-
-# ============================================================
-# Ablation: z_mode=concat for all datasets
-#
-# Compares per-token concatenation (theory-paired) vs the
-# default z_mode (mean_pool for corpus, last_context_token for
-# Q&A).  Same model/quant configs as above.
-#
-# Corpus (C4, WikiText): concat all tokens vs mean_pool
-# Q&A (LAMBADA, MMLU, ARC, GSM8K): concat answer-region tokens
-#   vs single last_context_token
-# ============================================================
-DATASETS_CONCAT="lambada c4 wikitext gsm8k mmlu arc"
-
-for DS in $DATASETS_CONCAT; do
-    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-for DS in $DATASETS_CONCAT; do
-    run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=concat
-done
-
-# ============================================================
-# Ablation: z_mode=last_token for Q&A datasets
-#
-# Takes the hidden state at the END of the full Q+A sequence
-# (after teacher-forcing the ground-truth answer).  The z has
-# seen everything but predicts nothing in our data — no valid
-# paired loss exists.  Included as an empirical ablation point
-# alongside last_context_token (default) and concat (theory).
-#
-# Only Q&A datasets — corpus datasets have no Q/A split so
-# last_token ≈ last valid token of text (not meaningful).
-# ============================================================
-DATASETS_QA="lambada gsm8k mmlu arc"
-
-for DS in $DATASETS_QA; do
-    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
-
-for DS in $DATASETS_QA; do
-    run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
-        data.task=$DS data.num_samples=$N data.z_mode=last_token
-done
+run_all_datasets $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS"
 
 echo "========================================"
 echo "  All experiments complete."
