@@ -58,9 +58,8 @@ class CLIPExtractor(FeatureExtractor):
     H = normalised zero-shot text embeddings transposed to  (d, C)
     """
 
-    def __init__(self, processor=None, offload_to_cpu: bool = True):
+    def __init__(self, processor=None):
         self.processor = processor
-        self.offload_to_cpu = offload_to_cpu
 
     def extract_features(
         self,
@@ -75,7 +74,7 @@ class CLIPExtractor(FeatureExtractor):
                 images = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch.to(device)
                 feats = model.get_image_features(pixel_values=images)
                 feats = feats / feats.norm(dim=-1, keepdim=True)
-                all_features.append(feats.cpu() if self.offload_to_cpu else feats)
+                all_features.append(feats)
         return torch.cat(all_features, dim=0)
 
     def extract_head(
@@ -128,8 +127,8 @@ class LLMExtractor(FeatureExtractor):
         model.lm_head              — LM head at the outer model level
     """
 
-    def __init__(self, offload_to_cpu: bool = False):
-        self.offload_to_cpu = offload_to_cpu
+    def __init__(self):
+        pass
 
     @staticmethod
     def _get_backbone(model: torch.nn.Module):
@@ -262,8 +261,7 @@ class LLMExtractor(FeatureExtractor):
                 masks = inp.get("attention_mask")  # (bsz, seq)
                 feats = self._extract_z(hidden, masks, z_mode, prompt_lens)
 
-                t = feats.float()
-                all_features.append(t.cpu() if self.offload_to_cpu else t)
+                all_features.append(feats.float())
 
         return torch.cat(all_features, dim=0)
 
@@ -380,9 +378,7 @@ class LLMExtractor(FeatureExtractor):
 
                 for zm in z_modes:
                     feats = self._extract_z(hidden, masks, zm, prompt_lens)
-                    all_features[zm].append(
-                        feats.float().cpu() if self.offload_to_cpu else feats.float()
-                    )
+                    all_features[zm].append(feats.float())
 
                 # ── Per-sample loss ───────────────────────────────────────
                 for j in range(bsz):
@@ -423,7 +419,7 @@ class LLMExtractor(FeatureExtractor):
                             reduction="none", ignore_index=-100,
                         )
                         valid_tok = shift_tok != -100
-                        token_losses.append(ce_per_tok[valid_tok].cpu())
+                        token_losses.append(ce_per_tok[valid_tok])
 
                     # Answer-only loss (tokens after prompt_length)
                     if prompt_lens is not None:
@@ -474,7 +470,7 @@ class LLMExtractor(FeatureExtractor):
                         oh = torch.zeros_like(p)
                         oh.scatter_(1, gn_targets[s:e].unsqueeze(1), 1.0)
                         gnorms = (p - oh).norm(dim=-1)
-                        all_grad_norms.append(gnorms.cpu())
+                        all_grad_norms.append(gnorms)
 
                 del all_logits
 
@@ -508,11 +504,11 @@ class LLMExtractor(FeatureExtractor):
         """
         if hasattr(model, "lm_head"):
             w = model.lm_head.weight.data
-            head = w.cpu().float() if self.offload_to_cpu else w.float()  # (vocab, d)
+            head = w.float()  # (vocab, d)
         elif (hasattr(model, "language_model")
               and hasattr(model.language_model, "lm_head")):
             w = model.language_model.lm_head.weight.data
-            head = w.cpu().float() if self.offload_to_cpu else w.float()
+            head = w.float()
         else:
             raise AttributeError(
                 f"Cannot locate lm_head in {type(model).__name__}. "
