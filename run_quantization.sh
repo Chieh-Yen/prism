@@ -15,17 +15,21 @@
 #   GPTQ  → gptq:REPO              pre-quantised GPTQ (see per-model notes)
 #
 # Target models (all loaded in BF16):
-#   1.  meta-llama/Meta-Llama-3.1-8B              Base
 #   2.  Qwen/Qwen3-8B-Base                        Base
+#   1.  meta-llama/Meta-Llama-3.1-8B              Base
 #   3.  mistralai/Ministral-3-8B-Base-2512        Base
-#   4.  meta-llama/Meta-Llama-3.1-8B-Instruct     Instruct
 #   5.  Qwen/Qwen3-8B                             Instruct / Thinking
+#   4.  meta-llama/Meta-Llama-3.1-8B-Instruct     Instruct
 #   6.  mistralai/Ministral-3-8B-Instruct-2512    Instruct
-#   7.  mistralai/Mistral-7B-v0.3                 Base
-#   8.  mistralai/Mistral-7B-Instruct-v0.3        Instruct
+#
 #   9.  deepseek-ai/DeepSeek-R1-Distill-Llama-8B  Distilled / Reasoning
+#
 #   10. Qwen/Qwen2.5-7B                           Base
 #   11. Qwen/Qwen2.5-7B-Instruct                  Instruct
+#
+#   7.  mistralai/Mistral-7B-v0.3                 Base
+#   8.  mistralai/Mistral-7B-Instruct-v0.3        Instruct
+#
 #   12. google/gemma-3-4b                         Base
 #   13. google/gemma-3-4b-it                      Instruct
 #   14. google/gemma-2-9b                         Base
@@ -99,10 +103,10 @@ gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
 
 
-#for DS in $DATASETS_ALL; do
-#    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
-#        data.task=$DS data.num_samples=$N
-#done
+for DS in $DATASETS_ALL; do
+    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
 
 DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
@@ -136,10 +140,10 @@ gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
 gptq:AlphaGaO/Qwen3-8B-GPTQ]"
 
 
-#for DS in $DATASETS_ALL; do
-#    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
-#        data.task=$DS data.num_samples=$N
-#done
+for DS in $DATASETS_ALL; do
+    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
 
 # ============================================================
 # Model 3: Ministral-3-8B-Base-2512
@@ -160,10 +164,10 @@ bnb:int8,bnb:nf4,bnb:fp4]"
 
 DATASETS_ALL="gsm8k mmlu arc lambada c4 wikitext"
 
-#for DS in $DATASETS_ALL; do
-#    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
-#        data.task=$DS data.num_samples=$N
-#done
+for DS in $DATASETS_ALL; do
+    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
+        data.task=$DS data.num_samples=$N
+done
 
 # ============================================================
 # Model 4: Meta-Llama-3.1-8B-Instruct
@@ -186,10 +190,10 @@ gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit,\
 gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ]"
 
 
-#for DS in $DATASETS_ALL; do
-#    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
-#        data.task=$DS data.num_samples=$N
-#done
+for DS in $DATASETS_ALL; do
+    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
+        data.task=$DS data.num_samples=$N
+done
 
 # ============================================================
 # Model 5: Qwen3-8B  (Instruct / Thinking)
@@ -222,10 +226,10 @@ gptq:RedHatAI/Qwen3-8B-quantized.w4a16]"
 
 DATASETS_ALL="wikitext gsm8k mmlu arc"
 
-#for DS in $DATASETS_ALL; do
-#    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
-#        data.task=$DS data.num_samples=$N
-#done
+for DS in $DATASETS_ALL; do
+    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
+        data.task=$DS data.num_samples=$N
+done
 
 DATASETS_ALL="lambada c4 wikitext gsm8k mmlu arc"
 
@@ -535,6 +539,95 @@ done
 for DS in $DATASETS_CONCAT; do
     run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
         data.task=$DS data.num_samples=$N data.z_mode=concat
+done
+
+# ============================================================
+# Ablation: z_mode=last_token for Q&A datasets
+#
+# Takes the hidden state at the END of the full Q+A sequence
+# (after teacher-forcing the ground-truth answer).  The z has
+# seen everything but predicts nothing in our data — no valid
+# paired loss exists.  Included as an empirical ablation point
+# alongside last_context_token (default) and concat (theory).
+#
+# Only Q&A datasets — corpus datasets have no Q/A split so
+# last_token ≈ last valid token of text (not meaningful).
+# ============================================================
+DATASETS_QA="lambada gsm8k mmlu arc"
+
+for DS in $DATASETS_QA; do
+    run $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $MIN3B_TARGET $MIN3B_GGUF $MIN3B_TPL "$MIN3B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $QWEN25B_TARGET $QWEN25B_GGUF $QWEN25B_TPL "$QWEN25B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
+done
+
+for DS in $DATASETS_QA; do
+    run $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS" \
+        data.task=$DS data.num_samples=$N data.z_mode=last_token
 done
 
 echo "========================================"
