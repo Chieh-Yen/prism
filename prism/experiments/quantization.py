@@ -331,24 +331,6 @@ class QuantizationExperiment(BaseExperiment):
                 trust_remote_code=True,
             )
             proxy = _bnb_requantize(proxy, _BNB_CONFIGS[bnb_tag](), self.device)
-        """ Merge Conflict
-        # Pre-load config and clear any existing quantization_config (e.g.
-        # FineGrainedFP8Config present in some official checkpoints such as
-        # Ministral-3-8B-Instruct-2512).  Passing a conflicting quantization
-        # class alongside BitsAndBytesConfig causes transformers to raise an
-        # error; stripping it from the config object prevents the conflict.
-        config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
-        if getattr(config, "quantization_config", None) is not None:
-            config.quantization_config = None
-        proxy = _load_model(
-            model_id,
-            config=config,
-            quantization_config=_BNB_CONFIGS[bnb_tag](),
-            device_map=self.device,
-            trust_remote_code=True,
-            **self._attn_impl_kwargs(),
-        )
-        """
         return proxy
 
     def _load_proxy_gptq(
@@ -507,7 +489,7 @@ class QuantizationExperiment(BaseExperiment):
             **self._attn_impl_kwargs(),
         )
         target_model.eval()
-        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
+        extractor = LLMExtractor()
 
         print(f"Caching target features and loss (single forward pass, z_modes={z_modes}) ...")
         Z_dict_T, loss_stats = extractor.extract_features_and_loss_per_sample(

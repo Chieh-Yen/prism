@@ -335,7 +335,7 @@ class CrossScaleExperiment(BaseExperiment):
             seed=self.seed,
         )
 
-        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
+        extractor = LLMExtractor()
 
         # ================================================================
         # Phase 1 — Target: extract features / loss, then free VRAM

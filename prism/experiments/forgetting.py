@@ -80,7 +80,7 @@ class ForgettingExperiment(BaseExperiment):
             device_map=self.device,
         )
         target_model.eval()
-        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
+        extractor = LLMExtractor()
 
         # Pre-extract target features once
         print("Pre-extracting target features ...")
@@ -113,7 +113,7 @@ class ForgettingExperiment(BaseExperiment):
 
         pairs = self.setup_pairs()
         results = []
-        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
+        extractor = LLMExtractor()
 
         for i, pair in enumerate(pairs):
             label = pair["label"]

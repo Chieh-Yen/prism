@@ -82,7 +82,7 @@ def _spectral_norm_power_iter(H: Tensor, n_iter: int = 32) -> float:
 def _diameter_exact(H: Tensor, col_norms_sq: Tensor) -> float:
     """Exact column-set diameter via chunked ||h_j-h_k||^2 = ||h_j||^2 + ||h_k||^2 - 2 h_j·h_k."""
     C = H.shape[1]
-    CHUNK = 2048
+    CHUNK = 4096
     best_sq = 0.0
 
     for i in range(0, C, CHUNK):

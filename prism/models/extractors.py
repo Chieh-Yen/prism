@@ -316,7 +316,6 @@ class LLMExtractor(FeatureExtractor):
         is_concat = ("concat" in z_modes)
         all_grad_norms: List[Tensor] = []
         CHUNK = chunk_size
-        ce_none = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=-100)
 
         # Probe once whether the model supports output_hidden_states.
         # Some quantised wrappers silently ignore the flag; we verify on the
@@ -380,85 +379,61 @@ class LLMExtractor(FeatureExtractor):
                     feats = self._extract_z(hidden, masks, zm, prompt_lens)
                     all_features[zm].append(feats.float())
 
-                # ── Per-sample loss ───────────────────────────────────────
-                for j in range(bsz):
-                    labels = inp["input_ids"][j].clone()
-                    if masks is not None:
-                        labels[masks[j] == 0] = -100
+                # ── Per-sample loss (vectorized) ──────────────────────────
+                V = all_logits.shape[-1]
+                shift_labels = inp["input_ids"][:, 1:].clone()       # (bsz, T-1)
+                if masks is not None:
+                    shift_labels[masks[:, 1:] == 0] = -100
+                T_m1 = shift_labels.shape[1]
 
-                    shift_logits = all_logits[j, :-1, :]
-                    shift_labels = labels[1:]
-                    seq_len = shift_logits.shape[0]
+                # Single batched CE — reduction='none' returns 0 at ignore positions
+                ce_per_token = torch.nn.functional.cross_entropy(
+                    all_logits[:, :-1, :].reshape(-1, V),
+                    shift_labels.reshape(-1),
+                    reduction="none", ignore_index=-100,
+                ).reshape(bsz, T_m1)                                 # (bsz, T-1)
 
-                    loss_sum, n_valid = 0.0, 0
-                    for s in range(0, seq_len, CHUNK):
-                        e = min(s + CHUNK, seq_len)
-                        cl = shift_labels[s:e]
-                        v = (cl != -100).sum().item()
-                        if v == 0:
-                            continue
-                        loss_sum += ce_none(shift_logits[s:e], cl).item() * v
-                        n_valid += v
-                    sample_losses.append(loss_sum / max(n_valid, 1))
+                valid_mask = (shift_labels != -100).float()           # (bsz, T-1)
+                valid_counts = valid_mask.sum(dim=1).clamp(min=1)     # (bsz,)
 
-                    # Per-token losses (concat mode): each z_t at position t
-                    # is paired with CE(h(z_t), y_{t+1}).
-                    # Corpus (no prompt_lens): all valid shifted positions.
-                    # Q&A (prompt_lens present): answer-region only, matching
-                    # _extract_z("concat") which returns prompt_len-1..T-2.
-                    if is_concat:
+                # Full-text per-sample loss
+                batch_losses = (ce_per_token * valid_mask).sum(dim=1) / valid_counts
+                sample_losses.extend(batch_losses.tolist())
+
+                # Per-token losses (concat mode)
+                if is_concat:
+                    positions = torch.arange(T_m1, device=ce_per_token.device)
+                    for j in range(bsz):
                         if prompt_lens is not None:
                             pl = int(prompt_lens[j].item())
-                            tok_labels = labels.clone()
-                            tok_labels[:pl] = -100          # mask prompt
-                            shift_tok = tok_labels[1:]      # valid at positions pl-1..T-2
+                            tok_valid = valid_mask[j].bool() & (positions >= (pl - 1))
                         else:
-                            shift_tok = shift_labels
-                        ce_per_tok = torch.nn.functional.cross_entropy(
-                            shift_logits, shift_tok,
-                            reduction="none", ignore_index=-100,
-                        )
-                        valid_tok = shift_tok != -100
-                        token_losses.append(ce_per_tok[valid_tok])
+                            tok_valid = valid_mask[j].bool()
+                        token_losses.append(ce_per_token[j][tok_valid])
 
-                    # Answer-only loss (tokens after prompt_length)
-                    if prompt_lens is not None:
-                        pl = int(prompt_lens[j].item())
-                        ans_labels = labels.clone()
-                        ans_labels[:pl] = -100
-                        shift_ans = ans_labels[1:]
-                        a_sum, a_valid = 0.0, 0
-                        for s in range(0, seq_len, CHUNK):
-                            e = min(s + CHUNK, seq_len)
-                            cl = shift_ans[s:e]
-                            v = (cl != -100).sum().item()
-                            if v == 0:
-                                continue
-                            a_sum += ce_none(shift_logits[s:e], cl).item() * v
-                            a_valid += v
-                        answer_losses.append(a_sum / max(a_valid, 1))
+                # Answer-only loss — reuse ce_per_token with tighter mask
+                if prompt_lens is not None:
+                    pos_2d = torch.arange(T_m1, device=shift_labels.device).unsqueeze(0)
+                    ans_valid = valid_mask.clone()
+                    ans_valid[pos_2d < (prompt_lens.unsqueeze(1) - 1)] = 0
+                    ans_counts = ans_valid.sum(dim=1).clamp(min=1)
+                    batch_ans = (ce_per_token * ans_valid).sum(dim=1) / ans_counts
+                    answer_losses.extend(batch_ans.tolist())
 
-                    # Final-answer-only loss (tokens after reasoning_length,
-                    # i.e. only the final number in GSM8K)
-                    if reasoning_lens is not None:
-                        rl = int(reasoning_lens[j].item())
-                        final_labels = labels.clone()
-                        final_labels[:rl] = -100
-                        shift_final = final_labels[1:]
-                        f_sum, f_valid = 0.0, 0
-                        for s in range(0, seq_len, CHUNK):
-                            e = min(s + CHUNK, seq_len)
-                            cl = shift_final[s:e]
-                            v = (cl != -100).sum().item()
-                            if v == 0:
-                                continue
-                            f_sum += ce_none(shift_logits[s:e], cl).item() * v
-                            f_valid += v
-                        final_answer_losses.append(f_sum / max(f_valid, 1))
+                # Final-answer-only loss (GSM8K)
+                if reasoning_lens is not None:
+                    pos_2d = torch.arange(T_m1, device=shift_labels.device).unsqueeze(0)
+                    final_valid = valid_mask.clone()
+                    final_valid[pos_2d < (reasoning_lens.unsqueeze(1) - 1)] = 0
+                    final_counts = final_valid.sum(dim=1).clamp(min=1)
+                    batch_final = (ce_per_token * final_valid).sum(dim=1) / final_counts
+                    final_answer_losses.extend(batch_final.tolist())
 
-                    # Per-token gradient norms (empirical K_pred)
-                    gn_logits = shift_logits
-                    gn_targets = shift_labels
+                # Per-token gradient norms (empirical K_pred)
+                # ||p - e_y||^2 = ||p||^2 - 2*p_y + 1  (avoids one-hot alloc)
+                for j in range(bsz):
+                    gn_logits = all_logits[j, :-1, :]               # (T-1, V)
+                    gn_targets = shift_labels[j]                     # (T-1,)
                     if masks is not None:
                         token_mask = masks[j, 1:].bool()
                         gn_logits = gn_logits[token_mask]
@@ -467,9 +442,8 @@ class LLMExtractor(FeatureExtractor):
                     for s in range(0, gn_len, CHUNK):
                         e = min(s + CHUNK, gn_len)
                         p = torch.softmax(gn_logits[s:e].float(), dim=-1)
-                        oh = torch.zeros_like(p)
-                        oh.scatter_(1, gn_targets[s:e].unsqueeze(1), 1.0)
-                        gnorms = (p - oh).norm(dim=-1)
+                        p_y = p[torch.arange(e - s, device=p.device), gn_targets[s:e]]
+                        gnorms = (p.pow(2).sum(dim=-1) - 2 * p_y + 1).clamp(min=0).sqrt()
                         all_grad_norms.append(gnorms)
 
                 del all_logits

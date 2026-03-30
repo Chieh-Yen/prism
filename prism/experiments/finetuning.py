@@ -84,7 +84,7 @@ class FinetuningExperiment(BaseExperiment):
             batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
         )
 
-        extractor = LLMExtractor(offload_to_cpu=self.offload_to_cpu)
+        extractor = LLMExtractor()
 
         # =============================================================
         # Phase 1 — Target (instruct): extract, compute loss, free VRAM
