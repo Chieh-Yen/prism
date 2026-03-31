@@ -1,0 +1,1049 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2025
+
+% The authors should use one of these tracks.
+% Before accepting by the NeurIPS conference, select one of the options below.
+% 0. "default" for submission
+ \usepackage{neurips_2025}
+% the "default" option is equal to the "main" option, which is used for the Main Track with double-blind reviewing.
+% 1. "main" option is used for the Main Track
+%  \usepackage[main]{neurips_2025}
+% 2. "position" option is used for the Position Paper Track
+%  \usepackage[position]{neurips_2025}
+% 3. "dandb" option is used for the Datasets & Benchmarks Track
+ % \usepackage[dandb]{neurips_2025}
+% 4. "creativeai" option is used for the Creative AI Track
+%  \usepackage[creativeai]{neurips_2025}
+% 5. "sglblindworkshop" option is used for the Workshop with single-blind reviewing
+ % \usepackage[sglblindworkshop]{neurips_2025}
+% 6. "dblblindworkshop" option is used for the Workshop with double-blind reviewing
+%  \usepackage[dblblindworkshop]{neurips_2025}
+
+% After being accepted, the authors should add "final" behind the track to compile a camera-ready version.
+% 1. Main Track
+ % \usepackage[main, final]{neurips_2025}
+% 2. Position Paper Track
+%  \usepackage[position, final]{neurips_2025}
+% 3. Datasets & Benchmarks Track
+ % \usepackage[dandb, final]{neurips_2025}
+% 4. Creative AI Track
+%  \usepackage[creativeai, final]{neurips_2025}
+% 5. Workshop with single-blind reviewing
+%  \usepackage[sglblindworkshop, final]{neurips_2025}
+% 6. Workshop with double-blind reviewing
+%  \usepackage[dblblindworkshop, final]{neurips_2025}
+% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote.
+% For workshops (5., 6.), the authors should add the name of the workshop, "\workshoptitle" command is used to set the workshop title.
+% \workshoptitle{WORKSHOP TITLE}
+
+% "preprint" option is used for arXiv or other preprint submissions
+ % \usepackage[preprint]{neurips_2025}
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2025}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{assumption}{Assumption}
+\newtheorem{corollary}{Corollary}
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote. 
+% \title{The Linear Representation Hypothesis \\
+% as a Proxy for Model Performance}
+\title{Geometric Alignment \\
+as a Proxy for Performance Transferability}
+% PRISM: Proxy Risk Estimation via Isomorphic Spectral Matching
+% Proxy Risk Inference via Structural Mapping
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+  David S.~Hippocampus\thanks{Use footnote for providing further information
+    about author (webpage, alternative address)---\emph{not} for acknowledging
+    funding agencies.} \\
+  Department of Computer Science\\
+  Cranberry-Lemon University\\
+  Pittsburgh, PA 15213 \\
+  \texttt{hippo@cs.cranberry-lemon.edu} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Efficient machine learning increasingly relies on \emph{proxy models}---such as smaller checkpoints, quantized variants, or historical snapshots---to estimate the behavior of expensive target models. However, the theoretical conditions under which a proxy accurately reflects a target's performance landscape remain poorly understood. In this work, we propose a unified geometric framework linking \emph{linear representational alignment} to \emph{functional risk proximity}. We derive an exact decomposition of feature discrepancy using the nuclear norm of the cross-covariance matrix, introducing the \emph{Procrustes Similarity Coefficient} ($\Omega$) as a computable, generation-free metric for alignment. We further bound prediction head discrepancy via spectral operator norms. We demonstrate the versatility of this framework across four distinct high-value scenarios: (1) \textbf{Cross-Scale Model Merging}, where we prove that optimal coefficients can be transferred from small to large models with bounded regret; (2) \textbf{Quantization Quality Estimation}, enabling prediction of performance degradation without ground-truth labels; (3) \textbf{Geometric Monitoring of Catastrophic Forgetting}, providing a lightweight regularizer for continual learning; and (4) \textbf{Out-of-Distribution Detection}, utilizing multi-view geometric consistency to identify anomalies. Our results establish linear geometric alignment as a rigorous, sufficient condition for functional performance transfer.
+\end{abstract}
+
+\section{Introduction}
+
+\paragraph{The Modern Paradigm: Backbone plus Linear Probe.}
+The architecture of modern foundation models has converged to a standard paradigm: a massive, non-linear \emph{feature extractor} (the backbone) followed by a lightweight \emph{linear prediction head}. 
+Whether in pre-training, parameter-efficient fine-tuning (e.g., LoRA), or transfer learning, the dominant hypothesis is that the backbone learns a highly structured data manifold, which the head then linearly decodes.
+However, as these models scale to billions of parameters, standard operations such as hyperparameter tuning (e.g., in Model Merging or NAS), continuous evaluation, and safety monitoring become prohibitively expensive.
+
+\paragraph{The Efficiency-Generalization Gap.}
+To circumvent these computational bottlenecks, practitioners increasingly rely on \emph{proxy models}---surrogates such as smaller checkpoints, quantized variants, or historical snapshots---to estimate the behavior of expensive target models.
+Yet, a critical gap remains: \textbf{we lack rigorous tools to analyze the trade-off between efficiency and generalization.}
+Current similarity metrics (e.g., CKA or Cosine Similarity) rely on Frobenius-based correlations that measure geometric similarity but fail to provide functional guarantees.
+Practitioners face a dilemma: blindly trust a proxy's "vibes" and risk performance collapse, or perform expensive ground-truth verification, negating the efficiency gains.
+A fundamental question arises: \emph{Under what structural conditions does the feature geometry of a proxy model mathematically guarantee the generalization performance of a target model?}
+
+\paragraph{The Geometric Foundation: PRISM.}
+We posit that the validity of a proxy hinges on the \emph{Linear Representation Hypothesis}: models within the same semantic lineage learn representational manifolds that are identical up to a linear transformation.
+In this work, we formalize this hypothesis into a computable framework named \textbf{PRISM} (Proxy Risk Estimation via Isomorphic Spectral Matching).
+We derive a tight upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ that explicitly links functional performance to two geometric observables: (i) the \emph{Procrustes Similarity} ($\Omega$) of the backbones, and (ii) the \emph{Covariance-Adjusted Alignment} of the prediction heads.
+
+\paragraph{A Unified Framework across the Geometric Spectrum.}
+Unlike prior works that focus on specific heuristics, our framework reveals that linear geometric alignment is a universal principle connecting diverse efficiency problems. We demonstrate this by instantiating PRISM across a spectrum of geometric complexity:
+\begin{itemize}
+    \item \textbf{The Identity Regime (Compression):} In \textbf{Quantization Quality Estimation}, where alignment is identity ($W \approx I$), our bound simplifies to a label-free detector for feature collapse, allowing precise ranking of quantization formats purely via scale and shape statistics.
+    \item \textbf{The Rotational Regime (Dynamics):} In \textbf{Continual Learning} and \textbf{OOD Detection}, we define geometric stability under rotation ($W \in \mathcal{O}(d)$). We propose a \textbf{"multi-view consistency check"} where the breakdown of geometric alignment serves as a robust signal for anomalies and catastrophic forgetting.
+    \item \textbf{The Projective Regime (Transfer):} In the general setting ($d_T \neq d_P$), we address \textbf{Cross-Scale Model Merging} and \textbf{Generalization Forecasting}. We prove that optimal hyperparameters can be transferred from small to large models with \textbf{bounded regret}, and establish sufficient conditions for \textbf{Cross-Family Capability Transfer} (e.g., Llama to Gemma).
+\end{itemize}
+
+\paragraph{Contributions.}
+Our main contributions are as follows:
+\begin{enumerate}
+    \item \textbf{Theory:} We provide an exact geometric decomposition of feature discrepancy using the Nuclear Norm, offering a \textbf{strictly tighter bound than Frobenius-based metrics (like CKA)}. We further bridge the gap to functional risk by bounding head discrepancy via covariance-adjusted spectral norms.
+    \item \textbf{Algorithms:} We propose practical protocols for efficient ML, including "Coefficient Transfer" for model merging and "Geometric Control Variates" for risk forecasting.
+    \item \textbf{Breadth:} We validate the framework across the entire lifecycle of foundation models—from compression (quantization) and training dynamics (forgetting) to high-level capability transfer—establishing linear geometric alignment as a rigorous implementation of efficient machine learning.
+\end{enumerate}
+%========================================================
+
+\section{Related Work}
+
+\paragraph{Geometric Analysis of Neural Representations.}
+Understanding the internal structure of neural networks remains a central challenge in deep learning. Classical approaches rely on similarity metrics such as Canonical Correlation Analysis (CCA) \cite{raghu2017svcca} and Centered Kernel Alignment (CKA) \cite{kornblith2019similarity} to compare layer-wise representations.
+More recently, the \emph{Linear Representation Hypothesis} \cite{moschella2022relative, park2023linear} suggests that models trained on similar data converge to distinct but linearly alignable manifolds.
+However, existing works primarily focus on \emph{post-hoc interpretability}—measuring similarity after training is complete.
+Our work differs fundamentally by deriving a \emph{constructive} theoretical bound that links geometric alignment directly to functional risk discrepancies.
+Furthermore, while CKA relies on Frobenius norms, we demonstrate that the Nuclear norm-based Procrustes metric ($\Omega$) provides the strictly tightest bound for rotational alignment, a critical property for establishing rigorous transfer guarantees.
+
+\paragraph{Proxy Models and Performance Forecasting.}
+The prohibitive cost of evaluating foundation models has spurred interest in performance forecasting.
+Scaling Laws \cite{kaplan2020scaling, hoffmann2022training} predict loss as a power-law function of compute and data, but cannot capture instance-level behavior or architectural idiosyncrasies.
+\emph{Weak-to-Strong Generalization} \cite{burns2023weak} explores using small models to supervise larger ones, but focuses on label generation rather than risk estimation.
+Our PRISM framework introduces a new paradigm: \emph{Geometric Control Variates}. Instead of relying on statistical extrapolation, we use the geometric alignment between a specific proxy and target to reduce the variance of risk estimation, enabling sample-efficient forecasting for specific downstream tasks.
+
+\paragraph{Model Merging and Linear Connectivity.}
+Recent findings on Linear Mode Connectivity \cite{frankle2020linear, wortsman2022model} have enabled techniques like Task Arithmetic \cite{ilharco2023editing} and TIES-Merging \cite{yadav2023ties}, which manipulate model weights directly.
+While works like Git Re-Basin \cite{ainsworth2022git} address permutation symmetries to facilitate merging, hyperparameter selection (e.g., mixing coefficients) largely relies on expensive heuristic search or grid search on the target model.
+To the best of our knowledge, we represent the first theoretical framework that formalizes \emph{Cross-Scale Coefficient Transfer}. We prove that if the geometric trajectory of a small proxy is isomorphic to that of a large target, optimal merging coefficients can be transferred with theoretically bounded regret.
+
+\paragraph{Geometry in Compression and Dynamics.}
+Our framework also unifies unconnected literature in quantization and continual learning through the lens of geometry.
+In quantization, assessing degradation typically requires perplexity evaluation \cite{frantar2022gptq}; we propose a \emph{generation-free} approach by detecting "Scale Collapse" ($\Delta \rho$).
+In continual learning, methods like EWC \cite{kirkpatrick2017overcoming} penalize weight drift to prevent catastrophic forgetting.
+We offer a complementary perspective: penalizing \emph{Geometric Drift} ($\Omega$). Unlike weight constraints which are rigid, our geometric regularizer allows for global rotations provided the relative semantic structure is preserved, offering a more flexible stability-plasticity trade-off.
+
+
+\section{A Geometric Framework for Proxy Performance Estimation}
+\label{sec:geometric_foundation}
+
+The validity of using a \emph{proxy model} to estimate the behavior of a \emph{target model} relies on the assumption that their risk landscapes maintain a high degree of correlation across the parameter configuration space. In this section, we ground this phenomenological assumption in the \emph{Linear Representation Hypothesis}. We derive a rigorous upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ by decomposing it into \emph{geometric alignment error} and \emph{functional head mismatch}.
+
+\subsection{Problem Setup: The Geometry of Heterogeneous Proxies}
+\label{subsec:problem_setup}
+
+We consider the problem of estimating the risk of a high-capacity \emph{Target Model} $T$ using a computationally efficient \emph{Proxy Model} $P$. Crucially, we assume the general setting where $T$ and $P$ may differ in architecture (e.g., Llama vs. Gemma), parameter count, and latent dimensionality.
+
+\subsection{Feature Extraction Protocol}
+\label{subsec:feature_extraction_protocol}
+To ensure the empirical feature matrix $Z$ strictly corresponds to the functional risk $\mathcal{R}$ bounded in Eq.~(\ref{eq:unified_bound_eq}), we align our extraction strategy with the task evaluation metric. For multiple-choice tasks (e.g., MMLU, ARC), we extract the feature vector of the final prompt token, as it directly produces the logits for the answer choice. For causal language modeling (e.g., WikiText, C4), $Z$ comprises features sampled across the sequence to reflect the average next-token prediction loss.
+
+
+\paragraph{Functional Decomposition.}
+We define a model $M \in \{T, P\}$ as a functional composition of a backbone encoder and a prediction head, parameterized by $\theta_M \in \Theta_M$:
+\begin{equation}
+f_M(x; \theta_M) = h_M \big( \phi_M(x; \theta_M) \big),
+\end{equation}
+where:
+\begin{itemize}
+    \item $\phi_M(\cdot; \theta_M): \mathcal{X} \to \mathbb{R}^{d_M}$ is the non-linear \emph{feature extractor} (e.g., a Transformer backbone) mapping inputs to a $d_M$-dimensional latent manifold. Note that generally $d_T \neq d_P$.
+    \item $h_M: \mathbb{R}^{d_M} \to \mathcal{Y}'$ is the \emph{prediction head} (e.g., a linear projection $H_M \in \mathbb{R}^{d_M \times C}$ followed by Softmax) mapping features to the output space.
+\end{itemize}
+
+\paragraph{The Proxy Hypothesis.}
+Our framework relies on the \emph{Relative Representation Hypothesis} \cite{moschella2022relative}. We posit that while the absolute coordinates of $\phi_T$ and $\phi_P$ differ due to architectural heterogeneity, the \emph{intrinsic geometry} of the data manifold is preserved across capable models. This implies the existence of an optimal linear alignment map $W \in \mathbb{R}^{d_P \times d_T}$ such that $\phi_T(x) \approx \phi_P(x) W$.
+
+\paragraph{Notation and Shorthand.}
+To streamline the analysis, we adopt the following simplified notation throughout the paper:
+
+\begin{table}[h]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{l|p{10cm}} 
+\hline
+\textbf{Symbol} & \textbf{Definition} \\
+\hline
+$Z_T, Z_P$ & The feature matrices in $\mathbb{R}^{n \times d_T}$ and $\mathbb{R}^{n \times d_P}$ containing representations of $n$ samples. \\
+$H_T, H_P$ & The prediction head weight matrices in $\mathbb{R}^{d_T \times C}$ and $\mathbb{R}^{d_P \times C}$. \\
+$\mathcal{R}_T, \mathcal{R}_P$ & The generalization risks, e.g., $\mathcal{R}_T = \mathbb{E}_{(x,y)}[\ell(f_T(x), y)]$. \\
+$W$ & The optimal linear alignment map ($W \in \mathbb{R}^{d_P \times d_T}$) aligning $P \to T$. \\
+$\Sigma_P$ & The uncentered empirical covariance matrix $\frac{1}{n} Z_P^\top Z_P$. \\
+\hline
+\end{tabular}
+\caption{Summary of notation for the heterogeneous proxy framework.}
+\label{tab:notation}
+\end{table}
+
+\subsection{Decomposition of Risk Discrepancy}
+The divergence between the risk landscapes can be physically decomposed into two orthogonal sources of error:
+\begin{enumerate}
+    \item \textbf{Feature Alignment Error ($\delta$):} The geometric distance between the target's representations and the projected proxy's representations.
+    \item \textbf{Functional Head Discrepancy ($\gamma$):} The disagreement between the prediction heads when operating on the \emph{same} semantic features.
+\end{enumerate}
+
+\begin{lemma}[General Risk Decomposition]
+\label{lemma:risk_decomp}
+Assume the target prediction function composition $g_T(z, y) := \ell(h_T(z), y)$ is $K_{\mathrm{feat}}$-Lipschitz continuous with respect to the feature vector $z$.
+For any parameter configuration, let the expected feature alignment error be $\delta = \mathbb{E}_x \| Z_T - Z_P W \|_2$ and the head discrepancy be $\gamma = \Big| \mathbb{E}_{x,y} \big[ \ell(h_T(Z_P W), y) - \ell(h_P(Z_P), y) \big] \Big|$.
+Then, the risk difference is bounded by:
+\begin{equation}
+\label{eq:risk_decomp_bound}
+|\mathcal{R}_T - \mathcal{R}_P| \le K_{\mathrm{feat}} \cdot \delta + \gamma.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+By the Triangle Inequality, $|\mathcal{R}_T - \mathcal{R}_P| \le \big| \mathbb{E}[\ell(h_T(Z_T), y) - \ell(h_T(Z_P W), y)] \big| + \big| \mathbb{E}[\ell(h_T(Z_P W), y) - \ell(h_P(Z_P), y)] \big|$.
+The first term is bounded by the Lipschitz property: $\mathbb{E}[|g_T(Z_T) - g_T(Z_P W)|] \le K_{\mathrm{feat}} \mathbb{E}\|Z_T - Z_P W\|_2 = K_{\mathrm{feat}} \delta$.
+The second term corresponds exactly to the head discrepancy $\gamma$.
+\end{proof}
+
+
+
+
+
+
+
+\subsection{Exact Geometric Decomposition via Procrustes}
+\label{subsec:procrustes_decomp}
+
+To quantify the feature alignment error $\delta$, we explicitly model the relationship between the Proxy and Target feature manifolds.
+We formulate this as an optimization problem: finding the optimal linear map $W$ that aligns $Z_P$ to $Z_T$ under strict geometric constraints.
+
+\paragraph{The Isometric Constraint.}
+To rigorously validate the Linear Representation Hypothesis, $W$ must be a purely geometric transformation (rotation or rigid embedding) that preserves the intrinsic structure of the proxy representations.
+We mathematically enforce this by constraining $W$ to the \emph{Stiefel Manifold} of semi-orthogonal matrices:
+\begin{equation}
+\mathcal{V}_{d_P, d_T} = \{ W \in \mathbb{R}^{d_P \times d_T} \mid W W^\top = I_{d_P} \}.
+\end{equation}
+This constraint ensures that $W$ acts as an \emph{isometric embedding}, preserving the lengths and dot products of the proxy features (i.e., $\| x W \|_2 = \| x \|_2$), thereby decoupling geometric misalignment from simple scale variation.
+
+\paragraph{The Procrustes Metric.}
+The analytical solution to minimizing the displacement $\| Z_T - Z_P W \|_F$ over $\mathcal{V}_{d_P, d_T}$ depends solely on the singular values of the cross-covariance matrix. This motivates our primary alignment metric:
+
+\begin{definition}[Procrustes Similarity $\Omega$]
+The Procrustes Similarity $\Omega(Z_T, Z_P) \in [0, 1]$ is defined via the nuclear norm $\|\cdot\|_*$:
+\begin{equation}
+\label{eq:omega_def}
+\Omega(Z_T, Z_P) := \frac{\| Z_T^\top Z_P \|_*}{\| Z_T \|_F \| Z_P \|_F}.
+\end{equation}
+\end{definition}
+
+\paragraph{Exact Decomposition.}
+By substituting the optimal alignment into the objective, we derive a closed-form decomposition of the risk landscape divergence.
+
+\begin{theorem}[Exact Geometric Decomposition]
+\label{thm:exact_decomposition}
+Let $\rho_P = \frac{1}{\sqrt{n}}\|Z_P\|_F$ and $\rho_T = \frac{1}{\sqrt{n}}\|Z_T\|_F$ be the RMS scales of the representations. The minimum empirical alignment error admits the exact equality:
+\begin{equation}
+\label{eq:exact_equality}
+\min_{W \in \mathcal{V}_{d_P, d_T}} \frac{1}{n} \| Z_T - Z_P W \|_F^2
+\;=\;
+\underbrace{(\rho_T - \rho_P)^2}_{\text{\rm Scale Mismatch}}
+\;+\;
+\underbrace{2 \rho_T \rho_P \big( 1 - \Omega(Z_T, Z_P) \big)}_{\text{\rm Shape Mismatch}}.
+\end{equation}
+\end{theorem}
+This theorem establishes that minimizing feature discrepancy is mathematically equivalent to maximizing $\Omega$, provided the scales $\rho$ are matched.
+
+
+
+
+
+
+
+
+\subsection{Bounding Head Discrepancy via Data Covariance}
+\label{subsec:head_discrepancy}
+
+Even if features are aligned, the proxy can fail if prediction heads interpret them differently.
+We derive a tight bound for linear heads by accounting for the \emph{data manifold} via the feature covariance matrix.
+
+\begin{proposition}[Covariance-Adjusted Head Discrepancy]
+\label{prop:covariance_head}
+Let $\Delta H = W H_T - H_P$ be the head misalignment matrix.
+Assume the loss is $K_{\mathrm{pred}}$-Lipschitz with respect to predictions. The head discrepancy is bounded by the Frobenius norm of the misalignment projected onto the covariance $\Sigma_P$:
+\begin{equation}
+\label{eq:cov_head_bound}
+\gamma \le K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W H_T - H_P) \|_F.
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Let $z = Z_P$. The squared functional difference is bounded using Jensen's Inequality:
+$\mathbb{E} [ \| z \Delta H \|_2 ]^2 \le \mathbb{E} [ \| z \Delta H \|_2^2 ] = \operatorname{Tr}( \Delta H^\top \mathbb{E}[z^\top z] \Delta H ) = \| \Sigma_P^{1/2} \Delta H \|_F^2$.
+Combining with $K_{\mathrm{pred}}$ yields the result.
+\end{proof}
+
+\paragraph{Remark: Tightness over Spectral Norm.}
+Standard spectral bounds assume worst-case alignment between features and error. In contrast, our covariance-adjusted term effectively projects the error onto the \emph{active subspace} of the data, ignoring misalignment in null directions that do not affect predictions.
+
+\paragraph{Task Adaptation.}
+The constant $K_{\mathrm{pred}}$ adapts to the task: for Classification (Softmax), $K_{\mathrm{pred}} \le 1$; for Regression (Reward Modeling), $K_{\mathrm{pred}}$ relates to the output range.
+
+\subsection{The Unified Proxy Bound}
+\label{subsec:unified_bound}
+
+We synthesize the geometric decomposition and the covariance-aware head bound into our main theorem.
+
+\begin{theorem}[Unified Risk Discrepancy Bound]
+\label{thm:unified_bound}
+The risk estimation error between a heterogeneous Target $T$ and Proxy $P$ is bounded by:
+\begin{equation}
+\label{eq:unified_bound_eq}
+\begin{aligned}
+|\mathcal{R}_T - \mathcal{R}_P| \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big( 1 - \Omega(Z_T, Z_P) \big) }}_{\text{\rm Geometric Alignment Error}} \\
+& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W H_T - H_P) \|_F}_{\text{\rm Covariance-Aware Head Error}}.
+\end{aligned}
+\end{equation}
+\end{theorem}
+
+\paragraph{Physical Interpretation.}
+This bound reveals the sufficient geometric conditions for a proxy model $P$ to act as a reliable estimator for a target model $T$:
+\begin{enumerate}
+    \item \textbf{Scale Matching ($\rho_T \approx \rho_P$):} The models must operate in a similar numerical range. A divergence in feature norms ($\rho$) directly amplifies the geometric error term, effectively loosening the guarantee.
+    \item \textbf{Procrustes Similarity ($\Omega \to 1$):} The feature manifolds must be geometrically isomorphic (up to rotation $W$). A high $\Omega$ implies that the intrinsic relative geometry of data points is preserved during the transfer from proxy to target.
+    \item \textbf{Head Coherence ($\| \Sigma_P^{1/2} (W H_T - H_P) \|_F \to 0$):} The prediction heads must interpret the aligned features consistently. Crucially, our covariance-aware formulation reveals that this coherence is only strictly required within the \emph{active subspace} spanned by the data covariance $\Sigma_P$; functional disagreement in directions orthogonal to the data manifold (null space) is permissible as it does not affect risk.
+\end{enumerate}
+Theoretically, when these geometric terms are minimized, the risk gap vanishes. This guarantees \emph{landscape fidelity}, ensuring that the optimal configuration $\theta^*$ found on the proxy landscape $\mathcal{R}_P$ transfers effectively to the target $\mathcal{R}_T$.
+
+
+
+\section{Applications: From Compression to Cross-Family Transfer}
+\label{sec:applications}
+
+The PRISM framework and the Unified Risk Discrepancy Bound (Theorem~\ref{thm:unified_bound}) provide a generic mechanism to estimate the functional divergence between any two models sharing a semantic lineage.
+To demonstrate the universality of this geometric perspective, we instantiate the framework across a spectrum of application scenarios.
+We organize these applications by the increasing complexity of the geometric relationship between the Proxy ($P$) and the Target ($T$), explicitly characterizing the dimensions ($d_P, d_T$) and the alignment map ($W$):
+
+\begin{enumerate}
+    \item \textbf{The Identity Regime ($d_P = d_T, W = I$):}
+    In the most constrained setting, the proxy and target share the same architecture and coordinate basis. The alignment map $W$ degenerates to the identity matrix. We apply this to:
+    \begin{itemize}
+        \item \textbf{Quantization Quality Estimation (Sec.~\ref{subsec:quantization}):} Detecting feature collapse in low-precision models purely via geometric distortion.
+    \end{itemize}
+
+    \item \textbf{The Rotational Regime ($d_P = d_T, W \in \mathcal{O}(d)$):}
+    Here, models maintain the same dimensionality but undergo global basis rotations due to training dynamics. The alignment $W$ is an orthogonal matrix ($W^\top W = I$). We apply this to:
+    \begin{itemize}
+        \item \textbf{Monitoring Catastrophic Forgetting (Sec.~\ref{subsec:forgetting}):} Tracking the geometric drift of a model away from its pre-training manifold.
+        \item \textbf{Out-of-Distribution Detection (Sec.~\ref{subsec:ood}):} Using the breakdown of the learned rotation $W$ as a signal for anomaly detection.
+    \end{itemize}
+
+    \item \textbf{The Projective Regime ($d_P \neq d_T, W \in \mathbb{R}^{d_P \times d_T}$):}
+    In the general setting, models differ in width. $W \in \mathbb{R}^{d_P \times d_T}$ acts as an \emph{isometric embedding} (semi-orthogonal map) that aligns the lower-dimensional manifold into the higher-dimensional space. The Procrustes metric $\Omega$ remains valid via the nuclear norm of the rectangular cross-covariance matrix. We apply this to:
+    \begin{itemize}
+        \item \textbf{Cross-Scale Model Merging (Sec.~\ref{subsec:merging}):} Transferring optimal merging coefficients from a small proxy ($d_P < d_T$) to a large target.
+        \item \textbf{Generalization Forecasting (Sec.~\ref{subsec:generalization_forecasting}):} Estimating the performance of massive fine-tuned models using lightweight proxies.
+        \item \textbf{Cross-Family Capability Transfer (Sec.~\ref{subsec:cross_family_transfer}):} Analyzing capability alignment between entirely disjoint families (e.g., Llama to Gemma).
+    \end{itemize}
+\end{enumerate}
+
+This progression, from identity to rotation to projection, illustrates that linear geometric alignment is not merely a heuristic, but a rigorous invariant connecting the entire lifecycle of foundation models.
+
+% -------------------------------------------------------------------------
+% 5.1 Quantization Quality Estimation
+% -------------------------------------------------------------------------
+\subsection{Quantization Quality Estimation}
+\label{subsec:quantization}
+
+Deploying Large Language Models (LLMs) often necessitates quantization (e.g., from FP16 to INT4). Traditionally, assessing the quality of a quantized model relative to its full-precision counterpart requires expensive perplexity evaluations.
+Our framework allows for an efficient, \emph{geometry-based estimation} of quantization degradation without running full generation tasks.
+
+\paragraph{Geometric Instantiation ($T \to F, P \to Q$).}
+We instantiate our general framework by designating the full-precision model as the Target ($T = \theta_F$) and the quantized model as the Proxy ($P = \theta_Q$).
+In this setting, the architectural dimensions match ($d_T = d_P$), but the representation manifolds differ due to numerical precision limits.
+Two simplifying conditions specific to quantization typically hold:
+\begin{enumerate}
+    \item \textbf{Identity Alignment ($W = I$):} Unlike model merging where features may be rotated, standard Post-Training Quantization (PTQ) introduces element-wise numerical noise but preserves the coordinate basis. Thus, the optimal alignment map $W$ degenerates to the identity matrix $I$.
+    \item \textbf{Head Stability:} Modern quantization protocols (e.g., GPTQ, AWQ) often retain the prediction head in high precision (FP16) to avoid logits collapse. Consequently, $H_Q \approx H_F$, causing the head discrepancy term $\| \Sigma_Q^{1/2} (H_F - H_Q) \|_F$ to vanish or become negligible.
+\end{enumerate}
+
+\paragraph{The Quantization Bound.}
+Under these conditions, the Unified Bound (Theorem~\ref{thm:unified_bound}) simplifies significantly. The risk gap is dominated purely by the geometric deformation of the feature manifold:
+\begin{equation}
+\label{eq:quant_bound}
+|\mathcal{R}_F - \mathcal{R}_Q| \;\;\lessapprox\;\; K_{\mathrm{feat}} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{\rm Scale Collapse}} + \underbrace{2\rho_F \rho_Q \big(1 - \Omega(Z_F, Z_Q)\big)}_{\text{\rm Structural Distortion}} }.
+\end{equation}
+
+\paragraph{Implication: Detecting Feature Collapse.}
+This derivation establishes the Procrustes Similarity $\Omega$ and RMS scale difference $\Delta \rho$ as powerful diagnostics:
+\begin{itemize}
+    \item \textbf{Scale Collapse ($\Delta \rho$):} Aggressive quantization (e.g., INT2) often clips activation outliers, shrinking the effective dynamic range ($\rho_Q < \rho_F$). Our bound identifies this as a primary source of risk amplification.
+    \item \textbf{Structural Distortion ($\Omega$):} A drop in $\Omega$ indicates that the relative geometry between tokens has been corrupted—a phenomenon known as \emph{feature collapse}. 
+\end{itemize}
+By monitoring Eq.~(\ref{eq:quant_bound}) on a calibration set, practitioners can rank quantization configurations purely from feature statistics.
+
+% -------------------------------------------------------------------------
+% 5.2 Geometric Monitoring of Catastrophic Forgetting
+% -------------------------------------------------------------------------
+\subsection{Geometric Monitoring of Catastrophic Forgetting}
+\label{subsec:forgetting}
+
+In sequential fine-tuning or continual learning, models frequently suffer from \emph{catastrophic forgetting}, where performance on the pre-training distribution ($\mathcal{D}_{\mathrm{pre}}$) degrades as the model adapts to a new task.
+We propose monitoring the \emph{geometric drift} to mitigate this.
+
+\paragraph{Geometric Instantiation ($T \to \theta_0, P \to \theta_t$).}
+We instantiate our framework by defining the frozen base model as the Target ($T = \theta_0$) and the currently evolving model at step $t$ as the Proxy ($P = \theta_t$).
+Accordingly, the feature matrices are denoted as $Z_0$ and $Z_t$. Unlike the quantization case, the optimal alignment $W$ is non-identity ($W \neq I$), as deep networks often undergo global feature rotations during adaptation.
+
+\paragraph{Geometric Stability Bound.}
+Applying the Unified Bound (Theorem~\ref{thm:unified_bound}), the forgetting magnitude (risk divergence on $\mathcal{D}_{\mathrm{pre}}$) is decomposed into:
+\begin{equation}
+\label{eq:forgetting_bound}
+\begin{aligned}
+\text{Forgetting}(t) \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_0 - \rho_t)^2 + 2\rho_0 \rho_t \big( 1 - \Omega(Z_0, Z_t) \big) }}_{\text{\rm Backbone Geometric Drift}} \\
+& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_t^{1/2} (W H_0 - H_t) \|_F}_{\text{\rm Head Divergence}}.
+\end{aligned}
+\end{equation}
+
+\paragraph{Why Monitor Geometry?}
+Equation~(\ref{eq:forgetting_bound}) reveals two sources of risk.
+In Parameter-Efficient Fine-Tuning (PEFT) methods like LoRA, the head discrepancy is typically constrained by the low-rank update structure or explicitly frozen (where $H_t \approx H_0$, minimizing the second term).
+However, even with constrained weights, the \emph{feature manifold} can undergo significant topological distortion (low $\Omega$) due to the deep non-linear accumulation of updates in the backbone.
+This suggests that \textbf{Backbone Geometric Drift} is the primary driver of catastrophic forgetting when the head is stable.
+
+\paragraph{The $\Omega$-Regularizer.}
+Motivated by this, we propose a regularization strategy that explicitly targets the geometric term. We maximize the Procrustes Similarity on a small replay buffer:
+\begin{equation}
+\label{eq:omega_reg}
+\mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{task}}(\theta_t) + \lambda \cdot \underbrace{\big(1 - \Omega(Z_0, Z_t)\big)}_{\mathcal{L}_{\mathrm{geom}}}.
+\end{equation}
+Unlike $L_2$ penalties on weights (e.g., EWC), $\mathcal{L}_{\mathrm{geom}}$ is permissive of global rotations (absorbed by $W$) and scale shifts. It allows the model to reorganize parameters for the new task, provided the intrinsic relational geometry of the pre-training knowledge is preserved.
+
+
+% =========================================================================
+\subsection{Out-of-Distribution (OOD) Detection via Geometric Consistency}
+\label{subsec:ood}
+
+Finally, we leverage the Linear Representation Hypothesis for anomaly detection. Our framework implies that Proxy and Target models form a \emph{consistent geometric view} only for In-Distribution (ID) data.
+
+\paragraph{The Consistency Hypothesis.}
+For an input $x \sim \mathcal{D}_{\mathrm{ID}}$, our theory guarantees minimal feature alignment error: $\| \phi_T(x) - \phi_P(x)W \|_2 \approx 0$.
+However, for an anomaly $x' \sim \mathcal{D}_{\mathrm{OOD}}$, the shared semantic structure breaks down, causing the linear mapping $W$ (learned on ID data) to fail.
+
+\paragraph{Detection Protocol.}
+We define the \emph{Geometric Consistency Score} $s(x)$ as the alignment residual:
+\begin{equation}
+s(x) := \| \phi_T(x) - \phi_P(x)W \|_2.
+\end{equation}
+Crucially, our risk bound (Theorem~\ref{thm:unified_bound}) states that prediction risk is low \emph{only} when this term is small. Therefore, a high $s(x)$ serves as a theoretical indicator of unreliable prediction.
+Unlike entropy-based methods that require the large model's logits, this method allows a small proxy to audit the large model's reliability purely through feature consistency.
+
+
+% =========================================================================
+\subsection{Cross-Scale Coefficient Transfer in Model Merging}
+\label{subsec:merging}
+
+We apply the framework to \emph{Model Merging}, specifically transferring optimal merging coefficients from a small proxy to a large target.
+
+\paragraph{Problem Formulation.}
+Consider merging a base model $\theta_{T,0}$ with a task vector $\Delta_T$, modulated by a scalar $\alpha$. The target parameter is $\theta_T(\alpha) = \theta_{T,0} + \alpha \Delta_T$. Tuning $\alpha$ on the target is expensive.
+We propose searching for the optimal $\hat{\alpha}$ on a proxy model $\theta_P(\alpha) = \theta_{P,0} + \alpha \Delta_P$ and transferring it to the target.
+
+\paragraph{Transfer Regret Bound.}
+Let $\hat{\alpha}_P$ be the optimal coefficient found on the proxy. We utilize our Unified Bound (Theorem~\ref{thm:unified_bound}) to bound the regret on the target model.
+Assuming geometric alignment holds uniformly across the search path $\alpha \in [0,1]$, the performance gap is bounded by:
+\begin{equation}
+\mathcal{R}_T(\hat{\alpha}_P) - \mathcal{R}_T(\alpha_T^*) \le 2 \left( K_{\mathrm{feat}} \sqrt{(\Delta \rho)^2 + 2\rho_T\rho_P(1-\Omega)} + \epsilon_{\mathrm{head}} \right) + 2\xi,
+\end{equation}
+where $\xi$ is the estimation error on the proxy.
+This implies that if the Task Vectors $\Delta_T$ and $\Delta_P$ induce geometrically isomorphic trajectories ($\Omega \approx 1$), the "sweet spot" $\alpha$ is scale-invariant. This provides a rigorous guarantee for using small models to tune hyper-parameters for massive foundation models.
+
+% 5.3 Generalization Forecasting for Fine-tuned Models
+% -------------------------------------------------------------------------
+\subsection{Generalization Forecasting via Geometric Control Variates}
+\label{subsec:generalization_forecasting}
+
+Finally, we address the evaluation bottleneck of massive fine-tuned models.
+Let $\theta_T$ be the computation-heavy Target and $\theta_P$ be the lightweight Proxy.
+Evaluating $\theta_T$ on the full test distribution $\mathcal{D}_{\mathrm{test}}$ is computationally expensive.
+We propose using the Proxy as a \emph{Control Variate} to estimate the Target's generalization risk with minimal compute.
+
+\paragraph{Theoretical Foundation: Variance Reduction via Unified Alignment.}
+The reliability of using a proxy for risk forecasting depends not on the correlation of risks, but on the \emph{variance of the risk difference} $\Delta \ell(x) = \ell_T(x) - \ell_P(x)$.
+Standard heuristics assume this variance is low without proof. Our PRISM framework provides the rigorous condition.
+Recall our Unified Bound (Theorem~\ref{thm:unified_bound}) limits the expected magnitude of the functional discrepancy:
+\begin{equation}
+\mathbb{E}[\|f_T(x) - f_P(x)\|] \le \underbrace{K_{\mathrm{feat}}\sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega)}}_{\text{Geometric Alignment Error}} + \underbrace{K_{\mathrm{pred}}\|\Sigma_P^{1/2}(WH_T - H_P)\|_F}_{\text{Covariance-Aware Head Error}}.
+\end{equation}
+Crucially, a tight bound on the absolute magnitude of the difference implies a tight bound on its variance (by Popoviciu's inequality on bounded variables).
+Thus, minimizing \emph{both} the feature misalignment ($1-\Omega$, $\Delta \rho$) and head covariance error guarantees that $\Delta \ell(x)$ is highly concentrated. This justifies treating the error as a stable "systematic bias" rather than random noise.
+
+\paragraph{The Control Variate Estimator.}
+Leveraging this variance suppression, we construct an unbiased estimator for the Target risk using a small calibration set $\mathcal{D}_{\mathrm{cal}}$:
+\begin{equation}
+\label{eq:cv_estimator}
+\hat{\mathcal{R}}_T(\mathcal{D}_{\mathrm{test}}) = \mathcal{R}_P(\mathcal{D}_{\mathrm{test}}) + \underbrace{ \left( \mathcal{R}_T(\mathcal{D}_{\mathrm{cal}}) - \mathcal{R}_P(\mathcal{D}_{\mathrm{cal}}) \right) }_{\text{Calibrated Geometric Bias } \hat{\Delta}}.
+\end{equation}
+Here, $\mathcal{R}_P(\mathcal{D}_{\mathrm{test}})$ acts as the low-variance baseline (from the proxy), and $\hat{\Delta}$ corrects for the structural offset.
+
+\paragraph{Protocol: The Geometric Validity Gate.}
+To ensure rigor, we do not apply Eq.~(\ref{eq:cv_estimator}) blindly. We use the theoretical terms as a \emph{validity gate} to reject unreliable proxies:
+\begin{enumerate}
+    \item \textbf{Measure Geometry:} On $\mathcal{D}_{\mathrm{cal}}$, compute the feature alignment $\Omega(Z_T, Z_P)$ and head consistency $\|\Sigma_P^{1/2}(WH_T - H_P)\|_F$.
+    \item \textbf{Verify Stability:}
+    \begin{itemize}
+        \item \textbf{Pass:} If both terms are below a threshold $\tau$, the Unified Bound guarantees low variance. The empirical bias $\hat{\Delta}$ is reliable. Proceed with forecasting.
+        \item \textbf{Reject:} If $\Omega$ is low or heads are misaligned, the bound is loose. The error variance is theoretically uncontrolled, making the small-sample bias estimate $\hat{\Delta}$ untrustworthy. Fallback to full evaluation.
+    \end{itemize}
+\end{enumerate}
+This approach transforms the PRISM bound from a passive metric into an active criterion for sample-efficient evaluation, ensuring valid uncertainty quantification.
+
+% -------------------------------------------------------------------------
+% 5.4 Cross-Family Capability Transfer
+% -------------------------------------------------------------------------
+\subsection{Cross-Family Capability Transfer}
+\label{subsec:cross_family_transfer}
+
+In our most general application, we consider the transferability of performance across completely heterogeneous systems.
+Let $P$ and $T$ be two arbitrary models from distinct families (e.g., $P$ is Llama-3-8B, $T$ is Gemma-7B), parameterized by disjoint spaces $\theta_P$ and $\theta_T$.
+We analyze the performance on a fixed dataset $\mathcal{D}$.
+The central question is: \emph{If a dataset is "solvable" for the Proxy, under what conditions can we guarantee it is solvable for the Target?}
+
+\paragraph{Formulation: The Transfer Inequality.}
+Unlike the previous sections where models shared an architectural lineage, here $f_P$ and $f_T$ function as distinct distinct topological observers.
+However, our Unified Bound (Theorem~\ref{thm:unified_bound}) remains valid provided a linear map $W$ exists.
+We rewrite the bound to express the Target's risk as being strictly constrained by the Proxy's risk plus the geometric cost:
+\begin{equation}
+\label{eq:transfer_bound}
+\mathcal{R}_T(\mathcal{D}) \;\;\le\;\; \mathcal{R}_P(\mathcal{D}) + \underbrace{K \cdot \sqrt{ (\Delta \rho)^2 + 2\rho_T \rho_P (1 - \Omega) } + \epsilon_{\mathrm{head}}}_{\text{Geometric Transfer Cost } \mathcal{C}_{\mathrm{geo}}}.
+\end{equation}
+
+\paragraph{Analysis: Performance Guarantee via Alignment.}
+Equation~(\ref{eq:transfer_bound}) provides a rigorous condition for \emph{Capability Transfer}.
+Assume the Proxy performs well on the dataset (i.e., $\mathcal{R}_P(\mathcal{D}) \approx 0$).
+The performance of the Target is not guaranteed by architecture alone, but is bounded by the \emph{geometric isomorphism} $\Omega$:
+\begin{itemize}
+    \item \textbf{Aligned Regime ($\Omega \to 1$):} The Geometric Transfer Cost $\mathcal{C}_{\mathrm{geo}}$ vanishes. We can theoretically guarantee that $\mathcal{R}_T$ is low. This implies that "knowledge" or "capability" on this dataset is transferable between Llama and Gemma simply because they structure the data manifold identically.
+    \item \textbf{Misaligned Regime ($\Omega \ll 1$):} The cost $\mathcal{C}_{\mathrm{geo}}$ is large. Even if Llama solves the task perfectly, the upper bound on Gemma is loose. This mathematically explains why some capabilities (e.g., specific coding styles) fail to transfer between model families despite similar parameter counts—they rely on divergent geometric structures.
+\end{itemize}
+
+\paragraph{Operational Utility: Architecture-Agnostic Validation.}
+This analysis enables a powerful validation protocol.
+If we observe that a Target model fails on a dataset where a Proxy succeeds ($\mathcal{R}_T \gg \mathcal{R}_P$), we can inspect $\Omega$.
+\begin{itemize}
+    \item If $\Omega$ is high, the failure is likely due to the \textbf{Head} ($\epsilon_{\mathrm{head}}$) or a specific bug, as the backbone features contain the necessary information.
+    \item If $\Omega$ is low, the failure is fundamental; the Target's backbone has not learned the necessary semantic topology.
+\end{itemize}
+Thus, PRISM provides a mechanism to decouple "feature quality" from "model performance" across arbitrary architectures.
+
+
+% Quantization Quality Estimation
+% Geometric Monitoring of Catastrophic Forgetting
+% Generalization of Fine-tuned Models
+
+% Out-of-Distribution Detection
+% 
+% (Optional) Model Merging
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Empirical Analysis and Limits of Linearity}
+\label{sec:empirical_analysis}
+
+While our theoretical bounds guarantee risk proximity under geometric alignment, practical deployment requires understanding the tightness of these bounds and the conditions under which the linear representation hypothesis holds. In this section, we provide a comprehensive empirical study across model scales, families, and depths.
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Directional Risk Dynamics and Task Suboptimality}
+\label{app:directional_dynamics}
+
+While the Lipschitz-based PRISM bound (Theorem~\ref{thm:unified_bound}) rigorously establishes the maximum functional capacity for risk deviation, it is inherently an \emph{unsigned} (absolute) bound. This symmetry is not a mathematical artifact, but a fundamental consequence of PRISM's \emph{unsupervised, label-free} nature. By assessing structural topological isomorphism without requiring ground-truth labels, PRISM achieves ultra-efficient, zero-shot proxy monitoring. 
+
+However, this absolute bound presents an analytical challenge: it does not specify the \emph{direction} of the risk change (i.e., performance improvement versus catastrophic forgetting). In this section, we resolve this limitation by introducing physical priors for saturated tasks, and by transitioning to dynamic first-order optimization analysis empowered by the $L$-smoothness of the loss landscape.
+
+\subsection{The Local Minimum Prior for Degradation Tracking}
+
+In specific applications such as Post-Training Quantization (PTQ) or monitoring Catastrophic Forgetting, the directionality of the risk drift is empirically deterministic. 
+
+For a given pre-training or calibration distribution $\mathcal{D}$, the target model $T$ typically resides at a \emph{local minimum}. Consequently, any blind geometric distortion ($\Omega < 1$) induced by quantization truncation or sequential task updates acts as uncalibrated noise. Under this saturated condition, performance improvement is statistically improbable, making $\mathcal{R}_P \ge \mathcal{R}_T$ a safe empirical prior. 
+
+When this local minimum prior holds, the absolute PRISM bound seamlessly converts into a strict upper bound on the \emph{degradation penalty} without requiring any labeled evaluation:
+\begin{equation}
+    \mathcal{R}_P - \mathcal{R}_T \le \text{PRISM Bound}.
+\end{equation}
+
+\subsection{Directional Optimization Dynamics via $L$-Smoothness}
+\label{app:l_smoothness_dynamics}
+
+To rigorously determine directionality in fine-tuning scenarios (where the proxy $P$ is expected to \emph{improve} upon $T$), we must reintroduce the ground-truth labels and analyze the loss landscape. 
+
+A critical mathematical inquiry is whether analyzing the optimization trajectory using only the first and second-order Taylor expansion terms is rigorously justified, given the highly non-convex nature of deep neural networks. We demonstrate that, by operating in the \emph{feature space} rather than the weight space, we can invoke the global $L$-smoothness of the Cross-Entropy loss. This property does not merely truncate higher-order derivatives; it rigorously absorbs them into a global quadratic majorizer, establishing an absolute bound on the risk dynamics.
+
+\paragraph{The Global Quadratic Majorizer.}
+Let the logits be $v = z H_T$, and the loss be $\ell(v, y) = -\log(p_y)$. The Hessian of the loss with respect to the logits is the covariance matrix of the multinomial distribution parameterized by $p$: $\nabla_v^2 \ell = \text{diag}(p) - p p^\top$. By standard smoothness arguments, the maximum eigenvalue of this covariance matrix is strictly bounded by $0.5$. 
+
+Applying the chain rule, the feature-space Hessian is $\mathcal{H}_z = H_T \nabla_v^2 \ell H_T^\top$. Consequently, its maximum spectral norm is strictly bounded by $L = 0.5 \|H_T\|_2^2$. This guarantees that the loss function is globally $L$-smooth with respect to the feature space.
+
+By the Descent Lemma, for any geometric drift $\delta_Z = Z_P W - Z_T$ moving from the target state towards the proxy state, the true functional risk is rigidly bounded by a quadratic majorizer:
+\begin{equation}
+\label{eq:descent_lemma}
+\mathcal{R}_{P \to T} - \mathcal{R}_T \;\;\le\;\; \underbrace{\nabla_Z \mathcal{L}^\top \delta_Z}_{\text{Linear Drive } (\Delta_{\pm})} \;\;+\;\; \underbrace{\frac{1}{4} \|H_T\|_2^2 \left( \frac{1}{n} \|\delta_Z\|_F^2 \right)}_{\text{Curvature Penalty}}.
+\end{equation}
+
+This derivation reveals a profound theoretical advantage: the complex, highly non-convex higher-order dynamics are completely enveloped by the strict positive curvature penalty $\frac{L}{2}\|\delta_Z\|_F^2$. The first-order term ($\Delta_{\pm}$) acts as the directional optimization drive, while the quadratic term strictly acts as a "braking mechanism" (resistance).
+
+\subsection{The Trust Region: Guaranteeing Improvement vs. Decay}
+
+A critical analytical question arises when the first-order directional drift is negative ($\Delta_{\pm} < 0$), indicating an optimization force towards the minimum. Can we blindly trust this first-order direction? The answer is strictly no. Because the curvature penalty is fundamentally positive, the overall risk dynamic is a \emph{competition} between the negative linear drive and the positive quadratic resistance. 
+
+If the geometric distortion is excessively large, the curvature penalty will overpower the linear descent, causing the target model to overshoot the minimum and increase the loss. To rigorously \emph{guarantee} that the overall functional performance improves ($\mathcal{R}_{P \to T} - \mathcal{R}_T < 0$), the upper bound of the descent lemma must be strictly negative.
+
+\paragraph{Unifying Optimization with PRISM Geometry.}
+Crucially, the average geometric drift magnitude $\frac{1}{n}\|\delta_Z\|_F^2$ in the curvature penalty is exactly the minimum empirical alignment error solved in our PRISM Exact Geometric Decomposition (Theorem~\ref{thm:exact_decomposition}). Substituting our exact derivation, the guaranteed improvement condition becomes:
+\begin{equation}
+\label{eq:guaranteed_improvement}
+\underbrace{\Delta_{\pm}}_{\text{Negative Linear Drive}} \;\;+\;\; \underbrace{\frac{1}{4} \|H_T\|_2^2 \Big[ (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega) \Big]}_{\text{Positive Curvature Penalty (PRISM Error)}} \;\;<\;\; 0.
+\end{equation}
+
+By rearranging this inequality, we define the \textbf{Geometric Trust Region} for safe capability transfer:
+\begin{equation}
+\label{eq:trust_region}
+\underbrace{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega)}_{\text{Permissible Geometric Distortion}} \;\;<\;\; \frac{4 \cdot |\Delta_{\pm}|}{\|H_T\|_2^2}.
+\end{equation}
+
+This theoretical boundary flawlessly bridges optimization dynamics with static geometric alignment. It establishes a computable threshold: the permissible structural destruction (our exact PRISM metric) is fundamentally capped by the magnitude of the task's optimization drive. This holistically explains the empirical lifecycle of foundation models:
+\begin{itemize}
+    \item \textbf{Suboptimal Tasks (High Gradient Drive):} When a task is highly suboptimal (e.g., initial fine-tuning, massive $|\Delta_{\pm}|$), the permissible trust region in Eq.~(\ref{eq:trust_region}) is vast. The model can safely tolerate significant structural distortion ($\Omega \ll 1$) while still guaranteeing functional improvement.
+    \item \textbf{Saturated Tasks (Vanishing Gradient):} Conversely, on a pre-trained corpus where the model resides at a local minimum, the first-order drive vanishes ($|\Delta_{\pm}| \to 0$). The trust region shrinks to exactly zero. In this state, the positive curvature penalty immediately dominates, mathematically proving that any non-zero geometric distortion (such as quantization truncation) will unilaterally induce performance decay, regardless of the drift direction.
+\end{itemize}
+
+\paragraph{Remark on Computational Tractability: Bypassing the Hessian.}
+A critical advantage of this $L$-smoothness formulation is its extreme computational efficiency. By analytically bounding the maximum eigenvalue of the Softmax covariance matrix, we fundamentally eliminate the need to compute or instantiate the prohibitive $\mathcal{O}(d^2)$ feature-space Hessian. The complex second-order dynamics are entirely subsumed by the scalar spectral norm of the linear prediction head, $\|H_T\|_2^2$. In practice, assessing the directional trust region operates within the same highly efficient computational envelope as the standard PRISM bound, requiring only the scalar $\|H_T\|_2$, a single gradient evaluation on a small calibration set, and the label-free variables $\Omega$ and $\Delta \rho$.
+
+
+\paragraph{Remark on Large Domain Shifts and the Limits of Linear Approximation.}
+A natural theoretical inquiry is whether the linear directional drive ($\Delta_{\pm}$) remains valid when the geometric drift $\delta_Z = Z_P W - Z_T$ is exceedingly large. Fundamentally, the first-order Taylor expansion assumes a localized neighborhood; the gradient evaluated at the proxy state $\nabla_Z \mathcal{L}(Z_P W)$ may not represent the true trajectory if the loss landscape exhibits severe curvature over a large distance.
+
+This highlights the profound utility of our $L$-smoothness quadratic majorizer in Eq.~(\ref{eq:descent_lemma}). While the strict inequality remains globally mathematically true for any arbitrary distance $\|\delta_Z\|$, its predictive utility gracefully degrades as the distance increases. If the topological distortion is severe (e.g., $\Omega \ll 1$), the quadratic curvature penalty $\mathcal{O}(\|\delta_Z\|_F^2)$ explodes, causing the upper bound to become a large positive value. 
+
+When this occurs, the bound correctly ceases to guarantee functional improvement, signaling that the first-order drive has been overpowered by geometric divergence. This perfectly encapsulates the core thesis of the PRISM framework: a proxy model becomes functionally invalid, and its gradients untrustworthy, precisely when its representational geometry diverges beyond the computable Trust Region of the target model.
+
+\paragraph{Remark on Macroscopic Applicability: From Micro-Steps to Base-vs-Finetuned.}
+It is crucial to emphasize that the Geometric Trust Region derived in Eq.~(\ref{eq:trust_region}) is not restricted to infinitesimal micro-steps typical of standard gradient descent (e.g., Trust Region Policy Optimization). Because it is grounded in the global $L$-smoothness of the cross-entropy loss, the bound holds macroscopically. 
+
+Thus, the drift $\delta_Z$ can safely represent the total topological shift between a foundational Base Model (Proxy) and a fully adapted Fine-tuned Model (Target). In this context, the Trust Region acts as a rigorous mathematical guardrail against \emph{Representation Collapse}. It explains why modern alignment techniques—such as the KL-divergence penalty in RLHF against a reference model, or the structural bottleneck in LoRA—are empirically successful: they explicitly constrain the total geometric drift $\|\delta_Z\|_F^2$ to remain securely within the base model's valid trust region, thereby guaranteeing task improvement without triggering the catastrophic curvature penalty.
+
+
+
+
+
+
+
+
+
+
+
+
+
+\subsection{(Model Merging) Task Saturation and the Relative Suboptimality Index (RSI)}
+\label{app:rsi}
+
+The previous analysis demonstrates that the \emph{magnitude} of the task gradient, $\|\nabla_Z \mathcal{L}(Z_P W)\|_F$, dictates the trust region for safe geometric manipulation. We formalize this by linking the gradient magnitude to the functional distance to the target optimum $Z_T^*$.
+
+\paragraph{Optimization Proximity via Local PL Condition.}
+Under a local $\mu$-strong convexity assumption or the Polyak-Łojasiewicz (PL) condition, the geometric distance from the proxy features to the optimal feature manifold $Z_T^*$ is rigorously bounded by the gradient norm:
+\begin{equation}
+\| Z_P W - Z_T^* \|_F \le \frac{1}{\mu} \| \nabla_Z \mathcal{L}(Z_P W) \|_F.
+\end{equation}
+Therefore, measuring the gradient magnitude directly informs us of the proxy's suboptimality gap.
+
+\paragraph{The Relative Suboptimality Index (RSI).}
+Using absolute gradient norms is empirically problematic due to scale dependencies on the batch size $n$ and the prediction head scale $\|H_T\|_F$. To provide a scale-invariant, dimensionless metric for task saturation, we normalize the observed gradient by its theoretical upper bound.
+
+Recall that $\nabla_Z \mathcal{L} = (\hat{P} - Y) H_T^\top$. By the sub-multiplicativity of the Frobenius norm:
+\begin{equation}
+\|\nabla_Z \mathcal{L}\|_F \le \|\hat{P} - Y\|_F \cdot \|H_T\|_F.
+\end{equation}
+The maximum possible error for the probability matrix occurs when the model predicts entirely incorrect classes with absolute certainty, yielding a maximum distance of $\sqrt{1^2 + (-1)^2} = \sqrt{2}$ per sample. Over $n$ samples, the supremum is $\|\hat{P} - Y\|_F \le \sqrt{2n}$.
+
+We define the \textbf{Relative Suboptimality Index (RSI)} as:
+\begin{equation}
+\text{RSI}(Z_P) := \frac{\|\nabla_Z \mathcal{L}(Z_P W)\|_F}{\sqrt{2n} \cdot \|H_T\|_F} \;\;\in\;\; [0, 1].
+\end{equation}
+
+\paragraph{Insights and Empirical Utilization.}
+The RSI serves as an absolute diagnostic tool to determine if $Z_P$ is ``good enough'' before applying any geometric transformations:
+\begin{itemize}
+    \item \textbf{Saturated Regime ($\text{RSI} \to 0$):} The model is situated at a perfect stationary point for the given task (e.g., a base model on its pre-training corpus). The trust region shrinks to zero. In this regime, the model cannot improve structurally; any subsequent geometric drift ($\Omega < 1$) serves merely as an index of structural destruction, unilaterally inducing performance decay.
+    \item \textbf{Suboptimal Regime ($\text{RSI} \gg 0$, e.g., $0.4$ to $0.6$):} The model predictions are highly divergent from the optimum, yielding massive gradients. This indicates a highly suboptimal feature space with tremendous room for improvement. In this state, a proxy can safely undergo significant geometric restructuring, provided the directional drift aligns with the vast negative gradient.
+\end{itemize}
+
+By evaluating the RSI alongside the PRISM bound, researchers can holistically map not only \emph{how much} the geometry has changed ($\Omega, \Delta \rho$), but \emph{where} the model currently sits within the optimization landscape.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\subsection{Validating the Bound: Correlation between $\Omega$ and Regret}
+
+
+\subsection{Layer-wise Geometric Dynamics}
+
+
+\subsection{Stress Test: Cross-Family vs. Cross-Architecture}
+
+
+\subsection{Efficiency: The Pareto Frontier}
+
+
+\section{Conclusion}
+
+We presented a unified geometric framework where the linear representation hypothesis serves as a rigorous proxy for performance. By quantifying alignment via Nuclear and Spectral norms, we derived actionable bounds that bridge the gap between representational geometry and functional utility.
+We demonstrated the practical power of this framework in \emph{Coefficient Transfer}, showing that a geometrically aligned small model can act as a reliable surrogate for tuning large models. Furthermore, the framework's generality extends to other domains such as quantization, offering a fundamental tool for efficient machine learning.
+
+
+
+\renewcommand{\bibname}{References}
+\bibliographystyle{plainnat}
+\bibliography{paper} 
+
+
+
+
+
+
+
+\clearpage
+\appendix
+
+
+\clearpage
+\appendix
+
+\clearpage
+\appendix
+
+\section{Detailed Proofs and Derivations}
+\label{app:detailed_proofs}
+
+In this section, we provide the detailed mathematical derivations for the risk decomposition, specifically focusing on the tight characterization of the Lipschitz constants for both the feature alignment error ($K_{\mathrm{feat}}$) and the head discrepancy ($K_{\mathrm{pred}}$).
+
+\subsection{Proof of Lemma 1: Feature Alignment Error and $K_{\mathrm{feat}}$}
+\label{app:proof_lemma1}
+
+Lemma~\ref{lemma:risk_decomp} states that the risk difference can be decomposed into feature alignment error and head discrepancy. 
+
+\paragraph{Derivation of the Expected Error.}
+Let the risk of the target model be $\mathcal{R}_T = \mathbb{E}_{(x,y)}[\ell(h_T(\phi_T(x)), y)]$ and the expected risk of the proxy utilizing the target's head (the hybrid term) be $\mathcal{R}_{P \to T} = \mathbb{E}_{(x,y)}[\ell(h_T(\phi_P(x)W), y)]$.
+We define the composition function $g_T(z, y) := \ell(h_T(z), y)$, mapping the continuous feature vector $z \in \mathbb{R}^{d_T}$ to a scalar loss.
+
+Assuming $g_T(\cdot, y)$ is $K_{\mathrm{feat}}$-Lipschitz continuous for all $y \in \mathcal{Y}$, we have:
+\begin{equation}
+|g_T(z_1, y) - g_T(z_2, y)| \le K_{\mathrm{feat}} \| z_1 - z_2 \|_2, \quad \forall z_1, z_2 \in \mathbb{R}^{d_T}.
+\end{equation}
+
+By substituting $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x)W$ into the inequality and taking the expectation, we obtain the first term of our bound:
+\begin{equation}
+\begin{aligned}
+\big| \mathcal{R}_T - \mathcal{R}_{P \to T} \big| &= \Big| \mathbb{E}_{(x,y)} \big[ g_T(\phi_T(x), y) - g_T(\phi_P(x)W, y) \big] \Big| \\
+&\le \mathbb{E}_{(x,y)} \Big[ \big| g_T(\phi_T(x), y) - g_T(\phi_P(x)W, y) \big| \Big] \\
+&\le K_{\mathrm{feat}} \cdot \mathbb{E}_x \big[ \| \phi_T(x) - \phi_P(x)W \|_2 \big] \\
+&= K_{\mathrm{feat}} \cdot \delta.
+\end{aligned}
+\end{equation}
+
+\paragraph{Tight Characterization of $K_{\mathrm{feat}}$ via Simplex Polarization.}
+To evaluate $K_{\mathrm{feat}}$, we must bound the gradient of the loss with respect to the features $z$. For standard Cross-Entropy loss with a linear head $H_T \in \mathbb{R}^{d_T \times C}$, the logits are $v = z H_T$. Let $h_i \in \mathbb{R}^{d_T}$ denote the $i$-th column of $H_T$ (the weight vector for class $i$). 
+
+The gradient is given by the chain rule: $\nabla_z g_T = \sum_{i=1}^C (\hat{p}_i - y_i) h_i$, where $\hat{p}$ is the softmax probability output and $y$ is the one-hot target vector for the true class $k$. 
+A naive bound separates the terms via Cauchy-Schwarz: $\| \nabla_z g_T \|_2 \le \| H_T \|_2 \| \hat{p} - y \|_2 \le \sqrt{2}\| H_T \|_2$. However, this is extremely loose.
+
+We can derive a strictly tighter bound by leveraging the probability simplex property $\sum_{i=1}^C \hat{p}_i = 1$. Since $y$ is one-hot at index $k$, we can expand the gradient as:
+\begin{equation}
+\nabla_z g_T = (\hat{p}_k - 1) h_k + \sum_{i \neq k} \hat{p}_i h_i.
+\end{equation}
+Using the simplex property, we know $1 - \hat{p}_k = \sum_{i \neq k} \hat{p}_i$. Substituting this back yields a polarized form:
+\begin{equation}
+\begin{aligned}
+\nabla_z g_T &= -\Big(\sum_{i \neq k} \hat{p}_i\Big) h_k + \sum_{i \neq k} \hat{p}_i h_i \\
+&= \sum_{i \neq k} \hat{p}_i (h_i - h_k).
+\end{aligned}
+\end{equation}
+This elegant transformation reveals that the gradient is exactly a \emph{convex combination} of the pairwise differences between the wrong class weights ($h_i$) and the correct class weight ($h_k$). Taking the $L_2$ norm and applying the triangle inequality:
+\begin{equation}
+\| \nabla_z g_T \|_2 \le \sum_{i \neq k} \hat{p}_i \| h_i - h_k \|_2 \le \max_{i \neq k} \| h_i - h_k \|_2.
+\end{equation}
+To ensure this bound holds globally across all possible true classes, we define the tightest Lipschitz constant as the maximum pairwise distance between any two class embeddings:
+\begin{equation}
+K_{\mathrm{feat}} = \max_{j, k} \| h_j - h_k \|_2.
+\end{equation}
+\textbf{Remark:} This class-pairwise bound proves that the model's sensitivity to geometric distortion is not governed by the absolute magnitude of the head weights (which can be arbitrarily shifted), but strictly by the \emph{relative distance} between class prototypes.
+
+
+\subsection{Proof of Proposition 1: Covariance-Adjusted Head Discrepancy}
+\label{app:proof_prop1}
+
+Proposition~\ref{prop:covariance_head} bounds the functional divergence between the target head ($H_T$) and the proxy head ($H_P$), effectively weighting the parameter error by the data distribution.
+
+\paragraph{Derivation of the Trace Projection.}
+Let the head discrepancy term be $\gamma = |\mathcal{R}_{P \to T} - \mathcal{R}_P|$. Assuming the loss function $\ell(v, y)$ is $K_{\mathrm{pred}}$-Lipschitz with respect to the predicted logits $v \in \mathbb{R}^C$:
+\begin{equation}
+| \ell(v_1, y) - \ell(v_2, y) | \le K_{\mathrm{pred}} \| v_1 - v_2 \|_2.
+\end{equation}
+
+Substituting $v_1 = z W H_T$ and $v_2 = z H_P$ (where $z = \phi_P(x)$) and taking the expectation:
+\begin{equation}
+\gamma \le K_{\mathrm{pred}} \cdot \mathbb{E}_z \big[ \| z (W H_T - H_P) \|_2 \big].
+\end{equation}
+
+Let $\Delta H = W H_T - H_P$. To bound the expected $L_2$ norm, we employ Jensen's Inequality on the concave square root function: $\big( \mathbb{E}_z [ \| z \Delta H \|_2 ] \big)^2 \le \mathbb{E}_z [ \| z \Delta H \|_2^2 ]$.
+Expanding the squared norm using the trace operator ($\operatorname{Tr}$):
+\begin{equation}
+\begin{aligned}
+\mathbb{E}_z \big[ \| z \Delta H \|_2^2 \big] &= \mathbb{E}_z \Big[ \operatorname{Tr} \big( \Delta H^\top z^\top z \Delta H \big) \Big] \\
+&= \operatorname{Tr} \Big( \Delta H^\top \mathbb{E}_z [ z^\top z ] \Delta H \Big).
+\end{aligned}
+\end{equation}
+
+By defining the uncentered empirical feature covariance $\Sigma_P = \mathbb{E}_z [z^\top z]$, we obtain:
+\begin{equation}
+\operatorname{Tr} \big( \Delta H^\top \Sigma_P \Delta H \big) = \| \Sigma_P^{1/2} \Delta H \|_F^2.
+\end{equation}
+Taking the square root yields the final bound: $\gamma \le K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} \Delta H \|_F$. This confirms that head misalignment only penalizes risk if it aligns with the active semantic subspace (principal components) of $\Sigma_P$.
+
+\paragraph{Characterizing and Minimizing $K_{\mathrm{pred}}$.}
+The constant $K_{\mathrm{pred}}$ bounds the sensitivity of the loss to the pre-softmax logits. For Cross-Entropy, the gradient is $\nabla_v \ell = \hat{p} - y$. The maximal $L_2$ norm occurs when the model predicts the wrong class with absolute certainty, yielding:
+\begin{equation}
+K_{\mathrm{pred}} = \max_{\hat{p}} \| \hat{p} - y \|_2 \le \sqrt{1^2 + (-1)^2} = \sqrt{2}.
+\end{equation}
+
+Crucially, our formulation indicates that head discrepancy can be \emph{actively suppressed} by interventions that mathematically lower $K_{\mathrm{pred}}$:
+\begin{itemize}
+    \item \textbf{Temperature Scaling:} By scaling logits as $v/T$ ($T > 1$), gradients are uniformly dampened, reducing the effective Lipschitz constant to $K_{\mathrm{pred}}^{(T)} \le \frac{\sqrt{2}}{T}$. This rigorously explains why high-temperature distillation improves transfer stability.
+    \item \textbf{Logit Soft-Capping:} Recent architectures (e.g., Gemma 2) employ $v' = c \cdot \tanh(v/c)$. The derivative approaches $0$ for extreme logits, squashing the local Lipschitz constant in outlier regions and preventing the unbounded amplification of $\| \Sigma_P^{1/2} \Delta H \|_F$.
+\end{itemize}
+
+
+
+
+
+
+
+\section{Detailed Derivation of the $L$-Smoothness Bound and Curvature Penalty}
+\label{app:l_smoothness_derivation}
+
+In this section, we provide the rigorous mathematical derivation connecting the abstract optimization concept of $L$-smoothness to the exact neural network architecture (the linear prediction head $H_T$) and our empirical PRISM metrics. Specifically, we prove how the global quadratic majorizer derived from the Descent Lemma yields the exact curvature penalty term $\frac{1}{4} \|H_T\|_2^2 \|\delta_Z\|_F^2$.
+
+\paragraph{Step 1: The Descent Lemma in Feature Space.}
+In optimization theory, if a continuously differentiable function $f$ is $L$-smooth—meaning its gradient is $L$-Lipschitz continuous, or equivalently, the maximum eigenvalue (spectral norm) of its Hessian is bounded by $L$ ($\|\nabla^2 f\|_2 \le L$)—then the Descent Lemma guarantees a global quadratic upper bound for any two points $x$ and $y$ in the domain:
+\begin{equation}
+\label{eq:standard_descent}
+f(y) \le f(x) + \nabla f(x)^\top (y - x) + \frac{L}{2} \|y - x\|_2^2.
+\end{equation}
+
+We map this classical inequality to our feature-space alignment framework for a single data sample:
+\begin{itemize}
+    \item The function $f(\cdot)$ is the per-sample Cross-Entropy loss $\ell(\cdot)$.
+    \item The starting point $x$ is the proxy's mapped feature vector $z_P W \in \mathbb{R}^{d_T}$.
+    \item The target point $y$ is the target model's true feature vector $z_T \in \mathbb{R}^{d_T}$.
+    \item The displacement vector $(y - x)$ is the sample-wise geometric drift $\delta_z = z_T - z_P W$.
+\end{itemize}
+Substituting these into Eq.~(\ref{eq:standard_descent}) yields the sample-wise risk bound:
+\begin{equation}
+\label{eq:sample_descent}
+\ell(z_T) - \ell(z_P W) \le \nabla_z \ell(z_P W)^\top \delta_z + \frac{L}{2} \|\delta_z\|_2^2.
+\end{equation}
+
+\paragraph{Step 2: Resolving the Smoothness Constant $L$ via the Hessian Spectral Bound.}
+The critical task is to rigorously determine the feature-space smoothness constant $L$, which is the maximum spectral norm of the feature-space Hessian $\mathcal{H}_z = \nabla_z^2 \ell$.
+
+For a standard neural network classification head, the logits are computed as $v = z H_T$, followed by the Softmax Cross-Entropy loss $\ell(v, y) = -\log(p_y)$. 
+First, we consider the Hessian of the loss with respect to the \emph{logits} $v$. It is a well-established property that this Hessian equals the covariance matrix of the multinomial distribution parameterized by the predicted probabilities $p = \text{softmax}(v)$:
+\begin{equation}
+\nabla_v^2 \ell = \text{diag}(p) - p p^\top.
+\end{equation}
+Furthermore, the maximum eigenvalue of any such probability covariance matrix is strictly bounded by $0.5$ (which occurs when the probability mass is evenly distributed between two classes). Therefore, we have the absolute spectral bound:
+\begin{equation}
+\label{eq:logit_hessian_bound}
+\| \nabla_v^2 \ell \|_2 \le 0.5.
+\end{equation}
+
+Next, we project this second derivative back to the feature space $z$. By applying the multivariate chain rule, the feature-space Hessian is:
+\begin{equation}
+\mathcal{H}_z = H_T \big( \nabla_v^2 \ell \big) H_T^\top.
+\end{equation}
+To find $L$, we take the spectral norm (the $L_2$ matrix norm) of $\mathcal{H}_z$ and apply the sub-multiplicative property of matrix norms:
+\begin{equation}
+\begin{aligned}
+L = \| \mathcal{H}_z \|_2 &= \| H_T \big( \nabla_v^2 \ell \big) H_T^\top \|_2 \\
+&\le \| H_T \|_2 \cdot \| \nabla_v^2 \ell \|_2 \cdot \| H_T^\top \|_2.
+\end{aligned}
+\end{equation}
+Since $\|H_T^\top\|_2 = \|H_T\|_2$, and substituting the bound from Eq.~(\ref{eq:logit_hessian_bound}), we obtain the strict analytical bound for the feature-space smoothness constant:
+\begin{equation}
+\label{eq:analytical_L}
+L \le 0.5 \| H_T \|_2^2.
+\end{equation}
+
+\paragraph{Step 3: Deriving the Macroscopic Risk Bound.}
+We now substitute the analytical bound of $L$ (Eq.~\ref{eq:analytical_L}) back into the sample-wise Descent Lemma (Eq.~\ref{eq:sample_descent}):
+\begin{equation}
+\begin{aligned}
+\ell(z_T) - \ell(z_P W) &\le \nabla_z \ell(z_P W)^\top \delta_z + \frac{1}{2} \Big( 0.5 \| H_T \|_2^2 \Big) \|\delta_z\|_2^2 \\
+&= \nabla_z \ell(z_P W)^\top \delta_z + \frac{1}{4} \| H_T \|_2^2 \|\delta_z\|_2^2.
+\end{aligned}
+\end{equation}
+
+To evaluate the generalization capability of the proxy over the entire target distribution, we take the expectation (or empirical mean) over all $n$ samples in the dataset $\mathcal{D}$. 
+The left side becomes the macroscopic risk difference $\mathcal{R}_T - \mathcal{R}_{P \to T}$. The linear term averages to our defined Directional Risk Drift $\Delta_{\pm}$. For the quadratic term, the average of the squared $L_2$ norms of the sample vectors is exactly the scaled squared Frobenius norm of the entire geometric drift matrix $\delta_Z \in \mathbb{R}^{n \times d_T}$:
+\begin{equation}
+\frac{1}{n} \sum_{i=1}^n \|\delta_{z_i}\|_2^2 = \frac{1}{n} \|\delta_Z\|_F^2.
+\end{equation}
+
+Consequently, the global macroscopic optimization bound is flawlessly derived as:
+\begin{equation}
+\label{eq:final_macroscopic_bound}
+\mathcal{R}_T - \mathcal{R}_{P \to T} \le \underbrace{\Delta_{\pm}}_{\text{Linear Drive}} + \underbrace{\frac{1}{4} \|H_T\|_2^2 \left( \frac{1}{n} \|\delta_Z\|_F^2 \right)}_{\text{Curvature Penalty}}.
+\end{equation}
+
+\paragraph{Step 4: Unification with the PRISM Geometric Framework.}
+The beauty of Eq.~(\ref{eq:final_macroscopic_bound}) lies in its direct connection to our static geometric decomposition. The term $\frac{1}{n} \|\delta_Z\|_F^2$ represents the exact Mean Squared Error (MSE) of the aligned feature spaces. According to our PRISM Exact Geometric Decomposition (Theorem~\ref{thm:exact_decomposition}), this term is analytically completely determined by the scale collapse and topological mismatch:
+\begin{equation}
+\frac{1}{n} \|\delta_Z\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega).
+\end{equation}
+By substituting this structural identity into the curvature penalty, we definitively bridge the gap between dynamic optimization theory and static manifold geometry, proving that the required Trust Region for functional improvement is intrinsically governed by our proposed $\Omega$ and $\Delta \rho$ metrics.
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
+
+
+
+
+
+\pagebreak
+\newpage
+\clearpage
+
+
+\end{document}
