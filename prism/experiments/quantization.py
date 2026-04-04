@@ -169,6 +169,10 @@ def _display_label(quant_tag: str) -> str:
         repo, rev = _parse_gptq(quant_tag)
         short = repo.split("/")[-1]
         return f"GPTQ({rev})" if rev else f"GPTQ({short})"
+    if _is_awq(quant_tag):
+        repo, rev = _parse_awq(quant_tag)
+        short = repo.split("/")[-1]
+        return f"AWQ({rev})" if rev else f"AWQ({short})"
     if _is_dtype(quant_tag):
         dt = _parse_dtype(quant_tag)
         return _DTYPE_LABELS.get(dt, dt.upper())
@@ -464,6 +468,11 @@ class QuantizationExperiment(BaseExperiment):
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
 
+        # --- Control Variate ablation config ---
+        cfg_cv = self.config.get("cv_ablation", {})
+        cv_cal_sizes: List[int] = cfg_cv.get("calibration_sizes", [])
+        cv_n_trials: int = cfg_cv.get("n_trials", 20)
+
         # --- Dataset-specific Z extraction and loss modes ---
         from ..data.loaders import get_task_metadata
         task_meta = get_task_metadata(task_name)
@@ -477,7 +486,8 @@ class QuantizationExperiment(BaseExperiment):
         else:
             z_modes = task_meta["z_modes_all"]
 
-        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_dtype(q) for q in quant_bits)
+        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q) and not _is_dtype(q) for q in quant_bits)
+        has_awq = any(_is_awq(q) for q in quant_bits)
         has_bnb = any(_is_bnb(q) for q in quant_bits)
         has_gptq = any(_is_gptq(q) for q in quant_bits)
         has_dtype = any(_is_dtype(q) for q in quant_bits)
@@ -502,6 +512,13 @@ class QuantizationExperiment(BaseExperiment):
                     repo, _ = _parse_gptq(q)
                     gptq_repos.add(repo)
             print(f"  GPTQ   : {', '.join(sorted(gptq_repos))}")
+        if has_awq:
+            awq_repos = set()
+            for q in quant_bits:
+                if _is_awq(q):
+                    repo, _ = _parse_awq(q)
+                    awq_repos.add(repo)
+            print(f"  AWQ    : {', '.join(sorted(awq_repos))}")
         print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
         print(f"  Data   : {task_name}  z_modes={z_modes}  loss_mode={loss_mode}")
 
@@ -653,6 +670,10 @@ class QuantizationExperiment(BaseExperiment):
                     repo, rev = _parse_gptq(bit_label)
                     rev_tag = f"@{rev}" if rev else ""
                     proxy_model_name = f"{repo}{rev_tag} [GPTQ]"
+                elif _is_awq(bit_label):
+                    repo, rev = _parse_awq(bit_label)
+                    rev_tag = f"@{rev}" if rev else ""
+                    proxy_model_name = f"{repo}{rev_tag} [AWQ]"
                 elif _is_bnb(bit_label):
                     proxy_model_name = f"{target_model_id} [bnb:{_bnb_type(bit_label)}]"
                 else:
@@ -726,6 +747,46 @@ class QuantizationExperiment(BaseExperiment):
                           f"Bound={bound_s} |dR|={dr_s} {status} "
                           f"K_f_emp={K_emp['p95']:.4f}"
                           + (f"  ({elapsed:.1f}s)" if zm == z_modes[0] else ""))
+
+                # --- Control Variate Ablation ---
+                if cv_cal_sizes:
+                    # Select per-sample losses for the primary loss mode
+                    if loss_mode in ("answer", "gsm8k_dual") and has_answer:
+                        persample_T = loss_stats["answer_losses"]
+                        persample_P = proxy_stats["answer_losses"]
+                    else:
+                        persample_T = losses_T
+                        persample_P = proxy_stats["losses"]
+
+                    N_full = persample_T.shape[0]
+                    R_T_full = persample_T.mean().item()
+                    R_P_full = persample_P.mean().item()
+
+                    cv_results_for_proxy = []
+                    for n_cal in cv_cal_sizes:
+                        if n_cal >= N_full:
+                            continue
+                        errors = []
+                        for trial in range(cv_n_trials):
+                            rng = torch.Generator().manual_seed(self.seed + trial)
+                            idx = torch.randperm(N_full, generator=rng)[:n_cal]
+                            delta_hat = persample_T[idx].mean().item() - persample_P[idx].mean().item()
+                            R_T_hat = R_P_full + delta_hat
+                            errors.append(abs(R_T_hat - R_T_full))
+                        mean_err = sum(errors) / len(errors)
+                        std_err = (sum((e - mean_err) ** 2 for e in errors) / len(errors)) ** 0.5
+                        cv_results_for_proxy.append({
+                            "n_cal": n_cal,
+                            "mean_abs_error": mean_err,
+                            "std_abs_error": std_err,
+                            "R_T_full": R_T_full,
+                            "R_P_full": R_P_full,
+                        })
+                        print(f"    CV n_cal={n_cal:5d}: |R̂_T - R_T| = {mean_err:.6f} ± {std_err:.6f}")
+
+                    # Store CV ablation in the first z_mode's result
+                    if cv_results_for_proxy:
+                        results[-len(z_modes)].extra["cv_ablation"] = cv_results_for_proxy
 
             except Exception as e:
                 elapsed = time.time() - t0

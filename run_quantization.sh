@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 8 datasets × 15 models, multi-z_mode per dataset
+# 7 datasets × 15 models, multi-z_mode per dataset
 #
 # Each (model, dataset) pair runs ALL z_modes in a single
 # forward pass via data.z_modes=[...]:
@@ -83,11 +83,11 @@ run() {
 
 # z_modes auto-resolved from TASK_REGISTRY.z_modes_all per dataset:
 #   corpus (wikitext, fineweb_edu):                   [mean_pool, concat]
-#   Q&A (lambada, gsm8k, mmlu, arc, triviaqa, squad): [last_context_token, concat, last_token]
+#   Q&A (gsm8k, mmlu, arc, triviaqa, squad):           [last_context_token, concat, last_token]
 
 DATASETS_ALL="wikitext fineweb_edu gsm8k mmlu arc triviaqa squad"
 
-# Helper: run all 6 datasets for a model
+# Helper: run all 7 datasets for a model
 # Usage: run_all_datasets MODEL_ARGS...
 run_all_datasets() {
     local args=("$@")
