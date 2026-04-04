@@ -7,7 +7,7 @@ bridge 到這樣的 model 通常有一個框架:
 且缺乏可以解釋的原因, 也缺少理論保證
 在現代 Transformer 架構（如 Llama-3）中，模型是由許多層的 Transformer Blocks 組成，抽出 features 最後再接一個 Linear Classifier 來輸出每個單字（Vocabulary）的機率。
 利用這個特性, 我們推導了 general 的 exact decomposition
-因為 LLM 的計算 huge 以及 evaluation bottleneck, 我們針對 LLM 分析
+因為 LLM: The Extreme Evaluation Bottleneck, The Post-Training Ecosystem, 單字級預測與序列生成的「大一統」只在 LLM 才有意義, Activation Outliers & Scale Collapse 所以針對 LLM 分析
 所以針對 emperical risk 進行分析
 得到了可以計算, 有幾何對齊的意義
 (Control Variate)
