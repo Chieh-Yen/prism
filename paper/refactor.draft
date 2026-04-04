@@ -1,0 +1,61 @@
+# introduction
+提到現代 model 的大成功
+現代 model (符合條件的, LLM, CLIP, 或其他?)
+bridge 到這樣的 model 通常有一個框架:
+再來提到難點, 很多人想要分析 XXX 的成效差異, 需要實際上跑過才會知道
+其中牽涉到大量的計算
+且缺乏可以解釋的原因, 也缺少理論保證
+現代 model 都是抽 feature + linear head
+所以針對 emperical risk 進行分析
+得到了可以計算, 有幾何對齊的意義
+(Control Variate 重要嗎? 有說服力嗎?)
+並進行 emperical 實驗, 證明 high correlation 以及 high ranking
+以及對 scale, shpae, head 的分析
+
+Contributions.
+Our main contributions are as follows:
+ - A Unified Geometric Framework for Risk Bounding: We establish a rigorous theoretical bridge linking the internal representational geometry of a proxy to the functional risk of a target model. Crucially, our framework naturally unifies point-wise classification and sequence-level autoregressive generation, demonstrating that both paradigms are governed by the same underlying geometric constraints.
+ - Exact Decomposition via Nuclear Norm: Unlike prior post-hoc metrics (e.g., CKA) that rely on Frobenius bounds, we derive an exact geometric decomposition of feature discrepancy using the Nuclear Norm (Procrustes Similarity $\Omega$). We prove this formulation provides a strictly tighter bound for rotational alignment, explicitly isolating structural distortion from prediction head errors.
+ - Principled Diagnostics for Quantization and Fine-Tuning: We operationalize our theory across two high-value LLM lifecycle stages. In Post-Training Quantization (PTQ), our framework mathematically characterizes feature scale collapse. In sequential Fine-Tuning, we utilize geometric drift as a foundational metric to monitor catastrophic forgetting, effectively decoupling backbone manifold topology from head-specific adaptations.
+ - Strong Empirical Correlation: While deep learning risk bounds are typically loose in absolute magnitude, we conduct extensive empirical analyses across modern LLMs (e.g., Llama-3, Gemma) demonstrating that our geometric bound serves as a highly predictive surrogate. We show strong rank correlation (e.g., Spearman's $\rho > 0.9$) between our theoretical metric and empirical performance degradation, establishing linear geometric alignment as a robust, compute-efficient proxy for actual model evaluation.
+
+
+# Related Works
+
+# A Geometric Framework for Proxy Performance Estimation108
+
+$\mathcal{R}_T = \mathbb{E}_{(x,y)}[\ell(h_T(z), y)]$
+
+$$\mathcal{R}_T^{\mathrm{AR}} = \mathbb{E}_{(c, y) \sim \mathcal{D}} \left[ \frac{1}{|y|} \sum_{t=1}^{|y|} \ell(h_T(z_{c, t}), y_t) \right]$$
+
+# Emperical Experiment
+實驗設定
+benchamrk
+(1) Multiple-Choice (MC) Loss (classification task, 用於測量「任務特定活躍子空間 (Task-Specific Active Subspace)」的 Calibration Set)
+ - 在標準的學術評估框架中（例如 EleutherAI 的 lm-evaluation-harness 或是 OpenAI 的 evals），MMLU 和 ARC 不是用生成的，而是用 Logit Scoring 算出來的。做法是：把 Prompt 餵給模型後，直接提取最後一個 Prompt token 的輸出 Feature $Z$，然後比較選項 Token（例如 'A', 'B', 'C', 'D'）在 Logits 上的機率大小，取機率最大者作為模型的選擇。
+ - For multiple-choice benchmarks (e.g., MMLU, ARC), we adopt the standard logit-scoring evaluation protocol. We extract the feature vector $z$ of the final prompt token to compute the probability distribution over the choice tokens (e.g., 'A', 'B', 'C', 'D'). This strictly reduces the task to a single-token classification problem, directly aligning with our theoretical formulation.
+ - MMLU, ARC
+(2) Language Modeling (LM) Loss (Language modeling task: 用於測量「通用基礎流形 (General Manifold)」的 Calibration Set)
+ - 在連續文本中，任務是標準的 Next-Token Prediction。這裡的 Loss 是整個序列所有 Token 的 Cross-Entropy (CE) 平均
+ - c4, wikitext
+(3) Autoregressive Answer Loss (Autoregressive Tasks, 模型直接生成答案，且答案通常只有 1 到 5 個 Tokens。因為生成軌跡極短)
+ - TriviaQA, SQuAD
+
+model
+ - llama, qwen, deepseek, minstral
+
+application
+ - quantization
+    -- 簡介 GGUF, bitsandbytes, GPTQ
+ - fine-tune
+    -- SFT
+
+主實驗
+
+ablation
+ - X 軸是「Calibration 樣本數 $n$」，Y 軸是「估計出來的 Target Risk 與真實 Target Risk 的誤差」, 可以漂亮地展示出：只需要 500 筆資料 ($n=500$)，PRISM 框架就能精準預測 Target 模型在完整 14000 筆測試集上的表現，節省了 96% 的評估算力
+ - 
+
+# Other applications
+
+# abstract
