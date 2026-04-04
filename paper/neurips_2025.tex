@@ -58,6 +58,9 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{amsthm}
+\usepackage{enumitem}       % nosep option for itemize
+\usepackage{pifont}         % \ding for checkmarks
+\newcommand{\cmark}{\ding{51}}
 
 \newtheorem{theorem}{Theorem}
 \newtheorem{lemma}{Lemma}
@@ -735,5 +738,7 @@ Therefore, substituting $\Omega_F$ into the unified bound produces a \emph{stric
 
 \paragraph{Relation to CKA.}
 Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$, which differs from $\Omega_F^2 = \|Z_T^\top Z_P\|_F^2 / (\|Z_T\|_F^2 \|Z_P\|_F^2)$ in its denominator. The two denominators are related by the inequality $\|Z_M^\top Z_M\|_F \le \|Z_M\|_F^2 = \operatorname{Tr}(Z_M^\top Z_M)$ (since $\|A\|_F \le \operatorname{Tr}(A)$ for any positive semidefinite $A$, by Cauchy--Schwarz on the eigenvalues), which gives $\mathrm{CKA} \ge \Omega_F^2$. Hence CKA can overestimate alignment relative to $\Omega_F$, and it is not directly substitutable into our Procrustes residual. More fundamentally, CKA is not derived from any alignment optimization and therefore lacks the operational meaning of $\Omega$, which exactly solves the Orthogonal Procrustes problem.
+
+\input{model_quantization}
 
 \end{document}
