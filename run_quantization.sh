@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 7 datasets × 15 models, multi-z_mode per dataset
+# 7 datasets × 11 models, multi-z_mode per dataset
 #
 # Each (model, dataset) pair runs ALL z_modes in a single
 # forward pass via data.z_modes=[...]:
@@ -32,10 +32,6 @@
 #   9.  Qwen/Qwen2.5-7B-Instruct                  Instruct
 #   10. mistralai/Mistral-7B-v0.3                 Base
 #   11. mistralai/Mistral-7B-Instruct-v0.3        Instruct
-#   12. google/gemma-3-4b-pt                      Base
-#   13. google/gemma-3-4b-it                      Instruct
-#   14. google/gemma-2-9b                         Base
-#   15. google/gemma-2-9b-it                      Instruct
 #
 # GPTQ/AWQ loading notes:
 #   • All gptq:/awq: entries use AutoModelForCausalLM.from_pretrained (standard HF).
@@ -342,80 +338,6 @@ gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ,\
 awq:solidrust/Mistral-7B-Instruct-v0.3-AWQ]"
 
 run_all_datasets $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS"
-
-# ============================================================
-# Model 12: Gemma-3-4B-PT  (Base / Pre-trained)
-# Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
-# GGUF  : no confirmed public GGUF for the base model — BnB only
-# GPTQ  : no confirmed public repo — omitted
-# NOTE  : gated model — requires HuggingFace license acceptance at
-#          https://huggingface.co/google/gemma-3-4b-pt before running
-# ============================================================
-GEMMA3B_TARGET="target.model=google/gemma-3-4b-pt"
-GEMMA3B_GGUF="proxy.model=google/gemma-3-4b-pt"
-GEMMA3B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-bnb:int8,bnb:nf4,bnb:fp4]"
-
-run_all_datasets $GEMMA3B_TARGET $GEMMA3B_GGUF "$GEMMA3B_BITS"
-
-# ============================================================
-# Model 13: Gemma-3-4B-IT  (Instruct)
-# Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
-# GGUF  : bartowski/google_gemma-3-4b-it-GGUF
-#          files: google_gemma-3-4b-it-{quant}.gguf
-#          (bartowski prefixes Google models with "google_")
-# GPTQ  : circulus/gemma-3-4b-it-gptq  INT4-g128  gptqmodel 2.1.0
-# ============================================================
-GEMMA3I_TARGET="target.model=google/gemma-3-4b-it"
-GEMMA3I_GGUF="proxy.model=bartowski/google_gemma-3-4b-it-GGUF"
-GEMMA3I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:circulus/gemma-3-4b-it-gptq]"
-
-run_all_datasets $GEMMA3I_TARGET $GEMMA3I_GGUF "$GEMMA3I_BITS"
-
-# ============================================================
-# Model 14: Gemma-2-9B  (Base)
-# Arch  : Gemma2ForCausalLM, vocab=256K, hidden=3584
-# GGUF  : QuantFactory/gemma-2-9b-GGUF  (community)
-#          files: gemma-2-9b.{quant}.gguf  (QuantFactory dot convention)
-#          explicit gguf_template required — auto-derive uses dash separator
-# GPTQ  : ModelCloud/gemma-2-9b-gptq-4bit  INT4-g128  gptqmodel 0.9.2
-# ============================================================
-GEMMA2B_TARGET="target.model=google/gemma-2-9b"
-GEMMA2B_GGUF="proxy.model=QuantFactory/gemma-2-9b-GGUF"
-GEMMA2B_TPL="proxy.gguf_template=gemma-2-9b.{quant}.gguf"
-GEMMA2B_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:ModelCloud/gemma-2-9b-gptq-4bit,\
-awq:hugging-quants/gemma-2-9b-it-AWQ-INT4]"
-
-run_all_datasets $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS"
-
-# ============================================================
-# Model 15: Gemma-2-9B-IT  (Instruct)
-# Arch  : Gemma2ForCausalLM, vocab=256K, hidden=3584
-# GGUF  : bartowski/gemma-2-9b-it-GGUF
-#          files: gemma-2-9b-it-{quant}.gguf
-# GPTQ  : ModelCloud/gemma-2-9b-it-gptq-4bit  INT4-g128  gptqmodel 0.9.2
-#          marcsun13/gemma-2-9b-it-GPTQ         INT4-g128  standard transformers
-# ============================================================
-GEMMA2I_TARGET="target.model=google/gemma-2-9b-it"
-GEMMA2I_GGUF="proxy.model=bartowski/gemma-2-9b-it-GGUF"
-GEMMA2I_BITS="proxy.quantization_bits=[\
-dtype:float16,\
-Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:ModelCloud/gemma-2-9b-it-gptq-4bit,\
-gptq:marcsun13/gemma-2-9b-it-GPTQ,\
-awq:solidrust/gemma-2-9b-it-AWQ]"
-
-run_all_datasets $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS"
 
 echo "========================================"
 echo "  All experiments complete."
