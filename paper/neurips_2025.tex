@@ -108,7 +108,13 @@ as a Proxy for Performance Transferability}
 \maketitle
 
 \begin{abstract}
-Efficient machine learning increasingly relies on \emph{proxy models}---such as smaller checkpoints, quantized variants, or historical snapshots---to estimate the behavior of expensive target models. However, the theoretical conditions under which a proxy accurately reflects a target's performance landscape remain poorly understood. In this work, we propose a unified geometric framework linking \emph{linear representational alignment} to \emph{functional risk proximity}. We derive an exact decomposition of feature discrepancy using the nuclear norm of the cross-covariance matrix, introducing the \emph{Procrustes Similarity Coefficient} ($\Omega$) as a computable, generation-free metric for alignment. We further bound prediction head discrepancy via spectral operator norms. We demonstrate the versatility of this framework across four distinct high-value scenarios: (1) \textbf{Cross-Scale Model Merging}, where we prove that optimal coefficients can be transferred from small to large models with bounded regret; (2) \textbf{Quantization Quality Estimation}, enabling prediction of performance degradation without ground-truth labels; (3) \textbf{Geometric Monitoring of Catastrophic Forgetting}, providing a lightweight regularizer for continual learning; and (4) \textbf{Out-of-Distribution Detection}, utilizing multi-view geometric consistency to identify anomalies. Our results establish linear geometric alignment as a rigorous, sufficient condition for functional performance transfer.
+Evaluating Large Language Model (LLM) variants---quantized checkpoints, fine-tuned snapshots, LoRA adaptations---is prohibitively expensive, yet existing representational similarity metrics (e.g., CKA) provide no formal link to downstream performance.
+We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that derives a rigorous, closed-form upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ between a target and proxy model.
+By formulating alignment as an Orthogonal Procrustes problem, we obtain an \emph{exact} decomposition of feature discrepancy into scale mismatch ($\Delta\rho$) and shape mismatch ($1 - \Omega$) via the nuclear norm, provably tighter than Frobenius-based alternatives.
+Combined with a covariance-adjusted head bound, this yields a computable diagnostic from a single forward pass.
+We instantiate the framework for post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), where the bound reduces to a pure geometric distortion measure, and for fine-tuning (SFT, LoRA), where it isolates catastrophic forgetting in the backbone geometry.
+Extensive experiments across Llama, Qwen, Mistral, and DeepSeek demonstrate strong rank correlation (Spearman's $\rho > 0.9$) between our geometric metric and actual performance degradation.
+By leveraging high alignment as a variance-reduction guarantee, we further show that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\%.
 \end{abstract}
 
 \section{Introduction}
@@ -405,25 +411,17 @@ We leave detailed empirical validation of these applications to future work.
 \subsection{Experimental Setup}
 \label{subsec:exp_setup}
 
-\paragraph{Scope.}
-While the PRISM framework applies to any model with the feature-extractor-plus-linear-head architecture, we focus empirical validation on LLMs for three reasons: (1) LLMs face the most severe evaluation bottleneck, with dozens of quantized and fine-tuned variants per base model; (2) LLM activations exhibit severe outlier channels susceptible to the scale collapse ($\Delta\rho$) formalized in our bounds; (3) LLMs dualize as point-wise logit classifiers and sequence-level generators, allowing us to validate the framework's unification of both paradigms.
+\paragraph{Models and Configurations.}
+We evaluate across four LLM families---Llama-3~\cite{grattafiori2024llama}, Qwen-2.5~\cite{qwen2025qwen3}, Mistral, and DeepSeek---spanning 1B to 70B parameters.
+For quantization (Sec.~\ref{subsec:quantization}), we test four PTQ families: GGUF (round-to-nearest), GPTQ~\cite{frantar2022gptq} (second-order), AWQ~\cite{lin2024awq} (activation-aware), and BitsAndBytes~\cite{dettmers2022gpt3} (absmax/nf4), across bit-widths from 2-bit to 8-bit.
+For fine-tuning (Sec.~\ref{subsec:forgetting}), we evaluate full SFT and LoRA~\cite{hu2022lora} across training steps.
 
-\paragraph{Models.}
-We evaluate across four modern LLM families: Llama-3~\cite{grattafiori2024llama}, Qwen-2.5~\cite{qwen2025qwen3}, Mistral, and DeepSeek, spanning parameter counts from 1B to 70B.
-
-\paragraph{Evaluation Paradigms and Benchmarks.}
-Our autoregressive risk formulation (Eq.~\ref{eq:ar_risk}) subsumes all standard LLM evaluation protocols by varying the partition between context $c$ and target $y$:
+\paragraph{Benchmarks.}
+Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organize benchmarks by the partition between context $c$ and target $y$:
 \begin{itemize}
-    \item \textbf{Multiple-Choice (MC) Classification} (MMLU, ARC, HellaSwag, PIQA): $c$ is the full prompt, $y$ is a single answer token (\texttt{A}/\texttt{B}/\texttt{C}/\texttt{D}). We extract the feature of the final prompt token and compute logit scores over choice tokens, strictly reducing the task to single-token classification.
-    \item \textbf{Language Modeling (LM)} (WikiText, FineWeb-Edu): $c$ is empty or a rolling prefix, $y$ is a contiguous text chunk. The risk is the standard next-token prediction cross-entropy averaged over the sequence.
-    \item \textbf{Short-Horizon Generation (QA)} (TriviaQA, SQuAD): $c$ is the question prompt, $y$ is the answer span (typically 1--5 tokens). The loss is evaluated strictly over the answer tokens.
-\end{itemize}
-For multiple-choice tasks, $Z$ consists of one feature per question (final prompt token); for LM and QA tasks, $Z^{\mathrm{AR}}$ comprises all target-position features across evaluation sequences.
-
-\paragraph{Application Scenarios.}
-\begin{itemize}
-    \item \textbf{Post-Training Quantization:} We evaluate four quantization families---GGUF (round-to-nearest), GPTQ~\cite{frantar2022gptq} (second-order), AWQ~\cite{lin2024awq} (activation-aware), and BitsAndBytes~\cite{dettmers2022gpt3} (absmax/nf4)---across bit-widths from 2-bit to 8-bit.
-    \item \textbf{Fine-Tuning:} We evaluate both full Supervised Fine-Tuning (SFT) and parameter-efficient LoRA~\cite{hu2022lora} across training steps to track forgetting dynamics.
+    \item \textbf{Multiple-Choice (MC)} --- MMLU, ARC, HellaSwag, PIQA: $c$ is the full prompt, $y$ is a single answer token. We extract the final prompt token's feature and compute logit scores, reducing the task to single-token classification.
+    \item \textbf{Language Modeling (LM)} --- WikiText, FineWeb-Edu: $c$ is empty or a rolling prefix, $y$ is a contiguous text chunk. Risk is the standard sequence-level cross-entropy.
+    \item \textbf{Short-Horizon Generation (QA)} --- TriviaQA, SQuAD: $c$ is the question prompt, $y$ is the answer span (1--5 tokens). Loss is evaluated strictly over answer tokens.
 \end{itemize}
 
 
