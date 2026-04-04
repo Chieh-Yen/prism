@@ -131,8 +131,7 @@ run_all_datasets $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS"
 #          NOTE: bartowski/Meta-Llama-3.1-8B-GGUF is gated (inherits Meta license)
 # GPTQ  : ModelCloud/Meta-Llama-3.1-8B-gptq-4bit  INT4-g128  GPTQModel 0.9.9
 #          shuyuej/Meta-Llama-3.1-8B-GPTQ          INT4       ExLlama v1 format
-#          (TechxGenus has Llama-3 only, not 3.1 — omitted)
-#          (No confirmed INT8-group GPTQ for the base model at time of writing)
+# AWQ   : UCLA-EMC/Meta-Llama-3.1-8B-AWQ-INT4     INT4       community
 # ============================================================
 LLAMA31B_TARGET="target.model=meta-llama/Meta-Llama-3.1-8B"
 LLAMA31B_GGUF="proxy.model=QuantFactory/Meta-Llama-3.1-8B-GGUF"
@@ -142,7 +141,8 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
-gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
+gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ,\
+awq:UCLA-EMC/Meta-Llama-3.1-8B-AWQ-INT4]"
 
 run_all_datasets $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS"
 
@@ -232,6 +232,7 @@ run_all_datasets $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS"
 #          → BF16 on hardware with compute capability < 8.9), then replace
 #          Linear layers with BnB-quantised equivalents in-place and dispatch
 #          to GPU.  See quantization.py:_bnb_requantize().
+# AWQ   : cyankiwi/Ministral-3-8B-Instruct-2512-AWQ-4bit  INT4  community
 # GPTQ  : no confirmed public repo — omitted
 # ============================================================
 MIN3I_TARGET="target.model=mistralai/Ministral-3-8B-Instruct-2512"
@@ -240,7 +241,8 @@ MIN3I_TPL="proxy.gguf_template=mistralai_Ministral-3-8B-Instruct-2512-{quant}.gg
 MIN3I_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
-bnb:int8,bnb:nf4,bnb:fp4]"
+bnb:int8,bnb:nf4,bnb:fp4,\
+awq:cyankiwi/Ministral-3-8B-Instruct-2512-AWQ-4bit]"
 
 run_all_datasets $MIN3I_TARGET $MIN3I_GGUF $MIN3I_TPL "$MIN3I_BITS"
 
