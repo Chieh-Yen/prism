@@ -644,9 +644,9 @@ Combining Eq.~(\ref{eq:delta_bound}) with Proposition~\ref{prop:exact_decomposit
 \label{app:head_bound}
 
 \paragraph{Lipschitz Property with Respect to Logits.}
-The head discrepancy measures how much the predictions differ when two different heads operate on the same aligned features. Let $z = \phi_P(x) W^*$ be the aligned proxy feature. Then:
+The head discrepancy measures how much the predictions differ when two different ``effective heads'' ($W^* H_T$ vs.\ $H_P$) operate on the same proxy features. Let $z = \phi_P(x)$ denote the (unaligned) proxy feature. Then:
 \begin{equation}
-\gamma = \big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big| = \Big|\mathbb{E}\!\big[\ell(z \cdot H_T, y) - \ell(z \cdot H_P, y)\big]\Big|.
+\gamma = \big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big| = \Big|\mathbb{E}\!\big[\ell(z \cdot W^* H_T, y) - \ell(z \cdot H_P, y)\big]\Big|.
 \end{equation}
 To bound this, we use the Lipschitz property of cross-entropy with respect to \emph{logits}. The gradient of $\ell$ with respect to $v$ is $\nabla_v \ell = \hat{p} - e_y$, with norm:
 \begin{equation}
@@ -655,10 +655,10 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$.
 
 \paragraph{Deriving the Covariance Projection.}
-Define the head misalignment matrix $\Delta H = W^* H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H$, and:
+Define the head misalignment matrix $\Delta H = W^* H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W^* H_T - H_P)$, and:
 \begin{equation}
 \begin{aligned}
-\gamma &\le \mathbb{E}\!\big[|\ell(z \cdot H_T, y) - \ell(z \cdot H_P, y)|\big] \\
+\gamma &\le \mathbb{E}\!\big[|\ell(z \cdot W^* H_T, y) - \ell(z \cdot H_P, y)|\big] \\
 &\le K_{\mathrm{pred}} \cdot \mathbb{E}_z\!\big[\|z \cdot \Delta H\|_2\big].
 \end{aligned}
 \end{equation}
@@ -707,7 +707,7 @@ Define the Frobenius-based similarity $\Omega_F := \|Z_T^\top Z_P\|_F / (\|Z_T\|
 \begin{equation}
 \Omega_F \le \Omega,
 \end{equation}
-with equality if and only if the cross-covariance matrix $Z_T^\top Z_P$ has rank 1 (i.e., all singular values are equal to one nonzero value).
+with equality if and only if the cross-covariance matrix $Z_T^\top Z_P$ has at most one nonzero singular value (i.e., rank $\le 1$).
 
 \paragraph{Proof.}
 Let $\sigma_1, \ldots, \sigma_d$ be the singular values of $Z_T^\top Z_P$. Then:

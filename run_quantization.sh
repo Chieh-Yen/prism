@@ -5,9 +5,8 @@
 #
 # Each (model, dataset) pair runs ALL z_modes in a single
 # forward pass via data.z_modes=[...]:
-#   Corpus (WikiText, FineWeb-Edu):         mean_pool + concat
-#   Q&A (LAMBADA, MMLU, ARC, GSM8K,
-#        TriviaQA, SQuAD):                  last_context_token + concat + last_token
+#   Corpus (WikiText, FineWeb-Edu):              mean_pool + concat
+#   Q&A (MMLU, ARC, GSM8K, TriviaQA, SQuAD):    last_context_token + concat + last_token
 #
 # Quantization tiers (all models):
 #   FP16  → dtype:float16           precision-drift reference (BF16→FP16)
@@ -33,7 +32,7 @@
 #   9.  Qwen/Qwen2.5-7B-Instruct                  Instruct
 #   10. mistralai/Mistral-7B-v0.3                 Base
 #   11. mistralai/Mistral-7B-Instruct-v0.3        Instruct
-#   12. google/gemma-3-4b                         Base
+#   12. google/gemma-3-4b-pt                      Base
 #   13. google/gemma-3-4b-it                      Instruct
 #   14. google/gemma-2-9b                         Base
 #   15. google/gemma-2-9b-it                      Instruct
@@ -124,8 +123,7 @@ gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-128,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-128,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
-gptq:AlphaGaO/Qwen3-8B-GPTQ,\
-awq:study-hjt/Qwen3-8B-Base-AWQ]"
+gptq:AlphaGaO/Qwen3-8B-GPTQ]"
 
 run_all_datasets $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS"
 
@@ -148,8 +146,7 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
-gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ,\
-awq:hugging-quants/Meta-Llama-3.1-8B-AWQ-INT4]"
+gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
 
 run_all_datasets $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS"
 
@@ -200,7 +197,7 @@ gptq:Efficient-ML/Qwen3-8B-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel,\
 gptq:JunHowie/Qwen3-8B-GPTQ-Int8,\
 gptq:RedHatAI/Qwen3-8B-quantized.w4a16,\
-awq:study-hjt/Qwen3-8B-AWQ]"
+awq:Qwen/Qwen3-8B-AWQ]"
 
 run_all_datasets $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS"
 
@@ -316,7 +313,7 @@ run_all_datasets $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS"
 # GPTQ  : iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128  INT4-g128  AutoGPTQ
 # ============================================================
 MIS7B_TARGET="target.model=mistralai/Mistral-7B-v0.3"
-MIS7B_GGUF="proxy.model=bartowski/Mistral-7B-v0.3-GGUF"
+MIS7B_GGUF="proxy.model=mradermacher/Mistral-7B-v0.3-GGUF"
 MIS7B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
@@ -345,15 +342,15 @@ awq:solidrust/Mistral-7B-Instruct-v0.3-AWQ]"
 run_all_datasets $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS"
 
 # ============================================================
-# Model 12: Gemma-3-4B  (Base)
+# Model 12: Gemma-3-4B-PT  (Base / Pre-trained)
 # Arch  : Gemma3ForCausalLM, vocab=262K, hidden=2560
 # GGUF  : no confirmed public GGUF for the base model — BnB only
 # GPTQ  : no confirmed public repo — omitted
 # NOTE  : gated model — requires HuggingFace license acceptance at
-#          https://huggingface.co/google/gemma-3-4b before running
+#          https://huggingface.co/google/gemma-3-4b-pt before running
 # ============================================================
-GEMMA3B_TARGET="target.model=google/gemma-3-4b"
-GEMMA3B_GGUF="proxy.model=google/gemma-3-4b"
+GEMMA3B_TARGET="target.model=google/gemma-3-4b-pt"
+GEMMA3B_GGUF="proxy.model=google/gemma-3-4b-pt"
 GEMMA3B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 bnb:int8,bnb:nf4,bnb:fp4]"
@@ -394,7 +391,7 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-gptq-4bit,\
-awq:casperhansen/gemma-2-9b-awq]"
+awq:hugging-quants/gemma-2-9b-it-AWQ-INT4]"
 
 run_all_datasets $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS"
 
@@ -414,7 +411,7 @@ Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-it-gptq-4bit,\
 gptq:marcsun13/gemma-2-9b-it-GPTQ,\
-awq:casperhansen/gemma-2-9b-it-awq]"
+awq:solidrust/gemma-2-9b-it-AWQ]"
 
 run_all_datasets $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS"
 
