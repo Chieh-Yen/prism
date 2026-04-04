@@ -419,7 +419,7 @@ For fine-tuning (Sec.~\ref{subsec:forgetting}), we evaluate full SFT and LoRA~\c
 \paragraph{Benchmarks.}
 Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organize benchmarks by the partition between context $c$ and target $y$:
 \begin{itemize}
-    \item \textbf{Multiple-Choice (MC)} --- MMLU, ARC, HellaSwag, PIQA: $c$ is the full prompt, $y$ is a single answer token. We extract the final prompt token's feature and compute logit scores, reducing the task to single-token classification.
+    \item \textbf{Multiple-Choice (MC)} --- MMLU, ARC: $c$ is the full prompt including all choices, $y$ is the answer label token (a single token per question). We extract the final prompt token's feature and compare logit scores over the candidate labels, reducing the task to single-token classification.
     \item \textbf{Language Modeling (LM)} --- WikiText, FineWeb-Edu: $c$ is empty or a rolling prefix, $y$ is a contiguous text chunk. Risk is the standard sequence-level cross-entropy.
     \item \textbf{Short-Horizon Generation (QA)} --- TriviaQA, SQuAD: $c$ is the question prompt, $y$ is the answer span (1--5 tokens). Loss is evaluated strictly over answer tokens.
 \end{itemize}
@@ -460,7 +460,6 @@ We instantiated this framework for two critical LLM lifecycle stages---post-trai
 \paragraph{Limitations and Future Work.}
 Several promising directions remain:
 \begin{itemize}
-    \item \textbf{Label-Free Production Monitoring:} Since $\Omega$ and $\Delta\rho$ require only feature matrices (no labels), PRISM could serve as an online monitor for deployed LLMs, detecting semantic degradation or distribution shifts without ground-truth annotations.
     \item \textbf{Dynamic Trajectory Alignment:} Our current formulation validates static (prefill) feature manifolds. Extending to multi-step generation trajectories would enable proxy estimation for long Chain-of-Thought reasoning and agentic workflows.
     \item \textbf{Cross-Modal Generalization:} The Linear Representation Hypothesis extends beyond text. Investigating PRISM's applicability to vision transformers and cross-modal models (e.g., CLIP) remains a natural next step.
 \end{itemize}

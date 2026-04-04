@@ -35,12 +35,12 @@ def _format_mmlu(row: Dict[str, Any]) -> str:
     choices = row["choices"]
     ans = row["answer"]
     if isinstance(ans, int):
-        ans_text = choices[ans]
+        ans_label = ["A", "B", "C", "D"][ans]
     else:
-        ans_text = choices[ord(ans) - ord("A")]
+        ans_label = ans
     labels = ["A", "B", "C", "D"]
     opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
-    return f"Question: {q}\n{opts}\nAnswer: {ans_text}"
+    return f"Question: {q}\n{opts}\nAnswer: {ans_label}"
 
 
 def _format_arc(row: Dict[str, Any]) -> str:
@@ -49,8 +49,7 @@ def _format_arc(row: Dict[str, Any]) -> str:
     texts = row["choices"]["text"]
     opts = "\n".join(f"{labels[i]}. {texts[i]}" for i in range(len(labels)))
     key = row["answerKey"]
-    ans_text = texts[labels.index(key)]
-    return f"Question: {q}\n{opts}\nAnswer: {ans_text}"
+    return f"Question: {q}\n{opts}\nAnswer: {key}"
 
 
 def _format_triviaqa(row: Dict[str, Any]) -> str:

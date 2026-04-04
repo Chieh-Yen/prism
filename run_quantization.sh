@@ -86,7 +86,7 @@ run() {
 #   corpus (wikitext, fineweb_edu):                   [mean_pool, concat]
 #   Q&A (lambada, gsm8k, mmlu, arc, triviaqa, squad): [last_context_token, concat, last_token]
 
-DATASETS_ALL="wikitext fineweb_edu lambada gsm8k mmlu arc triviaqa squad"
+DATASETS_ALL="wikitext fineweb_edu gsm8k mmlu arc triviaqa squad"
 
 # Helper: run all 6 datasets for a model
 # Usage: run_all_datasets MODEL_ARGS...
