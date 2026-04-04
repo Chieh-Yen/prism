@@ -412,7 +412,7 @@ We leave detailed empirical validation of these applications to future work.
 \label{subsec:exp_setup}
 
 \paragraph{Models and Configurations.}
-We evaluate across four LLM families---Llama-3~\cite{grattafiori2024llama}, Qwen-3~\cite{qwen2025qwen3}, Mistral, and DeepSeek---spanning 1B to 70B parameters.
+We evaluate across four LLM families---Llama-3~\cite{grattafiori2024llama}, Qwen-3~\cite{qwen2025qwen3}, Mistral, and DeepSeek.
 For quantization (Sec.~\ref{subsec:quantization}), we test four PTQ families: GGUF (round-to-nearest), GPTQ~\cite{frantar2022gptq} (second-order), AWQ~\cite{lin2024awq} (activation-aware), and BitsAndBytes~\cite{dettmers2022gpt3} (absmax/nf4), across bit-widths from 2-bit to 8-bit.
 For fine-tuning (Sec.~\ref{subsec:forgetting}), we evaluate full SFT and LoRA~\cite{hu2022lora} across training steps.
 
