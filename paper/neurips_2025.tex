@@ -137,7 +137,7 @@ This disconnect between geometric similarity and functional risk leaves practiti
 We address this gap by proposing \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that derives a rigorous, computable bound linking representational alignment to functional risk.
 Our key observation is that modern Transformer-based LLMs share a common structural property: a deep non-linear feature extractor (the backbone) followed by a single linear prediction head (\texttt{lm\_head}) that projects representations onto the vocabulary space.
 This architecture, combined with the \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear}---that models within the same lineage learn feature manifolds related by a near-isometric linear transformation---enables an \emph{exact} geometric analysis of risk discrepancy.
-Specifically, by formulating alignment as an Orthogonal Procrustes problem on the Stiefel manifold, we decompose feature discrepancy into two interpretable components: \emph{scale mismatch} ($\Delta\rho$), capturing activation magnitude shifts, and \emph{shape mismatch} ($1 - \Omega$), capturing structural distortion of the feature manifold, where $\Omega$ is the Procrustes Similarity defined via the nuclear norm of the cross-covariance matrix.
+Specifically, by formulating alignment as an Orthogonal Procrustes problem on the Stiefel manifold, we decompose feature discrepancy into two interpretable components: \emph{scale mismatch} ($\Delta\rho$), capturing activation magnitude shifts, and \emph{shape mismatch} ($1 - \Omega$), capturing structural distortion of the feature manifold, where $\Omega$ is the Procrustes Similarity defined via the nuclear norm of the cross-moment matrix.
 Unlike Frobenius-based formulations (including the Frobenius similarity $\Omega_F$ and related metrics such as CKA), this nuclear-norm decomposition is provably the tightest bound for rotational alignment, explicitly isolating structural distortion from prediction head errors (Appendix~\ref{app:tightness}).
 Combined with a second-moment-adjusted bound on head discrepancy, this yields a closed-form upper bound on risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ that is directly computable from a single forward pass on a small calibration set.
 
@@ -259,7 +259,7 @@ To minimize this residual over orthogonal $W$, we solve the classical \emph{Orth
 \;+\;
 \underbrace{2 \rho_T \rho_P \big( 1 - \Omega \big)}_{\text{\rm Shape Mismatch}},
 \end{equation}
-where $\Omega(Z_T, Z_P)$ is the \emph{Procrustes Similarity}, defined via the nuclear norm of the cross-covariance:
+where $\Omega(Z_T, Z_P)$ is the \emph{Procrustes Similarity}, defined via the nuclear norm of the cross-moment:
 \begin{equation}
 \label{eq:omega_def}
 \Omega(Z_T, Z_P) := \frac{\| Z_T^\top Z_P \|_*}{\| Z_T \|_F \| Z_P \|_F} \;\in [0,\, 1].
@@ -716,7 +716,7 @@ Define the Frobenius-based similarity $\Omega_F := \|Z_T^\top Z_P\|_F / (\|Z_T\|
 \begin{equation}
 \Omega_F \le \Omega,
 \end{equation}
-with equality if and only if the cross-covariance matrix $Z_T^\top Z_P$ has at most one nonzero singular value (i.e., rank $\le 1$).
+with equality if and only if the cross-moment matrix $Z_T^\top Z_P$ has at most one nonzero singular value (i.e., rank $\le 1$).
 
 \paragraph{Proof.}
 Let $\sigma_1, \ldots, \sigma_d$ be the singular values of $Z_T^\top Z_P$. Then:
@@ -742,3 +742,4 @@ Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) 
 \input{model_quantization}
 
 \end{document}
+
