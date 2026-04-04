@@ -234,26 +234,27 @@ The orthogonality constraint ensures that $W$ preserves inner products and norms
 Given $n$ evaluation samples, we collect features into matrices $Z_T, Z_P \in \mathbb{R}^{n \times d}$ with rows $z_{T,i} = \phi_T(x_i)$ and $z_{P,i} = \phi_P(x_i)$. We define:
 \begin{itemize}
     \item $\rho_M = \frac{1}{\sqrt{n}}\|Z_M\|_F$: the root-mean-square (RMS) feature scale of model $M$;
-    \item $\Sigma_P = \frac{1}{n} Z_P^\top Z_P \in \mathbb{R}^{d \times d}$: the (uncentered) empirical feature covariance of the proxy.
+    \item $\Sigma_P = \frac{1}{n} Z_P^\top Z_P \in \mathbb{R}^{d \times d}$: the empirical second-moment matrix of the proxy features.
 \end{itemize}
 
 
 \subsection{The Unified Risk Bound}
 \label{subsec:unified_bound}
 
-We first introduce our primary alignment metric, then present the exact geometric decomposition and the main theorem.
+Our goal is to derive a computable upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ in terms of the geometric relationship between the two models' feature manifolds. We outline the derivation below; full proofs are deferred to Appendix~\ref{app:detailed_proofs}.
 
-\begin{definition}[Procrustes Similarity $\Omega$]
-\label{def:omega}
-The Procrustes Similarity $\Omega(Z_T, Z_P) \in [0, 1]$ measures the structural alignment between two feature manifolds via the nuclear norm of their cross-covariance matrix:
+\paragraph{Step 1: Decomposing the risk gap.}
+We start from the definition of risk discrepancy and introduce an intermediate \emph{hybrid} term that evaluates the target's head $H_T$ on the proxy's aligned features $\phi_P(x) W$. By the triangle inequality (Appendix~\ref{app:risk_decomp}):
 \begin{equation}
-\label{eq:omega_def}
-\Omega(Z_T, Z_P) := \frac{\| Z_T^\top Z_P \|_*}{\| Z_T \|_F \| Z_P \|_F},
+\label{eq:risk_decomp}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{\big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big|}_{\text{Feature alignment error } \delta} \;+\; \underbrace{\big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big|}_{\text{Head discrepancy } \gamma},
 \end{equation}
-where $\|\cdot\|_*$ denotes the nuclear norm (sum of singular values). $\Omega = 1$ if and only if the feature manifolds are perfectly aligned up to orthogonal transformation; $\Omega = 0$ indicates complete misalignment.
-\end{definition}
+where $\mathcal{R}_{P \to T} = \mathbb{E}[\ell(\phi_P(x) W \cdot H_T, y)]$. The first term $\delta$ isolates how much the \emph{features} differ (evaluated through the same head), while the second term $\gamma$ isolates how much the \emph{heads} differ (on the same aligned features).
 
-The nuclear norm arises naturally from the Orthogonal Procrustes problem: finding the best rotation to align two point clouds. The following proposition shows that the resulting alignment residual decomposes \emph{exactly} into two interpretable terms.
+\paragraph{Step 2: Bounding the feature alignment error $\delta$.}
+The cross-entropy loss $\ell(z \cdot H_T, y)$ is Lipschitz continuous in $z$ with constant $K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2$, the maximum pairwise distance between token embeddings in $H_T$ (derived via the gradient structure of cross-entropy; see Appendix~\ref{app:kfeat}). Applying this with Jensen's inequality gives $\delta \le K_{\mathrm{feat}} \sqrt{\frac{1}{n}\|Z_T - Z_P W\|_F^2}$.
+
+To minimize this residual, we seek the best orthogonal alignment $W^*$. This is the classical \emph{Orthogonal Procrustes problem}, whose solution depends on the singular value decomposition of the cross-covariance matrix $Z_T^\top Z_P$. Specifically, if $Z_T^\top Z_P = U \Sigma V^\top$ is the SVD, then $W^* = V U^\top$, and the minimum residual decomposes \emph{exactly} as follows.
 
 \begin{proposition}[Exact Geometric Decomposition]
 \label{prop:exact_decomposition}
@@ -264,38 +265,44 @@ The minimum feature alignment error under orthogonal transformation admits the e
 \;=\;
 \underbrace{(\rho_T - \rho_P)^2}_{\text{\rm Scale Mismatch } (\Delta\rho)^2}
 \;+\;
-\underbrace{2 \rho_T \rho_P \big( 1 - \Omega \big)}_{\text{\rm Shape Mismatch}}.
+\underbrace{2 \rho_T \rho_P \big( 1 - \Omega \big)}_{\text{\rm Shape Mismatch}},
 \end{equation}
-The optimal alignment is $W^* = V U^\top$, where $Z_T^\top Z_P = U \Sigma V^\top$ is the compact SVD.
+where $\Omega(Z_T, Z_P)$ is the \emph{Procrustes Similarity}, defined via the nuclear norm of the cross-covariance:
+\begin{equation}
+\label{eq:omega_def}
+\Omega(Z_T, Z_P) := \frac{\| Z_T^\top Z_P \|_*}{\| Z_T \|_F \| Z_P \|_F} \;\in [0,\, 1].
+\end{equation}
+$\Omega = 1$ indicates perfect alignment up to rotation; $\Omega = 0$ indicates complete misalignment.
 \end{proposition}
 
-\noindent This identity is exact, not an approximation: minimizing feature discrepancy is mathematically equivalent to maximizing $\Omega$ while matching scales $\rho$. The full derivation is given in Appendix~\ref{app:procrustes}.
+\noindent This identity---not an approximation---shows that minimizing feature discrepancy is equivalent to maximizing $\Omega$ while matching scales $\rho$. The nuclear norm arises as the unique solution to the Procrustes optimization and yields a provably tighter bound than Frobenius-based metrics such as CKA (Appendix~\ref{app:tightness}). Combining with the Lipschitz bound:
+\begin{equation}
+\label{eq:delta_main}
+\delta \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T \rho_P(1 - \Omega)}.
+\end{equation}
 
-We now combine this geometric decomposition with a Lipschitz analysis of the cross-entropy loss and a covariance-adjusted head bound to obtain our main result.
+\paragraph{Step 3: Bounding the head discrepancy $\gamma$.}
+The second term in Eq.~(\ref{eq:risk_decomp}) measures how differently the two heads interpret the same aligned features $z = \phi_P(x) W^*$. Using the Lipschitz constant of cross-entropy with respect to logits ($K_{\mathrm{pred}} \le \sqrt{2}$), Jensen's inequality, and the trace expansion $\mathbb{E}[\|z \Delta H\|_2^2] = \|\Sigma_P^{1/2} \Delta H\|_F^2$ where $\Delta H = W^* H_T - H_P$ (Appendix~\ref{app:head_bound}):
+\begin{equation}
+\label{eq:gamma_main}
+\gamma \;\le\; K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F.
+\end{equation}
+The covariance weighting $\Sigma_P^{1/2}$ ensures that head misalignment is penalized only within the \emph{active subspace} of the data; disagreement in directions orthogonal to the feature distribution has zero cost.
+
+\paragraph{Main Result.}
+Substituting the bounds on $\delta$ (Eq.~\ref{eq:delta_main}) and $\gamma$ (Eq.~\ref{eq:gamma_main}) into the decomposition (Eq.~\ref{eq:risk_decomp}) yields:
 
 \begin{theorem}[Unified Risk Bound]
 \label{thm:unified_bound}
-Let $T$ and $P$ be target and proxy models with the backbone-plus-linear-head architecture (Eq.~\ref{eq:model_decomp}), and let $W^* \in \mathcal{O}(d)$ be the optimal Procrustes alignment. Then the risk discrepancy satisfies:
+Let $T$ and $P$ be target and proxy models with the backbone-plus-linear-head architecture (Eq.~\ref{eq:model_decomp}), and let $W^* \in \mathcal{O}(d)$ be the optimal Procrustes alignment. Then:
 \begin{equation}
 \label{eq:unified_bound_eq}
 \begin{aligned}
 |\mathcal{R}_T - \mathcal{R}_P| \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big( 1 - \Omega(Z_T, Z_P) \big) }}_{\text{\rm Geometric Alignment Error}} \\
-& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W^* H_T - H_P) \|_F}_{\text{\rm Covariance-Aware Head Error}},
+& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W^* H_T - H_P) \|_F}_{\text{\rm Covariance-Aware Head Error}}.
 \end{aligned}
 \end{equation}
-where the Lipschitz constants are derived from the cross-entropy structure (Appendix~\ref{app:kfeat}):
-\begin{itemize}
-    \item $K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2$: the maximum pairwise distance between column vectors (token embeddings) of $H_T$, governing the sensitivity of the loss to feature perturbations;
-    \item $K_{\mathrm{pred}} \le \sqrt{2}$: the Lipschitz constant of cross-entropy with respect to logit perturbations.
-\end{itemize}
 \end{theorem}
-
-The proof (Appendix~\ref{app:detailed_proofs}) proceeds in three steps:
-\begin{enumerate}
-    \item \textbf{Risk Decomposition} (Appendix~\ref{app:risk_decomp}): A triangle inequality introduces an intermediate ``hybrid'' model that uses the proxy's aligned features with the target's head, splitting $|\mathcal{R}_T - \mathcal{R}_P|$ into a feature alignment term $\delta$ and a head discrepancy term $\gamma$.
-    \item \textbf{Bounding $\delta$ via Procrustes} (Appendix~\ref{app:procrustes}): The Lipschitz property of cross-entropy with respect to features (with constant $K_{\mathrm{feat}}$ derived from the gradient $\nabla_z \ell$) combined with Jensen's inequality and Proposition~\ref{prop:exact_decomposition} yields the geometric alignment error.
-    \item \textbf{Bounding $\gamma$ via Covariance Projection} (Appendix~\ref{app:head_bound}): The head discrepancy is bounded by projecting the head misalignment $\Delta H = W^* H_T - H_P$ onto the data covariance $\Sigma_P$, ensuring that only the \emph{active subspace} of the feature distribution contributes to the bound.
-\end{enumerate}
 
 
 \subsection{Geometric Interpretation}
@@ -343,7 +350,7 @@ where $\rho^{\mathrm{AR}}$, $\Omega^{\mathrm{AR}}$, and $\Sigma_P^{\mathrm{AR}}$
 The autoregressive formulation (Eq.~\ref{eq:ar_risk}) subsumes all standard LLM evaluation protocols by varying the partition between context $c$ and target $y$:
 \begin{itemize}
     \item \textbf{Multiple-Choice Classification} (e.g., MMLU, ARC): $c$ is the full prompt, $y$ is a single answer token (\texttt{A}/\texttt{B}/\texttt{C}/\texttt{D}). The risk reduces to point-wise classification with one feature per question, evaluated via logit scoring.
-    \item \textbf{Language Modeling} (e.g., WikiText, C4): $c$ is empty or a rolling prefix, $y$ is a contiguous text chunk. The risk captures the standard next-token prediction loss across the full sequence.
+    \item \textbf{Language Modeling} (e.g., WikiText, FineWeb-Edu): $c$ is empty or a rolling prefix, $y$ is a contiguous text chunk. The risk captures the standard next-token prediction loss across the full sequence.
     \item \textbf{Short-Horizon Generation} (e.g., TriviaQA, SQuAD): $c$ is the question prompt, $y$ is the answer span (typically 1--5 tokens). The loss is evaluated strictly over the answer tokens.
 \end{itemize}
 In all cases, the same geometric bound applies---only the feature extraction protocol differs. For multiple-choice tasks, we extract the feature of the \emph{final prompt token}; for language modeling and generation, $Z^{\mathrm{AR}}$ comprises all target-position features across evaluation sequences.
@@ -596,10 +603,10 @@ We demonstrated the practical power of this framework in \emph{Coefficient Trans
 \clearpage
 \appendix
 
-\section{Detailed Proofs and Derivations}
+\section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
 \label{app:detailed_proofs}
 
-This appendix provides the complete, self-contained proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound}). We begin from the cross-entropy loss definition and proceed step by step through the risk decomposition, the Procrustes analysis, and the covariance-adjusted head bound.
+We provide the complete proof of Theorem~\ref{thm:unified_bound}, deriving the bound on $|\mathcal{R}_T - \mathcal{R}_P|$ from the cross-entropy loss definition. The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, exact Procrustes decomposition via SVD, covariance-adjusted head bound, and final assembly.
 
 \subsection{Step 1: Risk Decomposition via Triangle Inequality}
 \label{app:risk_decomp}
@@ -769,7 +776,7 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 \begin{equation}
 \|\nabla_v \ell\|_2 = \|\hat{p} - e_y\|_2.
 \end{equation}
-The worst case occurs when $\hat{p}$ places all mass on an incorrect class: $\hat{p}_j = 1$ for some $j \neq y$. Then $\|\hat{p} - e_y\|_2 = \sqrt{1^2 + (-1)^2} = \sqrt{2}$. Thus $K_{\mathrm{pred}} \le \sqrt{2}$.
+Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$.
 
 \paragraph{Deriving the Covariance Projection.}
 Define the head misalignment matrix $\Delta H = W^* H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H$, and:
