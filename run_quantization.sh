@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 6 datasets × 15 models, multi-z_mode per dataset
+# 8 datasets × 15 models, multi-z_mode per dataset
 #
 # Each (model, dataset) pair runs ALL z_modes in a single
 # forward pass via data.z_modes=[...]:
-#   Corpus (C4, WikiText):       mean_pool + concat
-#   Q&A (LAMBADA, MMLU, ARC, GSM8K): last_context_token + concat + last_token
+#   Corpus (WikiText, FineWeb-Edu):         mean_pool + concat
+#   Q&A (LAMBADA, MMLU, ARC, GSM8K,
+#        TriviaQA, SQuAD):                  last_context_token + concat + last_token
 #
 # Quantization tiers (all models):
 #   FP16  → dtype:float16           precision-drift reference (BF16→FP16)
@@ -18,6 +19,7 @@
 #   3-bit → Q3_K_M                 GGUF 3-bit k-quant
 #   2-bit → Q2_K                   GGUF 2-bit k-quant
 #   GPTQ  → gptq:REPO              pre-quantised GPTQ (see per-model notes)
+#   AWQ   → awq:REPO               pre-quantised AWQ  (see per-model notes)
 #
 # Target models (all loaded in BF16):
 #   1.  Qwen/Qwen3-8B-Base                        Base
@@ -36,12 +38,12 @@
 #   14. google/gemma-2-9b                         Base
 #   15. google/gemma-2-9b-it                      Instruct
 #
-# GPTQ loading notes:
-#   • All gptq: entries use AutoModelForCausalLM.from_pretrained (standard HF).
+# GPTQ/AWQ loading notes:
+#   • All gptq:/awq: entries use AutoModelForCausalLM.from_pretrained (standard HF).
 #   • Efficient-ML repos use .pth format — require the GPTQ-for-Qwen3
 #     custom inference script and will FAIL with standard transformers.
 #     They are kept in the list; PRISM will skip them with an error message.
-#   • Ministral-3: no confirmed public GPTQ repos — omitted.
+#   • Ministral-3: no confirmed public GPTQ/AWQ repos — omitted.
 #
 # GGUF repo notes:
 #   • Ministral-3 Base   : mradermacher/Ministral-3-8B-Base-2512-GGUF
@@ -81,10 +83,10 @@ run() {
 }
 
 # z_modes auto-resolved from TASK_REGISTRY.z_modes_all per dataset:
-#   corpus (c4, wikitext):            [mean_pool, concat]
-#   Q&A (lambada, gsm8k, mmlu, arc):  [last_context_token, concat, last_token]
+#   corpus (wikitext, fineweb_edu):                   [mean_pool, concat]
+#   Q&A (lambada, gsm8k, mmlu, arc, triviaqa, squad): [last_context_token, concat, last_token]
 
-DATASETS_ALL="c4 wikitext lambada gsm8k mmlu arc"
+DATASETS_ALL="wikitext fineweb_edu lambada gsm8k mmlu arc triviaqa squad"
 
 # Helper: run all 6 datasets for a model
 # Usage: run_all_datasets MODEL_ARGS...
@@ -122,7 +124,8 @@ gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-128,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-128,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel,\
-gptq:AlphaGaO/Qwen3-8B-GPTQ]"
+gptq:AlphaGaO/Qwen3-8B-GPTQ,\
+awq:study-hjt/Qwen3-8B-Base-AWQ]"
 
 run_all_datasets $QWEN3B_TARGET $QWEN3B_GGUF $QWEN3B_TPL "$QWEN3B_BITS"
 
@@ -145,7 +148,8 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,\
-gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ]"
+gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ,\
+awq:hugging-quants/Meta-Llama-3.1-8B-AWQ-INT4]"
 
 run_all_datasets $LLAMA31B_TARGET $LLAMA31B_GGUF $LLAMA31B_TPL "$LLAMA31B_BITS"
 
@@ -195,7 +199,8 @@ gptq:Efficient-ML/Qwen3-8B-gptq-w8-128,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w4-perchannel,\
 gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel,\
 gptq:JunHowie/Qwen3-8B-GPTQ-Int8,\
-gptq:RedHatAI/Qwen3-8B-quantized.w4a16]"
+gptq:RedHatAI/Qwen3-8B-quantized.w4a16,\
+awq:study-hjt/Qwen3-8B-AWQ]"
 
 run_all_datasets $QWEN3I_TARGET $QWEN3I_GGUF "$QWEN3I_BITS"
 
@@ -217,7 +222,8 @@ Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4,\
 gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit,\
-gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ]"
+gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ,\
+awq:hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4]"
 
 run_all_datasets $LLAMA31I_TARGET $LLAMA31I_GGUF "$LLAMA31I_BITS"
 
@@ -259,7 +265,8 @@ DSR1_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4]"
+gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4,\
+awq:casperhansen/deepseek-r1-distill-llama-8b-awq]"
 
 run_all_datasets $DSR1_TARGET $DSR1_GGUF "$DSR1_BITS"
 
@@ -296,7 +303,8 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4,\
-gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8]"
+gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8,\
+awq:Qwen/Qwen2.5-7B-Instruct-AWQ]"
 
 run_all_datasets $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS"
 
@@ -313,7 +321,8 @@ MIS7B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128]"
+gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128,\
+awq:solidrust/Mistral-7B-v0.3-AWQ]"
 
 run_all_datasets $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS"
 
@@ -330,7 +339,8 @@ MIS7I_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ]"
+gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ,\
+awq:solidrust/Mistral-7B-Instruct-v0.3-AWQ]"
 
 run_all_datasets $MIS7I_TARGET $MIS7I_GGUF "$MIS7I_BITS"
 
@@ -383,7 +393,8 @@ GEMMA2B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
-gptq:ModelCloud/gemma-2-9b-gptq-4bit]"
+gptq:ModelCloud/gemma-2-9b-gptq-4bit,\
+awq:casperhansen/gemma-2-9b-awq]"
 
 run_all_datasets $GEMMA2B_TARGET $GEMMA2B_GGUF $GEMMA2B_TPL "$GEMMA2B_BITS"
 
@@ -402,7 +413,8 @@ dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
 bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:ModelCloud/gemma-2-9b-it-gptq-4bit,\
-gptq:marcsun13/gemma-2-9b-it-GPTQ]"
+gptq:marcsun13/gemma-2-9b-it-GPTQ,\
+awq:casperhansen/gemma-2-9b-it-awq]"
 
 run_all_datasets $GEMMA2I_TARGET $GEMMA2I_GGUF "$GEMMA2I_BITS"
 

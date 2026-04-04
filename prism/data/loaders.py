@@ -53,10 +53,25 @@ def _format_arc(row: Dict[str, Any]) -> str:
     return f"Question: {q}\n{opts}\nAnswer: {ans_text}"
 
 
+def _format_triviaqa(row: Dict[str, Any]) -> str:
+    q = row["question"]
+    ans = row["answer"]["value"]
+    return f"Question: {q}\nAnswer: {ans}"
+
+
+def _format_squad(row: Dict[str, Any]) -> str:
+    context = row["context"]
+    q = row["question"]
+    ans = row["answers"]["text"][0]
+    return f"Context: {context}\nQuestion: {q}\nAnswer: {ans}"
+
+
 _FORMATTERS: Dict[str, Callable] = {
-    "gsm8k": _format_gsm8k,
-    "mmlu":  _format_mmlu,
-    "arc":   _format_arc,
+    "gsm8k":    _format_gsm8k,
+    "mmlu":     _format_mmlu,
+    "arc":      _format_arc,
+    "triviaqa": _format_triviaqa,
+    "squad":    _format_squad,
 }
 
 
@@ -95,11 +110,21 @@ def _prompt_lambada(row: Dict[str, Any]) -> str:
     return parts[0] if len(parts) == 2 else text
 
 
+def _prompt_triviaqa(row: Dict[str, Any]) -> str:
+    return f"Question: {row['question']}\nAnswer:"
+
+
+def _prompt_squad(row: Dict[str, Any]) -> str:
+    return f"Context: {row['context']}\nQuestion: {row['question']}\nAnswer:"
+
+
 _PROMPT_FORMATTERS: Dict[str, Callable] = {
-    "gsm8k":   _prompt_gsm8k,
-    "mmlu":    _prompt_mmlu,
-    "arc":     _prompt_arc,
-    "lambada": _prompt_lambada,  # enables last-word-only loss
+    "gsm8k":    _prompt_gsm8k,
+    "mmlu":     _prompt_mmlu,
+    "arc":      _prompt_arc,
+    "lambada":  _prompt_lambada,  # enables last-word-only loss
+    "triviaqa": _prompt_triviaqa,
+    "squad":    _prompt_squad,
 }
 
 
@@ -171,6 +196,18 @@ TASK_REGISTRY: Dict[str, Dict] = {
                       "z_mode": "last_context_token", "loss_mode": "answer",
                       "z_modes_all": ["last_context_token", "concat", "last_token"]},
     "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
+    # Text / LLM  — FineWeb-Edu  (language modeling, curated educational text)
+    "fineweb_edu":   {"hf_id": "HuggingFaceFW/FineWeb-Edu-score-2", "text_key": "text", "split_map": {"test": "train"}, "streaming": True,
+                      "z_mode": "mean_pool", "loss_mode": "full",
+                      "z_modes_all": ["mean_pool", "concat"]},
+    # Text / LLM  — TriviaQA  (short-horizon generation, answer span typically 1-5 tokens)
+    "triviaqa":      {"hf_id": "trivia_qa",            "hf_subset": "rc.nocontext",  "formatter": "triviaqa", "split_map": {"test": "validation"},
+                      "z_mode": "last_context_token", "loss_mode": "answer",
+                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
+    # Text / LLM  — SQuAD  (short-horizon generation, extractive QA)
+    "squad":         {"hf_id": "rajpurkar/squad",                                    "formatter": "squad",    "split_map": {"test": "validation"},
                       "z_mode": "last_context_token", "loss_mode": "answer",
                       "z_modes_all": ["last_context_token", "concat", "last_token"]},
 }

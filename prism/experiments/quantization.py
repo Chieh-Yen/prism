@@ -18,6 +18,8 @@ Three backends are supported, selected by a **prefix** in each quant tag:
 * **``gptq:``** prefix (e.g. ``gptq:TheBloke/Llama-2-7B-GPTQ``) → load a
   pre-quantised GPTQ model.  Optionally specify a branch with ``@``:
   ``gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True``.
+* **``awq:``** prefix (e.g. ``awq:TheBloke/Llama-2-7B-AWQ``) → load a
+  pre-quantised AWQ model.  Optionally specify a branch with ``@``.
 
 Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``, ``nf4-dq``
 (NF4 with double quantisation, aka QLoRA-style).
@@ -106,6 +108,22 @@ def _is_gptq(quant_tag: str) -> bool:
 def _parse_gptq(quant_tag: str) -> tuple:
     """Parse ``gptq:REPO`` or ``gptq:REPO@REVISION`` → (repo, revision|None)."""
     body = quant_tag[5:]
+    if "@" in body:
+        repo, rev = body.rsplit("@", 1)
+        return repo, rev
+    return body, None
+
+
+# ======================================================================
+# AWQ helpers
+# ======================================================================
+def _is_awq(quant_tag: str) -> bool:
+    return quant_tag.startswith("awq:")
+
+
+def _parse_awq(quant_tag: str) -> tuple:
+    """Parse ``awq:REPO`` or ``awq:REPO@REVISION`` → (repo, revision|None)."""
+    body = quant_tag[4:]
     if "@" in body:
         repo, rev = body.rsplit("@", 1)
         return repo, rev
@@ -349,6 +367,22 @@ class QuantizationExperiment(BaseExperiment):
         proxy = _load_model(repo, **kwargs)
         return proxy
 
+    def _load_proxy_awq(
+        self, repo: str, revision: str | None,
+    ) -> torch.nn.Module:
+        """Load a pre-quantised AWQ model from HuggingFace."""
+        rev_tag = f" @{revision}" if revision else ""
+        print(f"  Loading proxy: {repo}{rev_tag} [AWQ] ...")
+        kwargs: dict = dict(
+            device_map=self.device,
+            trust_remote_code=True,
+            **self._attn_impl_kwargs(),
+        )
+        if revision:
+            kwargs["revision"] = revision
+        proxy = _load_model(repo, **kwargs)
+        return proxy
+
     def _load_proxy_dtype(
         self, dtype_str: str, model_id: str,
     ) -> torch.nn.Module:
@@ -387,6 +421,9 @@ class QuantizationExperiment(BaseExperiment):
         elif _is_gptq(quant_tag):
             repo, rev = _parse_gptq(quant_tag)
             proxy = self._load_proxy_gptq(repo, rev)
+        elif _is_awq(quant_tag):
+            repo, rev = _parse_awq(quant_tag)
+            proxy = self._load_proxy_awq(repo, rev)
         elif _is_bnb(quant_tag):
             proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
         else:
