@@ -113,67 +113,78 @@ Efficient machine learning increasingly relies on \emph{proxy models}---such as 
 
 \section{Introduction}
 
-\paragraph{The Evaluation Bottleneck in Large Language Models.}
+\paragraph{The evaluation bottleneck in modern LLMs.}
 Large Language Models (LLMs) have achieved remarkable success across diverse tasks, from multiple-choice reasoning to open-ended generation~\cite{grattafiori2024llama, qwen2025qwen3}.
-As these models scale, their lifecycle---from pre-training through post-training quantization (PTQ) and parameter-efficient fine-tuning (e.g., LoRA)---generates numerous model variants, yet evaluating how each variant affects downstream performance remains prohibitively expensive.
-A single comprehensive evaluation on benchmarks such as MMLU (14{,}000 tasks) can require hours of GPU time per model variant, creating a severe bottleneck for quantization format selection, fine-tuning monitoring, and deployment validation.
+As these models scale, their post-training lifecycle---from quantization (e.g., GPTQ, AWQ, GGUF) to parameter-efficient fine-tuning (e.g., LoRA, SFT)---generates numerous model variants, yet evaluating how each variant affects downstream performance remains prohibitively expensive.
+A single comprehensive evaluation on benchmarks such as MMLU (14{,}000 tasks) can require hours of GPU time per variant, creating a severe bottleneck for practitioners who need to diagnose quality degradation, select among compression configurations, or monitor training dynamics across the model lifecycle.
 
-\paragraph{The Lack of Theoretical Grounding.}
-Existing approaches to this evaluation bottleneck are either computationally expensive or theoretically unsatisfying.
-Practitioners must either run full benchmark suites to assess each model variant, or resort to post-hoc similarity metrics such as CKA~\cite{kornblith2019similarity} and SVCCA~\cite{raghu2017svcca} that measure geometric resemblance between representations.
-However, these Frobenius-based metrics provide no formal guarantee that high geometric similarity translates to small performance gaps.
-A quantized model may exhibit high CKA similarity to its unquantized parent yet suffer significant accuracy degradation---or conversely, a fine-tuned model may show moderate geometric drift while preserving task performance.
-This disconnect between geometric similarity and functional risk leaves practitioners without principled tools to predict when a model variant is safe to deploy.
+\paragraph{Existing geometric metrics lack formal risk guarantees.}
+Practitioners seeking to circumvent this bottleneck currently face an unsatisfying choice: either run full benchmark suites for every variant, or resort to post-hoc representational similarity metrics such as CKA~\cite{kornblith2019similarity} and SVCCA~\cite{raghu2017svcca}.
+These Frobenius-norm-based metrics measure geometric resemblance between internal representations, but provide no formal guarantee that high similarity translates to small performance gaps.
+A quantized model may exhibit high CKA similarity to its full-precision parent yet suffer significant accuracy degradation; conversely, a fine-tuned model may show moderate geometric drift while preserving task performance.
+This disconnect between geometric similarity and functional risk leaves practitioners without principled tools for predicting when a model variant is safe to deploy.
 
-\paragraph{PRISM: From Geometry to Risk.}
-We address this gap by proposing \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that establishes a rigorous, computable link between representational alignment and functional risk.
-Our framework exploits a structural property shared across LLM architectures: a deep non-linear \emph{feature extractor} (the backbone) followed by a linear \emph{prediction head} (\texttt{lm\_head}) that projects learned representations onto the vocabulary space.
-This decomposition, combined with the \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear}---that models within the same lineage (e.g., a base model and its quantized or fine-tuned variant) learn feature manifolds related by a near-isometric linear transformation---enables a precise geometric analysis of risk.
-By formulating alignment as an Orthogonal Procrustes problem on the Stiefel manifold, we derive an \emph{exact decomposition} of feature discrepancy into two interpretable components---\emph{scale mismatch} ($\Delta\rho$) and \emph{shape mismatch} ($1 - \Omega$)---where $\Omega$ is the Procrustes Similarity defined via the nuclear norm of the cross-covariance matrix.
-Combined with a covariance-adjusted bound on prediction head discrepancy, this yields a closed-form upper bound on risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ that is both tighter than Frobenius-based alternatives and directly computable from a single forward pass.
+\paragraph{PRISM: an exact geometric decomposition linking alignment to risk.}
+We address this gap by proposing \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that derives a rigorous, computable bound linking representational alignment to functional risk.
+Our key observation is that modern Transformer-based LLMs share a common structural property: a deep non-linear feature extractor (the backbone) followed by a single linear prediction head (\texttt{lm\_head}) that projects representations onto the vocabulary space.
+This architecture, combined with the \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear}---that models within the same lineage learn feature manifolds related by a near-isometric linear transformation---enables an \emph{exact} geometric analysis of risk discrepancy.
+Specifically, by formulating alignment as an Orthogonal Procrustes problem on the Stiefel manifold, we decompose feature discrepancy into two interpretable components: \emph{scale mismatch} ($\Delta\rho$), capturing activation magnitude shifts, and \emph{shape mismatch} ($1 - \Omega$), capturing structural distortion of the feature manifold, where $\Omega$ is the Procrustes Similarity defined via the nuclear norm of the cross-covariance matrix.
+Unlike CKA's Frobenius-based formulation, this nuclear-norm decomposition is provably the tightest bound for rotational alignment, explicitly isolating structural distortion from prediction head errors.
+Combined with a covariance-adjusted bound on head discrepancy, this yields a closed-form upper bound on risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ that is directly computable from a single forward pass on a small calibration set.
 
 \paragraph{Why Large Language Models.}
-We focus our empirical validation exclusively on LLMs for three reasons that make this setting uniquely suited to our framework.
+Although our framework mathematically applies to any model adopting the feature-extractor-plus-linear-head paradigm, we focus empirical validation exclusively on LLMs for four reasons.
 First, LLMs face the most severe \emph{evaluation bottleneck}: the post-training ecosystem generates dozens of quantized and fine-tuned variants per base model, each requiring expensive benchmark evaluation.
-Second, the backbone-plus-linear-head decomposition is architecturally exact in LLMs---the \texttt{lm\_head} is a single linear projection, and under standard LoRA fine-tuning it remains frozen ($H_T = H_P$), isolating performance changes entirely in the backbone geometry.
-Third, LLM activations exhibit well-documented \emph{outlier channels} and \emph{scale collapse} phenomena during quantization, which our decomposition into $\Delta\rho$ and $\Omega$ can precisely characterize.
-Furthermore, our framework naturally unifies both point-wise classification (e.g., MMLU logit scoring) and sequence-level autoregressive generation (e.g., language modeling) under a single bound, since teacher-forcing allows all token-level features to be extracted in a single forward pass.
+Second, the backbone-plus-linear-head decomposition is architecturally exact---the \texttt{lm\_head} is a single linear projection, and under standard LoRA fine-tuning it remains frozen ($H_T = H_P$), isolating performance changes entirely in the backbone geometry.
+Third, LLM activations exhibit well-documented \emph{outlier channels} and \emph{scale collapse} phenomena during quantization~\cite{dettmers2022gpt3, xiao2023smoothquant}, which our decomposition into $\Delta\rho$ and $\Omega$ can precisely characterize.
+Fourth, our framework naturally unifies both point-wise classification (e.g., MMLU logit scoring) and sequence-level autoregressive generation (e.g., language modeling loss) under a single bound, since teacher-forcing allows all token-level features to be extracted in a single forward pass.
 
 \paragraph{Contributions.}
 Our main contributions are as follows:
 \begin{enumerate}
-    \item \textbf{A Unified Geometric Framework for Risk Bounding.} We derive an exact decomposition of feature discrepancy via the nuclear norm (Procrustes Similarity $\Omega$), providing a strictly tighter bound than Frobenius-based metrics such as CKA. Our framework naturally unifies point-wise classification and sequence-level autoregressive generation under the same geometric constraints.
-    \item \textbf{Principled Diagnostics for Quantization and Fine-Tuning.} We instantiate our theory across two high-value LLM lifecycle stages. In post-training quantization, our bound mathematically characterizes feature scale collapse ($\Delta\rho$). In sequential fine-tuning, geometric drift ($\Omega$) serves as a label-free monitor for catastrophic forgetting, decoupling backbone geometry from head-specific effects.
-    \item \textbf{Strong Empirical Correlation.} Extensive experiments across modern LLMs (Llama, Qwen, Mistral, DeepSeek) demonstrate that our geometric bound serves as a highly predictive surrogate for actual performance degradation, achieving Spearman's $\rho > 0.9$ across quantization formats (GGUF, GPTQ, AWQ, BitsAndBytes) and fine-tuning protocols (SFT, LoRA).
-    \item \textbf{Compute-Efficient Estimation via Control Variates.} By leveraging high geometric alignment ($\Omega \approx 1$), we prove that the variance of the risk estimation error is bounded by the geometric bound. This enables accurate forecasting of full-benchmark performance (e.g., 14{,}000 MMLU tasks) from a 500-sample calibration set, reducing evaluation compute by over 95\% with strict statistical guarantees.
+    \item \textbf{A Unified Geometric Framework for Risk Bounding.} We establish a rigorous theoretical bridge linking the internal representational geometry of a proxy model to the functional risk of a target model. We derive an exact decomposition of feature discrepancy via the nuclear norm (Procrustes Similarity $\Omega$), providing a strictly tighter bound than Frobenius-based metrics such as CKA. Crucially, our framework naturally unifies point-wise classification and sequence-level autoregressive generation under the same geometric constraints.
+
+    \item \textbf{Exact Decomposition via Nuclear Norm.} Unlike prior post-hoc metrics that rely on Frobenius bounds, we derive an exact geometric decomposition of feature discrepancy using the nuclear norm. We prove this formulation provides the tightest bound for rotational alignment, explicitly isolating scale collapse ($\Delta\rho$) from structural distortion ($1 - \Omega$) and prediction head errors.
+
+    \item \textbf{Principled Diagnostics for Quantization and Fine-Tuning.} We operationalize our theory across two high-value LLM lifecycle stages. In post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), our framework mathematically characterizes feature scale collapse. In sequential fine-tuning (SFT, LoRA), geometric drift serves as a label-free monitor for catastrophic forgetting, decoupling backbone manifold geometry from head-specific adaptations.
+
+    \item \textbf{Strong Empirical Correlation.} Extensive experiments across modern LLMs (Llama, Qwen, Mistral, DeepSeek) demonstrate that our geometric bound serves as a highly predictive surrogate for actual performance degradation, achieving Spearman's $\rho > 0.9$ across quantization formats and fine-tuning protocols, establishing linear geometric alignment as a robust, compute-efficient proxy for model evaluation.
+
+    \item \textbf{Compute-Efficient Performance Estimation via Control Variates.} By leveraging the high geometric alignment ($\Omega \approx 1$) between target and proxy models, our framework guarantees minimal variance in risk estimation via Popoviciu's inequality. We demonstrate that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\% with strict statistical guarantees.
 \end{enumerate}
 %========================================================
 
 \section{Related Work}
 
-\paragraph{Geometric Analysis of Neural Representations.}
-Understanding the internal structure of neural networks remains a central challenge in deep learning. Classical approaches rely on similarity metrics such as Canonical Correlation Analysis (CCA) \cite{raghu2017svcca} and Centered Kernel Alignment (CKA) \cite{kornblith2019similarity} to compare layer-wise representations.
-More recently, the \emph{Linear Representation Hypothesis} \cite{moschella2022relative, park2023linear} suggests that models trained on similar data converge to distinct but linearly alignable manifolds.
-However, existing works primarily focus on \emph{post-hoc interpretability}—measuring similarity after training is complete.
-Our work differs fundamentally by deriving a \emph{constructive} theoretical bound that links geometric alignment directly to functional risk discrepancies.
-Furthermore, while CKA relies on Frobenius norms, we demonstrate that the Nuclear norm-based Procrustes metric ($\Omega$) provides the strictly tightest bound for rotational alignment, a critical property for establishing rigorous transfer guarantees.
+\paragraph{Representational Similarity Metrics.}
+Comparing the internal representations of neural networks is a long-standing problem.
+SVCCA~\cite{raghu2017svcca} projects activations onto their top singular vectors before computing canonical correlations, while CKA~\cite{kornblith2019similarity} measures alignment through kernel-based Hilbert--Schmidt independence.
+Both metrics rely on Frobenius-norm statistics, which conflate rotational misalignment with scale differences and provide no formal connection to downstream task performance: two models can exhibit high CKA yet diverge significantly in functional risk, or vice versa.
+The \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear} offers a structural explanation---models trained on similar data converge to linearly alignable manifolds---but existing work uses this insight only for post-hoc interpretability.
+Our framework makes this hypothesis \emph{constructive}: by formulating alignment as an Orthogonal Procrustes problem and measuring discrepancy via the nuclear norm ($\Omega$), we derive a provably tighter decomposition that \emph{exactly} separates scale mismatch ($\Delta\rho$) from shape mismatch ($1-\Omega$) and directly bounds the risk gap $|\mathcal{R}_T - \mathcal{R}_P|$.
 
-\paragraph{Proxy Models and Performance Forecasting.}
-The prohibitive cost of evaluating foundation models has spurred interest in performance forecasting.
-Scaling Laws \cite{kaplan2020scaling, hoffmann2022training} predict loss as a power-law function of compute and data, but cannot capture instance-level behavior or architectural idiosyncrasies.
-\emph{Weak-to-Strong Generalization} \cite{burns2023weak} explores using small models to supervise larger ones, but focuses on label generation rather than risk estimation.
-Our PRISM framework introduces a new paradigm: \emph{Geometric Control Variates}. Instead of relying on statistical extrapolation, we use the geometric alignment between a specific proxy and target to reduce the variance of risk estimation, enabling sample-efficient forecasting for specific downstream tasks.
+\paragraph{Post-Training Quantization and Its Evaluation.}
+Post-training quantization (PTQ) has become the dominant approach for deploying LLMs under memory constraints.
+GPTQ~\cite{frantar2022gptq} uses approximate second-order information to minimize layer-wise reconstruction error, AWQ~\cite{lin2024awq} preserves salient weight channels identified by activation magnitudes, and round-to-nearest methods in GGUF and BitsAndBytes~\cite{dettmers2022gpt3} offer simpler but less controlled compression.
+A common bottleneck across all these methods is \emph{quality assessment}: determining how much a quantized variant has degraded requires running full perplexity or accuracy evaluations on large benchmarks, which can be as expensive as the quantization process itself.
+Existing diagnostics are limited to indirect proxies such as layer-wise reconstruction loss or weight quantization error, neither of which accounts for the nonlinear accumulation of errors through the full network.
+PRISM addresses this gap by providing a \emph{generation-free} geometric diagnostic: our bound decomposes quantization-induced degradation into scale collapse ($\Delta\rho$, capturing activation clipping from outlier channels~\cite{xiao2023smoothquant}) and structural distortion ($1-\Omega$), both computable from a single forward pass on a small calibration set without any label or generation.
 
-\paragraph{Model Merging and Linear Connectivity.}
-Recent findings on Linear Mode Connectivity \cite{frankle2020linear, wortsman2022model} have enabled techniques like Task Arithmetic \cite{ilharco2023editing} and TIES-Merging \cite{yadav2023ties}, which manipulate model weights directly.
-While works like Git Re-Basin \cite{ainsworth2022git} address permutation symmetries to facilitate merging, hyperparameter selection (e.g., mixing coefficients) largely relies on expensive heuristic search or grid search on the target model.
-To the best of our knowledge, we represent the first theoretical framework that formalizes \emph{Cross-Scale Coefficient Transfer}. We prove that if the geometric trajectory of a small proxy is isomorphic to that of a large target, optimal merging coefficients can be transferred with theoretically bounded regret.
+\paragraph{Catastrophic Forgetting in Continual and Parameter-Efficient Fine-Tuning.}
+When LLMs are sequentially fine-tuned---whether through full SFT or parameter-efficient methods such as LoRA~\cite{hu2022lora}---they risk catastrophic forgetting of pre-training knowledge.
+Classical remedies operate in weight space: EWC~\cite{kirkpatrick2017overcoming} penalizes changes to important parameters via a diagonal Fisher approximation, while replay-based methods retain a buffer of old data.
+These weight-space constraints are rigid: they penalize any parameter movement equally regardless of whether the underlying feature geometry is preserved.
+Our framework offers a complementary, \emph{representation-space} perspective.
+We monitor forgetting through the geometric drift of the feature manifold ($\Omega$, $\Delta\rho$) relative to the frozen base model, which naturally permits global rotations and rescalings that do not affect downstream risk.
+Notably, under standard LoRA fine-tuning where the prediction head is frozen ($H_T = H_P$), our bound isolates forgetting entirely in the backbone geometry, providing a label-free diagnostic that decouples manifold distortion from head-specific effects.
 
-\paragraph{Geometry in Compression and Dynamics.}
-Our framework also unifies unconnected literature in quantization and continual learning through the lens of geometry.
-In quantization, assessing degradation typically requires perplexity evaluation \cite{frantar2022gptq}; we propose a \emph{generation-free} approach by detecting "Scale Collapse" ($\Delta \rho$).
-In continual learning, methods like EWC \cite{kirkpatrick2017overcoming} penalize weight drift to prevent catastrophic forgetting.
-We offer a complementary perspective: penalizing \emph{Geometric Drift} ($\Omega$). Unlike weight constraints which are rigid, our geometric regularizer allows for global rotations provided the relative semantic structure is preserved, offering a more flexible stability-plasticity trade-off.
+\paragraph{Performance Forecasting for Foundation Models.}
+The prohibitive cost of evaluating LLM variants has motivated several forecasting approaches.
+Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss as a power-law function of compute and data, but cannot capture variant-specific degradation (e.g., the effect of a particular quantization format on a specific benchmark).
+Weak-to-strong generalization~\cite{burns2023weak} explores using smaller models to supervise larger ones, but targets label generation rather than risk estimation.
+PRISM introduces a distinct paradigm: \emph{Geometric Control Variates}.
+Rather than extrapolating from scaling trends, we exploit the fact that a geometrically aligned proxy ($\Omega \approx 1$) produces per-sample losses that are highly correlated with those of the target.
+Our unified bound guarantees that the variance of the loss difference $\ell_T(x) - \ell_P(x)$ is controlled by the geometric terms, enabling accurate estimation of full-benchmark performance from a small calibration set with strict statistical guarantees via Popoviciu's inequality.
 
 
 \section{A Geometric Framework for Proxy Performance Estimation}
