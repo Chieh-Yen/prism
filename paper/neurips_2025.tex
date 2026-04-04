@@ -67,14 +67,10 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{remark}{Remark}
 
-% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote. 
-% \title{The Linear Representation Hypothesis \\
-% as a Proxy for Model Performance}
 \title{Geometric Alignment \\
 as a Proxy for Performance Transferability}
 % PRISM: Proxy Risk Estimation via Isomorphic Spectral Matching
 % Proxy Risk Inference via Structural Mapping
-
 
 % The \author macro works with any number of authors. There are two commands
 % used to separate the names and addresses of multiple authors: \And and \AND.
@@ -104,21 +100,10 @@ as a Proxy for Performance Transferability}
   % Affiliation \\
   % Address \\
   % \texttt{email} \\
-  % \And
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
-  % \And
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
 }
 
 
 \begin{document}
-
 
 \maketitle
 
@@ -595,217 +580,12 @@ If we observe that a Target model fails on a dataset where a Proxy succeeds ($\m
 Thus, PRISM provides a mechanism to decouple "feature quality" from "model performance" across arbitrary architectures.
 
 
-% Quantization Quality Estimation
-% Geometric Monitoring of Catastrophic Forgetting
-% Generalization of Fine-tuned Models
-
-% Out-of-Distribution Detection
-% 
-% (Optional) Model Merging
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 \section{Empirical Analysis and Limits of Linearity}
 \label{sec:empirical_analysis}
 
 While our theoretical bounds guarantee risk proximity under geometric alignment, practical deployment requires understanding the tightness of these bounds and the conditions under which the linear representation hypothesis holds. In this section, we provide a comprehensive empirical study across model scales, families, and depths.
 
 
-
-
-
-
-
-
-
-
-
-
-\section{Directional Risk Dynamics and Task Suboptimality}
-\label{app:directional_dynamics}
-
-While the Lipschitz-based PRISM bound (Theorem~\ref{thm:unified_bound}) rigorously establishes the maximum functional capacity for risk deviation, it is inherently an \emph{unsigned} (absolute) bound. This symmetry is not a mathematical artifact, but a fundamental consequence of PRISM's \emph{unsupervised, label-free} nature. By assessing structural topological isomorphism without requiring ground-truth labels, PRISM achieves ultra-efficient, zero-shot proxy monitoring. 
-
-However, this absolute bound presents an analytical challenge: it does not specify the \emph{direction} of the risk change (i.e., performance improvement versus catastrophic forgetting). In this section, we resolve this limitation by introducing physical priors for saturated tasks, and by transitioning to dynamic first-order optimization analysis empowered by the $L$-smoothness of the loss landscape.
-
-\subsection{The Local Minimum Prior for Degradation Tracking}
-
-In specific applications such as Post-Training Quantization (PTQ) or monitoring Catastrophic Forgetting, the directionality of the risk drift is empirically deterministic. 
-
-For a given pre-training or calibration distribution $\mathcal{D}$, the target model $T$ typically resides at a \emph{local minimum}. Consequently, any blind geometric distortion ($\Omega < 1$) induced by quantization truncation or sequential task updates acts as uncalibrated noise. Under this saturated condition, performance improvement is statistically improbable, making $\mathcal{R}_P \ge \mathcal{R}_T$ a safe empirical prior. 
-
-When this local minimum prior holds, the absolute PRISM bound seamlessly converts into a strict upper bound on the \emph{degradation penalty} without requiring any labeled evaluation:
-\begin{equation}
-    \mathcal{R}_P - \mathcal{R}_T \le \text{PRISM Bound}.
-\end{equation}
-
-\subsection{Directional Optimization Dynamics via $L$-Smoothness}
-\label{app:l_smoothness_dynamics}
-
-To rigorously determine directionality in fine-tuning scenarios (where the proxy $P$ is expected to \emph{improve} upon $T$), we must reintroduce the ground-truth labels and analyze the loss landscape. 
-
-A critical mathematical inquiry is whether analyzing the optimization trajectory using only the first and second-order Taylor expansion terms is rigorously justified, given the highly non-convex nature of deep neural networks. We demonstrate that, by operating in the \emph{feature space} rather than the weight space, we can invoke the global $L$-smoothness of the Cross-Entropy loss. This property does not merely truncate higher-order derivatives; it rigorously absorbs them into a global quadratic majorizer, establishing an absolute bound on the risk dynamics.
-
-\paragraph{The Global Quadratic Majorizer.}
-Let the logits be $v = z H_T$, and the loss be $\ell(v, y) = -\log(p_y)$. The Hessian of the loss with respect to the logits is the covariance matrix of the multinomial distribution parameterized by $p$: $\nabla_v^2 \ell = \text{diag}(p) - p p^\top$. By standard smoothness arguments, the maximum eigenvalue of this covariance matrix is strictly bounded by $0.5$. 
-
-Applying the chain rule, the feature-space Hessian is $\mathcal{H}_z = H_T \nabla_v^2 \ell H_T^\top$. Consequently, its maximum spectral norm is strictly bounded by $L = 0.5 \|H_T\|_2^2$. This guarantees that the loss function is globally $L$-smooth with respect to the feature space.
-
-By the Descent Lemma, for any geometric drift $\delta_Z = Z_P W - Z_T$ moving from the target state towards the proxy state, the true functional risk is rigidly bounded by a quadratic majorizer:
-\begin{equation}
-\label{eq:descent_lemma}
-\mathcal{R}_{P \to T} - \mathcal{R}_T \;\;\le\;\; \underbrace{\nabla_Z \mathcal{L}^\top \delta_Z}_{\text{Linear Drive } (\Delta_{\pm})} \;\;+\;\; \underbrace{\frac{1}{4} \|H_T\|_2^2 \left( \frac{1}{n} \|\delta_Z\|_F^2 \right)}_{\text{Curvature Penalty}}.
-\end{equation}
-
-This derivation reveals a profound theoretical advantage: the complex, highly non-convex higher-order dynamics are completely enveloped by the strict positive curvature penalty $\frac{L}{2}\|\delta_Z\|_F^2$. The first-order term ($\Delta_{\pm}$) acts as the directional optimization drive, while the quadratic term strictly acts as a "braking mechanism" (resistance).
-
-\subsection{The Trust Region: Guaranteeing Improvement vs. Decay}
-
-A critical analytical question arises when the first-order directional drift is negative ($\Delta_{\pm} < 0$), indicating an optimization force towards the minimum. Can we blindly trust this first-order direction? The answer is strictly no. Because the curvature penalty is fundamentally positive, the overall risk dynamic is a \emph{competition} between the negative linear drive and the positive quadratic resistance. 
-
-If the geometric distortion is excessively large, the curvature penalty will overpower the linear descent, causing the target model to overshoot the minimum and increase the loss. To rigorously \emph{guarantee} that the overall functional performance improves ($\mathcal{R}_{P \to T} - \mathcal{R}_T < 0$), the upper bound of the descent lemma must be strictly negative.
-
-\paragraph{Unifying Optimization with PRISM Geometry.}
-Crucially, the average geometric drift magnitude $\frac{1}{n}\|\delta_Z\|_F^2$ in the curvature penalty is exactly the minimum empirical alignment error solved in our PRISM Exact Geometric Decomposition (Theorem~\ref{thm:exact_decomposition}). Substituting our exact derivation, the guaranteed improvement condition becomes:
-\begin{equation}
-\label{eq:guaranteed_improvement}
-\underbrace{\Delta_{\pm}}_{\text{Negative Linear Drive}} \;\;+\;\; \underbrace{\frac{1}{4} \|H_T\|_2^2 \Big[ (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega) \Big]}_{\text{Positive Curvature Penalty (PRISM Error)}} \;\;<\;\; 0.
-\end{equation}
-
-By rearranging this inequality, we define the \textbf{Geometric Trust Region} for safe capability transfer:
-\begin{equation}
-\label{eq:trust_region}
-\underbrace{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega)}_{\text{Permissible Geometric Distortion}} \;\;<\;\; \frac{4 \cdot |\Delta_{\pm}|}{\|H_T\|_2^2}.
-\end{equation}
-
-This theoretical boundary flawlessly bridges optimization dynamics with static geometric alignment. It establishes a computable threshold: the permissible structural destruction (our exact PRISM metric) is fundamentally capped by the magnitude of the task's optimization drive. This holistically explains the empirical lifecycle of foundation models:
-\begin{itemize}
-    \item \textbf{Suboptimal Tasks (High Gradient Drive):} When a task is highly suboptimal (e.g., initial fine-tuning, massive $|\Delta_{\pm}|$), the permissible trust region in Eq.~(\ref{eq:trust_region}) is vast. The model can safely tolerate significant structural distortion ($\Omega \ll 1$) while still guaranteeing functional improvement.
-    \item \textbf{Saturated Tasks (Vanishing Gradient):} Conversely, on a pre-trained corpus where the model resides at a local minimum, the first-order drive vanishes ($|\Delta_{\pm}| \to 0$). The trust region shrinks to exactly zero. In this state, the positive curvature penalty immediately dominates, mathematically proving that any non-zero geometric distortion (such as quantization truncation) will unilaterally induce performance decay, regardless of the drift direction.
-\end{itemize}
-
-\paragraph{Remark on Computational Tractability: Bypassing the Hessian.}
-A critical advantage of this $L$-smoothness formulation is its extreme computational efficiency. By analytically bounding the maximum eigenvalue of the Softmax covariance matrix, we fundamentally eliminate the need to compute or instantiate the prohibitive $\mathcal{O}(d^2)$ feature-space Hessian. The complex second-order dynamics are entirely subsumed by the scalar spectral norm of the linear prediction head, $\|H_T\|_2^2$. In practice, assessing the directional trust region operates within the same highly efficient computational envelope as the standard PRISM bound, requiring only the scalar $\|H_T\|_2$, a single gradient evaluation on a small calibration set, and the label-free variables $\Omega$ and $\Delta \rho$.
-
-
-\paragraph{Remark on Large Domain Shifts and the Limits of Linear Approximation.}
-A natural theoretical inquiry is whether the linear directional drive ($\Delta_{\pm}$) remains valid when the geometric drift $\delta_Z = Z_P W - Z_T$ is exceedingly large. Fundamentally, the first-order Taylor expansion assumes a localized neighborhood; the gradient evaluated at the proxy state $\nabla_Z \mathcal{L}(Z_P W)$ may not represent the true trajectory if the loss landscape exhibits severe curvature over a large distance.
-
-This highlights the profound utility of our $L$-smoothness quadratic majorizer in Eq.~(\ref{eq:descent_lemma}). While the strict inequality remains globally mathematically true for any arbitrary distance $\|\delta_Z\|$, its predictive utility gracefully degrades as the distance increases. If the topological distortion is severe (e.g., $\Omega \ll 1$), the quadratic curvature penalty $\mathcal{O}(\|\delta_Z\|_F^2)$ explodes, causing the upper bound to become a large positive value. 
-
-When this occurs, the bound correctly ceases to guarantee functional improvement, signaling that the first-order drive has been overpowered by geometric divergence. This perfectly encapsulates the core thesis of the PRISM framework: a proxy model becomes functionally invalid, and its gradients untrustworthy, precisely when its representational geometry diverges beyond the computable Trust Region of the target model.
-
-\paragraph{Remark on Macroscopic Applicability: From Micro-Steps to Base-vs-Finetuned.}
-It is crucial to emphasize that the Geometric Trust Region derived in Eq.~(\ref{eq:trust_region}) is not restricted to infinitesimal micro-steps typical of standard gradient descent (e.g., Trust Region Policy Optimization). Because it is grounded in the global $L$-smoothness of the cross-entropy loss, the bound holds macroscopically. 
-
-Thus, the drift $\delta_Z$ can safely represent the total topological shift between a foundational Base Model (Proxy) and a fully adapted Fine-tuned Model (Target). In this context, the Trust Region acts as a rigorous mathematical guardrail against \emph{Representation Collapse}. It explains why modern alignment techniques—such as the KL-divergence penalty in RLHF against a reference model, or the structural bottleneck in LoRA—are empirically successful: they explicitly constrain the total geometric drift $\|\delta_Z\|_F^2$ to remain securely within the base model's valid trust region, thereby guaranteeing task improvement without triggering the catastrophic curvature penalty.
-
-
-
-
-
-
-
-
-
-
-
-
-
-\subsection{(Model Merging) Task Saturation and the Relative Suboptimality Index (RSI)}
-\label{app:rsi}
-
-The previous analysis demonstrates that the \emph{magnitude} of the task gradient, $\|\nabla_Z \mathcal{L}(Z_P W)\|_F$, dictates the trust region for safe geometric manipulation. We formalize this by linking the gradient magnitude to the functional distance to the target optimum $Z_T^*$.
-
-\paragraph{Optimization Proximity via Local PL Condition.}
-Under a local $\mu$-strong convexity assumption or the Polyak-Łojasiewicz (PL) condition, the geometric distance from the proxy features to the optimal feature manifold $Z_T^*$ is rigorously bounded by the gradient norm:
-\begin{equation}
-\| Z_P W - Z_T^* \|_F \le \frac{1}{\mu} \| \nabla_Z \mathcal{L}(Z_P W) \|_F.
-\end{equation}
-Therefore, measuring the gradient magnitude directly informs us of the proxy's suboptimality gap.
-
-\paragraph{The Relative Suboptimality Index (RSI).}
-Using absolute gradient norms is empirically problematic due to scale dependencies on the batch size $n$ and the prediction head scale $\|H_T\|_F$. To provide a scale-invariant, dimensionless metric for task saturation, we normalize the observed gradient by its theoretical upper bound.
-
-Recall that $\nabla_Z \mathcal{L} = (\hat{P} - Y) H_T^\top$. By the sub-multiplicativity of the Frobenius norm:
-\begin{equation}
-\|\nabla_Z \mathcal{L}\|_F \le \|\hat{P} - Y\|_F \cdot \|H_T\|_F.
-\end{equation}
-The maximum possible error for the probability matrix occurs when the model predicts entirely incorrect classes with absolute certainty, yielding a maximum distance of $\sqrt{1^2 + (-1)^2} = \sqrt{2}$ per sample. Over $n$ samples, the supremum is $\|\hat{P} - Y\|_F \le \sqrt{2n}$.
-
-We define the \textbf{Relative Suboptimality Index (RSI)} as:
-\begin{equation}
-\text{RSI}(Z_P) := \frac{\|\nabla_Z \mathcal{L}(Z_P W)\|_F}{\sqrt{2n} \cdot \|H_T\|_F} \;\;\in\;\; [0, 1].
-\end{equation}
-
-\paragraph{Insights and Empirical Utilization.}
-The RSI serves as an absolute diagnostic tool to determine if $Z_P$ is ``good enough'' before applying any geometric transformations:
-\begin{itemize}
-    \item \textbf{Saturated Regime ($\text{RSI} \to 0$):} The model is situated at a perfect stationary point for the given task (e.g., a base model on its pre-training corpus). The trust region shrinks to zero. In this regime, the model cannot improve structurally; any subsequent geometric drift ($\Omega < 1$) serves merely as an index of structural destruction, unilaterally inducing performance decay.
-    \item \textbf{Suboptimal Regime ($\text{RSI} \gg 0$, e.g., $0.4$ to $0.6$):} The model predictions are highly divergent from the optimum, yielding massive gradients. This indicates a highly suboptimal feature space with tremendous room for improvement. In this state, a proxy can safely undergo significant geometric restructuring, provided the directional drift aligns with the vast negative gradient.
-\end{itemize}
-
-By evaluating the RSI alongside the PRISM bound, researchers can holistically map not only \emph{how much} the geometry has changed ($\Omega, \Delta \rho$), but \emph{where} the model currently sits within the optimization landscape.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-\subsection{Validating the Bound: Correlation between $\Omega$ and Regret}
-
-
-\subsection{Layer-wise Geometric Dynamics}
-
-
-\subsection{Stress Test: Cross-Family vs. Cross-Architecture}
-
-
-\subsection{Efficiency: The Pareto Frontier}
 
 
 \section{Conclusion}
@@ -936,114 +716,6 @@ Crucially, our formulation indicates that head discrepancy can be \emph{actively
 \end{itemize}
 
 
-
-
-
-
-
-\section{Detailed Derivation of the $L$-Smoothness Bound and Curvature Penalty}
-\label{app:l_smoothness_derivation}
-
-In this section, we provide the rigorous mathematical derivation connecting the abstract optimization concept of $L$-smoothness to the exact neural network architecture (the linear prediction head $H_T$) and our empirical PRISM metrics. Specifically, we prove how the global quadratic majorizer derived from the Descent Lemma yields the exact curvature penalty term $\frac{1}{4} \|H_T\|_2^2 \|\delta_Z\|_F^2$.
-
-\paragraph{Step 1: The Descent Lemma in Feature Space.}
-In optimization theory, if a continuously differentiable function $f$ is $L$-smooth—meaning its gradient is $L$-Lipschitz continuous, or equivalently, the maximum eigenvalue (spectral norm) of its Hessian is bounded by $L$ ($\|\nabla^2 f\|_2 \le L$)—then the Descent Lemma guarantees a global quadratic upper bound for any two points $x$ and $y$ in the domain:
-\begin{equation}
-\label{eq:standard_descent}
-f(y) \le f(x) + \nabla f(x)^\top (y - x) + \frac{L}{2} \|y - x\|_2^2.
-\end{equation}
-
-We map this classical inequality to our feature-space alignment framework for a single data sample:
-\begin{itemize}
-    \item The function $f(\cdot)$ is the per-sample Cross-Entropy loss $\ell(\cdot)$.
-    \item The starting point $x$ is the proxy's mapped feature vector $z_P W \in \mathbb{R}^{d_T}$.
-    \item The target point $y$ is the target model's true feature vector $z_T \in \mathbb{R}^{d_T}$.
-    \item The displacement vector $(y - x)$ is the sample-wise geometric drift $\delta_z = z_T - z_P W$.
-\end{itemize}
-Substituting these into Eq.~(\ref{eq:standard_descent}) yields the sample-wise risk bound:
-\begin{equation}
-\label{eq:sample_descent}
-\ell(z_T) - \ell(z_P W) \le \nabla_z \ell(z_P W)^\top \delta_z + \frac{L}{2} \|\delta_z\|_2^2.
-\end{equation}
-
-\paragraph{Step 2: Resolving the Smoothness Constant $L$ via the Hessian Spectral Bound.}
-The critical task is to rigorously determine the feature-space smoothness constant $L$, which is the maximum spectral norm of the feature-space Hessian $\mathcal{H}_z = \nabla_z^2 \ell$.
-
-For a standard neural network classification head, the logits are computed as $v = z H_T$, followed by the Softmax Cross-Entropy loss $\ell(v, y) = -\log(p_y)$. 
-First, we consider the Hessian of the loss with respect to the \emph{logits} $v$. It is a well-established property that this Hessian equals the covariance matrix of the multinomial distribution parameterized by the predicted probabilities $p = \text{softmax}(v)$:
-\begin{equation}
-\nabla_v^2 \ell = \text{diag}(p) - p p^\top.
-\end{equation}
-Furthermore, the maximum eigenvalue of any such probability covariance matrix is strictly bounded by $0.5$ (which occurs when the probability mass is evenly distributed between two classes). Therefore, we have the absolute spectral bound:
-\begin{equation}
-\label{eq:logit_hessian_bound}
-\| \nabla_v^2 \ell \|_2 \le 0.5.
-\end{equation}
-
-Next, we project this second derivative back to the feature space $z$. By applying the multivariate chain rule, the feature-space Hessian is:
-\begin{equation}
-\mathcal{H}_z = H_T \big( \nabla_v^2 \ell \big) H_T^\top.
-\end{equation}
-To find $L$, we take the spectral norm (the $L_2$ matrix norm) of $\mathcal{H}_z$ and apply the sub-multiplicative property of matrix norms:
-\begin{equation}
-\begin{aligned}
-L = \| \mathcal{H}_z \|_2 &= \| H_T \big( \nabla_v^2 \ell \big) H_T^\top \|_2 \\
-&\le \| H_T \|_2 \cdot \| \nabla_v^2 \ell \|_2 \cdot \| H_T^\top \|_2.
-\end{aligned}
-\end{equation}
-Since $\|H_T^\top\|_2 = \|H_T\|_2$, and substituting the bound from Eq.~(\ref{eq:logit_hessian_bound}), we obtain the strict analytical bound for the feature-space smoothness constant:
-\begin{equation}
-\label{eq:analytical_L}
-L \le 0.5 \| H_T \|_2^2.
-\end{equation}
-
-\paragraph{Step 3: Deriving the Macroscopic Risk Bound.}
-We now substitute the analytical bound of $L$ (Eq.~\ref{eq:analytical_L}) back into the sample-wise Descent Lemma (Eq.~\ref{eq:sample_descent}):
-\begin{equation}
-\begin{aligned}
-\ell(z_T) - \ell(z_P W) &\le \nabla_z \ell(z_P W)^\top \delta_z + \frac{1}{2} \Big( 0.5 \| H_T \|_2^2 \Big) \|\delta_z\|_2^2 \\
-&= \nabla_z \ell(z_P W)^\top \delta_z + \frac{1}{4} \| H_T \|_2^2 \|\delta_z\|_2^2.
-\end{aligned}
-\end{equation}
-
-To evaluate the generalization capability of the proxy over the entire target distribution, we take the expectation (or empirical mean) over all $n$ samples in the dataset $\mathcal{D}$. 
-The left side becomes the macroscopic risk difference $\mathcal{R}_T - \mathcal{R}_{P \to T}$. The linear term averages to our defined Directional Risk Drift $\Delta_{\pm}$. For the quadratic term, the average of the squared $L_2$ norms of the sample vectors is exactly the scaled squared Frobenius norm of the entire geometric drift matrix $\delta_Z \in \mathbb{R}^{n \times d_T}$:
-\begin{equation}
-\frac{1}{n} \sum_{i=1}^n \|\delta_{z_i}\|_2^2 = \frac{1}{n} \|\delta_Z\|_F^2.
-\end{equation}
-
-Consequently, the global macroscopic optimization bound is flawlessly derived as:
-\begin{equation}
-\label{eq:final_macroscopic_bound}
-\mathcal{R}_T - \mathcal{R}_{P \to T} \le \underbrace{\Delta_{\pm}}_{\text{Linear Drive}} + \underbrace{\frac{1}{4} \|H_T\|_2^2 \left( \frac{1}{n} \|\delta_Z\|_F^2 \right)}_{\text{Curvature Penalty}}.
-\end{equation}
-
-\paragraph{Step 4: Unification with the PRISM Geometric Framework.}
-The beauty of Eq.~(\ref{eq:final_macroscopic_bound}) lies in its direct connection to our static geometric decomposition. The term $\frac{1}{n} \|\delta_Z\|_F^2$ represents the exact Mean Squared Error (MSE) of the aligned feature spaces. According to our PRISM Exact Geometric Decomposition (Theorem~\ref{thm:exact_decomposition}), this term is analytically completely determined by the scale collapse and topological mismatch:
-\begin{equation}
-\frac{1}{n} \|\delta_Z\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega).
-\end{equation}
-By substituting this structural identity into the curvature penalty, we definitively bridge the gap between dynamic optimization theory and static manifold geometry, proving that the required Trust Region for functional improvement is intrinsically governed by our proposed $\Omega$ and $\Delta \rho$ metrics.
-
-
-
-
-
-
-
-
-
-
-
-\end{document}
-
-
-
-
-
-\pagebreak
-\newpage
-\clearpage
 
 
 \end{document}
