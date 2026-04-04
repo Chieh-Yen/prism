@@ -308,12 +308,14 @@ run_all_datasets $QWEN25I_TARGET $QWEN25I_GGUF "$QWEN25I_BITS"
 # ============================================================
 # Model 10: Mistral-7B-v0.3  (Base)
 # Arch  : MistralForCausalLM, vocab=32768, hidden=4096
-# GGUF  : bartowski/Mistral-7B-v0.3-GGUF
-#          files: Mistral-7B-v0.3-{quant}.gguf
+# GGUF  : mradermacher/Mistral-7B-v0.3-GGUF
+#          files: Mistral-7B-v0.3.{quant}.gguf  (dot convention)
+#          explicit gguf_template required — auto-derive uses dash separator
 # GPTQ  : iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128  INT4-g128  AutoGPTQ
 # ============================================================
 MIS7B_TARGET="target.model=mistralai/Mistral-7B-v0.3"
 MIS7B_GGUF="proxy.model=mradermacher/Mistral-7B-v0.3-GGUF"
+MIS7B_TPL="proxy.gguf_template=Mistral-7B-v0.3.{quant}.gguf"
 MIS7B_BITS="proxy.quantization_bits=[\
 dtype:float16,\
 Q8_0,Q6_K,Q5_K_M,Q4_K_M,Q3_K_M,Q2_K,\
@@ -321,7 +323,7 @@ bnb:int8,bnb:nf4,bnb:fp4,\
 gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128,\
 awq:solidrust/Mistral-7B-v0.3-AWQ]"
 
-run_all_datasets $MIS7B_TARGET $MIS7B_GGUF "$MIS7B_BITS"
+run_all_datasets $MIS7B_TARGET $MIS7B_GGUF $MIS7B_TPL "$MIS7B_BITS"
 
 # ============================================================
 # Model 11: Mistral-7B-Instruct-v0.3  (Instruct)

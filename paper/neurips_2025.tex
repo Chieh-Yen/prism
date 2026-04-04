@@ -339,8 +339,8 @@ where $\rho^{\mathrm{AR}}$, $\Omega^{\mathrm{AR}}$, and $\Sigma_P^{\mathrm{AR}}$
 
 The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) provides a general mechanism to estimate functional divergence between any two models. The nature of the geometric relationship between proxy and target determines which terms dominate the bound, giving rise to two distinct regimes:
 \begin{itemize}
-    \item \textbf{The Identity Regime ($W^* = I$):} When the proxy and target share the same coordinate basis---as in post-training quantization---the alignment map degenerates to the identity. The bound reduces to a pure function of scale collapse ($\Delta\rho$) and structural distortion ($1 - \Omega$), with no rotational degree of freedom.
-    \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \neq I$):} When training dynamics induce global basis rotations---as in fine-tuning---the full Procrustes alignment is required. The optimal $W^*$ absorbs arbitrary rotations, and $\Omega$ measures the residual geometric drift that rotations alone cannot explain.
+    \item \textbf{The Near-Identity Regime ($W^* \approx I$):} When the proxy and target share a nearly identical coordinate basis---as in post-training quantization---the optimal Procrustes alignment $W^*$ absorbs only small perturbations introduced by numerical noise. The bound reduces to a pure function of scale collapse ($\Delta\rho$) and structural distortion ($1 - \Omega$), with the head discrepancy vanishing when the prediction head is preserved.
+    \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \not\approx I$):} When training dynamics induce global basis rotations---as in fine-tuning---the full Procrustes alignment is required. The optimal $W^*$ absorbs arbitrary rotations, and $\Omega$ measures the residual geometric drift that rotations alone cannot explain.
 \end{itemize}
 We instantiate these two regimes below for their most practically relevant scenarios, and additionally develop a control variate method for compute-efficient evaluation.
 
@@ -349,7 +349,8 @@ We instantiate these two regimes below for their most practically relevant scena
 
 We designate the full-precision model as Target ($T$) and the quantized variant as Proxy ($P$). Two conditions specific to post-training quantization simplify the bound:
 \begin{enumerate}
-    \item \textbf{Identity Alignment ($W^* = I$):} Standard PTQ introduces element-wise numerical noise but preserves the coordinate basis, so the optimal alignment degenerates to the identity.
+    \item \textbf{Near-Identity Alignment ($W^* \approx I$):} Standard PTQ introduces element-wise numerical noise that largely preserves the coordinate basis. The optimal Procrustes alignment $W^*$ absorbs the small, non-symmetric perturbations in the cross-moment matrix $Z_F^\top Z_Q$, and the Procrustes Similarity $\Omega$ (Eq.~\ref{eq:omega_def}) remains the correct measure of structural alignment.\footnote{%
+    Setting $W = I$ exactly would replace the nuclear norm $\|Z_F^\top Z_Q\|_*$ in the decomposition with $\operatorname{Tr}(Z_F^\top Z_Q)$, which equals the nuclear norm only when $Z_F^\top Z_Q$ is symmetric positive semidefinite---a condition not guaranteed under quantisation noise. Using the full Procrustes solution avoids this issue while yielding the tightest bound.}
     \item \textbf{Head Stability ($H_Q \approx H_F$):} Modern protocols (GPTQ, AWQ) retain the prediction head in FP16, causing the head discrepancy to vanish.
 \end{enumerate}
 Under these conditions, the risk gap is dominated purely by the geometric deformation of the feature manifold:
@@ -363,7 +364,7 @@ This establishes $\Omega$ and $\Delta\rho$ as generation-free diagnostics: \emph
 \subsection{Geometric Monitoring of Catastrophic Forgetting}
 \label{subsec:forgetting}
 
-We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). Unlike quantization, the optimal alignment $W^*$ is non-identity, as fine-tuning induces global feature rotations. Applying Theorem~\ref{thm:unified_bound}:
+We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). Unlike quantization---where $W^*$ deviates only slightly from the identity---fine-tuning induces substantial global feature rotations, requiring the full Procrustes alignment. Applying Theorem~\ref{thm:unified_bound}:
 \begin{equation}
 \label{eq:forgetting_bound}
 \begin{aligned}
