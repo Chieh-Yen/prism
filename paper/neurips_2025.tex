@@ -111,7 +111,7 @@ as a Proxy for Performance Transferability}
 Evaluating Large Language Model (LLM) variants---quantized checkpoints, fine-tuned snapshots, LoRA adaptations---is prohibitively expensive, yet existing representational similarity metrics (e.g., CKA) provide no formal link to downstream performance.
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that derives a rigorous, closed-form upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ between a target and proxy model.
 By formulating alignment as an Orthogonal Procrustes problem, we obtain an \emph{exact} decomposition of feature discrepancy into scale mismatch ($\Delta\rho$) and shape mismatch ($1 - \Omega$) via the nuclear norm, provably tighter than Frobenius-based alternatives.
-Combined with a covariance-adjusted head bound, this yields a computable diagnostic from a single forward pass.
+Combined with a second-moment-adjusted head bound, this yields a computable diagnostic from a single forward pass.
 We instantiate the framework for post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), where the bound reduces to a pure geometric distortion measure, and for fine-tuning (SFT, LoRA), where it isolates catastrophic forgetting in the backbone geometry.
 Extensive experiments across Llama, Qwen, Mistral, and DeepSeek demonstrate strong rank correlation (Spearman's $\rho > 0.9$) between our geometric metric and actual performance degradation.
 By leveraging high alignment as a variance-reduction guarantee, we further show that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\%.
@@ -135,8 +135,8 @@ We address this gap by proposing \textbf{PRISM} (Proxy Risk Inference via Struct
 Our key observation is that modern Transformer-based LLMs share a common structural property: a deep non-linear feature extractor (the backbone) followed by a single linear prediction head (\texttt{lm\_head}) that projects representations onto the vocabulary space.
 This architecture, combined with the \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear}---that models within the same lineage learn feature manifolds related by a near-isometric linear transformation---enables an \emph{exact} geometric analysis of risk discrepancy.
 Specifically, by formulating alignment as an Orthogonal Procrustes problem on the Stiefel manifold, we decompose feature discrepancy into two interpretable components: \emph{scale mismatch} ($\Delta\rho$), capturing activation magnitude shifts, and \emph{shape mismatch} ($1 - \Omega$), capturing structural distortion of the feature manifold, where $\Omega$ is the Procrustes Similarity defined via the nuclear norm of the cross-covariance matrix.
-Unlike CKA's Frobenius-based formulation, this nuclear-norm decomposition is provably the tightest bound for rotational alignment, explicitly isolating structural distortion from prediction head errors.
-Combined with a covariance-adjusted bound on head discrepancy, this yields a closed-form upper bound on risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ that is directly computable from a single forward pass on a small calibration set.
+Unlike Frobenius-based formulations (including the Frobenius similarity $\Omega_F$ and related metrics such as CKA), this nuclear-norm decomposition is provably the tightest bound for rotational alignment, explicitly isolating structural distortion from prediction head errors (Appendix~\ref{app:tightness}).
+Combined with a second-moment-adjusted bound on head discrepancy, this yields a closed-form upper bound on risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ that is directly computable from a single forward pass on a small calibration set.
 
 \paragraph{Why Large Language Models.}
 Although our framework mathematically applies to any model adopting the feature-extractor-plus-linear-head paradigm, we focus empirical validation exclusively on LLMs for four reasons.
@@ -148,7 +148,7 @@ Fourth, our framework naturally unifies both point-wise classification (e.g., MM
 \paragraph{Contributions.}
 Our main contributions are as follows:
 \begin{enumerate}
-    \item \textbf{A Unified Geometric Framework for Risk Bounding.} We establish a rigorous theoretical bridge linking the internal representational geometry of a proxy model to the functional risk of a target model. We derive an exact decomposition of feature discrepancy via the nuclear norm (Procrustes Similarity $\Omega$), providing a strictly tighter bound than Frobenius-based metrics such as CKA. Crucially, our framework naturally unifies point-wise classification and sequence-level autoregressive generation under the same geometric constraints.
+    \item \textbf{A Unified Geometric Framework for Risk Bounding.} We establish a rigorous theoretical bridge linking the internal representational geometry of a proxy model to the functional risk of a target model. We derive an exact decomposition of feature discrepancy via the nuclear norm (Procrustes Similarity $\Omega$), providing a strictly tighter alignment residual than any Frobenius-based similarity (Appendix~\ref{app:tightness}). Crucially, our framework naturally unifies point-wise classification and sequence-level autoregressive generation under the same geometric constraints.
 
     \item \textbf{Exact Decomposition via Nuclear Norm.} Unlike prior post-hoc metrics that rely on Frobenius bounds, we derive an exact geometric decomposition of feature discrepancy using the nuclear norm. We prove this formulation provides the tightest bound for rotational alignment, explicitly isolating scale collapse ($\Delta\rho$) from structural distortion ($1 - \Omega$) and prediction head errors.
 
@@ -156,7 +156,7 @@ Our main contributions are as follows:
 
     \item \textbf{Strong Empirical Correlation.} Extensive experiments across modern LLMs (Llama, Qwen, Mistral, DeepSeek) demonstrate that our geometric bound serves as a highly predictive surrogate for actual performance degradation, achieving Spearman's $\rho > 0.9$ across quantization formats and fine-tuning protocols, establishing linear geometric alignment as a robust, compute-efficient proxy for model evaluation.
 
-    \item \textbf{Compute-Efficient Performance Estimation via Control Variates.} By leveraging the high geometric alignment ($\Omega \approx 1$) between target and proxy models, our framework guarantees minimal variance in risk estimation via Popoviciu's inequality. We demonstrate that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\% with strict statistical guarantees.
+    \item \textbf{Compute-Efficient Performance Estimation via Control Variates.} By leveraging the high geometric alignment ($\Omega \approx 1$) between target and proxy models, the pointwise Lipschitz bounds underlying our framework guarantee small per-sample loss differences, which in turn yield low variance via Popoviciu's inequality. We demonstrate that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\% with strict statistical guarantees.
 \end{enumerate}
 %========================================================
 
@@ -270,12 +270,12 @@ where $\Omega(Z_T, Z_P)$ is the \emph{Procrustes Similarity}, defined via the nu
 \end{equation}
 
 \paragraph{Step 3: Bounding the head discrepancy $\gamma$.}
-Using the Lipschitz constant of cross-entropy with respect to logits ($K_{\mathrm{pred}} \le \sqrt{2}$) and projecting the head misalignment $\Delta H = W^* H_T - H_P$ onto the data covariance (Appendix~\ref{app:head_bound}):
+Using the Lipschitz constant of cross-entropy with respect to logits ($K_{\mathrm{pred}} \le \sqrt{2}$) and projecting the head misalignment $\Delta H = W^* H_T - H_P$ onto the empirical second-moment matrix (Appendix~\ref{app:head_bound}):
 \begin{equation}
 \label{eq:gamma_main}
 \gamma \;\le\; K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F.
 \end{equation}
-The covariance weighting $\Sigma_P^{1/2}$ ensures that only misalignment within the \emph{active subspace} of the data is penalized.
+The second-moment weighting $\Sigma_P^{1/2}$ ensures that only misalignment within the \emph{active subspace} of the data is penalized.
 
 \paragraph{Main Result.}
 Combining Eqs.~(\ref{eq:risk_decomp}), (\ref{eq:delta_main}), and (\ref{eq:gamma_main}):
@@ -287,7 +287,7 @@ Let $W^* \in \mathcal{O}(d)$ be the optimal Procrustes alignment. Then:
 \label{eq:unified_bound_eq}
 \begin{aligned}
 |\mathcal{R}_T - \mathcal{R}_P| \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big( 1 - \Omega(Z_T, Z_P) \big) }}_{\text{\rm Geometric Alignment Error}} \\
-& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W^* H_T - H_P) \|_F}_{\text{\rm Covariance-Aware Head Error}}.
+& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W^* H_T - H_P) \|_F}_{\text{\rm Second-Moment-Weighted Head Error}}.
 \end{aligned}
 \end{equation}
 \end{theorem}
@@ -302,10 +302,10 @@ Theorem~\ref{thm:unified_bound} reveals three sufficient conditions for a proxy 
 Divergence in activation magnitude directly amplifies the geometric error term. In post-training quantization, aggressive bit-width reduction clips activation outliers~\cite{dettmers2022gpt3, xiao2023smoothquant}, shrinking $\rho_Q < \rho_F$. Our bound isolates this \emph{scale collapse} as a primary and independently measurable source of degradation.
 
 \paragraph{Shape Alignment ($\Omega \to 1$).}
-The shape mismatch term is governed by $\Omega$, which captures how well the relational structure of the feature manifold is preserved up to rotation. A drop in $\Omega$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}. Critically, $\Omega$ is defined via the nuclear norm, which provides the tightest possible bound for the Procrustes alignment residual; Frobenius-based metrics such as CKA conflate rotational and scale effects and yield provably looser bounds (Appendix~\ref{app:tightness}).
+The shape mismatch term is governed by $\Omega$, which captures how well the relational structure of the feature manifold is preserved up to rotation. A drop in $\Omega$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}. Critically, $\Omega$ is defined via the nuclear norm, which provides the tightest possible bound for the Procrustes alignment residual; Frobenius-based similarities yield provably looser residuals, and metrics such as CKA---which use a different normalization---are not directly substitutable into the Procrustes framework (Appendix~\ref{app:tightness}).
 
 \paragraph{Head Coherence ($\|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F \to 0$).}
-The head error term quantifies how differently the two prediction heads interpret aligned features, weighted by the data covariance $\Sigma_P$. Misalignment in directions orthogonal to the data manifold does not contribute, as it cannot affect predictions. Notably, under standard LoRA fine-tuning~\cite{hu2022lora} where the \texttt{lm\_head} is frozen ($H_T = H_P$), this term vanishes entirely, isolating all performance change in the backbone geometry ($\Delta\rho$ and $\Omega$).
+The head error term quantifies how differently the two prediction heads interpret aligned features, weighted by the empirical second-moment matrix $\Sigma_P$. Misalignment in directions orthogonal to the data manifold does not contribute, as it cannot affect predictions. Notably, under standard LoRA fine-tuning~\cite{hu2022lora} where the \texttt{lm\_head} is frozen ($H_T = H_P$), this term vanishes entirely, isolating all performance change in the backbone geometry ($\Delta\rho$ and $\Omega$).
 
 
 \subsection{Extension to Autoregressive Generation}
@@ -377,11 +377,16 @@ Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied 
 \subsection{Compute-Efficient Estimation via Geometric Control Variates}
 \label{subsec:control_variates}
 
-The high geometric alignment ($\Omega \approx 1$) between target and proxy implies that the per-sample loss difference $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ has low variance. Formally, the Unified Bound constrains $|\Delta\ell(x)|$, and by Popoviciu's inequality on bounded random variables:
+The high geometric alignment ($\Omega \approx 1$) between target and proxy implies that the per-sample loss difference $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ has low variance. To make this precise, note that the Lipschitz analysis underlying Theorem~\ref{thm:unified_bound} provides a \emph{pointwise} bound on each sample (before taking expectations):
 \begin{equation}
-\mathrm{Var}(\Delta\ell) \;\le\; \epsilon_{\mathrm{bound}}^2,
+\label{eq:pointwise_bound}
+|\Delta\ell(x)| \;\le\; K_{\mathrm{feat}} \|\phi_T(x) - \phi_P(x) W^*\|_2 \;+\; K_{\mathrm{pred}} \|\phi_P(x) \cdot \Delta H\|_2 \;\le\; B,
 \end{equation}
-where $\epsilon_{\mathrm{bound}}$ is the right-hand side of Eq.~(\ref{eq:unified_bound_eq}). This justifies treating the risk difference as a stable bias rather than random noise, and motivates the following estimator.
+where $B = K_{\mathrm{feat}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_T(x) - \phi_P(x) W^*\|_2 + K_{\mathrm{pred}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_P(x) \cdot \Delta H\|_2$ is the worst-case per-sample bound over the calibration set. Since $\Delta\ell(x) \in [-B, B]$, Popoviciu's inequality on bounded random variables gives:
+\begin{equation}
+\mathrm{Var}(\Delta\ell) \;\le\; B^2.
+\end{equation}
+When $\Omega \approx 1$ and $\Delta\rho \approx 0$, the per-sample residuals $\|\phi_T(x) - \phi_P(x) W^*\|_2$ are uniformly small, yielding a tight $B$ and thus low variance. This justifies treating the risk difference as a stable bias rather than random noise, and motivates the following estimator.
 
 \paragraph{The Control Variate Estimator.}
 We estimate the target's risk on a large test set $\mathcal{D}_{\mathrm{test}}$ using a small calibration set $\mathcal{D}_{\mathrm{cal}}$:
@@ -482,7 +487,7 @@ Several promising directions remain:
 \section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
 \label{app:detailed_proofs}
 
-We provide the complete proof of Theorem~\ref{thm:unified_bound}, deriving the bound on $|\mathcal{R}_T - \mathcal{R}_P|$ from the cross-entropy loss definition. The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, exact Procrustes decomposition via SVD, covariance-adjusted head bound, and final assembly.
+We provide the complete proof of Theorem~\ref{thm:unified_bound}, deriving the bound on $|\mathcal{R}_T - \mathcal{R}_P|$ from the cross-entropy loss definition. The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, exact Procrustes decomposition via SVD, second-moment-adjusted head bound, and final assembly.
 
 \subsection{Step 1: Risk Decomposition via Triangle Inequality}
 \label{app:risk_decomp}
@@ -654,7 +659,7 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 \end{equation}
 Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$.
 
-\paragraph{Deriving the Covariance Projection.}
+\paragraph{Deriving the Second-Moment Projection.}
 Define the head misalignment matrix $\Delta H = W^* H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W^* H_T - H_P)$, and:
 \begin{equation}
 \begin{aligned}
@@ -680,7 +685,7 @@ Taking the square root:
 \gamma \le K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F.
 \end{equation}
 
-\paragraph{Interpretation.} The covariance weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is strictly tighter than the spectral bound $\gamma \le K_{\mathrm{pred}} \|W^* H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which assumes worst-case alignment between features and head error.
+\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is strictly tighter than the spectral bound $\gamma \le K_{\mathrm{pred}} \|W^* H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which assumes worst-case alignment between features and head error.
 
 
 \subsection{Step 5: Assembling the Unified Bound}
@@ -700,7 +705,7 @@ This completes the proof of Theorem~\ref{thm:unified_bound}. \qed
 \section{Tightness of Nuclear Norm over Frobenius Norm}
 \label{app:tightness}
 
-We show that the nuclear-norm-based Procrustes Similarity $\Omega$ yields a strictly tighter alignment residual than any Frobenius-based metric (such as CKA).
+We show that the nuclear-norm-based Procrustes Similarity $\Omega$ yields a strictly tighter alignment residual than its Frobenius-based counterpart $\Omega_F$, and clarify the relationship to CKA.
 
 \paragraph{Statement.}
 Define the Frobenius-based similarity $\Omega_F := \|Z_T^\top Z_P\|_F / (\|Z_T\|_F \|Z_P\|_F)$. For any feature matrices $Z_T, Z_P$:
@@ -725,6 +730,9 @@ The alignment residual using $\Omega_F$ is:
 \begin{equation}
 (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_F) \ge (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega).
 \end{equation}
-Therefore, substituting $\Omega_F$ into the unified bound produces a \emph{strictly looser} upper bound on risk discrepancy. The nuclear norm $\Omega$ is the tightest possible metric because it exactly solves the Procrustes optimization---any other norm-based similarity either underestimates the alignment or fails to correspond to a well-defined geometric minimization.
+Therefore, substituting $\Omega_F$ into the unified bound produces a \emph{strictly looser} upper bound on risk discrepancy. The nuclear norm $\Omega$ is the tightest possible metric because it exactly solves the Procrustes optimization---any other norm-based similarity applied to the same alignment residual either underestimates the alignment or fails to correspond to a well-defined geometric minimization.
+
+\paragraph{Relation to CKA.}
+Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$, which differs from $\Omega_F^2 = \|Z_T^\top Z_P\|_F^2 / (\|Z_T\|_F^2 \|Z_P\|_F^2)$ in its denominator. The two denominators are related by the inequality $\|Z_M^\top Z_M\|_F \le \|Z_M\|_F^2 = \operatorname{Tr}(Z_M^\top Z_M)$ (since $\|A\|_F \le \operatorname{Tr}(A)$ for any positive semidefinite $A$, by Cauchy--Schwarz on the eigenvalues), which gives $\mathrm{CKA} \ge \Omega_F^2$. Hence CKA can overestimate alignment relative to $\Omega_F$, and it is not directly substitutable into our Procrustes residual. More fundamentally, CKA is not derived from any alignment optimization and therefore lacks the operational meaning of $\Omega$, which exactly solves the Orthogonal Procrustes problem.
 
 \end{document}
