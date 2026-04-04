@@ -49,6 +49,9 @@ Control Variate
 
 # Emperical Experiment
 實驗設定
+
+Scope of Empirical Validation.While the PRISM framework and the Unified Risk Bound mathematically apply to any modality adopting the feature-extractor-plus-linear-head paradigm (e.g., Vision Transformers), we strictly focus our empirical validation on Large Language Models (LLMs) for three strategic reasons:The Compute Bottleneck: LLMs exhibit the most severe evaluation latency and compute costs. Our variance-reduction mechanisms (Geometric Control Variates) provide the highest marginal utility in this regime.The Outlier Phenomenon: LLM manifolds uniquely suffer from severe activation outliers, making them highly susceptible to the scale collapse ($\Delta \rho$) formalized in our bounds during post-training quantization.Architectural Duality: LLMs elegantly dualize as point-wise logit classifiers (for multiple-choice reasoning) and sequence-level autoregressive generators, allowing us to empirically validate our framework's unification of these two paradigms.Exploring the topological isomorphism of cross-modal models (e.g., CLIP or Veo) under PRISM remains a highly promising direction for future work.
+
 benchamrk
 (1) Multiple-Choice (MC) Loss (classification task, 用於測量「任務特定活躍子空間 (Task-Specific Active Subspace)」的 Calibration Set)
  - 在標準的學術評估框架中（例如 EleutherAI 的 lm-evaluation-harness 或是 OpenAI 的 evals），MMLU 和 ARC 不是用生成的，而是用 Logit Scoring 算出來的。做法是：把 Prompt 餵給模型後，直接提取最後一個 Prompt token 的輸出 Feature $Z$，然後比較選項 Token（例如 'A', 'B', 'C', 'D'）在 Logits 上的機率大小，取機率最大者作為模型的選擇。
