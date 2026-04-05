@@ -484,7 +484,7 @@ class QuantizationExperiment(BaseExperiment):
         elif cfg_data.get("z_mode"):
             z_modes = [cfg_data["z_mode"]]
         else:
-            z_modes = task_meta["z_modes_all"]
+            z_modes = ["concat"]
 
         has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q) and not _is_dtype(q) for q in quant_bits)
         has_awq = any(_is_awq(q) for q in quant_bits)
