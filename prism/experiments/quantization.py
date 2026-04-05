@@ -420,19 +420,30 @@ class QuantizationExperiment(BaseExperiment):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        if _is_dtype(quant_tag):
-            proxy = self._load_proxy_dtype(_parse_dtype(quant_tag), target_model_id)
-        elif _is_gptq(quant_tag):
-            repo, rev = _parse_gptq(quant_tag)
-            proxy = self._load_proxy_gptq(repo, rev)
-        elif _is_awq(quant_tag):
-            repo, rev = _parse_awq(quant_tag)
-            proxy = self._load_proxy_awq(repo, rev)
-        elif _is_bnb(quant_tag):
-            proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
-        else:
-            filename = _gguf_filename(gguf_tpl, quant_tag)
-            proxy = self._load_proxy_gguf(quant_repo, filename)
+        # Disable GC during model loading: the GGUF dequantization loop
+        # creates hundreds of large tensors, and Python's cyclic GC sweeps
+        # over all tracked objects (including the already-instantiated model
+        # graph).  This causes O(n_tensors * n_model_objects) overhead that
+        # makes loading ~100× slower (22 s/tensor vs 0.3 s/tensor).
+        _gc_was_enabled = gc.isenabled()
+        gc.disable()
+        try:
+            if _is_dtype(quant_tag):
+                proxy = self._load_proxy_dtype(_parse_dtype(quant_tag), target_model_id)
+            elif _is_gptq(quant_tag):
+                repo, rev = _parse_gptq(quant_tag)
+                proxy = self._load_proxy_gptq(repo, rev)
+            elif _is_awq(quant_tag):
+                repo, rev = _parse_awq(quant_tag)
+                proxy = self._load_proxy_awq(repo, rev)
+            elif _is_bnb(quant_tag):
+                proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
+            else:
+                filename = _gguf_filename(gguf_tpl, quant_tag)
+                proxy = self._load_proxy_gguf(quant_repo, filename)
+        finally:
+            if _gc_was_enabled:
+                gc.enable()
         proxy.eval()
         return proxy
 
@@ -794,6 +805,12 @@ class QuantizationExperiment(BaseExperiment):
 
             finally:
                 del proxy_model
+                # Free proxy-iteration tensors to reclaim VRAM before next
+                # proxy load.  With concat mode, stale Z_dict_P + H_P can
+                # hold >6 GB on GPU, starving the next model load.
+                Z_dict_P = None  # type: ignore[assignment]
+                H_P = None       # type: ignore[assignment]
+                proxy_stats = None  # type: ignore[assignment]
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
