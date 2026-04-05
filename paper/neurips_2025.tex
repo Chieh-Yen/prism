@@ -7,7 +7,16 @@
 % The authors should use one of these tracks.
 % Before accepting by the NeurIPS conference, select one of the options below.
 % 0. "default" for submission
- \usepackage{neurips_2025}
+\usepackage{neurips_2025}
+
+\usepackage{tikz}
+\usetikzlibrary{
+    arrows.meta, 
+    positioning, 
+    fit, 
+    calc, 
+    decorations.pathreplacing
+}
 % the "default" option is equal to the "main" option, which is used for the Main Track with double-blind reviewing.
 % 1. "main" option is used for the Main Track
 %  \usepackage[main]{neurips_2025}
@@ -195,7 +204,7 @@ PRISM introduces a distinct paradigm: \emph{Geometric Control Variates}.
 Rather than extrapolating from scaling trends, we exploit the fact that a geometrically aligned proxy ($\Omega \approx 1$) produces per-sample losses that are highly correlated with those of the target.
 Our unified bound guarantees that the variance of the loss difference $\ell_T(x) - \ell_P(x)$ is controlled by the geometric terms, enabling accurate estimation of full-benchmark performance from a small calibration set with strict statistical guarantees via Popoviciu's inequality.
 
-
+\input{fig1.tex}
 
 \section{A Geometric Framework for Proxy Performance Estimation}
 \label{sec:geometric_foundation}

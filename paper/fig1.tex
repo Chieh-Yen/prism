@@ -1,0 +1,138 @@
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    font=\sffamily\small,
+    >=Stealth,
+    % Unified Styles
+    module/.style={draw=black!60, thick, rounded corners=3pt, fill=white, align=center, minimum height=0.75cm, minimum width=1.4cm, font=\footnotesize},
+    targetcol/.style={blue!70!black},
+    proxycol/.style={orange!80!black},
+    prismcol/.style={purple!70!black},
+    beam/.style={line width=2pt, opacity=0.75}, % Thinner, more elegant beams
+    card/.style={draw=gray!50, thick, rounded corners=6pt, fill=white, minimum width=4.8cm, minimum height=2.2cm} % Shorter cards
+]
+
+% =========================================================
+% 1. TOP-LEFT: Input & Routing
+% =========================================================
+\node[align=center, font=\bfseries] (input) at (0, 7.4) {Input\\$(x, y) \sim \mathcal{D}$};
+
+% Input splitting
+\draw[->, thick, gray!80!black] (input.east) -- (1.0, 7.4) |- (1.8, 8.4);
+\draw[->, thick, gray!80!black] (input.east) -- (1.0, 7.4) |- (1.8, 6.4);
+
+% =========================================================
+% 2. MODELS (Target & Proxy) - Highly Compact
+% =========================================================
+% Target Model Box
+\draw[draw=gray!40, fill=gray!5, rounded corners=6pt] (1.5, 7.65) rectangle (8.2, 9.0);
+\node[text=gray!70!black, font=\bfseries\footnotesize, anchor=north] at (4.85, 9.0) {Target Model ($T$)};
+
+\node[module, draw=blue!80!black, fill=blue!5] (nnT) at (2.8, 8.15) {\textbf{Backbone} $\phi_T$};
+\node[module] (zT) at (5.2, 8.15) {\textbf{Feature} $Z_T$};
+\node[module, dashed] (hT) at (7.3, 8.15) {\textbf{Head} $H_T$};
+
+\draw[->, thick, targetcol] (nnT) -- (zT);
+\draw[->, thick, targetcol] (zT) -- (hT);
+
+% Proxy Model Box
+\draw[draw=gray!40, fill=gray!5, rounded corners=6pt] (1.5, 5.65) rectangle (8.2, 7.0);
+\node[text=gray!70!black, font=\bfseries\footnotesize, anchor=north] at (4.85, 7.0) {Proxy Model ($P$)};
+
+\node[module, draw=orange!80!black, fill=orange!5] (nnP) at (2.8, 6.15) {\textbf{Backbone} $\phi_P$};
+\node[module] (zP) at (5.2, 6.15) {\textbf{Feature} $Z_P$};
+\node[module, dashed] (hP) at (7.3, 6.15) {\textbf{Head} $H_P$};
+
+\draw[->, thick, proxycol] (nnP) -- (zP);
+\draw[->, thick, proxycol] (zP) -- (hP);
+
+% =========================================================
+% 3. TOP-RIGHT: PRISM (Shorter Funnel)
+% =========================================================
+% Compact PRISM: Top width 4cm, Height 3.2cm
+\draw[prismcol, thick, fill=purple!5, join=round] (9.2, 8.6) -- (13.2, 8.6) -- (11.2, 5.4) -- cycle;
+\node[prismcol, align=center] at (11.2, 7.6) {\textbf{PRISM}\\[1mm]\scriptsize Procrustes $W^*$};
+
+% Routing Z (Features) -> Down and right into slanted edge
+\draw[beam, targetcol, ->, rounded corners=4pt] (zT.south) -- (5.2, 7.5) -- (9.8, 7.5); 
+\draw[beam, proxycol, ->, rounded corners=4pt] (zP.south) -- (5.2, 5.55) -- (11.0, 5.6); 
+
+% Routing H (Heads) -> Direct dashed lines
+\draw[->, thick, dashed, targetcol] (hT.east) -- (9.45, 8.15); 
+\draw[->, thick, dashed, proxycol] (hP.east) -- (10.55, 6.15); 
+
+
+% =========================================================
+% 4. BOTTOM: Compact Decomposition Cards
+% =========================================================
+\node[card, anchor=north] (card1) at (2.5, 4.4) {};
+\node[card, anchor=north] (card2) at (7.5, 4.4) {};
+\node[card, anchor=north] (card3) at (12.5, 4.4) {};
+
+% Titles (Normal Font Size)
+\node[font=\bfseries, align=center, yshift=-10pt] at (card1.north) {Scale Mismatch $(\Delta\rho)^2$};
+\node[font=\bfseries, align=center, yshift=-10pt] at (card2.north) {Shape Mismatch $(1-\Omega)$};
+\node[font=\bfseries, align=center, yshift=-10pt] at (card3.north) {Head Discrepancy $\|\Sigma_P^{1/2}\Delta H\|_F$};
+
+% Card 1: Scale (Circles perfectly centered)
+\begin{scope}[shift={($(card1.center) + (0, -0.2)$)}]
+    \draw[targetcol, thick, fill=blue!5, dashed] (0,0) circle (0.6);
+    \node[targetcol, font=\footnotesize\bfseries] at (0.9, 0) {$\rho_T$};
+    
+    \draw[proxycol, thick, fill=orange!20, dashed] (0,0) circle (0.3);
+    \node[proxycol, font=\footnotesize\bfseries] at (0, 0) {$\rho_Q$};
+\end{scope}
+
+% Card 2: Shape (Scaled down manifolds)
+\begin{scope}[shift={($(card2.center) + (0, -0.2)$)}]
+    \begin{scope}[shift={(-1.2, -0.3)}, scale=0.4]
+        \draw[targetcol, thick, fill=blue!10] (0,0) .. controls (1,0.5) .. (2,0) .. controls (2.5,1) .. (2,2) .. controls (1,1.5) .. (0,2) .. controls (-0.5,1) .. cycle;
+        \node[targetcol, font=\footnotesize\bfseries] at (1, -0.6) {$Z_T$};
+    \end{scope}
+    
+    \draw[->, gray, decorate, decoration={snake, amplitude=0.4mm, segment length=2mm, post length=1mm}] (-0.2, 0.1) -- (0.4, 0.1);
+    
+    \begin{scope}[shift={(0.6, -0.3)}, scale=0.4]
+        \draw[proxycol, thick, fill=orange!10] (0,0) .. controls (1,-0.3) .. (2.2,0.3) .. controls (1.5,1) .. (2.5,1.8) .. controls (1,1.5) .. (-0.2,1.8) .. controls (0.2,1) .. cycle;
+        \node[proxycol, font=\footnotesize\bfseries] at (1, -0.6) {$Z_P W^*$};
+    \end{scope}
+\end{scope}
+
+% Card 3: Head (Compact Ellipse)
+\begin{scope}[shift={($(card3.center) + (0, -0.4)$)}]
+    \draw[draw=gray!80, thick, fill=gray!20, rotate=12] (0, -0.1) ellipse (1.3 and 0.35);
+    \node[gray!80!black, font=\footnotesize] at (-0.7, -0.3) {$\Sigma_P$};
+    
+    \draw[->, thick, targetcol] (0, -0.1) -- (0.5, 0.7) node[left, font=\footnotesize] {$H_T$};
+    \draw[->, thick, proxycol] (0, -0.1) -- (1.2, 0.2) node[right, font=\footnotesize] {$H_P$};
+    
+    \draw[<-, thick, red] (0.35, 0.4) arc (60:15:0.6);
+    \node[red, font=\footnotesize\bfseries] at (0.9, 0.5) {$\Delta H$};
+\end{scope}
+
+
+% =========================================================
+% 5. WATERFALL REFRACTION BEAMS (Clean & Orthogonal)
+% =========================================================
+% Beams drop from PRISM tip (11.2, 5.4) and route cleanly into cards
+% Blue to Card 1
+\draw[beam, blue!60, ->, rounded corners=4pt] (11.1, 5.4) -- (11.1, 4.8) -- (2.5, 4.8) -- (card1.north);
+% Orange to Card 2
+\draw[beam, orange!80!red, ->, rounded corners=4pt] (11.2, 5.4) -- (11.2, 4.6) -- (7.5, 4.6) -- (card2.north);
+% Black to Card 3
+\draw[beam, black!60, ->, rounded corners=4pt] (11.3, 5.4) -- (11.3, 4.6) -- (12.5, 4.6) -- (card3.north);
+
+
+% =========================================================
+% 6. THIN UNIFIED BRACE (Standard Font Size)
+% =========================================================
+\draw[decorate, decoration={brace, amplitude=8pt, mirror}, thick, gray!80!black]
+    ($(card1.south west) + (0, -0.2)$) -- ($(card3.south east) + (0, -0.2)$)
+    node[midway, below=12pt, font=\normalsize\bfseries, text=black] {Unified Risk Discrepancy Bound: $|\mathcal{R}_T - \mathcal{R}_P|$};
+
+\end{tikzpicture}
+}
+\caption{\textbf{PRISM geometric decomposition.} A shared forward pass extracts representations $(Z_T,Z_P)$ and linear heads $(H_T,H_P)$ from the target and proxy models. These quantities enter the Procrustes module, which refracts the overall proxy--target risk discrepancy into three computable diagnostics: scale collapse, structural distortion, and head discrepancy. Together, they bound the downstream performance gap.}
+\label{fig:prism_concept}
+\end{figure}
