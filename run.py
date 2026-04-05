@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import csv
 import copy
 import sys
 from pathlib import Path
@@ -43,6 +44,12 @@ def _set_nested(d: dict, dotted_key: str, value: Any) -> None:
     d[keys[-1]] = value
 
 
+def _parse_list_items(raw: str) -> list[str]:
+    """Parse comma-separated list items while honoring quoted segments."""
+    reader = csv.reader([raw], skipinitialspace=True)
+    return [item.strip() for item in next(reader) if item.strip()]
+
+
 def _parse_value(raw: str) -> Any:
     """Best-effort cast: int > float > bool > list/dict > str.
 
@@ -56,13 +63,14 @@ def _parse_value(raw: str) -> Any:
             pass
     if raw.lower() in ("true", "false"):
         return raw.lower() == "true"
+    raw = raw.strip()
     if raw.startswith("[") or raw.startswith("{"):
         try:
             return ast.literal_eval(raw)
         except (ValueError, SyntaxError):
             pass
         if raw.startswith("[") and raw.endswith("]"):
-            items = [s.strip() for s in raw[1:-1].split(",") if s.strip()]
+            items = _parse_list_items(raw[1:-1])
             return [_parse_value(item) for item in items]
     return raw
 
@@ -74,6 +82,11 @@ def build_config(args: argparse.Namespace) -> Dict[str, Any]:
             print(f"Warning: ignoring malformed override '{override}' (expected key=value)")
             continue
         key, raw_value = override.split("=", 1)
+        key = key.strip()
+        raw_value = raw_value.strip()
+        if not key:
+            print(f"Warning: ignoring malformed override '{override}' (empty key)")
+            continue
         _set_nested(config, key, _parse_value(raw_value))
     return config
 
