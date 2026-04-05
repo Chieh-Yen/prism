@@ -314,18 +314,30 @@ class QuantizationExperiment(BaseExperiment):
     # Proxy loading — dispatches between GGUF and bitsandbytes
     # ------------------------------------------------------------------
     def _load_proxy_gguf(
-        self, quant_repo: str, filename: str,
+        self, quant_repo: str, filename: str, target_model_id: str,
     ) -> torch.nn.Module:
         """Load a GGUF-quantised proxy."""
         print(f"  Loading proxy: {filename} from {quant_repo} ...")
-        proxy = _load_model(
-            quant_repo,
+        load_kwargs = dict(
             gguf_file=filename,
             dtype=self.model_dtype,
             device_map=self.device,
             trust_remote_code=True,
             **self._attn_impl_kwargs(),
         )
+        try:
+            proxy = _load_model(quant_repo, **load_kwargs)
+        except OSError as exc:
+            # Some GGUF repos (e.g. community mirrors) host only *.gguf files
+            # and no config.json. Retry with the target model config explicitly.
+            msg = str(exc)
+            if "Can't load the configuration" not in msg:
+                raise
+            print(
+                f"  (GGUF repo has no config; retrying with config from {target_model_id})"
+            )
+            cfg = AutoConfig.from_pretrained(target_model_id, trust_remote_code=True)
+            proxy = _load_model(quant_repo, config=cfg, **load_kwargs)
         # GGUF dequantization materialises float32 tensors first; `dtype` may not
         # be applied until after the "Loading weights" progress bar completes.
         # Force the cast here so the proxy is stored in the target dtype (BF16)
@@ -448,7 +460,7 @@ class QuantizationExperiment(BaseExperiment):
                 proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
             else:
                 filename = _gguf_filename(gguf_tpl, quant_tag)
-                proxy = self._load_proxy_gguf(quant_repo, filename)
+                proxy = self._load_proxy_gguf(quant_repo, filename, target_model_id)
         finally:
             if _gc_was_enabled:
                 gc.enable()
