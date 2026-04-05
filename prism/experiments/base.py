@@ -478,9 +478,8 @@ class BaseExperiment(ABC):
         Args:
             results:   List of PRISMResult objects.
             filename:  Output filename (relative to output_dir).
-            loss_mode: ``"full"``          — full-text loss columns (Loss_T/P, PPL_T/P).
-                       ``"answer"``        — answer-only loss columns (ALoss_T/P, APPL_T/P).
-                       ``"final_answer"``  — final-number-only loss (GSM8K: FLoss_T/P, FPPL_T/P).
+            loss_mode: ``"full"``   — full-text loss columns (Loss_T/P, PPL_T/P).
+                       ``"answer"`` — answer-only loss columns (ALoss_T/P, APPL_T/P).
                        All modes include the shared PRISM geometry columns.
         """
         path = os.path.join(self.output_dir, filename)
@@ -497,8 +496,6 @@ class BaseExperiment(ABC):
 
         if loss_mode == "answer":
             loss_fields = ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
-        elif loss_mode == "final_answer":
-            loss_fields = ["|FdR|", "FLoss_T", "FLoss_P", "FPPL_T", "FPPL_P"]
         else:
             loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
 
@@ -541,15 +538,6 @@ class BaseExperiment(ABC):
                     row["ALoss_P"] = alp if alp is not None else ""
                     row["APPL_T"] = r.extra.get("answer_ppl_target", "")
                     row["APPL_P"] = r.extra.get("answer_ppl_proxy", "")
-                elif loss_mode == "final_answer":
-                    flt = r.extra.get("final_loss_target")
-                    flp = r.extra.get("final_loss_proxy")
-                    fdr = abs(flt - flp) if flt is not None and flp is not None else None
-                    row["|FdR|"] = f"{fdr:.6f}" if fdr is not None else ""
-                    row["FLoss_T"] = flt if flt is not None else ""
-                    row["FLoss_P"] = flp if flp is not None else ""
-                    row["FPPL_T"] = r.extra.get("final_ppl_target", "")
-                    row["FPPL_P"] = r.extra.get("final_ppl_proxy", "")
                 else:
                     # Use full_loss from extra if available (for datasets where
                     # primary loss != full loss, e.g. LAMBADA/ARC/MMLU/GSM8K);

@@ -251,9 +251,7 @@ class LLMExtractor(FeatureExtractor):
                 else:
                     batch_on_device = {"input_ids": batch.to(device)}
 
-                # Extract metadata before passing to backbone
                 prompt_lens = batch_on_device.pop("prompt_length", None)
-                batch_on_device.pop("reasoning_length", None)  # not needed here
                 inp = {k: v for k, v in batch_on_device.items()}
                 out = backbone(**inp)
                 hidden = out.last_hidden_state  # (bsz, seq, d)
@@ -294,8 +292,6 @@ class LLMExtractor(FeatureExtractor):
                                        (present when ``"concat"`` is among z_modes)
             ``answer_losses``        — (n,) answer-only loss, or None
             ``has_answer_loss``
-            ``final_answer_losses``  — (n,) final-number-only loss (GSM8K), or None
-            ``has_final_answer_loss``
             ``grad_norm_p95 / _max / _mean`` — empirical K_pred proxy
 
         Falls back to the two-pass approach automatically if
@@ -310,9 +306,7 @@ class LLMExtractor(FeatureExtractor):
         sample_losses: List[float] = []
         token_losses: List[Tensor] = []       # per-token CE for concat mode
         answer_losses: List[float] = []
-        final_answer_losses: List[float] = []
         has_prompt = False
-        has_reasoning = False
         is_concat = ("concat" in z_modes)
         all_grad_norms: List[Tensor] = []
         CHUNK = chunk_size
@@ -336,11 +330,8 @@ class LLMExtractor(FeatureExtractor):
                     batch_on_device = {"input_ids": batch.to(device)}
 
                 prompt_lens = batch_on_device.pop("prompt_length", None)
-                reasoning_lens = batch_on_device.pop("reasoning_length", None)
                 if prompt_lens is not None:
                     has_prompt = True
-                if reasoning_lens is not None:
-                    has_reasoning = True
 
                 inp = {k: v for k, v in batch_on_device.items()}
                 masks = inp.get("attention_mask")
@@ -420,15 +411,6 @@ class LLMExtractor(FeatureExtractor):
                     batch_ans = (ce_per_token * ans_valid).sum(dim=1) / ans_counts
                     answer_losses.extend(batch_ans.tolist())
 
-                # Final-answer-only loss (GSM8K)
-                if reasoning_lens is not None:
-                    pos_2d = torch.arange(T_m1, device=shift_labels.device).unsqueeze(0)
-                    final_valid = valid_mask.clone()
-                    final_valid[pos_2d < (reasoning_lens.unsqueeze(1) - 1)] = 0
-                    final_counts = final_valid.sum(dim=1).clamp(min=1)
-                    batch_final = (ce_per_token * final_valid).sum(dim=1) / final_counts
-                    final_answer_losses.extend(batch_final.tolist())
-
                 # Per-token gradient norms (empirical K_pred)
                 # ||p - e_y||^2 = ||p||^2 - 2*p_y + 1  (avoids one-hot alloc)
                 for j in range(bsz):
@@ -456,8 +438,6 @@ class LLMExtractor(FeatureExtractor):
             "token_losses": _tok_losses,
             "answer_losses": torch.tensor(answer_losses) if has_prompt else None,
             "has_answer_loss": has_prompt,
-            "final_answer_losses": torch.tensor(final_answer_losses) if has_reasoning else None,
-            "has_final_answer_loss": has_reasoning,
             "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
             "grad_norm_max": all_gn.max().item(),
             "grad_norm_mean": all_gn.mean().item(),

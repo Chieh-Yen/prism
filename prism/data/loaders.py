@@ -20,16 +20,6 @@ def _format_gsm8k(row: Dict[str, Any]) -> str:
     return f"Question: {row['question']}\nAnswer: {row['answer']}"
 
 
-def _gsm8k_final_answer(answer: str) -> str:
-    """Extract the part from '#### ' onward (the final numeric answer).
-
-    Falls back to the full answer string when '####' is absent.
-    """
-    if "####" in answer:
-        return "#### " + answer.split("####")[-1].strip()
-    return answer
-
-
 def _format_mmlu(row: Dict[str, Any]) -> str:
     q = row["question"]
     choices = row["choices"]
@@ -128,34 +118,6 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
 
 
 # ======================================================================
-# Secondary prompt formatters for a *second* answer region
-# (currently only used by GSM8K to isolate the final numeric answer).
-# ``reasoning_length`` gives the token boundary after which only the
-# final number appears — enabling "answer-only, no reasoning" loss.
-# ======================================================================
-def _reasoning_prompt_gsm8k(row: Dict[str, Any]) -> str:
-    """Return everything up to (and including) the '#### ' prefix.
-
-    The tokens after this point are the final numeric answer only,
-    which is the region measured by ``reasoning_only_losses``.
-    """
-    answer = row["answer"]
-    question = row["question"]
-    if "####" in answer:
-        # Keep the reasoning chain; stop just before the number itself.
-        reasoning = answer.split("####")[0].rstrip()
-        return f"Question: {question}\nAnswer: {reasoning}\n#### "
-    # Fallback: treat the full prompt as the reasoning boundary so that
-    # reasoning_only_losses falls back to the same region as answer_losses.
-    return f"Question: {question}\nAnswer:"
-
-
-_REASONING_FORMATTERS: Dict[str, Callable] = {
-    "gsm8k": _reasoning_prompt_gsm8k,
-}
-
-
-# ======================================================================
 # Task registry — maps short names to HuggingFace dataset identifiers
 # ======================================================================
 TASK_REGISTRY: Dict[str, Dict] = {
@@ -186,7 +148,7 @@ TASK_REGISTRY: Dict[str, Dict] = {
                       "z_modes_all": ["last_context_token", "concat", "last_token"]},
     # Text / LLM  — structured Q&A  (formatter converts row → plain text)
     "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "gsm8k_dual",
+                      "z_mode": "last_context_token", "loss_mode": "answer",
                       "z_modes_all": ["last_context_token", "concat", "last_token"]},
     "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
                       "z_mode": "last_context_token", "loss_mode": "answer",
@@ -261,9 +223,6 @@ class TextDataset(Dataset):
     ``prompt_length`` per sample so that downstream code can compute
     answer-only loss by masking the prompt tokens.
 
-    When ``reasoning_formatter`` is supplied (GSM8K), the dataset stores
-    ``reasoning_length`` per sample — the token boundary after which only
-    the final numeric answer appears (enabling "answer-only, no reasoning" loss).
     """
 
     def __init__(
@@ -275,36 +234,22 @@ class TextDataset(Dataset):
         num_samples: Optional[int] = None,
         formatter: Optional[Callable[[Dict], str]] = None,
         prompt_formatter: Optional[Callable[[Dict], str]] = None,
-        reasoning_formatter: Optional[Callable[[Dict], str]] = None,
     ):
-        # Build (full_text, prompt_text, reasoning_text) triples per row.
-        # prompt_text / reasoning_text may be None when the corresponding
-        # formatter is not supplied.
         if formatter is not None:
             raw = [
-                (
-                    formatter(row),
-                    prompt_formatter(row) if prompt_formatter else None,
-                    reasoning_formatter(row) if reasoning_formatter else None,
-                )
+                (formatter(row), prompt_formatter(row) if prompt_formatter else None)
                 for row in hf_dataset
             ]
         else:
-            # Plain-text datasets (C4, WikiText, LAMBADA).
-            # prompt_formatter may still be set (e.g. LAMBADA strips last word).
             raw = [
-                (
-                    row[text_key],
-                    prompt_formatter(row) if prompt_formatter else None,
-                    None,
-                )
+                (row[text_key], prompt_formatter(row) if prompt_formatter else None)
                 for row in hf_dataset
             ]
-        raw = [(t, p, r) for t, p, r in raw if t.strip()]
+        raw = [(t, p) for t, p in raw if t.strip()]
         if num_samples is not None:
             raw = raw[:num_samples]
 
-        texts = [t for t, _, _ in raw]
+        texts = [t for t, _ in raw]
         self.encodings = tokenizer(
             texts,
             return_tensors="pt",
@@ -316,7 +261,7 @@ class TextDataset(Dataset):
 
         # Prompt lengths (for answer-only loss and last_context_token Z)
         if prompt_formatter is not None:
-            prompts = [p for _, p, _ in raw]
+            prompts = [p for _, p in raw]
             prompt_enc = tokenizer(
                 prompts, truncation=True, max_length=max_length,
                 add_special_tokens=True,
@@ -328,20 +273,6 @@ class TextDataset(Dataset):
         else:
             self.prompt_lengths = None
 
-        # Reasoning lengths (for GSM8K final-number-only loss)
-        if reasoning_formatter is not None:
-            reasoning_texts = [r for _, _, r in raw]
-            reasoning_enc = tokenizer(
-                reasoning_texts, truncation=True, max_length=max_length,
-                add_special_tokens=True,
-            )
-            self.reasoning_lengths = torch.tensor(
-                [len(ids) for ids in reasoning_enc["input_ids"]],
-                dtype=torch.long,
-            )
-        else:
-            self.reasoning_lengths = None
-
     def __len__(self):
         return self.encodings["input_ids"].shape[0]
 
@@ -349,8 +280,6 @@ class TextDataset(Dataset):
         item = {k: v[idx] for k, v in self.encodings.items()}
         if self.prompt_lengths is not None:
             item["prompt_length"] = self.prompt_lengths[idx]
-        if self.reasoning_lengths is not None:
-            item["reasoning_length"] = self.reasoning_lengths[idx]
         return item
 
 
@@ -421,17 +350,15 @@ def load_task_data(
             raise ValueError(f"Task '{task_name}' is text-based: pass a tokenizer.")
         fmt_key = meta.get("formatter")
         fmt_fn = _FORMATTERS.get(fmt_key) if fmt_key else None
-        # Fall back to task_name for prompt/reasoning formatters so that
+        # Fall back to task_name for prompt formatters so that
         # plain-text datasets (e.g. LAMBADA) can still define them.
         pfmt_fn = _PROMPT_FORMATTERS.get(fmt_key) if fmt_key else _PROMPT_FORMATTERS.get(task_name)
-        rfmt_fn = _REASONING_FORMATTERS.get(fmt_key) if fmt_key else _REASONING_FORMATTERS.get(task_name)
         ds = TextDataset(
             hf_dataset, tokenizer,
             text_key=meta.get("text_key", "text"),
             max_length=max_length,
             formatter=fmt_fn,
             prompt_formatter=pfmt_fn,
-            reasoning_formatter=rfmt_fn,
         )
         return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=0)
 
