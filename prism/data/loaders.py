@@ -86,19 +86,6 @@ def _prompt_arc(row: Dict[str, Any]) -> str:
     return f"Question: {q}\n{opts}\nAnswer:"
 
 
-def _prompt_lambada(row: Dict[str, Any]) -> str:
-    """Return the LAMBADA passage minus its final whitespace-delimited word.
-
-    This is used to derive ``prompt_length`` so that the answer-only
-    (= last-word-only) loss can be computed by masking the context tokens.
-    """
-    text = row["text"].rstrip()
-    parts = text.rsplit(maxsplit=1)
-    # If there is only one word (degenerate), keep full text as context so
-    # at least prompt_length is defined; answer_losses will be empty.
-    return parts[0] if len(parts) == 2 else text
-
-
 def _prompt_triviaqa(row: Dict[str, Any]) -> str:
     return f"Question: {row['question']}\nAnswer:"
 
@@ -111,7 +98,6 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
     "gsm8k":    _prompt_gsm8k,
     "mmlu":     _prompt_mmlu,
     "arc":      _prompt_arc,
-    "lambada":  _prompt_lambada,  # enables last-word-only loss
     "triviaqa": _prompt_triviaqa,
     "squad":    _prompt_squad,
 }
@@ -132,56 +118,44 @@ TASK_REGISTRY: Dict[str, Dict] = {
     "dtd":           {"hf_id": "tanganke/dtd",         "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
     "cifar10":       {"hf_id": "uoft-cs/cifar10",      "label_key": "label", "image_key": "img",   "split_map": {"test": "test"}},
     "cifar100":      {"hf_id": "uoft-cs/cifar100",     "label_key": "fine_label", "image_key": "img", "split_map": {"test": "test"}},
-    # Text / LLM  — plain text  (z_mode: mean_pool, loss_mode: full)
+    # Text / LLM  — plain text defaults to concat over valid sequence
     "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1", "text_key": "text", "split_map": {"test": "test"},
-                      "z_mode": "mean_pool", "loss_mode": "full",
-                      "z_modes_all": ["mean_pool", "concat"]},
+                      "z_mode": "concat", "loss_mode": "full"},
     "ptb":           {"hf_id": "ptb-text-only/ptb_text_only", "text_key": "sentence", "split_map": {"test": "test"},
-                      "z_mode": "mean_pool", "loss_mode": "full",
-                      "z_modes_all": ["mean_pool", "concat"]},
+                      "z_mode": "concat", "loss_mode": "full"},
     "c4":            {"hf_id": "allenai/c4",           "hf_subset": "en", "text_key": "text",  "split_map": {"test": "validation"}, "streaming": True,
-                      "z_mode": "mean_pool", "loss_mode": "full",
-                      "z_modes_all": ["mean_pool", "concat"]},
-    # Text / LLM  — LAMBADA  (z_mode: last_context_token, loss_mode: answer = last word only)
+                      "z_mode": "concat", "loss_mode": "full"},
+    # Text / LLM  — LAMBADA uses concat on full sequence (context + answer)
     "lambada":       {"hf_id": "EleutherAI/lambada_openai", "text_key": "text", "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
-    # Text / LLM  — structured Q&A  (formatter converts row → plain text)
-    "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
-    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
-    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
-    "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
+                      "z_mode": "concat", "loss_mode": "full"},
     # Text / LLM  — FineWeb-Edu  (language modeling, curated educational text)
     "fineweb_edu":   {"hf_id": "HuggingFaceFW/FineWeb-Edu-score-2", "text_key": "text", "split_map": {"test": "train"}, "streaming": True,
-                      "z_mode": "mean_pool", "loss_mode": "full",
-                      "z_modes_all": ["mean_pool", "concat"]},
-    # Text / LLM  — TriviaQA  (short-horizon generation, answer span typically 1-5 tokens)
+                      "z_mode": "concat", "loss_mode": "full"},
+    # Text / LLM  — structured Q&A
+    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
+    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
+    "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
+                      "z_mode": "last_context_token", "loss_mode": "answer"},
+    # Text / LLM  — TriviaQA/SQuAD use concat over answer region
     "triviaqa":      {"hf_id": "trivia_qa",            "hf_subset": "rc.nocontext",  "formatter": "triviaqa", "split_map": {"test": "validation"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
+                      "z_mode": "concat", "loss_mode": "answer"},
     # Text / LLM  — SQuAD  (short-horizon generation, extractive QA)
     "squad":         {"hf_id": "rajpurkar/squad",                                    "formatter": "squad",    "split_map": {"test": "validation"},
-                      "z_mode": "last_context_token", "loss_mode": "answer",
-                      "z_modes_all": ["last_context_token", "concat", "last_token"]},
+                      "z_mode": "concat", "loss_mode": "answer"},
+    "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
+                      "z_mode": "concat", "loss_mode": "answer"},
 }
 
 
 def get_task_metadata(task_name: str) -> Dict:
-    """Return z_mode, loss_mode, and z_modes_all for a task."""
+    """Return z_mode and loss_mode metadata for a task."""
     meta = TASK_REGISTRY.get(task_name, {})
     default_zm = meta.get("z_mode", "last_token")
     return {
         "z_mode": default_zm,
         "loss_mode": meta.get("loss_mode", "full"),
-        "z_modes_all": meta.get("z_modes_all", [default_zm]),
     }
 
 

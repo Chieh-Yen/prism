@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # PRISM — Full Quantization Experiment Suite
-# 7 datasets × 11 models, with per-task multi-z_mode extraction.
+# 7 datasets × 11 models, using task-default z_mode.
 #
 # Source of truth for model/dataset matrix:
 #   configs/quantization_matrix.yaml

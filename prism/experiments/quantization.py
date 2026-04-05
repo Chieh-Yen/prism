@@ -497,13 +497,13 @@ class QuantizationExperiment(BaseExperiment):
         task_meta = get_task_metadata(task_name)
         loss_mode = task_meta["loss_mode"]
 
-        # z_modes resolution: explicit list > single override > task defaults
+        # z_modes resolution: explicit list > single override > task default
         if cfg_data.get("z_modes"):
             z_modes = list(cfg_data["z_modes"])
         elif cfg_data.get("z_mode"):
             z_modes = [cfg_data["z_mode"]]
         else:
-            z_modes = list(task_meta["z_modes_all"])
+            z_modes = [task_meta["z_mode"]]
 
         has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q) and not _is_dtype(q) for q in quant_bits)
         has_awq = any(_is_awq(q) for q in quant_bits)

@@ -57,7 +57,7 @@ data:
   # z_modes resolution in QuantizationExperiment:
   #   data.z_modes (if provided) >
   #   data.z_mode (if provided) >
-  #   TASK_REGISTRY[task].z_modes_all (default)
+  #   TASK_REGISTRY[task].z_mode (default)
   split: test
   num_samples: 512
   batch_size: 8
