@@ -252,14 +252,13 @@ class LLMExtractor(FeatureExtractor):
                     batch_on_device = {"input_ids": batch.to(device)}
 
                 prompt_lens = batch_on_device.pop("prompt_length", None)
-                inp = {k: v for k, v in batch_on_device.items()}
-                out = backbone(**inp)
+                out = backbone(**batch_on_device)
                 hidden = out.last_hidden_state  # (bsz, seq, d)
 
-                masks = inp.get("attention_mask")  # (bsz, seq)
+                masks = batch_on_device.get("attention_mask")
                 feats = self._extract_z(hidden, masks, z_mode, prompt_lens)
 
-                all_features.append(feats.float())
+                all_features.append(feats.float().cpu())
 
         return torch.cat(all_features, dim=0)
 
@@ -333,46 +332,48 @@ class LLMExtractor(FeatureExtractor):
                 if prompt_lens is not None:
                     has_prompt = True
 
-                inp = {k: v for k, v in batch_on_device.items()}
-                masks = inp.get("attention_mask")
-                bsz = inp["input_ids"].shape[0]
+                masks = batch_on_device.get("attention_mask")
+                bsz = batch_on_device["input_ids"].shape[0]
 
                 # ── Forward pass ──────────────────────────────────────────
                 if not _checked:
                     try:
-                        out = model(**inp, output_hidden_states=True)
+                        out = model(**batch_on_device, output_hidden_states=True)
                         _use_combined = (out.hidden_states is not None
                                          and len(out.hidden_states) > 0)
                     except TypeError:
                         _use_combined = False
                     _checked = True
                     if not _use_combined:
-                        # Re-run without the flag for this batch
-                        out = model(**inp)
+                        out = model(**batch_on_device)
                 else:
                     if _use_combined:
-                        out = model(**inp, output_hidden_states=True)
+                        out = model(**batch_on_device, output_hidden_states=True)
                     else:
-                        out = model(**inp)
+                        out = model(**batch_on_device)
 
                 all_logits = out.logits  # (bsz, seq, V)
 
                 # ── Feature extraction ────────────────────────────────────
                 if _use_combined:
-                    hidden = out.hidden_states[-1]  # post-norm last layer (bsz, seq, d)
+                    hidden = out.hidden_states[-1]  # post-norm last layer
                 else:
-                    # Fallback: derive from backbone directly
                     backbone = self._get_backbone(model)
-                    bb_out = backbone(**inp)
+                    bb_out = backbone(**batch_on_device)
                     hidden = bb_out.last_hidden_state
+
+                # Free all intermediate hidden states (layers 0..N-2) — saves
+                # ~2 GB for 32-layer models with bsz=8, seq=1024.
+                del out
 
                 for zm in z_modes:
                     feats = self._extract_z(hidden, masks, zm, prompt_lens)
-                    all_features[zm].append(feats.float())
+                    all_features[zm].append(feats.float().cpu())
+                del hidden
 
                 # ── Per-sample loss (vectorized) ──────────────────────────
                 V = all_logits.shape[-1]
-                shift_labels = inp["input_ids"][:, 1:].clone()       # (bsz, T-1)
+                shift_labels = batch_on_device["input_ids"][:, 1:].clone()       # (bsz, T-1)
                 if masks is not None:
                     shift_labels[masks[:, 1:] == 0] = -100
                 T_m1 = shift_labels.shape[1]
@@ -451,24 +452,24 @@ class LLMExtractor(FeatureExtractor):
         model: torch.nn.Module,
         **kwargs,
     ) -> Tensor:
-        """Return (d, vocab_size).
+        """Return (d, vocab_size) in model dtype.
 
-        Handles both standard causal LM (.lm_head) and multimodal models
-        where the head is nested (.language_model.lm_head).
+        Returns a contiguous copy so it does NOT keep the model alive
+        after the caller deletes the model.  Stays in model dtype (e.g.
+        BF16) to avoid a large float32 allocation on GPU — callers that
+        need float32 (metrics, bounds) convert after moving to CPU.
         """
         if hasattr(model, "lm_head"):
-            w = model.lm_head.weight.data
-            head = w.float()  # (vocab, d)
+            w = model.lm_head.weight.data  # (vocab, d)
         elif (hasattr(model, "language_model")
               and hasattr(model.language_model, "lm_head")):
             w = model.language_model.lm_head.weight.data
-            head = w.float()
         else:
             raise AttributeError(
                 f"Cannot locate lm_head in {type(model).__name__}. "
                 "Expected .lm_head or .language_model.lm_head."
             )
-        return head.T  # (d, vocab)
+        return w.T.contiguous()  # (d, vocab) — detached copy, won't pin model
 
 
 # ------------------------------------------------------------------

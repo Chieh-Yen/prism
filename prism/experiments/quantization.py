@@ -588,16 +588,25 @@ class QuantizationExperiment(BaseExperiment):
 
         del target_model
         gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        print("  Target model freed from VRAM.")
 
-        # --- Lipschitz constants per z_mode ---
+        # theoretical_K benefits from GPU matmuls for large-vocab heads,
+        # so compute it before moving H_T to CPU.
         K_theory = UnifiedBound.theoretical_K(H_T)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
         K_pred_empirical = loss_stats["grad_norm_p95"]
 
+        # Move everything to CPU — full GPU is now free for proxy models.
+        # Z_dict_T is already CPU (features moved in extractor).
+        H_T = H_T.cpu()
+        for k, v in loss_stats.items():
+            if isinstance(v, torch.Tensor) and v.is_cuda:
+                loss_stats[k] = v.cpu()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        print("  Target model freed; tensors moved to CPU.")
+
+        # --- Lipschitz constants per z_mode (all on CPU) ---
         rho_T_per_zm: Dict[str, float] = {}
         K_emp_per_zm: Dict[str, Dict] = {}
         lipschitz_per_zm: Dict[str, Dict] = {}
@@ -631,17 +640,6 @@ class QuantizationExperiment(BaseExperiment):
             print(f"    [{zm}]  ρ_T={rho_T:.6f}  K_feat_emp={K_emp['p95']:.4f}  "
                   f"(median={K_emp['median']:.4f}, max={K_emp['max']:.4f})")
 
-        # Move cached target tensors to CPU so the full GPU is available for each
-        # proxy model + its forward pass.  Procrustes / bound computations are pure
-        # linear algebra and run fine on CPU.
-        Z_dict_T = {k: v.cpu() for k, v in Z_dict_T.items()}
-        H_T = H_T.cpu()
-        for k, v in loss_stats.items():
-            if isinstance(v, torch.Tensor) and v.is_cuda:
-                loss_stats[k] = v.cpu()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
         # --- Phase 2: load each proxy one at a time ---
         results = []
         for i, bit_label in enumerate(quant_bits):
@@ -660,7 +658,8 @@ class QuantizationExperiment(BaseExperiment):
                     z_modes=z_modes,
                 )
 
-                # Check all z_modes for NaN/Inf
+                # Z_dict_P features are already on CPU from extractor.
+                # Check all z_modes for NaN/Inf.
                 bad = [zm for zm in z_modes if not torch.isfinite(Z_dict_P[zm]).all()]
                 if bad:
                     print(f"  WARNING: proxy features contain NaN/Inf in {bad} — skipping {disp}")
@@ -668,9 +667,7 @@ class QuantizationExperiment(BaseExperiment):
 
                 H_P = extractor.extract_head(proxy_model)
 
-                # Move proxy features to CPU and free proxy model immediately so the
-                # next GGUF load has the full GPU budget available.
-                Z_dict_P = {k: v.cpu() for k, v in Z_dict_P.items()}
+                # Free proxy model immediately — H_P is a detached copy.
                 H_P = H_P.cpu()
                 for k, v in proxy_stats.items():
                     if isinstance(v, torch.Tensor) and v.is_cuda:
@@ -777,9 +774,6 @@ class QuantizationExperiment(BaseExperiment):
 
             finally:
                 del proxy_model
-                # Free proxy-iteration tensors to reclaim VRAM before next
-                # proxy load.  With concat mode, stale Z_dict_P + H_P can
-                # hold >6 GB on GPU, starving the next model load.
                 Z_dict_P = None  # type: ignore[assignment]
                 H_P = None       # type: ignore[assignment]
                 proxy_stats = None  # type: ignore[assignment]

@@ -117,18 +117,8 @@ class FinetuningExperiment(BaseExperiment):
         )
         appl_target = math.exp(aloss_target) if aloss_target is not None else None
 
-        # Final-answer-only loss (GSM8K)
-        has_final = loss_stats_T["has_final_answer_loss"]
-        floss_target = (
-            loss_stats_T["final_answer_losses"].mean().item() if has_final else None
-        )
-        fppl_target = math.exp(floss_target) if floss_target is not None else None
-
         # Select primary loss based on loss_mode
         if loss_mode == "answer":
-            loss_target = aloss_target
-            ppl_target = appl_target
-        elif loss_mode == "gsm8k_dual":
             loss_target = aloss_target
             ppl_target = appl_target
         else:
@@ -138,8 +128,6 @@ class FinetuningExperiment(BaseExperiment):
         info = f"  Target: FullLoss={full_loss_target:.4f}  FullPPL={full_ppl_target:.2f}"
         if aloss_target is not None:
             info += f"  ALoss={aloss_target:.4f}  APPL={appl_target:.2f}"
-        if floss_target is not None:
-            info += f"  FLoss={floss_target:.4f}  FPPL={fppl_target:.2f}"
         info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}  z_mode={z_mode}"
         print(info)
 
@@ -232,16 +220,9 @@ class FinetuningExperiment(BaseExperiment):
         )
         appl_proxy = math.exp(aloss_proxy) if aloss_proxy is not None else None
 
-        # Final-answer-only loss (GSM8K)
-        floss_proxy = (
-            loss_stats_P["final_answer_losses"].mean().item() if has_final else None
-        )
-
         info = f"  Proxy: FullLoss={full_loss_proxy:.4f}  FullPPL={math.exp(full_loss_proxy):.2f}"
         if aloss_proxy is not None:
             info += f"  ALoss={aloss_proxy:.4f}  APPL={appl_proxy:.2f}"
-        if floss_proxy is not None:
-            info += f"  FLoss={floss_proxy:.4f}  FPPL={math.exp(floss_proxy):.2f}"
         info += f"  Z={tuple(Z_P.shape)}  H={tuple(H_P.shape)}"
         print(info)
 
@@ -278,19 +259,8 @@ class FinetuningExperiment(BaseExperiment):
             result.extra["answer_ppl_target"] = appl_target
             result.extra["answer_ppl_proxy"] = appl_proxy
 
-        if has_final and floss_proxy is not None:
-            result.extra["final_loss_target"] = floss_target
-            result.extra["final_loss_proxy"] = floss_proxy
-            result.extra["final_ppl_target"] = fppl_target
-            result.extra["final_ppl_proxy"] = math.exp(floss_proxy)
-
         # Select primary loss based on loss_mode
         if loss_mode == "answer":
-            result.loss_target = aloss_target
-            result.loss_proxy = aloss_proxy
-            result.extra["perplexity_target"] = appl_target
-            result.extra["perplexity_proxy"] = appl_proxy
-        elif loss_mode == "gsm8k_dual":
             result.loss_target = aloss_target
             result.loss_proxy = aloss_proxy
             result.extra["perplexity_target"] = appl_target
@@ -348,16 +318,6 @@ class FinetuningExperiment(BaseExperiment):
                   f"APPL_T={appl_target:.2f}  APPL_P={appl_proxy:.2f}  "
                   f"delta={a_delta:+.4f} ({a_dir})")
 
-        # Final-answer-only loss line (GSM8K)
-        if has_final and floss_proxy is not None:
-            fdr = abs(floss_target - floss_proxy)
-            f_delta = floss_target - floss_proxy
-            f_dir = "forgetting" if f_delta > 0 else "improvement"
-            status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= fdr else "VIOLATED"
-            print(f"  [Final]  |FdR|={fdr:.4f}  Bound={bound_s}  {status}  "
-                  f"FLoss_T={floss_target:.4f}  FLoss_P={floss_proxy:.4f}  "
-                  f"FPPL_T={fppl_target:.2f}  FPPL_P={math.exp(floss_proxy):.2f}  "
-                  f"delta={f_delta:+.4f} ({f_dir})")
 
         results = [result]
 
@@ -374,8 +334,6 @@ class FinetuningExperiment(BaseExperiment):
         self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
         if has_answer:
             self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
-        if has_final:
-            self.save_csv(results, filename=f"{stem}_final.csv", loss_mode="final_answer")
         return results
 
     # ------------------------------------------------------------------

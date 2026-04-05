@@ -372,20 +372,8 @@ class CrossScaleExperiment(BaseExperiment):
             math.exp(aloss_target) if aloss_target is not None else None
         )
 
-        # Final-answer-only loss (GSM8K)
-        has_final = loss_stats_T["has_final_answer_loss"]
-        floss_target: Optional[float] = (
-            loss_stats_T["final_answer_losses"].mean().item() if has_final else None
-        )
-        fppl_target: Optional[float] = (
-            math.exp(floss_target) if floss_target is not None else None
-        )
-
         # Select primary loss based on loss_mode
         if loss_mode == "answer":
-            loss_target = aloss_target
-            ppl_target = appl_target
-        elif loss_mode == "gsm8k_dual":
             loss_target = aloss_target
             ppl_target = appl_target
         else:
@@ -395,8 +383,6 @@ class CrossScaleExperiment(BaseExperiment):
         info = f"  Target: FullLoss={full_loss_target:.4f}  FullPPL={full_ppl_target:.2f}"
         if aloss_target is not None:
             info += f"  ALoss={aloss_target:.4f}  APPL={appl_target:.2f}"
-        if floss_target is not None:
-            info += f"  FLoss={floss_target:.4f}  FPPL={fppl_target:.2f}"
         info += f"  Z={tuple(Z_T.shape)}  H={tuple(H_T.shape)}  z_mode={z_mode}"
         print(info)
 
@@ -515,11 +501,6 @@ class CrossScaleExperiment(BaseExperiment):
                     loss_stats_P["answer_losses"].mean().item() if has_answer else None
                 )
 
-                # Final-answer-only loss (GSM8K)
-                floss_proxy: Optional[float] = (
-                    loss_stats_P["final_answer_losses"].mean().item() if has_final else None
-                )
-
                 # ---- Align head vocab dimensions if needed ----
                 H_T_use, H_P_use, head_truncated = _align_heads(
                     H_T, H_P, proxy_label, tokenizer, proxy_tokenizer
@@ -547,19 +528,8 @@ class CrossScaleExperiment(BaseExperiment):
                     result.extra["answer_ppl_target"] = appl_target
                     result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
 
-                if has_final and floss_proxy is not None:
-                    result.extra["final_loss_target"] = floss_target
-                    result.extra["final_loss_proxy"] = floss_proxy
-                    result.extra["final_ppl_target"] = fppl_target
-                    result.extra["final_ppl_proxy"] = math.exp(floss_proxy)
-
                 # Select primary loss based on loss_mode
                 if loss_mode == "answer":
-                    result.loss_target = aloss_target
-                    result.loss_proxy = aloss_proxy
-                    result.extra["perplexity_target"] = appl_target
-                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
-                elif loss_mode == "gsm8k_dual":
                     result.loss_target = aloss_target
                     result.loss_proxy = aloss_proxy
                     result.extra["perplexity_target"] = appl_target
@@ -615,13 +585,6 @@ class CrossScaleExperiment(BaseExperiment):
                           f"ALoss_T={aloss_target:.4f}  ALoss_P={aloss_proxy:.4f}  "
                           f"APPL_T={appl_target:.2f}  APPL_P={math.exp(aloss_proxy):.2f}")
 
-                # Final-answer-only loss line (GSM8K)
-                if has_final and floss_proxy is not None:
-                    fdr = abs(floss_target - floss_proxy)
-                    status = "PASS" if result.risk_bound_total is not None and result.risk_bound_total >= fdr else "VIOLATED"
-                    print(f"  [Final]  |FdR|={fdr:.4f}  Bound={bound_s}  {status}  "
-                          f"FLoss_T={floss_target:.4f}  FLoss_P={floss_proxy:.4f}  "
-                          f"FPPL_T={fppl_target:.2f}  FPPL_P={math.exp(floss_proxy):.2f}")
 
             except Exception as e:
                 elapsed = time.time() - t0
@@ -650,8 +613,6 @@ class CrossScaleExperiment(BaseExperiment):
         self.save_csv(results, filename=f"{stem}_full.csv", loss_mode="full")
         if has_answer:
             self.save_csv(results, filename=f"{stem}_ans.csv", loss_mode="answer")
-        if has_final:
-            self.save_csv(results, filename=f"{stem}_final.csv", loss_mode="final_answer")
         return results
 
     # ------------------------------------------------------------------
@@ -870,45 +831,5 @@ class CrossScaleExperiment(BaseExperiment):
                 a_holds = sum(1 for r, adr in ans_valid if r.risk_bound_total >= adr)
                 print(f"  Bound holds (answer): {a_holds}/{len(ans_valid)}  "
                       f"({'ALL PASS' if a_holds == len(ans_valid) else 'SOME VIOLATED'})")
-
-        # --- Final-answer-only table (GSM8K) ---
-        has_final_rpt = "final_loss_target" in r0.extra
-        if has_final_rpt:
-            final_header = (
-                f"{'Proxy':<26s} {'ρ_P':>8s} {'Ω':>8s} "
-                f"{'FLoss_T':>8s} {'FLoss_P':>8s} "
-                f"{'FPPL_T':>8s} {'FPPL_P':>8s} {'|FdR|':>8s} "
-                f"{'Bound':>10s} {'Status':>8s}"
-            )
-            final_sep = "-" * len(final_header)
-            print(f"\n  Final-answer-only Loss (GSM8K: number only, no reasoning)")
-            print(final_sep)
-            print(final_header)
-            print(final_sep)
-            for r in results:
-                flt = r.extra.get("final_loss_target")
-                flp = r.extra.get("final_loss_proxy")
-                if flt is not None and flp is not None:
-                    fdr = abs(flt - flp)
-                    bt_val = r.risk_bound_total
-                    status = "PASS" if bt_val is not None and bt_val >= fdr else "VIOL"
-                    proxy_short = r.extra.get("proxy_model", r.label).split("/")[-1]
-                    if len(proxy_short) > 25:
-                        proxy_short = proxy_short[:22] + "..."
-                    print(
-                        f"{proxy_short:<26s} {r.rho_proxy:>8.4f} {r.omega:>8.4f} "
-                        f"{flt:>8.4f} {flp:>8.4f} "
-                        f"{r.extra.get('final_ppl_target', 0):>8.2f} "
-                        f"{r.extra.get('final_ppl_proxy', 0):>8.2f} "
-                        f"{fdr:>8.4f} {bt_val:>10.4f} {status:>8s}"
-                    )
-            final_valid = [(r, abs(r.extra["final_loss_target"] - r.extra["final_loss_proxy"]))
-                           for r in results
-                           if "final_loss_target" in r.extra and r.risk_bound_total is not None]
-            if final_valid:
-                print(final_sep)
-                f_holds = sum(1 for r, fdr in final_valid if r.risk_bound_total >= fdr)
-                print(f"  Bound holds (final): {f_holds}/{len(final_valid)}  "
-                      f"({'ALL PASS' if f_holds == len(final_valid) else 'SOME VIOLATED'})")
 
         print(f"{sep}\n")
