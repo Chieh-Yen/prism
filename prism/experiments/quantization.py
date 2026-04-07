@@ -558,12 +558,19 @@ class QuantizationExperiment(BaseExperiment):
         # Compute primary loss based on loss_mode
         has_answer = loss_stats["has_answer_loss"]
         if loss_mode == "answer" and has_answer:
-            loss_target = loss_stats["answer_losses"].mean().item()
+            sample_loss_target = loss_stats["answer_losses"].mean().item()
         else:
-            loss_target = loss_stats["losses"].mean().item()
-        ppl_target = math.exp(loss_target)
+            sample_loss_target = loss_stats["losses"].mean().item()
+        # Token-level loss for concat z_mode — matches per-token K_feat
+        # estimation so the bound is verified against the same risk
+        # definition that K_feat was estimated under.
+        _tok_T = loss_stats["token_losses"]
+        token_loss_target = (_tok_T.mean().item()
+                             if _tok_T is not None and _tok_T.numel() > 0
+                             else sample_loss_target)
+        ppl_target = math.exp(sample_loss_target)
 
-        target_info = f"  Target: Loss={loss_target:.4f}  PPL={ppl_target:.2f}  (mode={loss_mode})"
+        target_info = f"  Target: Loss={sample_loss_target:.4f}  PPL={ppl_target:.2f}  (mode={loss_mode})"
         for zm in z_modes:
             target_info += f"  Z[{zm}]={tuple(Z_dict_T[zm].shape)}"
         target_info += f"  H={tuple(H_T.shape)}"
@@ -661,12 +668,16 @@ class QuantizationExperiment(BaseExperiment):
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                # Proxy loss (same for all z_modes — from same forward pass)
+                # Proxy loss — sample-level and token-level (see target block)
                 if loss_mode == "answer" and has_answer:
-                    loss_proxy = proxy_stats["answer_losses"].mean().item()
+                    sample_loss_proxy = proxy_stats["answer_losses"].mean().item()
                 else:
-                    loss_proxy = proxy_stats["losses"].mean().item()
-                ppl_proxy = math.exp(loss_proxy)
+                    sample_loss_proxy = proxy_stats["losses"].mean().item()
+                _tok_P = proxy_stats["token_losses"]
+                token_loss_proxy = (_tok_P.mean().item()
+                                    if _tok_P is not None and _tok_P.numel() > 0
+                                    else sample_loss_proxy)
+                ppl_proxy = math.exp(sample_loss_proxy)
 
                 # Proxy model label (shared across z_modes)
                 proxy_model_name = _proxy_model_name(
@@ -684,10 +695,16 @@ class QuantizationExperiment(BaseExperiment):
                         force_identity=True, label=base_label, absorbed=absorbed,
                         K_feat=K_feat, K_pred=K_pred,
                     )
-                    result.loss_target = loss_target
-                    result.loss_proxy = loss_proxy
-                    result.extra["perplexity_target"] = ppl_target
-                    result.extra["perplexity_proxy"] = ppl_proxy
+                    # Token-level loss for concat (consistent with per-token
+                    # K_feat estimation); sample-level for other z_modes.
+                    if zm == "concat" and loss_stats["token_losses"] is not None:
+                        zm_loss_t, zm_loss_p = token_loss_target, token_loss_proxy
+                    else:
+                        zm_loss_t, zm_loss_p = sample_loss_target, sample_loss_proxy
+                    result.loss_target = zm_loss_t
+                    result.loss_proxy = zm_loss_p
+                    result.extra["perplexity_target"] = math.exp(zm_loss_t)
+                    result.extra["perplexity_proxy"] = math.exp(zm_loss_p)
                     result.extra.update(lipschitz_per_zm[zm])
                     result.extra["dataset"] = task_name
                     result.extra["z_mode"] = zm
@@ -701,7 +718,7 @@ class QuantizationExperiment(BaseExperiment):
                     rho_P = result.rho_proxy
                     scale_s = "" if absorbed else f"Sc={result.scale_mismatch:.6f} "
                     bound_s = f"{result.risk_bound_total:.4f}" if result.risk_bound_total is not None else "—"
-                    dr = abs(loss_target - loss_proxy)
+                    dr = abs(zm_loss_t - zm_loss_p)
                     status = ""
                     if result.risk_bound_total is not None:
                         status = "PASS" if result.risk_bound_total >= dr else "VIOLATED"
