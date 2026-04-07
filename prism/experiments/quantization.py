@@ -588,7 +588,7 @@ class QuantizationExperiment(BaseExperiment):
                              else sample_loss_target)
         ppl_target = math.exp(sample_loss_target)
 
-        target_info = f"  Target: Loss={sample_loss_target:.4f}  PPL={ppl_target:.2f}  (mode={loss_mode})"
+        target_info = f"  Target: Loss={sample_loss_target:.8f}  PPL={ppl_target:.2f}  (mode={loss_mode})"
         for zm in z_modes:
             target_info += f"  Z[{zm}]={tuple(Z_dict_T[zm].shape)}"
         target_info += f"  H={tuple(H_T.shape)}"
@@ -647,15 +647,15 @@ class QuantizationExperiment(BaseExperiment):
             }
 
         print(f"\n  Lipschitz constants:")
-        print(f"    Theoretical : K_feat={K_feat:.4f}  K_pred={K_pred:.4f}")
+        print(f"    Theoretical : K_feat={K_feat:.8f}  K_pred={K_pred:.8f}")
         if K_feat_grad is not None:
-            print(f"    Gradient    : K_feat_grad(p95)={K_feat_grad:.4f}  "
-                  f"K_pred_emp(p95)={K_pred_empirical:.4f}")
+            print(f"    Gradient    : K_feat_grad(p95)={K_feat_grad:.8f}  "
+                  f"K_pred_emp(p95)={K_pred_empirical:.8f}")
         for zm in z_modes:
             rho_T = rho_T_per_zm[zm]
             K_emp = K_emp_per_zm[zm]
-            print(f"    [{zm}]  ρ_T={rho_T:.6f}  K_feat_pw(p95)={K_emp['p95']:.4f}  "
-                  f"(median={K_emp['median']:.4f}, max={K_emp['max']:.4f})")
+            print(f"    [{zm}]  ρ_T={rho_T:.8f}  K_feat_pw(p95)={K_emp['p95']:.8f}  "
+                  f"(median={K_emp['median']:.8f}, max={K_emp['max']:.8f})")
 
         # --- Phase 2: load each proxy one at a time ---
         results = []
@@ -809,15 +809,15 @@ class QuantizationExperiment(BaseExperiment):
                     rho_P = result_I.rho_proxy
                     dr = abs(zm_loss_t - zm_loss_p)
                     status = "PASS" if bound_th >= dr else "VIOLATED"
-                    print(f"  [{zm:<20s}] ρ_T={rho_T:.4f} ρ_P={rho_P:.4f}")
-                    print(f"    W=I:   Ω={result_I.omega:.4f} δ={result_I.feature_error:.6f} "
-                          f"γ={result_I.head_discrepancy:.6f}  "
-                          f"Bnd={bound_I_th:.4f}/{bound_I_emp:.4f}")
-                    print(f"    W=opt: Ω={result_W.omega:.4f} δ={result_W.feature_error:.6f} "
-                          f"γ={result_W.head_discrepancy:.6f}  "
-                          f"Bnd={bound_W_th:.4f}/{bound_W_emp:.4f}")
-                    print(f"    → min  Bnd(th)={bound_th:.4f} Bnd(emp)={bound_emp:.4f} "
-                          f"|dR|={dr:.4f} {status}"
+                    print(f"  [{zm:<20s}] ρ_T={rho_T:.8f} ρ_P={rho_P:.8f}")
+                    print(f"    W=I:   Ω={result_I.omega:.8f} δ={result_I.feature_error:.8f} "
+                          f"γ={result_I.head_discrepancy:.8f}  "
+                          f"Bnd={bound_I_th:.8f}/{bound_I_emp:.8f}")
+                    print(f"    W=opt: Ω={result_W.omega:.8f} δ={result_W.feature_error:.8f} "
+                          f"γ={result_W.head_discrepancy:.8f}  "
+                          f"Bnd={bound_W_th:.8f}/{bound_W_emp:.8f}")
+                    print(f"    → min  Bnd(th)={bound_th:.8f} Bnd(emp)={bound_emp:.8f} "
+                          f"|dR|={dr:.8f} {status}"
                           + (f"  ({elapsed:.1f}s)" if zm == z_modes[0] else ""))
 
                 # --- Control Variate Ablation ---
@@ -853,7 +853,7 @@ class QuantizationExperiment(BaseExperiment):
                             "R_T_full": R_T_full,
                             "R_P_full": R_P_full,
                         })
-                        print(f"    CV n_cal={n_cal:5d}: |R̂_T - R_T| = {mean_err:.6f} ± {std_err:.6f}")
+                        print(f"    CV n_cal={n_cal:5d}: |R̂_T - R_T| = {mean_err:.8f} ± {std_err:.8f}")
 
                     # Store CV ablation in the first z_mode's result
                     if cv_results_for_proxy:
@@ -899,13 +899,13 @@ class QuantizationExperiment(BaseExperiment):
         r0 = results[0]
 
         header = (
-            f"{'Label':<20s} {'ρ_T':>7s} {'ρ_P':>7s} "
-            f"{'Ω_I':>7s} {'Ω_W':>7s} "
-            f"{'δ_I':>9s} {'δ_W':>9s} "
-            f"{'γ_I':>9s} {'γ_W':>9s} "
-            f"{'Bnd(th)':>9s} {'Bnd(em)':>9s} "
-            f"{'|dR|':>8s} "
-            f"{'Loss_T':>8s} {'Loss_P':>8s}"
+            f"{'Label':<20s} {'ρ_T':>13s} {'ρ_P':>13s} "
+            f"{'Ω_I':>12s} {'Ω_W':>12s} "
+            f"{'δ_I':>12s} {'δ_W':>12s} "
+            f"{'γ_I':>12s} {'γ_W':>12s} "
+            f"{'Bnd(th)':>12s} {'Bnd(em)':>12s} "
+            f"{'|dR|':>12s} "
+            f"{'Loss_T':>12s} {'Loss_P':>12s}"
         )
 
         mode_tag = " (scale-absorbed)" if absorbed else ""
@@ -922,7 +922,7 @@ class QuantizationExperiment(BaseExperiment):
 
         rho_T_val = r0.extra.get("rho_T")
         if rho_T_val is not None:
-            print(f"  ρ_T = {rho_T_val:.6f}")
+            print(f"  ρ_T = {rho_T_val:.8f}")
 
         if "K_feat_tight" in r0.extra:
             K_f = r0.extra["K_feat_tight"]
@@ -933,14 +933,14 @@ class QuantizationExperiment(BaseExperiment):
             K_fe = r0.extra.get("K_feat_empirical")
             K_p = r0.extra.get("K_pred_theory")
             K_pe = r0.extra.get("K_pred_empirical")
-            print(f"  K_feat:  {K_f:.4f} (tight)  "
-                  + (f"{K_fn:.4f} (naive)  " if K_fn is not None else "")
-                  + (f"{K_fe:.4f} (pw-emp)" if K_fe is not None else ""))
+            print(f"  K_feat:  {K_f:.8f} (tight)  "
+                  + (f"{K_fn:.8f} (naive)  " if K_fn is not None else "")
+                  + (f"{K_fe:.8f} (pw-emp)" if K_fe is not None else ""))
             if K_fg_p95 is not None:
-                print(f"  K_feat(grad): p95={K_fg_p95:.4f}  "
-                      f"max={K_fg_max:.4f}  mean={K_fg_mean:.4f}")
-            print(f"  K_pred:  {K_p:.4f} (theory) "
-                  + (f"{K_pe:.4f} (emp)" if K_pe is not None else ""))
+                print(f"  K_feat(grad): p95={K_fg_p95:.8f}  "
+                      f"max={K_fg_max:.8f}  mean={K_fg_mean:.8f}")
+            print(f"  K_pred:  {K_p:.8f} (theory) "
+                  + (f"{K_pe:.8f} (emp)" if K_pe is not None else ""))
             print(sep)
 
         print(header)
@@ -948,30 +948,30 @@ class QuantizationExperiment(BaseExperiment):
 
         for r in results:
             dr = abs(r.loss_target - r.loss_proxy) if r.loss_target is not None and r.loss_proxy is not None else None
-            dr_s = f"{dr:.4f}" if dr is not None else "—"
-            lt = f"{r.loss_target:.4f}" if r.loss_target is not None else "—"
-            lp = f"{r.loss_proxy:.4f}" if r.loss_proxy is not None else "—"
-            rho_t_s = f"{r.extra.get('rho_T', 0):.4f}" if "rho_T" in r.extra else "—"
-            rho_p_s = f"{r.rho_proxy:.4f}"
+            dr_s = f"{dr:.8f}" if dr is not None else "—"
+            lt = f"{r.loss_target:.8f}" if r.loss_target is not None else "—"
+            lp = f"{r.loss_proxy:.8f}" if r.loss_proxy is not None else "—"
+            rho_t_s = f"{r.extra.get('rho_T', 0):.8f}" if "rho_T" in r.extra else "—"
+            rho_p_s = f"{r.rho_proxy:.8f}"
 
-            o_I = f"{r.extra.get('omega_I', r.omega):.4f}"
-            o_W = f"{r.extra.get('omega_W', r.omega):.4f}"
-            d_I = f"{r.extra.get('delta_I', r.feature_error):.6f}"
-            d_W = f"{r.extra.get('delta_W', r.feature_error):.6f}"
-            g_I = f"{r.extra.get('gamma_I', r.head_discrepancy):.6f}"
-            g_W = f"{r.extra.get('gamma_W', r.head_discrepancy):.6f}"
+            o_I = f"{r.extra.get('omega_I', r.omega):.8f}"
+            o_W = f"{r.extra.get('omega_W', r.omega):.8f}"
+            d_I = f"{r.extra.get('delta_I', r.feature_error):.8f}"
+            d_W = f"{r.extra.get('delta_W', r.feature_error):.8f}"
+            g_I = f"{r.extra.get('gamma_I', r.head_discrepancy):.8f}"
+            g_W = f"{r.extra.get('gamma_W', r.head_discrepancy):.8f}"
 
-            bnd_th = f"{r.extra.get('bound_th', r.risk_bound_total):.4f}" if r.risk_bound_total is not None else "—"
-            bnd_emp = f"{r.extra.get('bound_emp', ''):.4f}" if r.extra.get("bound_emp") is not None else "—"
+            bnd_th = f"{r.extra.get('bound_th', r.risk_bound_total):.8f}" if r.risk_bound_total is not None else "—"
+            bnd_emp = f"{r.extra.get('bound_emp', ''):.8f}" if r.extra.get("bound_emp") is not None else "—"
 
             print(
-                f"{r.label:<20s} {rho_t_s:>7s} {rho_p_s:>7s} "
-                f"{o_I:>7s} {o_W:>7s} "
-                f"{d_I:>9s} {d_W:>9s} "
-                f"{g_I:>9s} {g_W:>9s} "
-                f"{bnd_th:>9s} {bnd_emp:>9s} "
-                f"{dr_s:>8s} "
-                f"{lt:>8s} {lp:>8s}"
+                f"{r.label:<20s} {rho_t_s:>13s} {rho_p_s:>13s} "
+                f"{o_I:>12s} {o_W:>12s} "
+                f"{d_I:>12s} {d_W:>12s} "
+                f"{g_I:>12s} {g_W:>12s} "
+                f"{bnd_th:>12s} {bnd_emp:>12s} "
+                f"{dr_s:>12s} "
+                f"{lt:>12s} {lp:>12s}"
             )
 
         # Bound validation (theoretical)
