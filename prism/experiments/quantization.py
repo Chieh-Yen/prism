@@ -39,6 +39,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoModelForImageTextToText,
     AutoTokenizer,
+    AwqConfig,
     BitsAndBytesConfig,
 )
 
@@ -391,6 +392,10 @@ class QuantizationExperiment(BaseExperiment):
         )
         if revision:
             kwargs["revision"] = revision
+        if backend == "AWQ":
+            kwargs["quantization_config"] = AwqConfig(
+                do_fuse=False, version="gemm",
+            )
         return _load_model(repo, **kwargs)
 
     def _load_proxy_dtype(
