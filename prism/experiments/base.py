@@ -483,12 +483,9 @@ class BaseExperiment(ABC):
     ) -> None:
         """Persist results as a flat CSV with dual-W metrics.
 
-        Args:
-            results:   List of PRISMResult objects.
-            filename:  Output filename (relative to output_dir).
-            loss_mode: ``"full"``   — full-text loss columns (Loss_T/P, PPL_T/P).
-                       ``"answer"`` — answer-only loss columns (ALoss_T/P, APPL_T/P).
-                       All modes include the shared PRISM geometry columns.
+        Full-text loss columns (|dR|, Loss_T/P, PPL_T/P) are always
+        included.  Answer-only columns (|AdR|, ALoss_T/P, APPL_T/P) are
+        appended automatically when any result has answer loss data.
         """
         path = os.path.join(self.output_dir, filename)
         absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
@@ -508,10 +505,10 @@ class BaseExperiment(ABC):
             "EBound_I", "EBound_W", "EBound",
         ]
 
-        if loss_mode == "answer":
-            loss_fields = ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
-        else:
-            loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
+        loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
+        has_answer = any(r.extra.get("answer_loss_target") is not None for r in results)
+        if has_answer:
+            loss_fields += ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
 
         k_fields = ["K_f", "K_f_grad_p95", "K_f_grad_max", "K_f_grad_mean",
                      "K_f(pw)", "K_p", "K_p(emp)"]
@@ -556,7 +553,18 @@ class BaseExperiment(ABC):
                 else:
                     row["absorbed"] = "yes"
 
-                if loss_mode == "answer":
+                # Full-text loss (always present)
+                flt = r.extra.get("full_loss_target", r.loss_target)
+                flp = r.extra.get("full_loss_proxy", r.loss_proxy)
+                dr = abs(flt - flp) if flt is not None and flp is not None else None
+                row["|dR|"] = f"{dr:.6f}" if dr is not None else ""
+                row["Loss_T"] = flt if flt is not None else ""
+                row["Loss_P"] = flp if flp is not None else ""
+                row["PPL_T"] = r.extra.get("full_ppl_target", r.extra.get("perplexity_target", ""))
+                row["PPL_P"] = r.extra.get("full_ppl_proxy", r.extra.get("perplexity_proxy", ""))
+
+                # Answer-only loss (Q&A datasets)
+                if has_answer:
                     alt = r.extra.get("answer_loss_target")
                     alp = r.extra.get("answer_loss_proxy")
                     adr = abs(alt - alp) if alt is not None and alp is not None else None
@@ -565,15 +573,6 @@ class BaseExperiment(ABC):
                     row["ALoss_P"] = alp if alp is not None else ""
                     row["APPL_T"] = r.extra.get("answer_ppl_target", "")
                     row["APPL_P"] = r.extra.get("answer_ppl_proxy", "")
-                else:
-                    flt = r.extra.get("full_loss_target", r.loss_target)
-                    flp = r.extra.get("full_loss_proxy", r.loss_proxy)
-                    dr = abs(flt - flp) if flt is not None and flp is not None else None
-                    row["|dR|"] = f"{dr:.6f}" if dr is not None else ""
-                    row["Loss_T"] = flt if flt is not None else ""
-                    row["Loss_P"] = flp if flp is not None else ""
-                    row["PPL_T"] = r.extra.get("full_ppl_target", r.extra.get("perplexity_target", ""))
-                    row["PPL_P"] = r.extra.get("full_ppl_proxy", r.extra.get("perplexity_proxy", ""))
 
                 writer.writerow(row)
 

@@ -61,7 +61,7 @@ data:
   split: test
   num_samples: 512
   batch_size: 8
-  max_length: 1024
+  max_length: 2048
 
 alignment:
   type: identity

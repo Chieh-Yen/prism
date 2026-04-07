@@ -559,12 +559,21 @@ class QuantizationExperiment(BaseExperiment):
         )
         H_T = extractor.extract_head(target_model)
 
-        # Compute primary loss based on loss_mode
+        # Compute both full-text and answer-only losses (stored for CSV).
         has_answer = loss_stats["has_answer_loss"]
-        if loss_mode == "answer" and has_answer:
-            sample_loss_target = loss_stats["answer_losses"].mean().item()
+        full_loss_target = loss_stats["losses"].mean().item()
+        full_ppl_target = math.exp(full_loss_target)
+        if has_answer:
+            answer_loss_target = loss_stats["answer_losses"].mean().item()
+            answer_ppl_target = math.exp(answer_loss_target)
         else:
-            sample_loss_target = loss_stats["losses"].mean().item()
+            answer_loss_target = answer_ppl_target = None
+
+        # Primary sample-level loss follows loss_mode
+        if loss_mode == "answer" and has_answer:
+            sample_loss_target = answer_loss_target
+        else:
+            sample_loss_target = full_loss_target
         # Token-level loss for concat z_mode — matches per-token K_feat
         # estimation so the bound is verified against the same risk
         # definition that K_feat was estimated under.
@@ -681,11 +690,19 @@ class QuantizationExperiment(BaseExperiment):
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                # Proxy loss — sample-level and token-level (see target block)
-                if loss_mode == "answer" and has_answer:
-                    sample_loss_proxy = proxy_stats["answer_losses"].mean().item()
+                # Proxy loss — both full-text and answer-only
+                full_loss_proxy = proxy_stats["losses"].mean().item()
+                full_ppl_proxy = math.exp(full_loss_proxy)
+                if has_answer:
+                    answer_loss_proxy = proxy_stats["answer_losses"].mean().item()
+                    answer_ppl_proxy = math.exp(answer_loss_proxy)
                 else:
-                    sample_loss_proxy = proxy_stats["losses"].mean().item()
+                    answer_loss_proxy = answer_ppl_proxy = None
+
+                if loss_mode == "answer" and has_answer:
+                    sample_loss_proxy = answer_loss_proxy
+                else:
+                    sample_loss_proxy = full_loss_proxy
                 _tok_P = proxy_stats["token_losses"]
                 token_loss_proxy = (_tok_P.mean().item()
                                     if _tok_P is not None and _tok_P.numel() > 0
@@ -748,6 +765,17 @@ class QuantizationExperiment(BaseExperiment):
                     result.loss_proxy = zm_loss_p
                     result.extra["perplexity_target"] = math.exp(zm_loss_t)
                     result.extra["perplexity_proxy"] = math.exp(zm_loss_p)
+
+                    # Both loss variants for CSV
+                    result.extra["full_loss_target"] = full_loss_target
+                    result.extra["full_loss_proxy"] = full_loss_proxy
+                    result.extra["full_ppl_target"] = full_ppl_target
+                    result.extra["full_ppl_proxy"] = full_ppl_proxy
+                    if answer_loss_target is not None:
+                        result.extra["answer_loss_target"] = answer_loss_target
+                        result.extra["answer_loss_proxy"] = answer_loss_proxy
+                        result.extra["answer_ppl_target"] = answer_ppl_target
+                        result.extra["answer_ppl_proxy"] = answer_ppl_proxy
 
                     # Dual-W metrics
                     result.extra["omega_I"] = result_I.omega
