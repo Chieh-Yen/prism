@@ -262,7 +262,9 @@ class UnifiedBound:
         mask = idx_a != idx_b
         idx_a, idx_b = idx_a[mask], idx_b[mask]
 
-        feat_dists = (features[idx_a] - features[idx_b]).norm(dim=1).clamp(min=1e-10)
+        fa = features[idx_a].float()
+        fb = features[idx_b].float()
+        feat_dists = (fa - fb).norm(dim=1).clamp(min=1e-10)
         loss_diffs = (per_sample_losses[idx_a] - per_sample_losses[idx_b]).abs()
 
         ratios = loss_diffs / feat_dists

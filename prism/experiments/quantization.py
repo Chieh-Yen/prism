@@ -44,6 +44,7 @@ from transformers import (
 )
 
 from ..core.bounds import UnifiedBound
+from ..core.metrics import fro_norm_f32
 from ..data.loaders import load_task_data
 from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
@@ -623,7 +624,7 @@ class QuantizationExperiment(BaseExperiment):
 
         for zm in z_modes:
             Z_T_zm = Z_dict_T[zm]
-            rho_T = Z_T_zm.norm("fro").item() / math.sqrt(Z_T_zm.shape[0])
+            rho_T = fro_norm_f32(Z_T_zm) / math.sqrt(Z_T_zm.shape[0])
             rho_T_per_zm[zm] = rho_T
             paired = self._select_paired_losses(zm, loss_mode, loss_stats)
             K_emp = UnifiedBound.estimate_lipschitz_lm(Z_T_zm, paired)

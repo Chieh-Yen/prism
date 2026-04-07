@@ -15,6 +15,56 @@ import torch
 from torch import Tensor
 
 
+_AGG_CHUNK = 4096
+
+
+def fro_norm_f32(Z: Tensor, chunk_size: int = _AGG_CHUNK) -> float:
+    """Frobenius norm in float32, memory-efficient for float16 inputs."""
+    if Z.dtype == torch.float32:
+        return Z.norm("fro").item()
+    total = 0.0
+    for i in range(0, Z.shape[0], chunk_size):
+        total += Z[i:i + chunk_size].float().pow(2).sum().item()
+    return math.sqrt(total)
+
+
+def _aggregate_features(
+    Z_T: Tensor, Z_P: Tensor, *, chunk_size: int = _AGG_CHUNK,
+) -> tuple:
+    """Compute cross product, proxy covariance, and Frobenius norms.
+
+    When inputs are float16, processes rows in chunks to avoid
+    materialising full float32 copies (saves ~50% peak memory for
+    large concat-mode feature matrices).
+
+    Returns:
+        (cross, Sigma_P, fro_T, fro_P) all in float32.
+    """
+    n = Z_T.shape[0]
+    d_T, d_P = Z_T.shape[1], Z_P.shape[1]
+    device = Z_T.device
+
+    if Z_T.dtype == torch.float32 and Z_P.dtype == torch.float32:
+        cross = Z_P.T @ Z_T
+        Sigma_P = (Z_P.T @ Z_P) / n
+        return cross, Sigma_P, Z_T.norm("fro").item(), Z_P.norm("fro").item()
+
+    cross = torch.zeros(d_P, d_T, dtype=torch.float32, device=device)
+    cov_P = torch.zeros(d_P, d_P, dtype=torch.float32, device=device)
+    norm_T_sq = 0.0
+    norm_P_sq = 0.0
+
+    for i in range(0, n, chunk_size):
+        ct = Z_T[i:i + chunk_size].float()
+        cp = Z_P[i:i + chunk_size].float()
+        cross += cp.T @ ct
+        cov_P += cp.T @ cp
+        norm_T_sq += ct.pow(2).sum().item()
+        norm_P_sq += cp.pow(2).sum().item()
+
+    return cross, cov_P / n, math.sqrt(norm_T_sq), math.sqrt(norm_P_sq)
+
+
 @dataclass
 class PRISMResult:
     """Standardised output of a single PRISM comparison."""
@@ -221,30 +271,26 @@ class PRISMMetrics:
                  the optimal Procrustes alignment W_opt.
             label: Human-readable label for this comparison.
         """
-        Z_T = Z_T.float()
-        Z_P = Z_P.float()
         H_T = H_T.float()
         H_P = H_P.float()
 
-        rho_T = PRISMMetrics.rms_scale(Z_T)
-        rho_P = PRISMMetrics.rms_scale(Z_P)
-
-        # Cross-product — reused for Procrustes solve and Ω computation.
-        cross = Z_P.T @ Z_T  # (d_P, d_T)
+        # Chunked float32 aggregation — avoids materialising full float32
+        # copies of Z_T / Z_P when they are stored in float16.
+        cross, Sigma_P, fro_T, fro_P = _aggregate_features(Z_T, Z_P)
+        n = Z_T.shape[0]
+        rho_T = fro_T / math.sqrt(n)
+        rho_P = fro_P / math.sqrt(n)
 
         if W is None:
             U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
-            W_use = (U @ Vt).to(dtype=Z_T.dtype)
+            W_use = U @ Vt
         else:
-            W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
+            W_use = W.float()
 
         # Ω(W) = tr(W · cross) / (‖Z_T‖_F ‖Z_P‖_F)
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        denom = fro_T * fro_P
         omega = (W_use * cross).sum().item() / max(denom, 1e-12)
         omega = max(min(omega, 1.0), -1.0)
-
-        n = Z_P.shape[0]
-        Sigma_P = (Z_P.T @ Z_P) / n
 
         hd_cov = PRISMMetrics.head_discrepancy_covariance(H_T, H_P, W_use, Sigma_P)
         hd_spec = PRISMMetrics.head_discrepancy_spectral(H_T, H_P, W_use)
@@ -286,29 +332,24 @@ class PRISMMetrics:
         Feature error becomes  ρ_T √(2(1−Ω)).
         Predictions are unchanged:  Z_P' H_P' = Z_P H_P.
         """
-        Z_T = Z_T.float()
-        Z_P = Z_P.float()
         H_T = H_T.float()
         H_P = H_P.float()
 
-        rho_T = PRISMMetrics.rms_scale(Z_T)
-        rho_P = PRISMMetrics.rms_scale(Z_P)
+        cross, Sigma_P, fro_T, fro_P = _aggregate_features(Z_T, Z_P)
+        n = Z_T.shape[0]
+        rho_T = fro_T / math.sqrt(n)
+        rho_P = fro_P / math.sqrt(n)
         c = rho_T / max(rho_P, 1e-12)
-
-        cross = Z_P.T @ Z_T  # (d_P, d_T)
 
         if W is None:
             U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
-            W_use = (U @ Vt).to(dtype=Z_T.dtype)
+            W_use = U @ Vt
         else:
-            W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
+            W_use = W.float()
 
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        denom = fro_T * fro_P
         omega = (W_use * cross).sum().item() / max(denom, 1e-12)
         omega = max(min(omega, 1.0), -1.0)
-
-        n = Z_P.shape[0]
-        Sigma_P = (Z_P.T @ Z_P) / n
 
         shape = 2.0 * rho_T * rho_T * (1.0 - omega)
         feat_err = math.sqrt(max(shape, 0.0))

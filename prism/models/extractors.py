@@ -268,7 +268,7 @@ class LLMExtractor(FeatureExtractor):
                 masks = batch_on_device.get("attention_mask")
                 feats = self._extract_z(hidden, masks, z_mode, prompt_lens)
 
-                all_features.append(feats.float().cpu())
+                all_features.append(feats.half().cpu())
 
         return torch.cat(all_features, dim=0)
 
@@ -380,7 +380,7 @@ class LLMExtractor(FeatureExtractor):
 
                 for zm in z_modes:
                     feats = self._extract_z(hidden, masks, zm, prompt_lens)
-                    all_features[zm].append(feats.float().cpu())
+                    all_features[zm].append(feats.half().cpu())
                 del hidden
 
                 # ── Per-sample loss (vectorized) ──────────────────────────
