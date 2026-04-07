@@ -95,7 +95,8 @@ class BaseExperiment(ABC):
 
         Optional keys:
             - ``"H_target"``, ``"H_proxy"`` — precomputed head tensors
-            - ``"force_identity"``  — bool, default False
+            - ``"W"``               — Optional[Tensor], alignment matrix
+              (``torch.eye(d)`` for identity, ``None`` for Procrustes W_opt)
             - ``"eval_dataloader"`` — separate DataLoader for loss eval
             - ``"eval_fn_target"``, ``"eval_fn_proxy"``
         """
@@ -132,7 +133,7 @@ class BaseExperiment(ABC):
         Z_P: Tensor,
         H_P: Tensor,
         *,
-        force_identity: bool = False,
+        W: Optional[Tensor] = None,
         label: str = "",
         K_feat: float = 1.0,
         K_pred: float = 1.0,
@@ -141,13 +142,15 @@ class BaseExperiment(ABC):
         """Run full PRISM metric suite and fill risk bound.
 
         Args:
+            W:       Alignment matrix.  ``torch.eye(d)`` for identity regime,
+                     ``None`` to compute the optimal Procrustes W_opt.
             absorbed: If True, use scale-absorbed reparameterisation where
                 feature error = √(2(1−Ω)) and scale is folded into head.
         """
         compute_fn = PRISMMetrics.compute_all_absorbed if absorbed else PRISMMetrics.compute_all
         result = compute_fn(
             Z_T, H_T, Z_P, H_P,
-            force_identity=force_identity,
+            W=W,
             label=label,
         )
         UnifiedBound.fill_result(result, K_feat=K_feat, K_pred=K_pred)
@@ -343,7 +346,6 @@ class BaseExperiment(ABC):
             ext_t = pair["extractor_target"]
             ext_p = pair["extractor_proxy"]
             dl = pair["dataloader"]
-            force_id = pair.get("force_identity", False)
 
             Z_T, H_T = self.extract(ext_t, pair["target_model"], dl, pair.get("head_kwargs_target"))
             Z_P, H_P = self.extract(ext_p, pair["proxy_model"], dl, pair.get("head_kwargs_proxy"))
@@ -353,9 +355,15 @@ class BaseExperiment(ABC):
             if "H_proxy" in pair:
                 H_P = pair["H_proxy"]
 
+            # Explicit W from pair config; legacy force_identity → W = I
+            W_pair = pair.get("W", None)
+            if pair.get("force_identity", False) and W_pair is None:
+                d = Z_T.shape[1]
+                W_pair = torch.eye(d, dtype=Z_T.dtype, device=Z_T.device)
+
             result = self.compute_metrics(
                 Z_T, H_T, Z_P, H_P,
-                force_identity=force_id,
+                W=W_pair,
                 label=label,
                 K_feat=pair.get("K_feat", 1.0),
                 K_pred=pair.get("K_pred", 1.0),
@@ -473,7 +481,7 @@ class BaseExperiment(ABC):
         filename: str = "prism_results.csv",
         loss_mode: str = "full",
     ) -> None:
-        """Persist results as a flat CSV.
+        """Persist results as a flat CSV with dual-W metrics.
 
         Args:
             results:   List of PRISMResult objects.
@@ -485,22 +493,29 @@ class BaseExperiment(ABC):
         path = os.path.join(self.output_dir, filename)
         absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
 
-        # Shared geometry columns (same for all modes)
         geo_fields = ["target_model", "proxy_model", "dataset", "z_mode",
-                       "Label", "rho_T", "rho_P", "Omega"]
+                       "Label", "rho_T", "rho_P"]
         if not absorbed:
             geo_fields.append("Scale")
         else:
             geo_fields.append("absorbed")
-        geo_fields += ["Shape", "Feature", "Head", "Bound"]
+
+        dual_w_fields = [
+            "Omega_I", "Omega_W",
+            "delta_I", "delta_W",
+            "gamma_I", "gamma_W",
+            "Bound_I", "Bound_W", "Bound",
+            "EBound_I", "EBound_W", "EBound",
+        ]
 
         if loss_mode == "answer":
             loss_fields = ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
         else:
             loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
 
-        k_fields = ["K_f", "K_f(emp)", "K_p", "K_p(emp)"]
-        fieldnames = geo_fields + loss_fields + k_fields
+        k_fields = ["K_f", "K_f_grad_p95", "K_f_grad_max", "K_f_grad_mean",
+                     "K_f(pw)", "K_p", "K_p(emp)"]
+        fieldnames = geo_fields + dual_w_fields + loss_fields + k_fields
 
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -514,13 +529,25 @@ class BaseExperiment(ABC):
                     "Label": r.label,
                     "rho_T": r.extra.get("rho_T", ""),
                     "rho_P": r.rho_proxy,
-                    "Omega": r.omega,
-                    "Shape": r.shape_mismatch,
-                    "Feature": r.feature_error,
-                    "Head": r.head_discrepancy,
-                    "Bound": r.risk_bound_total if r.risk_bound_total is not None else "",
+                    # Dual-W geometry
+                    "Omega_I": r.extra.get("omega_I", r.omega),
+                    "Omega_W": r.extra.get("omega_W", r.omega),
+                    "delta_I": r.extra.get("delta_I", r.feature_error),
+                    "delta_W": r.extra.get("delta_W", r.feature_error),
+                    "gamma_I": r.extra.get("gamma_I", r.head_discrepancy),
+                    "gamma_W": r.extra.get("gamma_W", r.head_discrepancy),
+                    "Bound_I": r.extra.get("bound_I_th", ""),
+                    "Bound_W": r.extra.get("bound_W_th", ""),
+                    "Bound": r.extra.get("bound_th", r.risk_bound_total if r.risk_bound_total is not None else ""),
+                    "EBound_I": r.extra.get("bound_I_emp", ""),
+                    "EBound_W": r.extra.get("bound_W_emp", ""),
+                    "EBound": r.extra.get("bound_emp", ""),
+                    # Lipschitz constants
                     "K_f": r.extra.get("K_feat_tight", ""),
-                    "K_f(emp)": r.extra.get("K_feat_empirical", ""),
+                    "K_f_grad_p95": r.extra.get("K_feat_grad_p95", ""),
+                    "K_f_grad_max": r.extra.get("K_feat_grad_max", ""),
+                    "K_f_grad_mean": r.extra.get("K_feat_grad_mean", ""),
+                    "K_f(pw)": r.extra.get("K_feat_empirical", ""),
                     "K_p": r.extra.get("K_pred_theory", ""),
                     "K_p(emp)": r.extra.get("K_pred_empirical", ""),
                 }
@@ -539,9 +566,6 @@ class BaseExperiment(ABC):
                     row["APPL_T"] = r.extra.get("answer_ppl_target", "")
                     row["APPL_P"] = r.extra.get("answer_ppl_proxy", "")
                 else:
-                    # Use full_loss from extra if available (for datasets where
-                    # primary loss != full loss, e.g. LAMBADA/ARC/MMLU/GSM8K);
-                    # fall back to r.loss_target/proxy for corpus datasets.
                     flt = r.extra.get("full_loss_target", r.loss_target)
                     flp = r.extra.get("full_loss_proxy", r.loss_proxy)
                     dr = abs(flt - flp) if flt is not None and flp is not None else None

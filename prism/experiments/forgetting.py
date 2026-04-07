@@ -97,7 +97,7 @@ class ForgettingExperiment(BaseExperiment):
                 "dataloader": dataloader,
                 "extractor_target": extractor,
                 "extractor_proxy": extractor,
-                "force_identity": False,
+                "W": None,  # W_opt via Procrustes
                 "_ckpt_path": ckpt_path,
                 "_Z_T": Z_T,
                 "_H_T": H_T,

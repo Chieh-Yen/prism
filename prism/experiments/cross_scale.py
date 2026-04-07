@@ -506,10 +506,9 @@ class CrossScaleExperiment(BaseExperiment):
                     H_T, H_P, proxy_label, tokenizer, proxy_tokenizer
                 )
 
-                # ---- PRISM metrics (Procrustes, force_identity=False) ----
+                # ---- PRISM metrics (Procrustes, W=W_opt) ----
                 result = self.compute_metrics(
                     Z_T, H_T_use, Z_P, H_P_use,
-                    force_identity=False,
                     label=label,
                     absorbed=absorbed,
                     K_feat=K_feat,

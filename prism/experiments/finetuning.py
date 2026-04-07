@@ -233,7 +233,7 @@ class FinetuningExperiment(BaseExperiment):
         print("  Proxy model freed from VRAM.")
 
         # =============================================================
-        # Phase 3 — Metrics (Procrustes alignment, force_identity=False)
+        # Phase 3 — Metrics (Procrustes alignment, W = W_opt)
         # =============================================================
         print(f"\n--- Phase 3: PRISM Metrics (Procrustes) ---")
 
@@ -243,7 +243,7 @@ class FinetuningExperiment(BaseExperiment):
 
         result = self.compute_metrics(
             Z_T, H_T, Z_P, H_P,
-            force_identity=False, label=label, absorbed=absorbed,
+            label=label, absorbed=absorbed,
             K_feat=K_feat, K_pred=K_pred,
         )
 

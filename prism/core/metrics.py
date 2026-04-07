@@ -49,13 +49,30 @@ class PRISMMetrics:
     # ------------------------------------------------------------------
     @staticmethod
     def procrustes_omega(Z_T: Tensor, Z_P: Tensor) -> float:
-        """Ω(Z_T, Z_P) = ‖Z_T^T Z_P‖_* / (‖Z_T‖_F ‖Z_P‖_F), clamped to [0, 1]."""
+        """Ω(Z_T, Z_P) = ‖Z_T^T Z_P‖_* / (‖Z_T‖_F ‖Z_P‖_F), clamped to [0, 1].
+
+        Corresponds to optimal Procrustes alignment W = W_opt.
+        """
         cross = Z_T.T @ Z_P  # (d_T, d_P)
         nuclear_norm = torch.linalg.svdvals(cross).sum().item()
         denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
         if denom < 1e-12:
             return 0.0
         return min(nuclear_norm / denom, 1.0)
+
+    @staticmethod
+    def trace_omega(Z_T: Tensor, Z_P: Tensor) -> float:
+        """Ω_I(Z_T, Z_P) = tr(Z_T^T Z_P) / (‖Z_T‖_F ‖Z_P‖_F).
+
+        Identity-consistent alignment score — corresponds to W = I.
+        By Cauchy-Schwarz for the Frobenius inner product, |Ω_I| ≤ 1.
+        Always ≤ procrustes_omega in absolute value.
+        """
+        trace_val = (Z_T * Z_P).sum().item()
+        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        if denom < 1e-12:
+            return 0.0
+        return max(min(trace_val / denom, 1.0), -1.0)
 
     # ------------------------------------------------------------------
     # Optimal alignment W  (Orthogonal Procrustes)
@@ -153,20 +170,33 @@ class PRISMMetrics:
         return residuals.norm(dim=1)
 
     # ------------------------------------------------------------------
+    # General Ω for any orthogonal W
+    # ------------------------------------------------------------------
+    @staticmethod
+    def omega_for_W(Z_T: Tensor, Z_P: Tensor, W: Tensor) -> float:
+        """Ω(W) = tr(W · Z_P^T Z_T) / (‖Z_T‖_F ‖Z_P‖_F).
+
+        Unified formula that subsumes ``procrustes_omega`` (W = W_opt)
+        and ``trace_omega`` (W = I) as special cases.
+        Uses O(d²) element-wise product instead of O(d³) matrix multiply.
+        """
+        cross = Z_P.T @ Z_T                         # (d_P, d_T)
+        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        if denom < 1e-12:
+            return 0.0
+        omega = (W * cross).sum().item() / denom
+        return max(min(omega, 1.0), -1.0)
+
+    # ------------------------------------------------------------------
     # Convenience: compute everything at once
     # ------------------------------------------------------------------
     @staticmethod
     def _resolve_W(
-        Z_T: Tensor, Z_P: Tensor,
-        W: Optional[Tensor], force_identity: bool,
+        Z_T: Tensor, Z_P: Tensor, W: Optional[Tensor],
     ) -> Tensor:
-        if force_identity:
-            assert Z_T.shape[1] == Z_P.shape[1], (
-                f"force_identity requires d_T == d_P, got {Z_T.shape[1]} vs {Z_P.shape[1]}"
-            )
-            return torch.eye(Z_P.shape[1], Z_T.shape[1], dtype=Z_T.dtype, device=Z_T.device)
+        """Return W for alignment. If None, solve Orthogonal Procrustes."""
         if W is not None:
-            return W.float()
+            return W.to(dtype=Z_T.dtype, device=Z_T.device)
         return PRISMMetrics.orthogonal_procrustes(Z_T, Z_P)
 
     @staticmethod
@@ -177,7 +207,6 @@ class PRISMMetrics:
         H_P: Tensor,
         *,
         W: Optional[Tensor] = None,
-        force_identity: bool = False,
         label: str = "",
     ) -> PRISMResult:
         """Run full PRISM analysis on a (target, proxy) pair.
@@ -187,8 +216,9 @@ class PRISMMetrics:
             H_T: (d_T, C) target head weights.
             Z_P: (n, d_P) proxy features.
             H_P: (d_P, C) proxy head weights.
-            W:   Optional pre-computed alignment.  Computed if None.
-            force_identity: If True, use W = I  (quantization regime).
+            W:   Alignment matrix.  Pass ``torch.eye(d)`` for the
+                 identity regime (quantization) or ``None`` to compute
+                 the optimal Procrustes alignment W_opt.
             label: Human-readable label for this comparison.
         """
         Z_T = Z_T.float()
@@ -196,10 +226,22 @@ class PRISMMetrics:
         H_T = H_T.float()
         H_P = H_P.float()
 
-        omega = PRISMMetrics.procrustes_omega(Z_T, Z_P)
         rho_T = PRISMMetrics.rms_scale(Z_T)
         rho_P = PRISMMetrics.rms_scale(Z_P)
-        W_use = PRISMMetrics._resolve_W(Z_T, Z_P, W, force_identity)
+
+        # Cross-product — reused for Procrustes solve and Ω computation.
+        cross = Z_P.T @ Z_T  # (d_P, d_T)
+
+        if W is None:
+            U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
+            W_use = (U @ Vt).to(dtype=Z_T.dtype)
+        else:
+            W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
+
+        # Ω(W) = tr(W · cross) / (‖Z_T‖_F ‖Z_P‖_F)
+        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        omega = (W_use * cross).sum().item() / max(denom, 1e-12)
+        omega = max(min(omega, 1.0), -1.0)
 
         n = Z_P.shape[0]
         Sigma_P = (Z_P.T @ Z_P) / n
@@ -230,7 +272,6 @@ class PRISMMetrics:
         H_P: Tensor,
         *,
         W: Optional[Tensor] = None,
-        force_identity: bool = False,
         label: str = "",
     ) -> PRISMResult:
         """Scale-absorbed PRISM analysis.
@@ -250,12 +291,21 @@ class PRISMMetrics:
         H_T = H_T.float()
         H_P = H_P.float()
 
-        omega = PRISMMetrics.procrustes_omega(Z_T, Z_P)
         rho_T = PRISMMetrics.rms_scale(Z_T)
         rho_P = PRISMMetrics.rms_scale(Z_P)
         c = rho_T / max(rho_P, 1e-12)
 
-        W_use = PRISMMetrics._resolve_W(Z_T, Z_P, W, force_identity)
+        cross = Z_P.T @ Z_T  # (d_P, d_T)
+
+        if W is None:
+            U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
+            W_use = (U @ Vt).to(dtype=Z_T.dtype)
+        else:
+            W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
+
+        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        omega = (W_use * cross).sum().item() / max(denom, 1e-12)
+        omega = max(min(omega, 1.0), -1.0)
 
         n = Z_P.shape[0]
         Sigma_P = (Z_P.T @ Z_P) / n

@@ -232,6 +232,16 @@ class LLMExtractor(FeatureExtractor):
             return hidden[torch.arange(bsz, device=device), lengths]
         return hidden[:, -1, :]
 
+    @staticmethod
+    def _get_lm_weight(model: torch.nn.Module):
+        """Return lm_head weight tensor (V, d) — direct reference, no copy."""
+        if hasattr(model, "lm_head"):
+            return model.lm_head.weight.data
+        if (hasattr(model, "language_model")
+                and hasattr(model.language_model, "lm_head")):
+            return model.language_model.lm_head.weight.data
+        return None
+
     def extract_features(
         self,
         model: torch.nn.Module,
@@ -308,6 +318,8 @@ class LLMExtractor(FeatureExtractor):
         has_prompt = False
         is_concat = ("concat" in z_modes)
         all_grad_norms: List[Tensor] = []
+        all_feat_grad_norms: List[Tensor] = []
+        lm_weight = self._get_lm_weight(model)  # (V, d) or None
         CHUNK = chunk_size
 
         # Probe once whether the model supports output_hidden_states.
@@ -401,7 +413,7 @@ class LLMExtractor(FeatureExtractor):
                             tok_valid = valid_mask[j].bool() & (positions >= (pl - 1))
                         else:
                             tok_valid = valid_mask[j].bool()
-                        token_losses.append(ce_per_token[j][tok_valid])
+                        token_losses.append(ce_per_token[j][tok_valid].float())
 
                 # Answer-only loss — reuse ce_per_token with tighter mask
                 if prompt_lens is not None:
@@ -429,11 +441,24 @@ class LLMExtractor(FeatureExtractor):
                         gnorms = (p.pow(2).sum(dim=-1) - 2 * p_y + 1).clamp(min=0).sqrt()
                         all_grad_norms.append(gnorms)
 
+                        # K_feat gradient: ||H(p - e_y)||_2 = ||p @ W - W[y]||_2
+                        # where W = lm_head.weight (V, d) = H^T
+                        if lm_weight is not None:
+                            chunk_tgt = gn_targets[s:e]
+                            p_lm = p.to(lm_weight.dtype) @ lm_weight  # (chunk, d)
+                            h_y = lm_weight[chunk_tgt]                 # (chunk, d)
+                            all_feat_grad_norms.append(
+                                (p_lm - h_y).float().norm(dim=-1)
+                            )
+
                 del all_logits
 
         Z_dict = {zm: torch.cat(all_features[zm], dim=0) for zm in z_modes}
         all_gn = torch.cat(all_grad_norms) if all_grad_norms else torch.zeros(1)
         _tok_losses = torch.cat(token_losses) if token_losses else None
+
+        all_fgn = (torch.cat(all_feat_grad_norms)
+                   if all_feat_grad_norms else None)
         loss_stats: Dict = {
             "losses": torch.tensor(sample_losses),
             "token_losses": _tok_losses,
@@ -442,6 +467,9 @@ class LLMExtractor(FeatureExtractor):
             "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
             "grad_norm_max": all_gn.max().item(),
             "grad_norm_mean": all_gn.mean().item(),
+            "feat_grad_norm_p95": torch.quantile(all_fgn, 0.95).item() if all_fgn is not None else None,
+            "feat_grad_norm_max": all_fgn.max().item() if all_fgn is not None else None,
+            "feat_grad_norm_mean": all_fgn.mean().item() if all_fgn is not None else None,
         }
         if _return_dict:
             return Z_dict, loss_stats
