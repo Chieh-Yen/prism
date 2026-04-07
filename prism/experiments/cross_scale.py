@@ -372,13 +372,21 @@ class CrossScaleExperiment(BaseExperiment):
             math.exp(aloss_target) if aloss_target is not None else None
         )
 
-        # Select primary loss based on loss_mode
-        if loss_mode == "answer":
+        # Token-level loss for concat z_mode (consistent with per-token Z)
+        _tok_T = loss_stats_T.get("token_losses")
+        token_loss_target: Optional[float] = (
+            _tok_T.mean().item() if _tok_T is not None and _tok_T.numel() > 0
+            else None
+        )
+
+        # Primary loss: token-level for concat, sample-level otherwise
+        if z_mode == "concat" and token_loss_target is not None:
+            loss_target = token_loss_target
+        elif loss_mode == "answer" and aloss_target is not None:
             loss_target = aloss_target
-            ppl_target = appl_target
         else:
             loss_target = full_loss_target
-            ppl_target = full_ppl_target
+        ppl_target = math.exp(loss_target)
 
         info = f"  Target: FullLoss={full_loss_target:.4f}  FullPPL={full_ppl_target:.2f}"
         if aloss_target is not None:
@@ -397,9 +405,9 @@ class CrossScaleExperiment(BaseExperiment):
         # ----------------------------------------------------------------
         rho_T_orig = Z_T.norm("fro").item() / math.sqrt(Z_T.shape[0])
         K_theory = UnifiedBound.theoretical_K(H_T)
-        # Empirical K_feat must use losses paired with Z (Appendix A):
-        # for last_context_token Z, use answer_losses (not full-text).
-        # For concat Z, use per-token losses (1:1 pairing).
+        # Empirical K_feat must use losses paired with Z:
+        # concat Z → per-token losses (1:1 pairing);
+        # sample-level Z → per-sample losses.
         if z_mode == "concat" and loss_stats_T["token_losses"] is not None:
             paired_losses = loss_stats_T["token_losses"]
         elif loss_mode != "full" and has_answer:
@@ -501,6 +509,13 @@ class CrossScaleExperiment(BaseExperiment):
                     loss_stats_P["answer_losses"].mean().item() if has_answer else None
                 )
 
+                # Token-level loss for concat z_mode
+                _tok_P = loss_stats_P.get("token_losses")
+                token_loss_proxy: Optional[float] = (
+                    _tok_P.mean().item() if _tok_P is not None and _tok_P.numel() > 0
+                    else None
+                )
+
                 # ---- Align head vocab dimensions if needed ----
                 H_T_use, H_P_use, head_truncated = _align_heads(
                     H_T, H_P, proxy_label, tokenizer, proxy_tokenizer
@@ -527,17 +542,18 @@ class CrossScaleExperiment(BaseExperiment):
                     result.extra["answer_ppl_target"] = appl_target
                     result.extra["answer_ppl_proxy"] = math.exp(aloss_proxy)
 
-                # Select primary loss based on loss_mode
-                if loss_mode == "answer":
+                # Primary loss: token-level for concat, sample-level otherwise
+                if z_mode == "concat" and token_loss_proxy is not None:
+                    result.loss_target = token_loss_target
+                    result.loss_proxy = token_loss_proxy
+                elif loss_mode == "answer" and aloss_proxy is not None:
                     result.loss_target = aloss_target
                     result.loss_proxy = aloss_proxy
-                    result.extra["perplexity_target"] = appl_target
-                    result.extra["perplexity_proxy"] = math.exp(aloss_proxy)
                 else:
                     result.loss_target = full_loss_target
                     result.loss_proxy = full_loss_proxy
-                    result.extra["perplexity_target"] = full_ppl_target
-                    result.extra["perplexity_proxy"] = math.exp(full_loss_proxy)
+                result.extra["perplexity_target"] = math.exp(result.loss_target)
+                result.extra["perplexity_proxy"] = math.exp(result.loss_proxy)
 
                 result.extra.update(lipschitz_info)
                 result.extra["dataset"] = task_name

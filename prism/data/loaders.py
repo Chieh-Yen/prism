@@ -131,17 +131,17 @@ TASK_REGISTRY: Dict[str, Dict] = {
     # Text / LLM  — FineWeb-Edu  (language modeling, curated educational text)
     "fineweb_edu":   {"hf_id": "HuggingFaceFW/FineWeb-Edu-score-2", "text_key": "text", "split_map": {"test": "train"}, "streaming": True,
                       "z_mode": "concat", "loss_mode": "full"},
-    # Text / LLM  — structured Q&A
+    # Text / LLM  — structured Q&A  (all use concat so Z and loss are
+    #   uniformly token-level; for single-token answers like MMLU/ARC this
+    #   is mathematically equivalent to last_context_token)
     "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
+                      "z_mode": "concat", "loss_mode": "answer"},
     "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
+                      "z_mode": "concat", "loss_mode": "answer"},
     "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "last_context_token", "loss_mode": "answer"},
-    # Text / LLM  — TriviaQA/SQuAD use concat over answer region
+                      "z_mode": "concat", "loss_mode": "answer"},
     "triviaqa":      {"hf_id": "trivia_qa",            "hf_subset": "rc.nocontext",  "formatter": "triviaqa", "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    # Text / LLM  — SQuAD  (short-horizon generation, extractive QA)
     "squad":         {"hf_id": "rajpurkar/squad",                                    "formatter": "squad",    "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},

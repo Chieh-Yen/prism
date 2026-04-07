@@ -99,6 +99,80 @@ models:
       - gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4
       - awq:casperhansen/deepseek-r1-distill-llama-8b-awq
 
+  - id: qwen3_8b_base
+    target_model: Qwen/Qwen3-8B-Base
+    proxy_model: mradermacher/Qwen3-8B-Base-GGUF
+    gguf_template: Qwen3-8B-Base.{quant}.gguf
+    quantization_bits:
+      - dtype:float16
+      - Q8_0
+      - Q6_K
+      - Q5_K_M
+      - Q4_K_M
+      - Q3_K_M
+      - Q2_K
+      - bnb:int8
+      - bnb:nf4
+      - bnb:fp4
+      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-128
+      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-128
+      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel
+      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel
+      - gptq:AlphaGaO/Qwen3-8B-GPTQ
+
+  - id: llama31_8b_base
+    target_model: meta-llama/Meta-Llama-3.1-8B
+    proxy_model: QuantFactory/Meta-Llama-3.1-8B-GGUF
+    gguf_template: Meta-Llama-3.1-8B.{quant}.gguf
+    quantization_bits:
+      - dtype:float16
+      - Q8_0
+      - Q6_K
+      - Q5_K_M
+      - Q4_K_M
+      - Q3_K_M
+      - Q2_K
+      - bnb:int8
+      - bnb:nf4
+      - bnb:fp4
+      - gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit
+      - gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ
+      - awq:UCLA-EMC/Meta-Llama-3.1-8B-AWQ-INT4
+
+  - id: ministral3_8b_base
+    target_model: mistralai/Ministral-3-8B-Base-2512
+    proxy_model: mradermacher/Ministral-3-8B-Base-2512-GGUF
+    gguf_template: Ministral-3-8B-Base-2512.{quant}.gguf
+    quantization_bits:
+      - dtype:float16
+      - Q8_0
+      - Q6_K
+      - Q5_K_M
+      - Q4_K_M
+      - Q3_K_M
+      - Q2_K
+      - bnb:int8
+      - bnb:nf4
+      - bnb:fp4
+
+  - id: mistral7b_v03_base
+    target_model: mistralai/Mistral-7B-v0.3
+    proxy_model: mradermacher/Mistral-7B-v0.3-GGUF
+    gguf_template: Mistral-7B-v0.3.{quant}.gguf
+    quantization_bits:
+      - dtype:float16
+      - Q8_0
+      - Q6_K
+      - Q5_K_M
+      - Q4_K_M
+      - Q3_K_M
+      - Q2_K
+      - bnb:int8
+      - bnb:nf4
+      - bnb:fp4
+      - gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128
+      - awq:solidrust/Mistral-7B-v0.3-AWQ
+
   - id: qwen25_7b_instruct
     target_model: Qwen/Qwen2.5-7B-Instruct
     proxy_model: Qwen/Qwen2.5-7B-Instruct-GGUF
@@ -117,93 +191,20 @@ models:
       - gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8
       - awq:Qwen/Qwen2.5-7B-Instruct-AWQ
 
-#  - id: qwen3_8b_base
-#    target_model: Qwen/Qwen3-8B-Base
-#    proxy_model: mradermacher/Qwen3-8B-Base-GGUF
-#    gguf_template: Qwen3-8B-Base.{quant}.gguf
-#    quantization_bits:
-#      - dtype:float16
-#      - Q8_0
-#      - Q6_K
-#      - Q5_K_M
-#      - Q4_K_M
-#      - Q3_K_M
-#      - Q2_K
-#      - bnb:int8
-#      - bnb:nf4
-#      - bnb:fp4
-#      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-128
-#      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-128
-#      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel
-#      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel
-#      - gptq:AlphaGaO/Qwen3-8B-GPTQ
+  - id: qwen25_7b_base
+    target_model: Qwen/Qwen2.5-7B
+    proxy_model: QuantFactory/Qwen2.5-7B-GGUF
+    gguf_template: Qwen2.5-7B.{quant}.gguf
+    quantization_bits:
+      - dtype:float16
+      - Q8_0
+      - Q6_K
+      - Q5_K_M
+      - Q4_K_M
+      - Q3_K_M
+      - Q2_K
+      - bnb:int8
+      - bnb:nf4
+      - bnb:fp4
 
-#  - id: llama31_8b_base
-#    target_model: meta-llama/Meta-Llama-3.1-8B
-#    proxy_model: QuantFactory/Meta-Llama-3.1-8B-GGUF
-#    gguf_template: Meta-Llama-3.1-8B.{quant}.gguf
-#    quantization_bits:
-#      - dtype:float16
-#      - Q8_0
-#      - Q6_K
-#      - Q5_K_M
-#      - Q4_K_M
-#      - Q3_K_M
-#      - Q2_K
-#      - bnb:int8
-#      - bnb:nf4
-#      - bnb:fp4
-#      - gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit
-#      - gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ
-#      - awq:UCLA-EMC/Meta-Llama-3.1-8B-AWQ-INT4
-
-#  - id: ministral3_8b_base
-#    target_model: mistralai/Ministral-3-8B-Base-2512
-#    proxy_model: mradermacher/Ministral-3-8B-Base-2512-GGUF
-#    gguf_template: Ministral-3-8B-Base-2512.{quant}.gguf
-#    quantization_bits:
-#      - dtype:float16
-#      - Q8_0
-#      - Q6_K
-#      - Q5_K_M
-#      - Q4_K_M
-#      - Q3_K_M
-#      - Q2_K
-#      - bnb:int8
-#      - bnb:nf4
-#      - bnb:fp4
-
-#  - id: qwen25_7b_base
-#    target_model: Qwen/Qwen2.5-7B
-#    proxy_model: QuantFactory/Qwen2.5-7B-GGUF
-#    gguf_template: Qwen2.5-7B.{quant}.gguf
-#    quantization_bits:
-#      - dtype:float16
-#      - Q8_0
-#      - Q6_K
-#      - Q5_K_M
-#      - Q4_K_M
-#      - Q3_K_M
-#      - Q2_K
-#      - bnb:int8
-#      - bnb:nf4
-#      - bnb:fp4
-
-#  - id: mistral7b_v03_base
-#    target_model: mistralai/Mistral-7B-v0.3
-#    proxy_model: mradermacher/Mistral-7B-v0.3-GGUF
-#    gguf_template: Mistral-7B-v0.3.{quant}.gguf
-#    quantization_bits:
-#      - dtype:float16
-#      - Q8_0
-#      - Q6_K
-#      - Q5_K_M
-#      - Q4_K_M
-#      - Q3_K_M
-#      - Q2_K
-#      - bnb:int8
-#      - bnb:nf4
-#      - bnb:fp4
-#      - gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128
-#      - awq:solidrust/Mistral-7B-v0.3-AWQ
 
