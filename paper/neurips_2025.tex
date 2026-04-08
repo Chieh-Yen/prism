@@ -124,6 +124,7 @@ Evaluating Large Language Model (LLM) variants---quantized checkpoints, fine-tun
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that derives a rigorous, closed-form upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ between a target and proxy model.
 By formulating alignment as an Orthogonal Procrustes problem, we obtain an \emph{exact} decomposition of feature discrepancy into scale mismatch ($\Delta\rho$) and shape mismatch ($1 - \Omega$) via the nuclear norm, provably tighter than Frobenius-based alternatives.
 Combined with a second-moment-adjusted head bound, this yields a computable diagnostic from a single forward pass.
+We further show that the choice of orthogonal alignment $W$ governs a fundamental trade-off between feature-bound tightness and head-bound fidelity, and identify the identity alignment ($W = I$) as the physically motivated choice in coordinate-preserving regimes.
 We instantiate the framework for post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), where the bound reduces to a pure geometric distortion measure, and for fine-tuning (SFT, LoRA), where it isolates catastrophic forgetting in the backbone geometry.
 Extensive experiments across Llama, Qwen, Mistral, and DeepSeek demonstrate strong rank correlation (Spearman's $\rho > 0.9$) between our geometric metric and actual performance degradation.
 By leveraging high alignment as a variance-reduction guarantee, we further show that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\%.
@@ -162,9 +163,9 @@ Our main contributions are as follows:
 \begin{enumerate}
     \item \textbf{A Unified Geometric Framework for Risk Bounding.} We establish a rigorous theoretical bridge linking the internal representational geometry of a proxy model to the functional risk of a target model. We derive an exact decomposition of feature discrepancy via the nuclear norm (Procrustes Similarity $\Omega$), providing a strictly tighter alignment residual than any Frobenius-based similarity (Appendix~\ref{app:tightness}). Crucially, our framework naturally unifies point-wise classification and sequence-level autoregressive generation under the same geometric constraints.
 
-    \item \textbf{Exact Decomposition via Nuclear Norm.} Unlike prior post-hoc metrics that rely on Frobenius bounds, we derive an exact geometric decomposition of feature discrepancy using the nuclear norm. We prove this formulation provides the tightest bound for rotational alignment, explicitly isolating scale collapse ($\Delta\rho$) from structural distortion ($1 - \Omega$) and prediction head errors.
+    \item \textbf{Exact Decomposition and Alignment Trade-off.} Unlike prior post-hoc metrics that rely on Frobenius bounds, we derive an exact geometric decomposition of feature discrepancy using the nuclear norm, provably the tightest bound for rotational alignment. We further identify a fundamental trade-off between feature-bound tightness and head-bound fidelity controlled by the choice of orthogonal alignment $W$, and show that the identity alignment ($W = I$, yielding the trace similarity $\Omega_{\mathrm{tr}}$) is the physically motivated choice in coordinate-preserving regimes (quantization, LoRA), providing a fully decoupled decomposition of scale, shape, and head effects.
 
-    \item \textbf{Principled Diagnostics for Quantization and Fine-Tuning.} We operationalize our theory across two high-value LLM lifecycle stages. In post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), our framework mathematically characterizes feature scale collapse. In sequential fine-tuning (SFT, LoRA), geometric drift serves as a label-free monitor for catastrophic forgetting, decoupling backbone manifold geometry from head-specific adaptations.
+    \item \textbf{Principled Diagnostics for Quantization and Fine-Tuning.} We operationalize our theory across two high-value LLM lifecycle stages. In post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), the identity alignment avoids overfitting to quantization noise and yields a pure geometric distortion measure. In fine-tuning (SFT, LoRA), geometric drift serves as a label-free monitor for catastrophic forgetting, with the alignment choice adapted to the fine-tuning protocol: $W = I$ for frozen-head LoRA, $W^*$ for full-parameter SFT.
 
     \item \textbf{Strong Empirical Correlation.} Extensive experiments across modern LLMs (Llama, Qwen, Mistral, DeepSeek) demonstrate that our geometric bound serves as a highly predictive surrogate for actual performance degradation, achieving Spearman's $\rho > 0.9$ across quantization formats and fine-tuning protocols, establishing linear geometric alignment as a robust, compute-efficient proxy for model evaluation.
 
@@ -304,6 +305,30 @@ Let $W^* \in \mathcal{O}(d)$ be the optimal Procrustes alignment. Then:
 \end{equation}
 \end{theorem}
 
+\begin{remark}[Generality of the Alignment and the $\delta$--$\gamma$ Trade-off]
+\label{rem:alignment_choice}
+The risk decomposition \eqref{eq:risk_decomp} holds for \emph{any} orthogonal alignment $W\!\in\!\mathcal{O}(d)$, not only the Procrustes solution $W^*$. The tightest overall bound is thus:
+\begin{equation}
+\label{eq:inf_bound}
+|\mathcal{R}_T - \mathcal{R}_P|
+\;\le\;
+\inf_{W \in \mathcal{O}(d)}
+\Big[\delta(W) + \gamma(W)\Big].
+\end{equation}
+The Procrustes solution $W^*$ minimizes the feature term $\delta$ alone---yielding the nuclear-norm similarity $\Omega$ (Proposition~\ref{prop:exact_decomposition})---but may inflate the head term $\gamma$ by introducing a rotation into the head comparison.
+Conversely, the \emph{identity alignment} $W = I$ preserves head coherence ($\gamma(I) = K_{\mathrm{pred}}\|\Sigma_P^{1/2}(H_T - H_P)\|_F$) but replaces the nuclear norm with the \emph{trace similarity}
+\begin{equation}
+\label{eq:omega_tr}
+\Omega_{\mathrm{tr}}(Z_T, Z_P)
+\;:=\;
+\frac{\operatorname{Tr}(Z_T^\top Z_P)}{\|Z_T\|_F\,\|Z_P\|_F},
+\end{equation}
+yielding a potentially looser feature bound since $\Omega_{\mathrm{tr}} \le \Omega$ in general.
+
+The joint minimization \eqref{eq:inf_bound} over the Stiefel manifold is a non-convex problem that does not admit a closed-form solution (Appendix~\ref{app:joint_opt}).
+In the two primary application regimes of this paper---post-training quantization (where $H_T \approx H_P$ and $W^* \approx I$, so both candidates nearly coincide) and frozen-head fine-tuning ($H_T = H_P$, so $\gamma = 0$ for any $W$)---we show that the identity alignment $W = I$ is not only a tractable approximation but also the \emph{physically motivated} choice: it preserves the original coordinate basis and yields a fully decoupled decomposition of scale, shape, and head effects (Section~\ref{sec:applications}).
+\end{remark}
+
 
 \subsection{Geometric Interpretation}
 \label{subsec:interpretation}
@@ -316,8 +341,9 @@ Divergence in activation magnitude directly amplifies the geometric error term. 
 \paragraph{Shape Alignment ($\Omega \to 1$).}
 The shape mismatch term is governed by $\Omega$, which captures how well the relational structure of the feature manifold is preserved up to rotation. A drop in $\Omega$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}. Critically, $\Omega$ is defined via the nuclear norm, which provides the tightest possible bound for the Procrustes alignment residual; Frobenius-based similarities yield provably looser residuals, and metrics such as CKA---which use a different normalization---are not directly substitutable into the Procrustes framework (Appendix~\ref{app:tightness}).
 
-\paragraph{Head Coherence ($\|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F \to 0$).}
-The head error term quantifies how differently the two prediction heads interpret aligned features, weighted by the empirical second-moment matrix $\Sigma_P$. Misalignment in directions orthogonal to the data manifold does not contribute, as it cannot affect predictions. Notably, under standard LoRA fine-tuning~\cite{hu2022lora} where the \texttt{lm\_head} is frozen ($H_T = H_P$), this term vanishes entirely, isolating all performance change in the backbone geometry ($\Delta\rho$ and $\Omega$).
+\paragraph{Head Coherence ($\|\Sigma_P^{1/2}(W H_T - H_P)\|_F \to 0$).}
+The head error term quantifies how differently the two prediction heads interpret aligned features, weighted by the empirical second-moment matrix $\Sigma_P$. Misalignment in directions orthogonal to the data manifold does not contribute, as it cannot affect predictions. Crucially, the choice of alignment $W$ enters this term directly: the Procrustes solution $W^*$, while optimal for $\delta$, can \emph{inflate} $\gamma$ by introducing a spurious rotation when $H_T \approx H_P$, whereas the identity $W = I$ yields $\gamma(I) = K_{\mathrm{pred}}\|\Sigma_P^{1/2}(H_T - H_P)\|_F$, which vanishes naturally when the heads are preserved.
+Under standard LoRA fine-tuning~\cite{hu2022lora} where the \texttt{lm\_head} is frozen ($H_T = H_P$), this term vanishes for any $W$, isolating all performance change in the backbone geometry ($\Delta\rho$ and $\Omega$). In post-training quantization, where the head is typically retained in FP16, the identity alignment avoids manufacturing an artificial head discrepancy from quantization noise (Section~\ref{subsec:quantization}).
 
 
 \subsection{Extension to Autoregressive Generation}
@@ -349,53 +375,73 @@ where $\rho^{\mathrm{AR}}$, $\Omega^{\mathrm{AR}}$, and $\Sigma_P^{\mathrm{AR}}$
 \section{Instantiating the Framework}
 \label{sec:applications}
 
-The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) provides a general mechanism to estimate functional divergence between any two models. The nature of the geometric relationship between proxy and target determines which terms dominate the bound, giving rise to two distinct regimes:
+The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) provides a general mechanism to estimate functional divergence between any two models. As discussed in Remark~\ref{rem:alignment_choice}, the choice of orthogonal alignment $W$ controls a fundamental trade-off between feature-bound tightness ($\delta$) and head-bound fidelity ($\gamma$). This trade-off, combined with the physical nature of each application, gives rise to two distinct regimes:
 \begin{itemize}
-    \item \textbf{The Near-Identity Regime ($W^* \approx I$):} When the proxy and target share a nearly identical coordinate basis---as in post-training quantization---the optimal Procrustes alignment $W^*$ absorbs only small perturbations introduced by numerical noise. The bound reduces to a pure function of scale collapse ($\Delta\rho$) and structural distortion ($1 - \Omega$), with the head discrepancy vanishing when the prediction head is preserved.
-    \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \not\approx I$):} When training dynamics induce global basis rotations---as in fine-tuning---the full Procrustes alignment is required. The optimal $W^*$ absorbs arbitrary rotations, and $\Omega$ measures the residual geometric drift that rotations alone cannot explain.
+    \item \textbf{The Coordinate-Preserving Regime ($W = I$):} When the proxy and target share a nearly identical coordinate basis---as in post-training quantization and frozen-head fine-tuning (LoRA)---the feature space undergoes element-wise perturbation without global rotation. In this regime, the identity alignment $W = I$ is the physically motivated choice: it avoids manufacturing spurious head discrepancy from numerical noise, and yields a fully decoupled decomposition of scale ($\Delta\rho$), shape ($1 - \Omega_{\mathrm{tr}}$), and head effects. The trace similarity $\Omega_{\mathrm{tr}}$ (Eq.~\ref{eq:omega_tr}) measures structural distortion directly in the original coordinate frame.
+    \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \not\approx I$):} When training dynamics induce global basis rotations---as in full-parameter fine-tuning---the Procrustes alignment $W^*$ is required to absorb arbitrary rotations. Here $\Omega$ (nuclear-norm similarity) measures the residual geometric drift that rotations alone cannot explain.
 \end{itemize}
 We instantiate these two regimes below for their most practically relevant scenarios, and additionally develop a control variate method for compute-efficient evaluation.
 
 \subsection{Quantization Quality Estimation}
 \label{subsec:quantization}
 
-We designate the full-precision model as Target ($T$) and the quantized variant as Proxy ($P$). Two conditions specific to post-training quantization simplify the bound:
+We designate the full-precision model as Target ($T = F$) and the quantized variant as Proxy ($P = Q$). Three conditions specific to post-training quantization motivate the identity alignment $W = I$:
 \begin{enumerate}
-    \item \textbf{Near-Identity Alignment ($W^* \approx I$):} Standard PTQ introduces element-wise numerical noise that largely preserves the coordinate basis. The optimal Procrustes alignment $W^*$ absorbs the small, non-symmetric perturbations in the cross-moment matrix $Z_F^\top Z_Q$, and the Procrustes Similarity $\Omega$ (Eq.~\ref{eq:omega_def}) remains the correct measure of structural alignment.\footnote{%
-    Setting $W = I$ exactly would replace the nuclear norm $\|Z_F^\top Z_Q\|_*$ in the decomposition with $\operatorname{Tr}(Z_F^\top Z_Q)$, which equals the nuclear norm only when $Z_F^\top Z_Q$ is symmetric positive semidefinite---a condition not guaranteed under quantisation noise. Using the full Procrustes solution avoids this issue while yielding the tightest bound.}
-    \item \textbf{Head Stability ($H_Q \approx H_F$):} Modern protocols (GPTQ, AWQ) retain the prediction head in FP16, causing the head discrepancy to vanish.
+    \item \textbf{Coordinate-Basis Preservation:} Standard PTQ introduces element-wise numerical noise (rounding, clipping) without global rotation of the feature space.
+    Unlike fine-tuning, where gradient updates can induce arbitrary basis changes, quantization perturbs each activation channel independently.
+    The optimal Procrustes solution $W^*$ would absorb these small, non-symmetric perturbations by fitting a slight rotation---effectively \emph{overfitting to quantization noise}---while the identity alignment $W = I$ faithfully reflects the in-place distortion.
+
+    \item \textbf{Head Stability ($H_Q \approx H_F$):} Modern protocols (GPTQ, AWQ) retain the prediction head in FP16. With $W = I$, the head term reduces to $\gamma(I) = K_{\mathrm{pred}}\|\Sigma_P^{1/2}(H_F - H_Q)\|_F \approx 0$, correctly reflecting the physical invariance. In contrast, using $W^*$ would yield $\gamma(W^*) = K_{\mathrm{pred}}\|\Sigma_P^{1/2}(W^* H_F - H_Q)\|_F$, artificially inflating the head error by rotating an otherwise preserved head.\footnote{Empirically, $B(I)$ is consistently 3--10$\times$ tighter than $B(W^*)$ across all quantization formats tested, precisely because the spurious head rotation dominates the bound when using $W^*$.}
+
+    \item \textbf{Interpretability:} Setting $W = I$ produces a fully decoupled diagnostic: scale ($\Delta\rho$) captures activation magnitude shifts, shape ($1 - \Omega_{\mathrm{tr}}$) captures structural distortion in the original coordinate frame, and head effects vanish. No component is contaminated by a compensatory rotation.
 \end{enumerate}
-Under these conditions, the risk gap is dominated purely by the geometric deformation of the feature manifold:
+Under $W = I$, the feature alignment error uses the trace similarity $\Omega_{\mathrm{tr}}$ (Eq.~\ref{eq:omega_tr}), and the risk gap reduces to a pure geometric distortion measure:
 \begin{equation}
 \label{eq:quant_bound}
-|\mathcal{R}_F - \mathcal{R}_Q| \;\;\lessapprox\;\; K_{\mathrm{feat}} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{\rm Scale Collapse}} + \underbrace{2\rho_F \rho_Q \big(1 - \Omega(Z_F, Z_Q)\big)}_{\text{\rm Structural Distortion}} }.
+|\mathcal{R}_F - \mathcal{R}_Q| \;\;\lessapprox\;\; K_{\mathrm{feat}} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{\rm Scale Collapse}} + \underbrace{2\rho_F \rho_Q \big(1 - \Omega_{\mathrm{tr}}(Z_F, Z_Q)\big)}_{\text{\rm Structural Distortion}} }.
 \end{equation}
-This establishes $\Omega$ and $\Delta\rho$ as generation-free diagnostics: \emph{scale collapse} ($\rho_Q < \rho_F$) captures activation clipping from aggressive bit-width reduction, while a drop in $\Omega$ signals corruption of the relational geometry between tokens. Practitioners can rank quantization configurations purely from feature statistics on a small calibration set.
+This establishes $\Omega_{\mathrm{tr}}$ and $\Delta\rho$ as generation-free diagnostics: \emph{scale collapse} ($\rho_Q < \rho_F$) captures activation clipping from aggressive bit-width reduction~\cite{dettmers2022gpt3, xiao2023smoothquant}, while a drop in $\Omega_{\mathrm{tr}}$ signals corruption of the relational geometry between tokens in the original basis. Practitioners can rank quantization configurations purely from feature statistics on a small calibration set.
+
+\paragraph{Relation to the Nuclear Norm.}
+When $Z_F^\top Z_Q$ is symmetric positive semidefinite---as it approximately is for mild quantization---the trace and nuclear norm coincide: $\operatorname{Tr}(Z_F^\top Z_Q) = \|Z_F^\top Z_Q\|_*$, and thus $\Omega_{\mathrm{tr}} = \Omega$. As quantization noise grows (lower bit-widths, aggressive clipping), the cross-moment matrix develops asymmetric perturbations, causing $\Omega_{\mathrm{tr}} < \Omega$.
+This gap is a feature, not a limitation: $\Omega_{\mathrm{tr}}$ detects asymmetric distortions that the nuclear norm---by optimizing over rotations---would mask (Appendix~\ref{app:trace_specialization}).
 
 
 \subsection{Geometric Monitoring of Catastrophic Forgetting}
 \label{subsec:forgetting}
 
-We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). Unlike quantization---where $W^*$ deviates only slightly from the identity---fine-tuning induces substantial global feature rotations, requiring the full Procrustes alignment. Applying Theorem~\ref{thm:unified_bound}:
+We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). The appropriate alignment choice depends on the fine-tuning protocol.
+
+\paragraph{LoRA Fine-Tuning ($W = I$).}
+Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied only to attention and MLP projection matrices ($W_q, W_k, W_v, W_o, W_{\mathrm{up}}, W_{\mathrm{down}}$), while the \texttt{lm\_head} remains frozen ($H_t = H_0$). With $H_T = H_P$, the head discrepancy $\gamma$ vanishes for \emph{any} alignment $W$, so the choice of $W$ affects only the feature term.
+We adopt $W = I$ for the same interpretability rationale as in quantization: LoRA's low-rank perturbations modify the feature manifold without inducing a coherent global rotation, and the identity alignment measures backbone drift directly in the original coordinate basis:
+\begin{equation}
+\label{eq:lora_bound}
+\text{Forgetting}_{\mathrm{LoRA}}(t) \;\;\le\;\; K_{\mathrm{feat}} \sqrt{ (\rho_0 - \rho_t)^2 + 2\rho_0 \rho_t \big( 1 - \Omega_{\mathrm{tr}}(Z_0, Z_t) \big) }.
+\end{equation}
+This provides a label-free diagnostic that cleanly separates scale drift ($\Delta\rho$) from structural distortion ($1 - \Omega_{\mathrm{tr}}$), without any compensatory rotation masking the true geometric change.
+
+\paragraph{Full-Parameter SFT ($W = W^*$).}
+When all parameters---including the prediction head---are updated, training dynamics can induce substantial global basis rotations, placing the model in the rotational regime. Here the full Procrustes alignment $W^*$ is required to absorb arbitrary rotations, and the nuclear-norm similarity $\Omega$ measures the residual geometric drift that rotations alone cannot explain:
 \begin{equation}
 \label{eq:forgetting_bound}
 \begin{aligned}
-\text{Forgetting}(t) \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_0 - \rho_t)^2 + 2\rho_0 \rho_t \big( 1 - \Omega(Z_0, Z_t) \big) }}_{\text{\rm Backbone Geometric Drift}} \\
+\text{Forgetting}_{\mathrm{SFT}}(t) \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_0 - \rho_t)^2 + 2\rho_0 \rho_t \big( 1 - \Omega(Z_0, Z_t) \big) }}_{\text{\rm Backbone Geometric Drift}} \\
 & + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_t^{1/2} (W^* H_0 - H_t) \|_F}_{\text{\rm Head Divergence}}.
 \end{aligned}
 \end{equation}
-Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied only to attention and MLP projection matrices ($W_q, W_k, W_v, W_o, W_{\mathrm{up}}, W_{\mathrm{down}}$), while the \texttt{lm\_head} remains frozen ($H_t = H_0$). The head divergence term therefore vanishes, and performance degradation is governed \emph{entirely} by backbone geometric drift ($\Delta\rho$ and $\Omega$). This provides a label-free diagnostic for forgetting that decouples manifold distortion from head-specific effects.
+The head divergence term is now non-negligible and captures how the updated prediction head diverges from the base model's head, projected through the Procrustes alignment.
 
 
 \subsection{Compute-Efficient Estimation via Geometric Control Variates}
 \label{subsec:control_variates}
 
-The high geometric alignment ($\Omega \approx 1$) between target and proxy implies that the per-sample loss difference $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ has low variance. To make this precise, note that the Lipschitz analysis underlying Theorem~\ref{thm:unified_bound} provides a \emph{pointwise} bound on each sample (before taking expectations):
+The high geometric alignment ($\Omega_{\mathrm{tr}} \approx 1$ or $\Omega \approx 1$, depending on the regime) between target and proxy implies that the per-sample loss difference $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ has low variance. To make this precise, note that the Lipschitz analysis underlying Theorem~\ref{thm:unified_bound} provides a \emph{pointwise} bound on each sample (before taking expectations). For a chosen alignment $W$ (either $I$ or $W^*$):
 \begin{equation}
 \label{eq:pointwise_bound}
-|\Delta\ell(x)| \;\le\; K_{\mathrm{feat}} \|\phi_T(x) - \phi_P(x) W^*\|_2 \;+\; K_{\mathrm{pred}} \|\phi_P(x) \cdot \Delta H\|_2 \;\le\; B,
+|\Delta\ell(x)| \;\le\; K_{\mathrm{feat}} \|\phi_T(x) - \phi_P(x) W\|_2 \;+\; K_{\mathrm{pred}} \|\phi_P(x) \cdot \Delta H_W\|_2 \;\le\; B,
 \end{equation}
-where $B = K_{\mathrm{feat}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_T(x) - \phi_P(x) W^*\|_2 + K_{\mathrm{pred}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_P(x) \cdot \Delta H\|_2$ is the worst-case per-sample bound over the calibration set. Since $\Delta\ell(x) \in [-B, B]$, Popoviciu's inequality on bounded random variables gives:
+where $\Delta H_W = W H_T - H_P$ and $B = K_{\mathrm{feat}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_T(x) - \phi_P(x) W\|_2 + K_{\mathrm{pred}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_P(x) \cdot \Delta H_W\|_2$ is the worst-case per-sample bound over the calibration set. Since $\Delta\ell(x) \in [-B, B]$, Popoviciu's inequality on bounded random variables gives:
 \begin{equation}
 \mathrm{Var}(\Delta\ell) \;\le\; B^2.
 \end{equation}
@@ -472,8 +518,9 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
 \label{sec:conclusion}
 
 We presented PRISM, a unified geometric framework that establishes a rigorous, computable link between representational alignment and functional risk. By formulating alignment as an Orthogonal Procrustes problem and deriving an exact decomposition via the nuclear norm, we obtained a closed-form bound on $|\mathcal{R}_T - \mathcal{R}_P|$ that separates scale collapse, structural distortion, and head divergence as independently measurable diagnostic quantities.
+We further identified a fundamental $\delta$--$\gamma$ trade-off in the choice of orthogonal alignment: the Procrustes solution $W^*$ minimizes feature error but can inflate head discrepancy, while the identity alignment $W = I$ (trace similarity $\Omega_{\mathrm{tr}}$) preserves head coherence and provides a fully decoupled diagnostic in coordinate-preserving regimes.
 
-We instantiated this framework for two critical LLM lifecycle stages---post-training quantization and fine-tuning---and demonstrated that geometric control variates enable accurate risk forecasting from small calibration sets with strict statistical guarantees.
+We instantiated this framework for two critical LLM lifecycle stages---post-training quantization and frozen-head fine-tuning (LoRA), where the identity alignment yields the cleanest error attribution, and full-parameter SFT, where the Procrustes alignment absorbs global rotations---and demonstrated that geometric control variates enable accurate risk forecasting from small calibration sets with strict statistical guarantees.
 
 \paragraph{Limitations and Future Work.}
 Several promising directions remain:
@@ -747,6 +794,95 @@ Therefore, substituting $\Omega_F$ into the unified bound produces a \emph{stric
 
 \paragraph{Relation to CKA.}
 Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$, which differs from $\Omega_F^2 = \|Z_T^\top Z_P\|_F^2 / (\|Z_T\|_F^2 \|Z_P\|_F^2)$ in its denominator. The two denominators are related by the inequality $\|Z_M^\top Z_M\|_F \le \|Z_M\|_F^2 = \operatorname{Tr}(Z_M^\top Z_M)$ (since $\|A\|_F \le \operatorname{Tr}(A)$ for any positive semidefinite $A$, by Cauchy--Schwarz on the eigenvalues), which gives $\mathrm{CKA} \ge \Omega_F^2$. Hence CKA can overestimate alignment relative to $\Omega_F$, and it is not directly substitutable into our Procrustes residual. More fundamentally, CKA is not derived from any alignment optimization and therefore lacks the operational meaning of $\Omega$, which exactly solves the Orthogonal Procrustes problem.
+
+\section{The Trace Specialization ($W = I$)}
+\label{app:trace_specialization}
+
+We derive the explicit form of the risk bound under the identity alignment $W = I$ and characterize when it coincides with or diverges from the Procrustes bound.
+
+\paragraph{Feature Decomposition under $W = I$.}
+Setting $W = I$ in the alignment residual (Eq.~\ref{eq:procrustes_expand}):
+\begin{equation}
+\frac{1}{n}\|Z_T - Z_P\|_F^2
+= \rho_T^2 + \rho_P^2 - \frac{2}{n}\operatorname{Tr}(Z_T^\top Z_P)
+= (\rho_T - \rho_P)^2 + 2\rho_T\rho_P\big(1 - \Omega_{\mathrm{tr}}\big),
+\end{equation}
+where $\Omega_{\mathrm{tr}} = \operatorname{Tr}(Z_T^\top Z_P) / (\|Z_T\|_F\|Z_P\|_F)$ is the trace similarity (Eq.~\ref{eq:omega_tr}). The decomposition into scale mismatch and shape mismatch is structurally identical to Proposition~\ref{prop:exact_decomposition}, with $\Omega_{\mathrm{tr}}$ replacing $\Omega$.
+
+\paragraph{Ordering of Similarities.}
+Since the Procrustes solution maximizes $\operatorname{Tr}(Z_T^\top Z_P W)$ over $\mathcal{O}(d)$, we have:
+\begin{equation}
+\operatorname{Tr}(Z_T^\top Z_P) \;\le\; \max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W) \;=\; \|Z_T^\top Z_P\|_*,
+\end{equation}
+which gives $\Omega_{\mathrm{tr}} \le \Omega$. Equality holds if and only if $W^* = I$, i.e., $Z_T^\top Z_P$ is symmetric positive semidefinite (all singular vectors already aligned).
+
+\paragraph{When does $\Omega_{\mathrm{tr}} = \Omega$?}
+Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD. Then $W^* = VU^\top$ and $\Omega_{\mathrm{tr}} = \Omega$ iff $VU^\top = I$, i.e., $U = V$. This holds when $Z_T^\top Z_P$ is symmetric (hence SPSD, since its singular values are non-negative). In post-training quantization with mild noise, the cross-moment matrix $Z_F^\top Z_Q \approx Z_F^\top Z_F$ is approximately SPSD, so $\Omega_{\mathrm{tr}} \approx \Omega$. As quantization becomes more aggressive, asymmetric perturbations cause $\Omega_{\mathrm{tr}}$ to fall below $\Omega$, and this gap reflects genuine asymmetric distortion that a rotation-invariant metric would mask.
+
+\paragraph{Full Bound under $W = I$.}
+Combining the feature and head terms:
+\begin{equation}
+\label{eq:bound_identity}
+|\mathcal{R}_T - \mathcal{R}_P|
+\;\le\;
+K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_{\mathrm{tr}})}
+\;+\;
+K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(H_T - H_P)\|_F.
+\end{equation}
+In the quantization regime ($H_T \approx H_P$), the head term vanishes and the bound depends solely on the geometric distortion terms $\Delta\rho$ and $\Omega_{\mathrm{tr}}$.
+
+\paragraph{Relation to CKA.}
+The trace similarity $\Omega_{\mathrm{tr}}$ relates to linear CKA as follows. Recall that linear CKA uses the Frobenius norm of the cross-moment in its numerator: $\mathrm{CKA} = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$. While $\Omega_{\mathrm{tr}}$ and CKA both avoid explicit rotational alignment, they differ in two key respects: (i)~$\Omega_{\mathrm{tr}}$ uses the trace (sum of diagonal entries of $Z_T^\top Z_P$) rather than the Frobenius norm, which is sensitive to the sign structure of the cross-moment; (ii)~$\Omega_{\mathrm{tr}}$ has a direct operational meaning as the alignment residual under $W = I$, whereas CKA lacks a corresponding optimization interpretation. Both $\Omega_{\mathrm{tr}}$ and $\Omega_F$ are bounded above by $\Omega$ (since $\operatorname{Tr}(M) \le \|M\|_*$ and $\|M\|_F \le \|M\|_*$ for any matrix $M$), but $\Omega_{\mathrm{tr}}$ and $\Omega_F$ do not have a fixed ordering relative to each other (where $\Omega_F$ is the Frobenius similarity from Appendix~\ref{app:tightness}).
+
+
+\section{Joint Optimization on the Stiefel Manifold}
+\label{app:joint_opt}
+
+We analyze the joint minimization of the risk bound over all orthogonal alignments and show why a closed-form solution does not exist in general.
+
+\paragraph{The Joint Objective.}
+The tightest bound (Eq.~\ref{eq:inf_bound}) requires solving:
+\begin{equation}
+\label{eq:joint_obj}
+W_{\mathrm{opt}} = \arg\min_{W \in \mathcal{O}(d)}
+\Big[
+\underbrace{K_{\mathrm{feat}} \sqrt{\tfrac{1}{n}\|Z_T - Z_P W\|_F^2}}_{\delta(W)}
+\;+\;
+\underbrace{K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(W H_T - H_P)\|_F}_{\gamma(W)}
+\Big].
+\end{equation}
+Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admits the closed-form solution $W^* = VU^\top$), the addition of $\gamma(W)$ introduces a quadratic dependence on $W$ through the head term: expanding $\gamma(W)^2$ yields a term $\operatorname{Tr}(H_T^\top W^\top \Sigma_P W H_T)$, where $\Sigma_P$ is ``sandwiched'' between $W^\top$ and $W$ and cannot be simplified via $W^\top W = I$ unless $\Sigma_P \propto I$.
+
+\paragraph{Why No Closed-Form Solution Exists.}
+The feature term $\delta(W)$ is concave in $\operatorname{Tr}(Z_T^\top Z_P W)$ (since it involves the square root of a linear-minus-trace expression), while the head term $\gamma(W)$ is convex in $W$. Their sum is neither convex nor concave on $\mathcal{O}(d)$, precluding a simple variational characterization. This structure is related to the \emph{Weighted Orthogonal Procrustes Problem} (WOPP), which is known to lack closed-form solutions in general~\cite{gower2004procrustes}.
+
+\paragraph{Special Case: Isotropic Features.}
+If the proxy feature distribution is isotropic ($\Sigma_P \approx \lambda I$ for some $\lambda > 0$), the quadratic head term simplifies:
+\begin{equation}
+\operatorname{Tr}(H_T^\top W^\top (\lambda I) W H_T)
+= \lambda\,\operatorname{Tr}(H_T^\top H_T),
+\end{equation}
+which is independent of $W$. The joint objective then reduces to a standard Procrustes problem with a modified cross-moment matrix:
+\begin{equation}
+M_{\mathrm{joint}} = \alpha\, Z_T^\top Z_P + \beta\, H_T H_P^\top,
+\end{equation}
+where $\alpha = K_{\mathrm{feat}}$ and $\beta = K_{\mathrm{pred}}\lambda$. The closed-form solution $W_{\mathrm{iso}}^* = V_J U_J^\top$ (from the SVD $M_{\mathrm{joint}} = U_J \Sigma_J V_J^\top$) simultaneously aligns both features and heads. However, the isotropic assumption is unrealistic for LLM representations, which exhibit well-documented anisotropy---including representation degeneration~\cite{ethayarajh2019contextual} and outlier channels~\cite{dettmers2022gpt3, xiao2023smoothquant}.
+
+\paragraph{Numerical Solution via Riemannian Gradient Descent.}
+For the general (anisotropic) case, $W_{\mathrm{opt}}$ can be approximated numerically via Riemannian gradient descent (RGD) on the Stiefel manifold. The Euclidean gradient of a squared surrogate $J(W) = \alpha\|Z_T - Z_P W\|_F^2 + \beta\|\Sigma_P^{1/2}(WH_T - H_P)\|_F^2$ is:
+\begin{equation}
+\nabla_W J = -2\alpha\, Z_P^\top Z_T + 2\beta\, \Sigma_P W H_T H_T^\top - 2\beta\, \Sigma_P H_P H_T^\top,
+\end{equation}
+which is projected onto the tangent space of $\mathcal{O}(d)$ at $W$ and followed by a retraction (e.g., QR decomposition or polar decomposition) to maintain orthogonality. The isotropic solution $W_{\mathrm{iso}}^*$ serves as an effective warm-start initialization, placing the iterate within the basin of attraction of the global minimum and reducing convergence to a small number of steps.
+
+\paragraph{Practical Irrelevance for This Paper's Regimes.}
+Although the Riemannian approach yields the theoretically tightest bound, it entangles the scale, shape, and head components: $W_{\mathrm{opt}}$ compromises feature alignment to compensate for head error, destroying the clean physical interpretation of each term. In the two primary regimes of this paper:
+\begin{itemize}
+    \item \textbf{Quantization ($H_T \approx H_P$):} The head term $\gamma$ is negligible for any $W$, so $W_{\mathrm{opt}} \approx W^* \approx I$ and all three candidates ($I$, $W^*$, $W_{\mathrm{opt}}$) yield nearly identical bounds. The identity alignment is preferred for its interpretability.
+    \item \textbf{LoRA ($H_T = H_P$):} The head term vanishes identically for any $W$, so the joint problem reduces to the standard Procrustes problem. Again, $W = I$ is preferred for diagnostic clarity.
+\end{itemize}
+The Riemannian formulation becomes relevant when comparing models with \emph{both} rotated features and divergent heads (e.g., cross-model comparison or full-parameter SFT with head updates). We leave detailed empirical investigation of this regime to future work.
+
 
 \input{model_quantization}
 
