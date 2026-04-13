@@ -16,7 +16,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-import matplotlib.ticker as ticker
+from matplotlib.patches import Patch
 import numpy as np
 
 # ── Config ──────────────────────────────────────────────────────────
@@ -42,48 +42,33 @@ COL_DISPLAY = {
     "triviaqa": "TriviaQA", "gsm8k": "GSM8K",
 }
 
-XCOL = "delta_I"
+XCOL = "Bound_I"
 YCOL = "|MdR|"
 
 
 # ── Parse Label → unified method name ──────────────────────────────
 def parse_method(label: str) -> str:
-    """Map raw Label to a canonical quantization method name."""
-    # Strip the 'BF16 vs ' prefix
     rhs = label.replace("BF16 vs ", "").strip()
-
-    # FP16 baseline
     if rhs == "FP16":
         return "FP16"
-
-    # GGUF variants
-    gguf_names = ["Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"]
-    for g in gguf_names:
+    for g in ["Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"]:
         if rhs == g:
             return g
-
-    # BitsAndBytes
     if rhs == "INT8":
         return "INT8"
     if rhs == "NF4":
         return "NF4"
     if rhs == "FP4":
         return "FP4"
-
-    # GPTQ — extract bit width from the parenthesized name
     m = re.match(r"GPTQ\((.+)\)", rhs)
     if m:
         inner = m.group(1).lower()
         if "int8" in inner or "8bit" in inner:
             return "GPTQ-8bit"
-        # default: 4-bit GPTQ (all our GPTQ variants are 4-bit unless stated)
         return "GPTQ-4bit"
-
-    # AWQ
     if "AWQ" in rhs:
         return "AWQ"
-
-    return rhs  # fallback
+    return rhs
 
 
 # ── Visual style per method ────────────────────────────────────────
@@ -113,25 +98,17 @@ GPTQ_STYLE = {
 }
 
 FP16_STYLE = {
-    "FP16": {"color": "#999999", "marker": "X"},
+    "FP16": {"color": "#888888", "marker": "o"},  # neutral circle, not X
 }
 
 ALL_STYLE = {**GGUF_STYLE, **BNB_STYLE, **GPTQ_STYLE, **FP16_STYLE}
 
-# Legend ordering
 LEGEND_ORDER = [
     "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K",
     "INT8", "NF4", "FP4",
     "GPTQ-4bit", "GPTQ-8bit",
     "FP16",
 ]
-
-FAMILY_LABELS = {
-    "Q8_0": "GGUF", "Q6_K": "", "Q5_K_M": "", "Q4_K_M": "", "Q3_K_M": "", "Q2_K": "",
-    "INT8": "BnB", "NF4": "", "FP4": "",
-    "GPTQ-4bit": "GPTQ", "GPTQ-8bit": "",
-    "FP16": "Other",
-}
 
 
 # ── Correlation helpers ────────────────────────────────────────────
@@ -183,15 +160,21 @@ def main():
     rows = load()
 
     nrow, ncol = len(ROW_MODELS), len(COL_DATASETS)
+
+    # (5) Compress vertical: shorter per-row height
     fig, axes = plt.subplots(
         nrow, ncol,
-        figsize=(ncol * 3.2, nrow * 3.0 + 1.6),
+        figsize=(ncol * 3.0, nrow * 2.5 + 1.0),
         squeeze=False,
     )
     plt.subplots_adjust(
-        hspace=0.35, wspace=0.30,
-        top=0.88, bottom=0.06, left=0.07, right=0.97,
+        hspace=0.18, wspace=0.28,
+        top=0.90, bottom=0.08, left=0.08, right=0.97,
     )
+
+    # ── Fixed axis limits (data-driven, shared across all subplots) ──
+    XLIM = (2e-2, 3e3)
+    YLIM = (3e-6, 3e0)
 
     seen_methods = set()
 
@@ -199,13 +182,27 @@ def main():
         for ci, ds in enumerate(COL_DATASETS):
             ax = axes[ri][ci]
 
-            # Filter data
             sub = [r for r in rows
                    if r["target_model"] == model
                    and r["dataset"] == ds
                    and not math.isnan(r[XCOL])
                    and not math.isnan(r[YCOL])]
 
+            # (2) Draw y=x line + safe zone FIRST (behind data)
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            diag = [YLIM[0], XLIM[1]]  # line from bottom to right edge
+            ax.plot(
+                diag, diag,
+                color="#d62728", ls="--", lw=1.3, alpha=0.55,
+                zorder=1, clip_on=True,
+            )
+            ax.fill_between(
+                diag, diag, YLIM[0],
+                color="#2ca02c", alpha=0.05, zorder=0, clip_on=True,
+            )
+
+            # Scatter data points
             xs, ys = [], []
             for pt in sub:
                 method = pt["_method"]
@@ -214,44 +211,50 @@ def main():
                 ax.scatter(
                     pt[XCOL], pt[YCOL],
                     color=style["color"], marker=style["marker"],
-                    s=80, alpha=0.9, edgecolors="k", linewidth=0.6,
+                    s=70, alpha=0.9, edgecolors="k", linewidth=0.5,
                     zorder=3,
                 )
                 xs.append(pt[XCOL])
                 ys.append(pt[YCOL])
 
-            # Spearman annotation
+            # Fix axis limits (uniform across all subplots)
+            ax.set_xlim(XLIM)
+            ax.set_ylim(YLIM)
+
+            # (1) Spearman annotation → top-left
             if len(xs) >= 3:
                 rho = spearman(xs, ys)
                 ax.text(
-                    0.97, 0.05, f"$\\rho$={rho:.2f}",
-                    transform=ax.transAxes, ha="right", va="bottom",
-                    fontsize=9, fontstyle="italic",
-                    bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.8, ec="0.7"),
+                    0.04, 0.96, f"$\\rho$={rho:.2f}",
+                    transform=ax.transAxes, ha="left", va="top",
+                    fontsize=8.5, fontstyle="italic",
+                    bbox=dict(boxstyle="round,pad=0.2", fc="white",
+                              alpha=0.85, ec="0.7", lw=0.5),
                 )
 
-            # Axis formatting
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-            ax.tick_params(labelsize=8)
-            ax.grid(True, which="major", ls=":", alpha=0.4)
+            ax.tick_params(labelsize=7)
+            ax.grid(True, which="major", ls=":", alpha=0.35)
 
             # Column title (top row only)
             if ri == 0:
-                ax.set_title(COL_DISPLAY[ds], fontsize=12, fontweight="bold")
+                ax.set_title(COL_DISPLAY[ds], fontsize=11, fontweight="bold",
+                             pad=4)
 
             # Row label (left column only)
             if ci == 0:
                 ax.set_ylabel(
                     ROW_DISPLAY[model] + "\n$|\\Delta\\mathcal{R}|$",
-                    fontsize=9, fontweight="bold",
+                    fontsize=8.5, fontweight="bold", labelpad=2,
                 )
             else:
                 ax.set_ylabel("")
 
-            # X label (bottom row only)
+            # (4) X label: bottom row only, formal name
             if ri == nrow - 1:
-                ax.set_xlabel("$\\delta_I$", fontsize=10)
+                ax.set_xlabel(
+                    "PRISM Bound  $\\mathcal{B}_I$",
+                    fontsize=8.5, labelpad=2,
+                )
 
     # ── Build legend ───────────────────────────────────────────────
     legend_entries = []
@@ -263,37 +266,33 @@ def main():
             [0], [0],
             marker=style["marker"], color="w",
             markerfacecolor=style["color"], markeredgecolor="k",
-            markeredgewidth=0.6, markersize=8, linestyle="None",
+            markeredgewidth=0.5, markersize=7, linestyle="None",
         )
         legend_entries.append((handle, method))
+
+    # Add y=x bound line to legend
+    bound_handle = Line2D([0], [0], color="#d62728", ls="--", lw=1.5, alpha=0.6)
+    legend_entries.append((bound_handle, "$|\\Delta\\mathcal{R}|=\\mathcal{B}_I$"))
+
+    # Add safe zone to legend
+    safe_handle = Patch(facecolor="#2ca02c", alpha=0.15, edgecolor="none")
+    legend_entries.append((safe_handle, "Safe zone"))
 
     if legend_entries:
         handles, labels = zip(*legend_entries)
         fig.legend(
             handles, labels,
             loc="upper center",
-            bbox_to_anchor=(0.52, 0.97),
-            ncol=min(len(labels), 12),
-            fontsize=9,
+            bbox_to_anchor=(0.52, 0.99),
+            ncol=min(len(labels), 14),
+            fontsize=8,
             frameon=True, fancybox=True,
-            handletextpad=0.3, columnspacing=1.0,
-            borderpad=0.5,
+            handletextpad=0.2, columnspacing=0.8,
+            borderpad=0.4,
         )
 
     fig.savefig(str(OUT_PDF), format="pdf", dpi=300, bbox_inches="tight")
     print(f"Saved → {OUT_PDF}")
-
-    # ── Print summary table for verification ───────────────────────
-    print(f"\n{'Model':<25} {'Dataset':<10} {'n':>3}  methods present")
-    print("-" * 80)
-    for model in ROW_MODELS:
-        for ds in COL_DATASETS:
-            sub = [r for r in rows
-                   if r["target_model"] == model and r["dataset"] == ds
-                   and not math.isnan(r[XCOL]) and not math.isnan(r[YCOL])]
-            methods = sorted(set(r["_method"] for r in sub))
-            name = ROW_DISPLAY[model]
-            print(f"  {name:<23} {ds:<10} {len(sub):>3}  {', '.join(methods)}")
 
 
 if __name__ == "__main__":
