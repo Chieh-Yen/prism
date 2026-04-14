@@ -269,6 +269,7 @@ def plot_grid(mode: str):
                 )
 
             ax.tick_params(labelsize=10)
+            ax.tick_params(axis="both", which="minor", length=0)
             ax.grid(True, which="major", ls=":", alpha=0.35)
 
             # ── Column title (top row) ────────────────────────────
