@@ -199,7 +199,7 @@ def plot_grid(mode: str):
         squeeze=False,
     )
     plt.subplots_adjust(
-        hspace=0.30, wspace=0.32,
+        hspace=0.22, wspace=0.24,
         top=0.91, bottom=0.08, left=0.07, right=0.97,
     )
 
