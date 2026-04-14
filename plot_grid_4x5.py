@@ -195,40 +195,59 @@ def plot_grid(mode: str):
     nrow, ncol = len(ROW_MODELS), len(COL_DATASETS)
     fig, axes = plt.subplots(
         nrow, ncol,
-        figsize=(ncol * 3.5, nrow * 2.6 + 1.2),
+        figsize=(ncol * 3.6, nrow * 2.8 + 1.2),
         squeeze=False,
     )
     plt.subplots_adjust(
-        hspace=0.12, wspace=0.14,
+        hspace=0.30, wspace=0.32,
         top=0.91, bottom=0.08, left=0.07, right=0.97,
     )
 
-    XLIM = cfg["xlim"]
-    YLIM = cfg["ylim"]
     seen_methods = set()
 
+    # ── First pass: collect per-cell data ranges ──────────────────
+    cell_data = {}
+    for ri, model in enumerate(ROW_MODELS):
+        for ci, ds in enumerate(COL_DATASETS):
+            sub = [r for r in rows
+                   if r["target_model"] == model
+                   and r["dataset"] == ds
+                   and not math.isnan(r[xcol])
+                   and not math.isnan(r[YCOL])]
+            xs = [r[xcol] for r in sub if r[xcol] > 0]
+            ys = [r[YCOL] for r in sub if r[YCOL] > 0]
+            cell_data[(ri, ci)] = (sub, xs, ys)
+
+    # ── Second pass: plot ─────────────────────────────────────────
     for ri, model in enumerate(ROW_MODELS):
         for ci, ds in enumerate(COL_DATASETS):
             ax = axes[ri][ci]
             ax.set_xscale("log")
             ax.set_yscale("log")
 
+            sub, xs, ys = cell_data[(ri, ci)]
+
+            # ── Per-cell axis limits (half-decade padding) ────────
+            if xs and ys:
+                x_lo_d = np.floor(np.log10(min(xs))) - 0.5
+                x_hi_d = np.ceil(np.log10(max(xs))) + 0.5
+                y_lo_d = np.floor(np.log10(min(ys))) - 0.5
+                y_hi_d = np.ceil(np.log10(max(ys))) + 0.5
+                xlim = (10**x_lo_d, 10**x_hi_d)
+                ylim = (10**y_lo_d, 10**y_hi_d)
+            else:
+                xlim = cfg["xlim"]
+                ylim = cfg["ylim"]
+
             # ── Safe zone + y=x line (bound mode only) ────────────
             if cfg["safe_zone"]:
-                diag = [YLIM[0], XLIM[1]]
+                diag = [ylim[0], xlim[1]]
                 ax.plot(diag, diag, color="#d62728", ls="--", lw=1.3,
                         alpha=0.55, zorder=1, clip_on=True)
-                ax.fill_between(diag, diag, YLIM[0], color="#2ca02c",
+                ax.fill_between(diag, diag, ylim[0], color="#2ca02c",
                                 alpha=0.05, zorder=0, clip_on=True)
 
             # ── Scatter data ──────────────────────────────────────
-            sub = [r for r in rows
-                   if r["target_model"] == model
-                   and r["dataset"] == ds
-                   and not math.isnan(r[xcol])
-                   and not math.isnan(r[YCOL])]
-
-            xs, ys = [], []
             for pt in sub:
                 method = pt["_method"]
                 seen_methods.add(method)
@@ -239,27 +258,23 @@ def plot_grid(mode: str):
                     s=70, alpha=0.9, edgecolors="k", linewidth=0.5,
                     zorder=3,
                 )
-                xs.append(pt[xcol])
-                ys.append(pt[YCOL])
 
-            # ── Axis limits + explicit ticks at every integer power ─
-            ax.set_xlim(XLIM)
-            ax.set_ylim(YLIM)
+            # ── Set limits + ticks at every integer power ─────────
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
 
-            # X ticks: every 10^n within xlim
-            x_lo = int(np.floor(np.log10(XLIM[0])))
-            x_hi = int(np.ceil(np.log10(XLIM[1])))
-            ax.set_xticks([10**i for i in range(x_lo, x_hi + 1)])
+            xt_lo = int(np.floor(np.log10(xlim[0])))
+            xt_hi = int(np.ceil(np.log10(xlim[1])))
+            ax.set_xticks([10**i for i in range(xt_lo, xt_hi + 1)])
 
-            # Y ticks: every 10^n within ylim
-            y_lo = int(np.floor(np.log10(YLIM[0])))
-            y_hi = int(np.ceil(np.log10(YLIM[1])))
-            ax.set_yticks([10**i for i in range(y_lo, y_hi + 1)])
+            yt_lo = int(np.floor(np.log10(ylim[0])))
+            yt_hi = int(np.ceil(np.log10(ylim[1])))
+            ax.set_yticks([10**i for i in range(yt_lo, yt_hi + 1)])
 
-            # ── Spearman ρ (bottom-right) ────────────────────────
+            # ── Spearman r_s (bottom-right) ───────────────────────
             if len(xs) >= 3:
                 rho = spearman(xs, ys)
-                rho_str = f"{rho:.2f}".lstrip("0")  # 0.94 → .94
+                rho_str = f"{rho:.2f}".lstrip("0")
                 ax.text(
                     0.96, 0.04, f"$r_s$={rho_str}",
                     transform=ax.transAxes, ha="right", va="bottom",
@@ -268,7 +283,7 @@ def plot_grid(mode: str):
                               alpha=0.85, ec="0.7", lw=0.5),
                 )
 
-            ax.tick_params(labelsize=10)
+            ax.tick_params(labelsize=9)
             ax.tick_params(axis="both", which="minor", length=0)
             ax.grid(True, which="major", ls=":", alpha=0.35)
 
@@ -277,30 +292,19 @@ def plot_grid(mode: str):
                 ax.set_title(COL_DISPLAY[ds], fontsize=16,
                              fontweight="bold", pad=5)
 
-            # ── Row label (left column) ───────────────────────────
+            # ── Y label: model name on left col, $|ΔR|$ on all ───
             if ci == 0:
                 ax.set_ylabel(
                     ROW_DISPLAY[model] + "\n$|\\Delta\\mathcal{R}|$",
                     fontsize=12, fontweight="bold", labelpad=2,
                 )
             else:
-                ax.set_ylabel("")
+                ax.set_ylabel("$|\\Delta\\mathcal{R}|$",
+                              fontsize=10, labelpad=2)
 
-            # ── X label (bottom row) ──────────────────────────────
+            # ── X label on all bottom row subplots ────────────────
             if ri == nrow - 1:
                 ax.set_xlabel(cfg["xlabel"], fontsize=13, labelpad=2)
-
-            # Non-bottom rows: hide x labels, keep major tick marks
-            if ri < nrow - 1:
-                ax.set_xticklabels([])
-                ax.tick_params(axis="x", which="major", length=3)
-                ax.tick_params(axis="x", which="minor", length=0, bottom=False)
-
-            # Non-left columns: hide y labels, keep major tick marks
-            if ci > 0:
-                ax.set_yticklabels([])
-                ax.tick_params(axis="y", which="major", length=3)
-                ax.tick_params(axis="y", which="minor", length=0, left=False)
 
     # ── Legend ─────────────────────────────────────────────────────
     legend_entries = []
@@ -318,7 +322,7 @@ def plot_grid(mode: str):
     if cfg["safe_zone"]:
         legend_entries.append((
             Line2D([0], [0], color="#d62728", ls="--", lw=1.5, alpha=0.6),
-            "$|\\Delta\\mathcal{R}|=\\mathcal{B}_I$",
+            "$|\\Delta\\mathcal{R}|=\\mathcal{B}$",
         ))
         legend_entries.append((
             Patch(facecolor="#2ca02c", alpha=0.15, edgecolor="none"),
