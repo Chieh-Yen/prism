@@ -10,6 +10,9 @@
 \PassOptionsToPackage{numbers,compress}{natbib}
 \usepackage{neurips_2025}
 
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+
 \usepackage{tikz}
 \usetikzlibrary{
     arrows.meta, 
@@ -445,11 +448,30 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
 \subsection{Main Results}
 \label{subsec:main_results}
 
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{prism_grid_bound.pdf}
+    \caption{PRISM Bound.}
+    \label{fig:grid_bound}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{prism_grid_feature.pdf}
+    \caption{Feature alignment error.}
+    \label{fig:grid_bound}
+\end{figure}
+
+
 % TODO: Insert main experimental results
 % - Correlation between geometric bound and actual risk gap (Spearman ρ)
 % - Scatter plots: Ω vs. actual performance degradation
 % - Comparison across quantization formats
 % - Forgetting curves: Ω trajectory during fine-tuning
+\input{table_llama_decomposition}
+
+
 
 \textbf{[Experimental results to be inserted.]}
 
@@ -845,4 +867,5 @@ The Riemannian formulation becomes relevant only when comparing models with \emp
 \input{model_quantization}
 
 \end{document}
+
 
