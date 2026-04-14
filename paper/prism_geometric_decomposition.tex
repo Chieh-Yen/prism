@@ -1,138 +1,96 @@
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
-\resizebox{\textwidth}{!}{%
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{1pt}
+\resizebox{0.98\linewidth}{!}{%
 \begin{tikzpicture}[
-    font=\sffamily\small,
+    x=1cm,
+    y=1cm,
+    font=\sffamily\scriptsize,
     >=Stealth,
-    % Unified Styles
-    module/.style={draw=black!60, thick, rounded corners=3pt, fill=white, align=center, minimum height=0.75cm, minimum width=1.4cm, font=\footnotesize},
+    line cap=round,
+    line join=round,
+    module/.style={draw=black!55, line width=0.7pt, rounded corners=2pt, fill=white, align=center, minimum height=0.52cm, minimum width=1.22cm, inner sep=1.8pt},
+    stage/.style={draw=gray!30, line width=0.7pt, rounded corners=4pt, fill=gray!3},
+    termbox/.style={draw=gray!40, line width=0.7pt, rounded corners=3.2pt, fill=white, minimum width=3.05cm, minimum height=1.02cm, align=center},
     targetcol/.style={blue!70!black},
-    proxycol/.style={orange!80!black},
-    prismcol/.style={purple!70!black},
-    beam/.style={line width=2pt, opacity=0.75}, % Thinner, more elegant beams
-    card/.style={draw=gray!50, thick, rounded corners=6pt, fill=white, minimum width=4.8cm, minimum height=2.2cm} % Shorter cards
+    proxycol/.style={orange!85!black},
+    accent/.style={violet!70!black}
 ]
 
-% =========================================================
-% 1. TOP-LEFT: Input & Routing
-% =========================================================
-\node[align=center, font=\bfseries] (input) at (0, 7.4) {Input\\$(x, y) \sim \mathcal{D}$};
+\node[align=center, font=\bfseries\footnotesize] (input) at (0.45,2.95) {Input\\$(x,y)\sim\mathcal{D}$};
 
-% Input splitting
-\draw[->, thick, gray!80!black] (input.east) -- (1.0, 7.4) |- (1.8, 8.4);
-\draw[->, thick, gray!80!black] (input.east) -- (1.0, 7.4) |- (1.8, 6.4);
+\draw[stage] (1.45,3.42) rectangle (6.05,4.32);
+\node[font=\bfseries\tiny, text=gray!75!black, anchor=south] at (3.75,4.34) {Target model $T$};
+\node[module, draw=targetcol, fill=blue!5] (backT) at (2.35,3.83) {Backbone\\$\phi_T$};
+\node[module] (featT) at (3.82,3.83) {Features\\$Z_T$};
+\node[module, dashed] (headT) at (5.25,3.83) {Head\\$H_T$};
+\draw[->, line width=0.85pt, targetcol] (backT) -- (featT);
+\draw[->, line width=0.75pt, dashed, targetcol] (featT) -- (headT);
 
-% =========================================================
-% 2. MODELS (Target & Proxy) - Highly Compact
-% =========================================================
-% Target Model Box
-\draw[draw=gray!40, fill=gray!5, rounded corners=6pt] (1.5, 7.65) rectangle (8.2, 9.0);
-\node[text=gray!70!black, font=\bfseries\footnotesize, anchor=north] at (4.85, 9.0) {Target Model ($T$)};
+\draw[stage] (1.45,1.58) rectangle (6.05,2.48);
+\node[font=\bfseries\tiny, text=gray!75!black, anchor=south] at (3.75,2.5) {Proxy model $P$};
+\node[module, draw=proxycol, fill=orange!6] (backP) at (2.35,1.99) {Backbone\\$\phi_P$};
+\node[module] (featP) at (3.82,1.99) {Features\\$Z_P$};
+\node[module, dashed] (headP) at (5.25,1.99) {Head\\$H_P$};
+\draw[->, line width=0.85pt, proxycol] (backP) -- (featP);
+\draw[->, line width=0.75pt, dashed, proxycol] (featP) -- (headP);
 
-\node[module, draw=blue!80!black, fill=blue!5] (nnT) at (2.8, 8.15) {\textbf{Backbone} $\phi_T$};
-\node[module] (zT) at (5.2, 8.15) {\textbf{Feature} $Z_T$};
-\node[module, dashed] (hT) at (7.3, 8.15) {\textbf{Head} $H_T$};
+\draw[line width=0.8pt, gray!70!black] (input.east) -- (1.75,2.95);
+\draw[->, line width=0.8pt, gray!70!black] (1.75,2.95) |- (backT.west);
+\draw[->, line width=0.8pt, gray!70!black] (1.75,2.95) |- (backP.west);
 
-\draw[->, thick, targetcol] (nnT) -- (zT);
-\draw[->, thick, targetcol] (zT) -- (hT);
+\draw[stage] (6.45,3.12) rectangle (8.85,4.22);
+\node[font=\bfseries\tiny, text=gray!75!black, anchor=south] at (7.65,4.24) {Alignment};
+\node[module, draw=accent, fill=violet!6, minimum width=1.92cm] (align) at (7.65,3.69) {Proxy align\\$Z_P \rightarrow Z_PW^*$};
+\draw[->, line width=0.9pt, targetcol] (featT.east) -- (6.45,3.83) -- (6.88,3.83);
+\draw[->, line width=0.9pt, proxycol] (featP.east) -- (6.0,1.99) |- (6.88,3.49);
+\node[targetcol, font=\scriptsize, anchor=west] at (8.58,3.88) {$Z_T$};
+\node[proxycol, font=\scriptsize, anchor=west] at (8.58,3.5) {$Z_PW^*$};
 
-% Proxy Model Box
-\draw[draw=gray!40, fill=gray!5, rounded corners=6pt] (1.5, 5.65) rectangle (8.2, 7.0);
-\node[text=gray!70!black, font=\bfseries\footnotesize, anchor=north] at (4.85, 7.0) {Proxy Model ($P$)};
+\draw[stage] (9.2,2.52) rectangle (11.85,4.22);
+\node[font=\bfseries\tiny, text=gray!75!black, anchor=south] at (10.52,4.24) {Risk bound};
+\node[align=center, font=\footnotesize] (bound) at (10.52,3.68) {$|\mathcal{R}_T-\mathcal{R}_P| \le \delta + \gamma$};
+\node[align=left, font=\scriptsize, anchor=west] at (9.45,2.98) {$\delta$: feature alignment error\\$\gamma$: head discrepancy};
+\draw[->, line width=0.85pt, accent] (align.east) -- (9.2,3.69) -- (9.72,3.69);
 
-\node[module, draw=orange!80!black, fill=orange!5] (nnP) at (2.8, 6.15) {\textbf{Backbone} $\phi_P$};
-\node[module] (zP) at (5.2, 6.15) {\textbf{Feature} $Z_P$};
-\node[module, dashed] (hP) at (7.3, 6.15) {\textbf{Head} $H_P$};
+\node[termbox, anchor=west] (deltabox) at (12.25,3.68) {};
+\node[font=\bfseries\scriptsize, anchor=west] at ($(deltabox.west)+(0.14,0.18)$) {Feature term $\delta$};
+\node[font=\scriptsize, anchor=west] at ($(deltabox.west)+(0.14,-0.08)$) {scale + shape};
+\draw[->, line width=0.85pt, accent] (11.85,3.68) -- (12.25,3.68);
 
-\draw[->, thick, proxycol] (nnP) -- (zP);
-\draw[->, thick, proxycol] (zP) -- (hP);
+\node[termbox, anchor=west] (scalebox) at (15.38,4.02) {};
+\node[termbox, anchor=west] (shapebox) at (15.38,3.0) {};
+\node[font=\bfseries\scriptsize, anchor=west] at ($(scalebox.west)+(0.14,0.15)$) {Scale mismatch};
+\node[font=\scriptsize, anchor=west] at ($(scalebox.west)+(0.14,-0.08)$) {$(\Delta\rho)^2$};
+\draw[targetcol, line width=0.75pt] ($(scalebox.east)+(-0.72,0)$) circle (0.16);
+\draw[proxycol, line width=0.75pt] ($(scalebox.east)+(-0.72,0)$) circle (0.09);
+\node[targetcol, font=\scriptsize] at ($(scalebox.east)+(-0.37,0)$) {$\rho_T$};
+\node[proxycol, font=\scriptsize] at ($(scalebox.east)+(-0.72,0)$) {$\rho_P$};
 
-% =========================================================
-% 3. TOP-RIGHT: PRISM (Shorter Funnel)
-% =========================================================
-% Compact PRISM: Top width 4cm, Height 3.2cm
-\draw[prismcol, thick, fill=purple!5, join=round] (9.2, 8.6) -- (13.2, 8.6) -- (11.2, 5.4) -- cycle;
-\node[prismcol, align=center] at (11.2, 7.6) {\textbf{PRISM}\\[1mm]\scriptsize Procrustes $W^*$};
+\node[font=\bfseries\scriptsize, anchor=west] at ($(shapebox.west)+(0.14,0.15)$) {Shape mismatch};
+\node[font=\scriptsize, anchor=west] at ($(shapebox.west)+(0.14,-0.08)$) {$1-\Omega$};
+\draw[targetcol, line width=0.75pt] ($(shapebox.east)+(-1.02,0.04)$) -- ++(0.16,0.14) -- ++(0.18,-0.02) -- ++(-0.02,-0.18) -- ++(-0.18,-0.06) -- cycle;
+\draw[proxycol, line width=0.75pt] ($(shapebox.east)+(-0.54,0.06)$) -- ++(0.14,0.18) -- ++(0.2,-0.04) -- ++(-0.02,-0.16) -- ++(-0.2,-0.1) -- cycle;
+\node[targetcol, font=\scriptsize] at ($(shapebox.east)+(-1.02,-0.24)$) {$Z_T$};
+\node[proxycol, font=\scriptsize] at ($(shapebox.east)+(-0.54,-0.12)$) {$Z_PW^*$};
 
-% Routing Z (Features) -> Down and right into slanted edge
-\draw[beam, targetcol, ->, rounded corners=4pt] (zT.south) -- (5.2, 7.5) -- (9.8, 7.5); 
-\draw[beam, proxycol, ->, rounded corners=4pt] (zP.south) -- (5.2, 5.55) -- (11.0, 5.6); 
+\draw[->, line width=0.8pt, accent] (deltabox.east) -- ++(0.34,0) |- (scalebox.west);
+\draw[->, line width=0.8pt, accent] (deltabox.east) -- ++(0.34,0) |- (shapebox.west);
 
-% Routing H (Heads) -> Direct dashed lines
-\draw[->, thick, dashed, targetcol] (hT.east) -- (9.45, 8.15); 
-\draw[->, thick, dashed, proxycol] (hP.east) -- (10.55, 6.15); 
+\node[termbox, anchor=west] (gammabox) at (12.25,1.95) {};
+\node[font=\bfseries\scriptsize, anchor=west] at ($(gammabox.west)+(0.14,0.18)$) {Head term $\gamma$};
+\node[font=\scriptsize, anchor=west] at ($(gammabox.west)+(0.14,-0.08)$) {$\|\Sigma_P^{1/2}\Delta H\|_F$};
+\draw[->, line width=0.85pt, accent] (11.25,2.52) -- (11.25,1.95) -- (12.25,1.95);
 
+\draw[->, line width=0.75pt, dashed, targetcol] (headT.east) -- ++(0.25,0) |- ($(gammabox.west)+(0.15,0.16)$);
+\draw[->, line width=0.75pt, dashed, proxycol] (headP.east) -- ++(0.25,0) |- ($(gammabox.west)+(0.15,-0.12)$);
+\draw[draw=gray!72, line width=0.7pt] ($(gammabox.east)+(-0.66,-0.02)$) ellipse (0.14 and 0.05);
+\node[targetcol, font=\scriptsize] at ($(gammabox.east)+(-0.3,0.18)$) {$H_T$};
+\node[proxycol, font=\scriptsize] at ($(gammabox.east)+(-0.16,-0.12)$) {$H_P$};
 
-% =========================================================
-% 4. BOTTOM: Compact Decomposition Cards
-% =========================================================
-\node[card, anchor=north] (card1) at (2.5, 4.4) {};
-\node[card, anchor=north] (card2) at (7.5, 4.4) {};
-\node[card, anchor=north] (card3) at (12.5, 4.4) {};
-
-% Titles (Normal Font Size)
-\node[font=\bfseries, align=center, yshift=-10pt] at (card1.north) {Scale Mismatch $(\Delta\rho)^2$};
-\node[font=\bfseries, align=center, yshift=-10pt] at (card2.north) {Shape Mismatch $(1-\Omega)$};
-\node[font=\bfseries, align=center, yshift=-10pt] at (card3.north) {Head Discrepancy $\|\Sigma_P^{1/2}\Delta H\|_F$};
-
-% Card 1: Scale (Circles perfectly centered)
-\begin{scope}[shift={($(card1.center) + (0, -0.2)$)}]
-    \draw[targetcol, thick, fill=blue!5, dashed] (0,0) circle (0.6);
-    \node[targetcol, font=\footnotesize\bfseries] at (0.9, 0) {$\rho_T$};
-    
-    \draw[proxycol, thick, fill=orange!20, dashed] (0,0) circle (0.3);
-    \node[proxycol, font=\footnotesize\bfseries] at (0, 0) {$\rho_Q$};
-\end{scope}
-
-% Card 2: Shape (Scaled down manifolds)
-\begin{scope}[shift={($(card2.center) + (0, -0.2)$)}]
-    \begin{scope}[shift={(-1.2, -0.3)}, scale=0.4]
-        \draw[targetcol, thick, fill=blue!10] (0,0) .. controls (1,0.5) .. (2,0) .. controls (2.5,1) .. (2,2) .. controls (1,1.5) .. (0,2) .. controls (-0.5,1) .. cycle;
-        \node[targetcol, font=\footnotesize\bfseries] at (1, -0.6) {$Z_T$};
-    \end{scope}
-    
-    \draw[->, gray, decorate, decoration={snake, amplitude=0.4mm, segment length=2mm, post length=1mm}] (-0.2, 0.1) -- (0.4, 0.1);
-    
-    \begin{scope}[shift={(0.6, -0.3)}, scale=0.4]
-        \draw[proxycol, thick, fill=orange!10] (0,0) .. controls (1,-0.3) .. (2.2,0.3) .. controls (1.5,1) .. (2.5,1.8) .. controls (1,1.5) .. (-0.2,1.8) .. controls (0.2,1) .. cycle;
-        \node[proxycol, font=\footnotesize\bfseries] at (1, -0.6) {$Z_P W^*$};
-    \end{scope}
-\end{scope}
-
-% Card 3: Head (Compact Ellipse)
-\begin{scope}[shift={($(card3.center) + (0, -0.4)$)}]
-    \draw[draw=gray!80, thick, fill=gray!20, rotate=12] (0, -0.1) ellipse (1.3 and 0.35);
-    \node[gray!80!black, font=\footnotesize] at (-0.7, -0.3) {$\Sigma_P$};
-    
-    \draw[->, thick, targetcol] (0, -0.1) -- (0.5, 0.7) node[left, font=\footnotesize] {$H_T$};
-    \draw[->, thick, proxycol] (0, -0.1) -- (1.2, 0.2) node[right, font=\footnotesize] {$H_P$};
-    
-    \draw[<-, thick, red] (0.35, 0.4) arc (60:15:0.6);
-    \node[red, font=\footnotesize\bfseries] at (0.9, 0.5) {$\Delta H$};
-\end{scope}
-
-
-% =========================================================
-% 5. WATERFALL REFRACTION BEAMS (Clean & Orthogonal)
-% =========================================================
-% Beams drop from PRISM tip (11.2, 5.4) and route cleanly into cards
-% Blue to Card 1
-\draw[beam, blue!60, ->, rounded corners=4pt] (11.1, 5.4) -- (11.1, 4.8) -- (2.5, 4.8) -- (card1.north);
-% Orange to Card 2
-\draw[beam, orange!80!red, ->, rounded corners=4pt] (11.2, 5.4) -- (11.2, 4.6) -- (7.5, 4.6) -- (card2.north);
-% Black to Card 3
-\draw[beam, black!60, ->, rounded corners=4pt] (11.3, 5.4) -- (11.3, 4.6) -- (12.5, 4.6) -- (card3.north);
-
-
-% =========================================================
-% 6. THIN UNIFIED BRACE (Standard Font Size)
-% =========================================================
-\draw[decorate, decoration={brace, amplitude=8pt, mirror}, thick, gray!80!black]
-    ($(card1.south west) + (0, -0.2)$) -- ($(card3.south east) + (0, -0.2)$)
-    node[midway, below=12pt, font=\normalsize\bfseries, text=black] {Unified Risk Discrepancy Bound: $|\mathcal{R}_T - \mathcal{R}_P|$};
-
-\end{tikzpicture}
+\end{tikzpicture}%
 }
-\caption{\textbf{PRISM geometric decomposition.} A shared forward pass extracts representations $(Z_T,Z_P)$ and linear heads $(H_T,H_P)$ from the target and proxy models. These quantities enter the Procrustes module, which refracts the overall proxy--target risk discrepancy into three computable diagnostics: scale collapse, structural distortion, and head discrepancy. Together, they bound the downstream performance gap.}
+\caption{\textbf{PRISM geometric decomposition.} Target and proxy features produce $Z_T$, $Z_P$, $H_T$, and $H_P$. After aligning proxy features by $W^*$, the risk bound separates into a feature term $\delta$ and a head term $\gamma$; the feature term further splits into scale mismatch and shape mismatch.}
 \label{fig:prism_concept}
 \end{figure}
