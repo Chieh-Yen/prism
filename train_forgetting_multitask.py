@@ -327,8 +327,12 @@ class PRISMCheckpointCallback(TrainerCallback):
         task_results: Dict[str, Dict[str, Any]] = {}
 
         with torch.no_grad():
-            for task in ALL_EVAL_TASKS:
+            total_tasks = len(ALL_EVAL_TASKS)
+            for idx, task in enumerate(ALL_EVAL_TASKS, start=1):
                 dl, z_mode = self.eval_dataloaders[task]
+                marker = " *" if task == self.trained_task else ""
+                task_t0 = time.time()
+                print(f"  [{idx}/{total_tasks}] {task:<10s} (z_mode={z_mode}){marker} ... ", end="", flush=True)
 
                 # Proxy features + loss (single forward pass)
                 Z_P, loss_stats_P = self.extractor.extract_features_and_loss_per_sample(
@@ -372,6 +376,21 @@ class PRISMCheckpointCallback(TrainerCallback):
                 # from answer-region tokens only (concat mode + prompt mask).
                 # The bound applies to the same token positions as Z.
                 primary_dr = delta_risk_answer if delta_risk_answer is not None else delta_risk_full
+                loss_s = (
+                    f"loss_answer={loss_P_answer:.4f}"
+                    if loss_P_answer is not None
+                    else f"loss_full={loss_P_full:.4f}"
+                )
+                bound_s = (
+                    f"Bound={prism.risk_bound_total:.4f}"
+                    if prism.risk_bound_total is not None
+                    else "Bound=—"
+                )
+                elapsed = time.time() - task_t0
+                print(
+                    f"Z={list(Z_P.shape)}  {loss_s}  |ΔR|={primary_dr:.4f}  "
+                    f"{bound_s}  ({elapsed:.1f}s)"
+                )
 
                 task_results[task] = {
                     # Geometry  (paper notation)
@@ -669,7 +688,7 @@ def _load_hf_dataset(task_name: str, split: str):
     if cfg["hf_subset"] is not None:
         hf_args.append(cfg["hf_subset"])
     actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
-    return load_dataset(*hf_args, split=actual_split, trust_remote_code=True)
+    return load_dataset(*hf_args, split=actual_split)
 
 
 def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
@@ -759,6 +778,8 @@ def main() -> None:
     )
     os.makedirs(output_dir, exist_ok=True)
 
+    warmup_steps = int(args.warmup_ratio * max_steps)
+
     experiment_config = {
         "model": args.model,
         "trained_task": args.task,
@@ -774,6 +795,7 @@ def main() -> None:
         "save_steps": save_steps,
         "max_length": args.max_length,
         "warmup_ratio": args.warmup_ratio,
+        "warmup_steps": warmup_steps,
         "max_train_samples": max_train_samples,
         "prism_eval_samples": args.prism_eval_samples,
         "train_loss_mode": "answer_only",
@@ -885,7 +907,7 @@ def main() -> None:
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=lr,
         lr_scheduler_type="cosine",
-        warmup_ratio=args.warmup_ratio,
+        warmup_steps=warmup_steps,
         weight_decay=0.01,
         max_grad_norm=1.0,
         optim=optim,

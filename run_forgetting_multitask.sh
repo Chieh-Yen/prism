@@ -36,9 +36,10 @@ TASKS="${TASKS:-arc mmlu squad triviaqa gsm8k}"
 
 CKPT_ROOT="./checkpoints/forgetting_multitask"
 LOG="screen_forgetting_multitask.log"
+ALT_LOG="screen.forgetting.log"
 
 # ── Helpers ───────────────────────────────────────────────────────────────
-log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
+log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG" "$ALT_LOG"; }
 
 # ── Main loop ─────────────────────────────────────────────────────────────
 log ""
@@ -69,7 +70,7 @@ for MODEL_KEY in $MODELS; do
             --model "$MODEL_ID" \
             --task "$TASK" \
             --output_dir "$OUT_DIR" \
-            2>&1 | tee -a "$LOG"
+            2>&1 | tee -a "$LOG" "$ALT_LOG"
 
         log "─── model=$MODEL_KEY  task=$TASK  done ───"
     done
