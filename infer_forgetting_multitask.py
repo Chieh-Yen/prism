@@ -390,33 +390,37 @@ def main() -> None:
                 else None
             )
 
+            # Primary |ΔR|: answer-only (aligned with Z extraction region)
+            primary_dr = delta_risk_answer if delta_risk_answer is not None else delta_risk_full
+
             result_row = {
                 "base_model": base_model_id,
                 "trained_task": trained_task,
                 "eval_task": task,
                 "step": step,
                 "checkpoint": ckpt_path,
-                # PRISM geometry
+                # Geometry (paper notation)
                 "omega": prism.omega,
-                "rho_target": prism.rho_target,
-                "rho_proxy": prism.rho_proxy,
-                "scale_mismatch": prism.scale_mismatch,
-                "shape_mismatch": prism.shape_mismatch,
-                "feature_error": prism.feature_error,
-                "head_discrepancy": prism.head_discrepancy,
-                "risk_bound_feature": prism.risk_bound_feature,
-                "risk_bound_head": prism.risk_bound_head,
-                "risk_bound_total": prism.risk_bound_total,
-                # Empirical risk
-                "loss_target": loss_target_full,
-                "loss_proxy": loss_proxy_full,
-                "delta_risk": delta_risk_full,
-                "loss_target_answer": loss_target_answer,
-                "loss_proxy_answer": loss_proxy_answer,
-                "delta_risk_answer": delta_risk_answer,
-                # Bound validation
+                "rho_T": prism.rho_target,
+                "rho_P": prism.rho_proxy,
+                "scale": prism.scale_mismatch,
+                "shape": prism.shape_mismatch,
+                "delta": prism.feature_error,
+                "gamma": prism.head_discrepancy,
+                "bound_feature": prism.risk_bound_feature,
+                "bound_head": prism.risk_bound_head,
+                "bound_total": prism.risk_bound_total,
+                # Empirical risk — answer-only (primary)
+                "loss_T": loss_target_answer,
+                "loss_P": loss_proxy_answer,
+                "delta_risk": primary_dr,
+                # Empirical risk — full-sequence (supplementary)
+                "loss_T_full": loss_target_full,
+                "loss_P_full": loss_proxy_full,
+                "delta_risk_full": delta_risk_full,
+                # Bound validation (answer-only)
                 "bound_holds": (
-                    prism.risk_bound_total >= delta_risk_full
+                    prism.risk_bound_total >= primary_dr
                     if prism.risk_bound_total is not None
                     else None
                 ),

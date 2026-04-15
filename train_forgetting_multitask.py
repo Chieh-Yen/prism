@@ -286,30 +286,35 @@ class PRISMCheckpointCallback(TrainerCallback):
                     else None
                 )
 
+                # Primary |ΔR|: use answer-only loss because Z is extracted
+                # from answer-region tokens only (concat mode + prompt mask).
+                # The bound applies to the same token positions as Z.
+                primary_dr = delta_risk_answer if delta_risk_answer is not None else delta_risk_full
+
                 task_results[task] = {
-                    # Geometry
-                    "omega": prism.omega,
-                    "rho_target": prism.rho_target,
-                    "rho_proxy": prism.rho_proxy,
-                    "scale_mismatch": prism.scale_mismatch,
-                    "shape_mismatch": prism.shape_mismatch,
-                    "feature_error": prism.feature_error,
-                    "head_discrepancy": prism.head_discrepancy,
-                    # Bound
-                    "risk_bound_feature": prism.risk_bound_feature,
-                    "risk_bound_head": prism.risk_bound_head,
-                    "risk_bound_total": prism.risk_bound_total,
-                    # Empirical risk (full-sequence)
-                    "loss_target": loss_T_full,
-                    "loss_proxy": loss_P_full,
-                    "delta_risk": delta_risk_full,
-                    # Empirical risk (answer-only)
-                    "loss_target_answer": loss_T_answer,
-                    "loss_proxy_answer": loss_P_answer,
-                    "delta_risk_answer": delta_risk_answer,
-                    # Bound validation
+                    # Geometry  (paper notation)
+                    "omega": prism.omega,                       # Ω  (Procrustes Similarity)
+                    "rho_T": prism.rho_target,                  # ρ_T  (target RMS scale)
+                    "rho_P": prism.rho_proxy,                   # ρ_P  (proxy RMS scale)
+                    "scale": prism.scale_mismatch,              # (ρ_T − ρ_P)²
+                    "shape": prism.shape_mismatch,              # 2 ρ_T ρ_P (1 − Ω)
+                    "delta": prism.feature_error,               # δ/K_feat = √(Scale + Shape)
+                    "gamma": prism.head_discrepancy,            # γ/K_pred = ‖Σ^½(WH_T−H_P)‖_F
+                    # Bound  (with K_feat=1, K_pred=1)
+                    "bound_feature": prism.risk_bound_feature,  # K_feat × δ
+                    "bound_head": prism.risk_bound_head,        # K_pred × γ
+                    "bound_total": prism.risk_bound_total,      # δ + γ
+                    # Empirical risk — answer-only (primary)
+                    "loss_T": loss_T_answer,                    # R(θ₀) on answer tokens
+                    "loss_P": loss_P_answer,                    # R(θ_t) on answer tokens
+                    "delta_risk": primary_dr,                   # |R(θ_t) − R(θ₀)|
+                    # Empirical risk — full-sequence (supplementary)
+                    "loss_T_full": loss_T_full,
+                    "loss_P_full": loss_P_full,
+                    "delta_risk_full": delta_risk_full,
+                    # Bound validation (answer-only |ΔR| vs bound)
                     "bound_holds": (
-                        prism.risk_bound_total >= delta_risk_full
+                        prism.risk_bound_total >= primary_dr
                         if prism.risk_bound_total is not None
                         else None
                     ),
@@ -330,58 +335,66 @@ class PRISMCheckpointCallback(TrainerCallback):
         tl_s = f"{train_loss:.4f}" if train_loss is not None else "—"
         el_s = f"{eval_loss:.4f}" if eval_loss is not None else "—"
 
-        print(f"  train_loss={tl_s}  eval_loss({self.trained_task})={el_s}  "
+        print(f"  train_loss={tl_s}  eval_loss({self.trained_task}, full-seq)={el_s}  "
               f"prism_eval={elapsed:.1f}s")
-        print()
+        print(f"  (eval_loss is Trainer's full-seq CE on training-task val data;")
+        print(f"   PRISM metrics below use separate eval data with answer-only loss)")
 
-        # Header
-        hdr = (
-            f"  {'Task':<11s}  {'Omega':>8s}  {'Drho^2':>10s}  {'1-Omega':>10s}"
-            f"  {'FeatErr':>8s}  {'HeadDisc':>8s}  {'Bound':>8s}"
-            f"  {'Loss_T':>8s}  {'Loss_P':>8s}  {'|dR|':>8s}"
+        # ── Table A: Geometry ────────────────────────────────────────
+        print()
+        print(f"  [Geometry]  δ = √(Scale+Shape),  γ = ‖Σ^½(WH_T−H_P)‖,  Bound = δ+γ  (K=1)")
+        hdr_a = (
+            f"  {'Task':<11s}"
+            f"  {'ρ_T':>8s}  {'ρ_P':>8s}"
+            f"  {'Ω':>10s}  {'Scale':>10s}  {'Shape':>10s}"
+            f"  {'δ':>8s}  {'γ':>8s}  {'Bound':>8s}"
         )
-        print(hdr)
-        print(f"  {'─' * (len(hdr) - 2)}")
+        print(hdr_a)
+        print(f"  {'─' * (len(hdr_a) - 2)}")
 
         for task in ALL_EVAL_TASKS:
             r = task_results[task]
             marker = " *" if task == self.trained_task else "  "
-            one_minus_omega = 1.0 - r["omega"]
-
-            dr_s = f"{r['delta_risk']:8.4f}"
-            bound_s = f"{r['risk_bound_total']:8.4f}" if r["risk_bound_total"] is not None else "       —"
+            bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] is not None else "       —"
 
             print(
                 f"  {task:<9s}{marker}"
-                f"  {r['omega']:8.6f}"
-                f"  {r['scale_mismatch']:10.6f}"
-                f"  {one_minus_omega:10.6f}"
-                f"  {r['feature_error']:8.4f}"
-                f"  {r['head_discrepancy']:8.4f}"
-                f"  {bound_s}"
-                f"  {r['loss_target']:8.4f}"
-                f"  {r['loss_proxy']:8.4f}"
-                f"  {dr_s}"
+                f"  {r['rho_T']:8.2f}  {r['rho_P']:8.2f}"
+                f"  {r['omega']:10.6f}  {r['scale']:10.6f}  {r['shape']:10.6f}"
+                f"  {r['delta']:8.4f}  {r['gamma']:8.4f}  {bound_s}"
             )
 
-        # Answer-only delta risk (if available)
-        has_answer = any(
-            r.get("delta_risk_answer") is not None for r in task_results.values()
+        # ── Table B: Empirical Risk (answer-only) ────────────────────
+        print()
+        print(f"  [Empirical Risk]  answer-only CE  (loss on answer tokens aligned with Z)")
+        hdr_b = (
+            f"  {'Task':<11s}"
+            f"  {'Loss_T':>8s}  {'Loss_P':>8s}  {'|ΔR|':>8s}"
+            f"  {'Bound':>8s}  {'Holds':>5s}"
         )
-        if has_answer:
-            print()
-            print(f"  {'Task':<11s}  {'ALoss_T':>8s}  {'ALoss_P':>8s}  {'|AdR|':>8s}")
-            print(f"  {'─' * 40}")
-            for task in ALL_EVAL_TASKS:
-                r = task_results[task]
-                marker = " *" if task == self.trained_task else "  "
-                if r.get("delta_risk_answer") is not None:
-                    print(
-                        f"  {task:<9s}{marker}"
-                        f"  {r['loss_target_answer']:8.4f}"
-                        f"  {r['loss_proxy_answer']:8.4f}"
-                        f"  {r['delta_risk_answer']:8.4f}"
-                    )
+        print(hdr_b)
+        print(f"  {'─' * (len(hdr_b) - 2)}")
+
+        for task in ALL_EVAL_TASKS:
+            r = task_results[task]
+            marker = " *" if task == self.trained_task else "  "
+            bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] is not None else "       —"
+            holds = r.get("bound_holds")
+            holds_s = "  yes" if holds is True else "   no" if holds is False else "    —"
+
+            if r["loss_T"] is not None:
+                print(
+                    f"  {task:<9s}{marker}"
+                    f"  {r['loss_T']:8.4f}  {r['loss_P']:8.4f}  {r['delta_risk']:8.4f}"
+                    f"  {bound_s}  {holds_s}"
+                )
+            else:
+                # Fallback to full-sequence if answer-only unavailable
+                print(
+                    f"  {task:<9s}{marker}"
+                    f"  {r['loss_T_full']:8.4f}  {r['loss_P_full']:8.4f}  {r['delta_risk_full']:8.4f}"
+                    f"  {bound_s}  {holds_s}  (full-seq)"
+                )
 
         print(f"{'=' * 78}")
 
@@ -389,16 +402,40 @@ class PRISMCheckpointCallback(TrainerCallback):
     def _save_json(self):
         """Overwrite the JSON file with all accumulated results."""
         os.makedirs(self.output_dir, exist_ok=True)
+
+        # Compute base rho from stored Z for completeness
+        base_summary = {}
+        for task in ALL_EVAL_TASKS:
+            Z = self.base_features[task]["Z"]
+            import math
+            rho = Z.norm("fro").item() / math.sqrt(Z.shape[0])
+            base_summary[task] = {
+                "rho": rho,
+                "loss_full": self.base_features[task]["loss_full"],
+                "loss_answer": self.base_features[task]["loss_answer"],
+                "Z_shape": list(Z.shape),
+            }
+
         payload = {
             "experiment": self.experiment_config,
-            "base_model_losses": {
-                task: {
-                    "loss_full": self.base_features[task]["loss_full"],
-                    "loss_answer": self.base_features[task]["loss_answer"],
-                    "Z_shape": list(self.base_features[task]["Z"].shape),
-                }
-                for task in ALL_EVAL_TASKS
+            "field_definitions": {
+                "omega": "Ω — Procrustes Similarity ∈ [0,1]",
+                "rho_T": "ρ_T — RMS feature scale of target (base model)",
+                "rho_P": "ρ_P — RMS feature scale of proxy (fine-tuned)",
+                "scale": "(ρ_T − ρ_P)² — scale mismatch",
+                "shape": "2 ρ_T ρ_P (1 − Ω) — shape mismatch",
+                "delta": "√(scale + shape) — feature alignment error (δ/K_feat)",
+                "gamma": "‖Σ_P^½ (W*H_T − H_P)‖_F — head discrepancy (γ/K_pred)",
+                "bound_total": "δ + γ — unified risk bound (K_feat=K_pred=1)",
+                "loss_T": "R(θ₀) — base model answer-only CE loss",
+                "loss_P": "R(θ_t) — fine-tuned model answer-only CE loss",
+                "delta_risk": "|R(θ_t) − R(θ₀)| — empirical forgetting (answer-only)",
+                "loss_T_full": "full-sequence CE loss (supplementary)",
+                "loss_P_full": "full-sequence CE loss (supplementary)",
+                "train_loss": "Trainer training loss (full-seq CE, training task only)",
+                "eval_loss": "Trainer eval loss (full-seq CE, training task val split)",
             },
+            "base_model": base_summary,
             "checkpoints": self.all_checkpoints,
         }
         with open(self.json_path, "w") as f:
