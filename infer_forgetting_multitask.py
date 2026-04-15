@@ -145,11 +145,12 @@ def compute_prism_metrics(
     Z_P: Tensor, H_P: Tensor,
     label: str,
 ) -> PRISMResult:
-    """Compute PRISM metrics with Procrustes alignment (W = W_opt)."""
+    """Compute PRISM metrics with identity alignment (W = I)."""
+    d = Z_T.shape[1]
     result = PRISMMetrics.compute_all(
         Z_T.float(), H_T.float(),
         Z_P.float(), H_P.float(),
-        W=None,         # Procrustes W_opt (rotational regime)
+        W=torch.eye(d, dtype=Z_T.dtype),
         label=label,
     )
     # Fill risk bound with K_feat=1, K_pred=1 as placeholders.

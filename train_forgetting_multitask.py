@@ -375,7 +375,7 @@ class PRISMCheckpointCallback(TrainerCallback):
 
                 task_results[task] = {
                     # Geometry  (paper notation)
-                    "omega": prism.omega,                       # Ω  (Procrustes Similarity)
+                    "omega": prism.omega,                       # Ω_I  (identity-aligned similarity)
                     "rho_T": prism.rho_target,                  # ρ_T  (target RMS scale)
                     "rho_P": prism.rho_proxy,                   # ρ_P  (proxy RMS scale)
                     "scale": prism.scale_mismatch,              # (ρ_T − ρ_P)²
@@ -501,13 +501,13 @@ class PRISMCheckpointCallback(TrainerCallback):
         payload = {
             "experiment": self.experiment_config,
             "field_definitions": {
-                "omega": "Ω — Procrustes Similarity ∈ [0,1]",
+                "omega": "Ω_I — identity-aligned similarity ∈ [-1,1]",
                 "rho_T": "ρ_T — RMS feature scale of target (base model)",
                 "rho_P": "ρ_P — RMS feature scale of proxy (fine-tuned)",
                 "scale": "(ρ_T − ρ_P)² — scale mismatch",
-                "shape": "2 ρ_T ρ_P (1 − Ω) — shape mismatch",
-                "delta": "√(scale + shape) — feature alignment error (δ/K_feat)",
-                "gamma": "‖Σ_P^½ (W*H_T − H_P)‖_F — head discrepancy (γ/K_pred)",
+                "shape": "2 ρ_T ρ_P (1 − Ω_I) — shape mismatch under W=I",
+                "delta": "√(scale + shape) — feature alignment error (δ/K_feat) under W=I",
+                "gamma": "‖Σ_P^½ (H_T − H_P)‖_F — head discrepancy (γ/K_pred) under W=I",
                 "bound_total": "δ + γ — unified risk bound (K_feat=K_pred=1)",
                 "loss_T": "R(θ₀) — base model answer-only CE loss",
                 "loss_P": "R(θ_t) — fine-tuned model answer-only CE loss",
