@@ -430,12 +430,12 @@ def main() -> None:
             # Log summary (use answer-only as primary)
             is_same = (task == trained_task)
             marker = " (trained)" if is_same else ""
+            lt = loss_target_answer if loss_target_answer is not None else loss_target_full
+            lp = loss_proxy_answer if loss_proxy_answer is not None else loss_proxy_full
             print(
                 f"    {task}{marker}: "
                 f"Ω={prism.omega:.4f}  δ={prism.feature_error:.4f}  γ={prism.head_discrepancy:.4f}  "
-                f"|ΔR|={primary_dr:.4f}  "
-                f"Loss_T={loss_target_answer or loss_target_full:.4f}  "
-                f"Loss_P={loss_proxy_answer or loss_proxy_full:.4f}"
+                f"|ΔR|={primary_dr:.4f}  Loss_T={lt:.4f}  Loss_P={lp:.4f}"
             )
 
         elapsed_ckpt = time.time() - t0
