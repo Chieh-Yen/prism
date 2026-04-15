@@ -1,0 +1,37 @@
+# PRISM — Multi-Task Catastrophic Forgetting (LoRA)
+#
+# Stage 2 config: evaluate geometric drift of LoRA-finetuned checkpoints
+# across all 5 tasks (ARC, MMLU, SQuAD, TriviaQA, GSM8K).
+#
+# Usage (invoked by run_forgetting_multitask.sh — can also run directly):
+#   python infer_forgetting_multitask.py --config configs/forgetting_multitask.yaml \
+#       --base_model meta-llama/Llama-3.1-8B \
+#       --checkpoint_dir checkpoints/forgetting_multitask/llama-3.1-8b/gsm8k \
+#       --output_dir results/forgetting_multitask/llama-3.1-8b/trained_gsm8k
+#
+# All fields can be overridden via CLI arguments.
+
+experiment: forgetting_multitask
+
+target:
+  model: meta-llama/Llama-3.1-8B     # overridden per run
+
+proxy:
+  checkpoint_dir: ""                   # overridden per run
+
+data:
+  eval_tasks:
+    - arc
+    - mmlu
+    - squad
+    - triviaqa
+    - gsm8k
+  num_samples: 256
+  batch_size: 4
+  max_length: 512
+
+output:
+  dir: ./results/forgetting_multitask  # overridden per run
+
+device: cuda
+seed: 42
