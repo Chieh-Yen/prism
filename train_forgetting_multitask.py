@@ -342,11 +342,12 @@ class PRISMCheckpointCallback(TrainerCallback):
                 loss_T_full = self.base_features[task]["loss_full"]
                 loss_T_answer = self.base_features[task]["loss_answer"]
 
-                # PRISM metrics (Procrustes alignment, W = W_opt)
+                # PRISM metrics (identity alignment, W = I)
+                d = Z_T.shape[1]
                 prism = PRISMMetrics.compute_all(
                     Z_T.float(), H_T.float(),
                     Z_P.float().cpu(), H_P.float().cpu(),
-                    W=None,
+                    W=torch.eye(d, dtype=Z_T.dtype),
                     label=f"step-{step}_{task}",
                 )
                 UnifiedBound.fill_result(prism, K_feat=1.0, K_pred=1.0)
