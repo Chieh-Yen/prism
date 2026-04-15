@@ -427,15 +427,15 @@ def main() -> None:
             }
             all_results.append(result_row)
 
-            # Log summary
+            # Log summary (use answer-only as primary)
             is_same = (task == trained_task)
             marker = " (trained)" if is_same else ""
-            dr_s = f"{delta_risk_full:.4f}"
             print(
                 f"    {task}{marker}: "
-                f"Ω={prism.omega:.4f}  Δρ={prism.scale_mismatch:.6f}  "
-                f"|ΔR|={dr_s}  "
-                f"Loss_base={loss_target_full:.4f}  Loss_ft={loss_proxy_full:.4f}"
+                f"Ω={prism.omega:.4f}  δ={prism.feature_error:.4f}  γ={prism.head_discrepancy:.4f}  "
+                f"|ΔR|={primary_dr:.4f}  "
+                f"Loss_T={loss_target_answer or loss_target_full:.4f}  "
+                f"Loss_P={loss_proxy_answer or loss_proxy_full:.4f}"
             )
 
         elapsed_ckpt = time.time() - t0
@@ -454,18 +454,26 @@ def main() -> None:
     # ── Print summary table ──────────────────────────────────────────────
     print(f"\n  Summary (final checkpoint, step {step_from_path(checkpoints[-1])}):")
     final_step = step_from_path(checkpoints[-1])
-    header = f"  {'Task':<12s} {'Ω':>8s} {'|ΔR|':>8s} {'Loss_base':>10s} {'Loss_ft':>10s} {'Bound':>8s}"
+    header = (
+        f"  {'Task':<11s}  {'ρ_T':>7s}  {'ρ_P':>7s}  {'Ω':>10s}"
+        f"  {'δ':>8s}  {'γ':>8s}  {'Bound':>8s}"
+        f"  {'Loss_T':>8s}  {'Loss_P':>8s}  {'|ΔR|':>8s}  {'Holds':>5s}"
+    )
     print(header)
-    print(f"  {'-' * len(header.strip())}")
+    print(f"  {'─' * (len(header) - 2)}")
     for r in all_results:
         if r["step"] == final_step:
-            marker = " *" if r["eval_task"] == trained_task else ""
-            bound_s = f"{r['risk_bound_total']:.4f}" if r["risk_bound_total"] else "—"
+            marker = " *" if r["eval_task"] == trained_task else "  "
+            bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] else "       —"
+            holds = r.get("bound_holds")
+            holds_s = "  yes" if holds is True else "   no" if holds is False else "    —"
+            lt = r["loss_T"] if r["loss_T"] is not None else r["loss_T_full"]
+            lp = r["loss_P"] if r["loss_P"] is not None else r["loss_P_full"]
             print(
-                f"  {r['eval_task']:<12s} "
-                f"{r['omega']:>8.4f} {r['delta_risk']:>8.4f} "
-                f"{r['loss_target']:>10.4f} {r['loss_proxy']:>10.4f} "
-                f"{bound_s:>8s}{marker}"
+                f"  {r['eval_task']:<9s}{marker}"
+                f"  {r['rho_T']:7.2f}  {r['rho_P']:7.2f}  {r['omega']:10.6f}"
+                f"  {r['delta']:8.4f}  {r['gamma']:8.4f}  {bound_s}"
+                f"  {lt:8.4f}  {lp:8.4f}  {r['delta_risk']:8.4f}  {holds_s}"
             )
 
 

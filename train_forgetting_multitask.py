@@ -37,7 +37,6 @@ from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    DataCollatorForLanguageModeling,
     Trainer,
     TrainerCallback,
     TrainerControl,
@@ -99,6 +98,88 @@ FORMATTERS = {
     "triviaqa": _format_triviaqa,
     "gsm8k": _format_gsm8k,
 }
+
+
+# ── Prompt-only formatters (question prefix, no answer) ──────────────────
+# Used to compute prompt_length so that loss is only on answer tokens.
+# Must be a strict prefix of the corresponding FORMATTER output.
+
+def _prompt_arc(row: dict) -> str:
+    q = row["question"]
+    labels = row["choices"]["label"]
+    texts = row["choices"]["text"]
+    opts = "\n".join(f"{labels[i]}. {texts[i]}" for i in range(len(labels)))
+    return f"Question: {q}\n{opts}\nAnswer:"
+
+
+def _prompt_mmlu(row: dict) -> str:
+    q = row["question"]
+    choices = row["choices"]
+    labels = ["A", "B", "C", "D"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    return f"Question: {q}\n{opts}\nAnswer:"
+
+
+def _prompt_squad(row: dict) -> str:
+    return f"Context: {row['context']}\nQuestion: {row['question']}\nAnswer:"
+
+
+def _prompt_triviaqa(row: dict) -> str:
+    return f"Question: {row['question']}\nAnswer:"
+
+
+def _prompt_gsm8k(row: dict) -> str:
+    return f"Question: {row['question']}\nAnswer:"
+
+
+PROMPT_FORMATTERS = {
+    "arc": _prompt_arc,
+    "mmlu": _prompt_mmlu,
+    "squad": _prompt_squad,
+    "triviaqa": _prompt_triviaqa,
+    "gsm8k": _prompt_gsm8k,
+}
+
+
+# ── Answer-only data collator ────────────────────────────────────────────
+
+class AnswerOnlyDataCollator:
+    """Collator that masks prompt tokens in labels → answer-only loss.
+
+    Each dataset sample must contain a ``prompt_length`` field indicating
+    how many leading tokens belong to the prompt.  The collator:
+
+      1. Pops ``prompt_length`` from each sample.
+      2. Pads ``input_ids`` / ``attention_mask`` dynamically per batch.
+      3. Creates ``labels`` = ``input_ids``.clone() with:
+         - labels[:prompt_length] = -100   (ignore prompt)
+         - labels[padding]        = -100   (ignore padding)
+
+    Result: the model only back-propagates through answer tokens.
+    """
+
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def __call__(self, features: list) -> dict:
+        # Pop prompt_length before padding (tokenizer.pad doesn't know it)
+        prompt_lengths = [f.pop("prompt_length") for f in features]
+
+        # Dynamic padding
+        batch = self.tokenizer.pad(
+            features, return_tensors="pt", padding=True,
+        )
+
+        # Build labels: answer-only
+        labels = batch["input_ids"].clone()
+        for i, pl in enumerate(prompt_lengths):
+            labels[i, :pl] = -100
+        if "attention_mask" in batch:
+            labels[batch["attention_mask"] == 0] = -100
+        batch["labels"] = labels
+
+        return batch
+
 
 # ── Task-specific dataset configuration ───────────────────────────────────
 
@@ -335,10 +416,10 @@ class PRISMCheckpointCallback(TrainerCallback):
         tl_s = f"{train_loss:.4f}" if train_loss is not None else "—"
         el_s = f"{eval_loss:.4f}" if eval_loss is not None else "—"
 
-        print(f"  train_loss={tl_s}  eval_loss({self.trained_task}, full-seq)={el_s}  "
+        print(f"  train_loss={tl_s}  eval_loss({self.trained_task})={el_s}  "
               f"prism_eval={elapsed:.1f}s")
-        print(f"  (eval_loss is Trainer's full-seq CE on training-task val data;")
-        print(f"   PRISM metrics below use separate eval data with answer-only loss)")
+        print(f"  (All losses are answer-only CE. eval_loss is Trainer validation on")
+        print(f"   training-task data; PRISM metrics below use separate eval data.)")
 
         # ── Table A: Geometry ────────────────────────────────────────
         print()
@@ -432,8 +513,8 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "delta_risk": "|R(θ_t) − R(θ₀)| — empirical forgetting (answer-only)",
                 "loss_T_full": "full-sequence CE loss (supplementary)",
                 "loss_P_full": "full-sequence CE loss (supplementary)",
-                "train_loss": "Trainer training loss (full-seq CE, training task only)",
-                "eval_loss": "Trainer eval loss (full-seq CE, training task val split)",
+                "train_loss": "Trainer training loss (answer-only CE, training task)",
+                "eval_loss": "Trainer eval loss (answer-only CE, training task val split)",
             },
             "base_model": base_summary,
             "checkpoints": self.all_checkpoints,
@@ -591,20 +672,56 @@ def _load_hf_dataset(task_name: str, split: str):
 
 
 def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
+    """Tokenize a dataset and compute prompt_length for answer-only loss.
+
+    Each tokenized example gets a ``prompt_length`` field (int) indicating
+    where the prompt ends, determined by longest-common-prefix matching
+    between the full-text and prompt-only tokenizations.  This guards
+    against context-dependent BPE divergence.
+    """
     raw = _load_hf_dataset(task_name, split)
     if max_samples is not None and len(raw) > max_samples:
         raw = raw.shuffle(seed=seed).select(range(max_samples))
+
     formatter = FORMATTERS[task_name]
+    prompt_formatter = PROMPT_FORMATTERS[task_name]
     original_columns = raw.column_names
 
     def tokenize_fn(batch):
         keys = list(batch.keys())
         n = len(batch[keys[0]])
-        texts = []
+        full_texts, prompt_texts = [], []
         for i in range(n):
             row = {k: batch[k][i] for k in keys}
-            texts.append(formatter(row))
-        return tokenizer(texts, truncation=True, max_length=max_length, padding=False)
+            full_texts.append(formatter(row))
+            prompt_texts.append(prompt_formatter(row))
+
+        # Tokenize full text (what the model trains on)
+        full_enc = tokenizer(
+            full_texts, truncation=True, max_length=max_length, padding=False,
+        )
+        # Tokenize prompt only (to find where the answer starts)
+        prompt_enc = tokenizer(
+            prompt_texts, truncation=True, max_length=max_length,
+            add_special_tokens=True,
+        )
+
+        # Compute prompt_length via longest-common-prefix (LCP) matching
+        # between full-text and prompt-only token IDs.
+        prompt_lengths = []
+        for i in range(n):
+            f_ids = full_enc["input_ids"][i]
+            p_ids = prompt_enc["input_ids"][i]
+            pl = 0
+            for k in range(min(len(p_ids), len(f_ids))):
+                if p_ids[k] == f_ids[k]:
+                    pl = k + 1
+                else:
+                    break
+            prompt_lengths.append(pl)
+
+        full_enc["prompt_length"] = prompt_lengths
+        return full_enc
 
     return raw.map(
         tokenize_fn, batched=True, remove_columns=original_columns,
@@ -658,6 +775,7 @@ def main() -> None:
         "warmup_ratio": args.warmup_ratio,
         "max_train_samples": max_train_samples,
         "prism_eval_samples": args.prism_eval_samples,
+        "train_loss_mode": "answer_only",
         "seed": args.seed,
     }
 
@@ -751,7 +869,7 @@ def main() -> None:
     )
 
     # ── Trainer ──────────────────────────────────────────────────────
-    collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    collator = AnswerOnlyDataCollator(tokenizer=tokenizer)
     try:
         import bitsandbytes  # noqa: F401
         optim = "paged_adamw_8bit"
@@ -778,7 +896,7 @@ def main() -> None:
         bf16=True,
         dataloader_num_workers=0,
         report_to="none",
-        remove_unused_columns=True,
+        remove_unused_columns=False,   # keep prompt_length for AnswerOnlyDataCollator
         seed=args.seed,
     )
 
