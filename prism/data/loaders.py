@@ -286,47 +286,78 @@ class TextDataset(Dataset):
         self.num_samples = len(texts)
 
         # Prompt lengths (for answer-only loss and last_context_token Z).
-        # We verify prefix alignment with the full-text tokenisation via a
-        # longest-common-prefix match so that prompt_length is always
-        # defined in the full-text token space.  This guards against
-        # context-dependent tokeniser divergence (e.g. SentencePiece
-        # unigram) and also handles left-padded sequences by including the
-        # padding offset in the stored prompt_length.
+        # Primary: use offset_mapping from the full-text tokenisation to
+        # find the exact character→token boundary.  This avoids the BPE
+        # divergence that occurs when prompt and full text are tokenised
+        # separately (e.g. ":" vs ": " merging differently).
+        # Fallback: LCP token matching (for slow / non-offset tokenisers).
         if prompt_formatter is not None:
             prompts = [p for _, p in raw]
-            prompt_enc = tokenizer(
-                prompts, truncation=True, max_length=max_length,
-                add_special_tokens=True,
-            )
             pad_id = tokenizer.pad_token_id
             prompt_lengths_list: List[int] = []
-            n_mismatch = 0
-            for i, p_ids in enumerate(prompt_enc["input_ids"]):
-                f_ids = self.encodings["input_ids"][i].tolist()
-                # Skip leading pad tokens (left-padded sequences)
-                f_start = 0
-                if pad_id is not None:
-                    while f_start < len(f_ids) and f_ids[f_start] == pad_id:
-                        f_start += 1
-                expected_pl = len(p_ids)
-                pl = 0
-                for k in range(min(expected_pl, len(f_ids) - f_start)):
-                    fk = f_ids[f_start + k]
-                    if pad_id is not None and fk == pad_id:
-                        break
-                    if p_ids[k] == fk:
-                        pl = k + 1
-                    else:
-                        break
-                if pl < expected_pl:
-                    n_mismatch += 1
-                prompt_lengths_list.append(f_start + pl)
-            if n_mismatch > 0:
-                import warnings
-                warnings.warn(
-                    f"Tokeniser prefix mismatch in {n_mismatch}/{len(prompts)} "
-                    f"samples; prompt_length adjusted via longest common prefix."
+
+            # --- Primary: character-offset approach (fast tokenisers) ---
+            _offsets = None
+            try:
+                _off_enc = tokenizer(
+                    texts, truncation=True, max_length=max_length,
+                    return_offsets_mapping=True,
                 )
+                _offsets = _off_enc.get("offset_mapping")
+            except Exception:
+                pass
+
+            if _offsets is not None:
+                for i in range(len(texts)):
+                    offsets = _offsets[i]
+                    prompt_end_char = len(prompts[i])
+                    f_ids = self.encodings["input_ids"][i].tolist()
+                    # Skip leading pad tokens (left-padded sequences)
+                    f_start = 0
+                    if pad_id is not None:
+                        while f_start < len(f_ids) and f_ids[f_start] == pad_id:
+                            f_start += 1
+                    # First token whose start char >= prompt boundary
+                    pl = len(offsets)  # default: answer truncated
+                    for j, (sc, ec) in enumerate(offsets):
+                        if sc >= prompt_end_char:
+                            pl = j
+                            break
+                    prompt_lengths_list.append(f_start + pl)
+            else:
+                # --- Fallback: LCP token matching (slow tokenisers) ---
+                prompt_enc = tokenizer(
+                    prompts, truncation=True, max_length=max_length,
+                    add_special_tokens=True,
+                )
+                n_mismatch = 0
+                for i, p_ids in enumerate(prompt_enc["input_ids"]):
+                    f_ids = self.encodings["input_ids"][i].tolist()
+                    f_start = 0
+                    if pad_id is not None:
+                        while f_start < len(f_ids) and f_ids[f_start] == pad_id:
+                            f_start += 1
+                    expected_pl = len(p_ids)
+                    pl = 0
+                    for k in range(min(expected_pl, len(f_ids) - f_start)):
+                        fk = f_ids[f_start + k]
+                        if pad_id is not None and fk == pad_id:
+                            break
+                        if p_ids[k] == fk:
+                            pl = k + 1
+                        else:
+                            break
+                    if pl < expected_pl:
+                        n_mismatch += 1
+                    prompt_lengths_list.append(f_start + pl)
+                if n_mismatch > 0:
+                    import warnings
+                    warnings.warn(
+                        f"Tokeniser prefix mismatch in {n_mismatch}/{len(prompts)} "
+                        f"samples; prompt_length adjusted via longest common "
+                        f"prefix."
+                    )
+
             self.prompt_lengths = torch.tensor(
                 prompt_lengths_list, dtype=torch.long,
             )
