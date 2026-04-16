@@ -225,6 +225,113 @@ class AnswerOnlyDataCollator:
         return batch
 
 
+# ── Shape-regularized Trainer (W=I, trace form) ────────────────────────────
+
+class ShapeRegularizedTrainer(Trainer):
+    """HF Trainer with PRISM shape regularization: L = L_CE + λ·(1 − Ω_I).
+
+    Uses trace-based Ω_I (identity alignment, W=I):
+        Ω_I = tr(Z_T^T Z_P) / (‖Z_T‖_F · ‖Z_P‖_F)
+
+    Every ``reg_every_k`` micro-steps, a forward pass is run on a fixed
+    reference set to extract Z_P, and the shape loss 1 − Ω_I is added
+    to the standard CE loss.  Z_T (base model features) is pre-computed
+    and frozen.
+    """
+
+    def __init__(
+        self,
+        *args,
+        Z_T_ref: Tensor,
+        ref_dataloader,
+        lambda_shape: float = 0.1,
+        reg_every_k: int = 8,
+        device_str: str = "cuda",
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.Z_T_ref = Z_T_ref          # (n_tokens, d) CPU float32 detached
+        self._ref_dl = ref_dataloader
+        self._lambda = lambda_shape
+        self._reg_k = reg_every_k
+        self._device_str = device_str
+        self._micro = 0
+
+        # Logging accumulators (reset at each log() call)
+        self._shape_sum = 0.0
+        self._omega_sum = 0.0
+        self._count = 0
+
+    # ------------------------------------------------------------------
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        outputs = model(**inputs)
+        ce_loss = outputs.loss
+
+        do_reg = self._lambda > 0 and self._micro % self._reg_k == 0
+        self._micro += 1
+
+        if do_reg:
+            shape_loss, omega_val = self._compute_shape_loss(model)
+            total_loss = ce_loss + self._lambda * shape_loss
+
+            self._shape_sum += shape_loss.item()
+            self._omega_sum += omega_val
+            self._count += 1
+        else:
+            total_loss = ce_loss
+
+        if return_outputs:
+            return total_loss, outputs
+        return total_loss
+
+    # ------------------------------------------------------------------
+    def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
+        """Differentiable shape loss: 1 − Ω_I on reference data.
+
+        Forward-passes the reference DataLoader (with gradients enabled)
+        to build Z_P, then computes the trace-based Ω_I against the
+        frozen Z_T_ref.
+
+        Returns:
+            shape_loss: scalar tensor with grad_fn
+            omega_val:  float for logging
+        """
+        Z_P_parts: List[Tensor] = []
+
+        for batch in self._ref_dl:
+            batch_gpu = {k: v.to(self._device_str) for k, v in batch.items()}
+            prompt_lens = batch_gpu.pop("prompt_length", None)
+            masks = batch_gpu.get("attention_mask")
+
+            out = model(**batch_gpu, output_hidden_states=True)
+            hidden = out.hidden_states[-1]                   # (bsz, seq, d)
+
+            z = LLMExtractor._extract_z(hidden, masks, "concat", prompt_lens)
+            Z_P_parts.append(z)
+
+        Z_P = torch.cat(Z_P_parts, dim=0).float()           # (n_tok, d) GPU
+        Z_T = self.Z_T_ref.to(Z_P.device)                   # (n_tok, d) GPU
+
+        # Trace-based Ω_I (W = I): Frobenius cosine similarity
+        trace = (Z_T * Z_P).sum()                            # ⟨Z_T, Z_P⟩_F
+        denom = Z_T.norm("fro") * Z_P.norm("fro")
+        omega_I = trace / denom.clamp(min=1e-12)
+
+        shape_loss = 1.0 - omega_I
+        return shape_loss, omega_I.item()
+
+    # ------------------------------------------------------------------
+    def log(self, logs: Dict[str, float]) -> None:
+        """Inject shape regularizer metrics into log entries."""
+        if self._count > 0:
+            logs["shape_loss"] = round(self._shape_sum / self._count, 6)
+            logs["omega_ref"] = round(self._omega_sum / self._count, 6)
+            self._shape_sum = 0.0
+            self._omega_sum = 0.0
+            self._count = 0
+        super().log(logs)
+
+
 # ── Task-specific dataset configuration ───────────────────────────────────
 
 TASK_CONFIGS = {
@@ -762,6 +869,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--prism_eval_batch_size", type=int, default=4,
                    help="Batch size for PRISM feature extraction")
 
+    # Shape regularization (W=I trace form)
+    p.add_argument("--lambda_shape", type=float, default=0.0,
+                   help="Weight for shape regularizer 1-Ω_I (0 = disabled)")
+    p.add_argument("--reg_every_k", type=int, default=8,
+                   help="Compute shape regularizer every K micro-steps (default: match grad_accum)")
+    p.add_argument("--reg_samples", type=int, default=32,
+                   help="Number of reference samples for shape regularizer")
+    p.add_argument("--reg_batch_size", type=int, default=8,
+                   help="Batch size for reference forward pass")
+
     # Misc
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--logging_steps", type=int, default=10)
@@ -948,6 +1065,9 @@ def main() -> None:
         "prism_eval_samples": args.prism_eval_samples,
         "train_loss_mode": "answer_only",
         "seed": args.seed,
+        "lambda_shape": args.lambda_shape,
+        "reg_every_k": args.reg_every_k if args.lambda_shape > 0 else None,
+        "reg_samples": args.reg_samples if args.lambda_shape > 0 else None,
     }
 
     print(f"{'=' * 78}")
@@ -988,6 +1108,30 @@ def main() -> None:
         seed=args.seed,
         device=tensor_device,
     )
+
+    # ── Pre-compute reference features for shape regularizer ────────
+    Z_T_ref = None
+    ref_dataloader = None
+    if args.lambda_shape > 0:
+        reg_meta = get_task_metadata(args.task)
+        z_mode_ref = reg_meta["z_mode"]
+
+        ref_dataloader = load_task_data(
+            args.task, split="test",
+            num_samples=args.reg_samples,
+            batch_size=args.reg_batch_size,
+            tokenizer=tokenizer,
+            max_length=args.max_length,
+            seed=args.seed + 1000,
+        )
+
+        print(f"\nPre-computing Z_T_ref for shape regularizer ...")
+        print(f"  task={args.task}, n={args.reg_samples}, z_mode={z_mode_ref}")
+        Z_T_ref = extractor.extract_features(
+            model, ref_dataloader, tensor_device, z_mode=z_mode_ref,
+        )
+        Z_T_ref = Z_T_ref.float().cpu()
+        print(f"  Z_T_ref shape: {list(Z_T_ref.shape)}")
 
     # ── Apply LoRA ───────────────────────────────────────────────────
     model.gradient_checkpointing_enable()
@@ -1073,7 +1217,7 @@ def main() -> None:
         seed=args.seed,
     )
 
-    trainer = Trainer(
+    trainer_kwargs = dict(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -1081,6 +1225,19 @@ def main() -> None:
         data_collator=collator,
         callbacks=[prism_callback],
     )
+    if args.lambda_shape > 0:
+        print(f"\n  Shape regularizer: λ={args.lambda_shape}, "
+              f"every_k={args.reg_every_k}, samples={args.reg_samples}")
+        trainer = ShapeRegularizedTrainer(
+            **trainer_kwargs,
+            Z_T_ref=Z_T_ref,
+            ref_dataloader=ref_dataloader,
+            lambda_shape=args.lambda_shape,
+            reg_every_k=args.reg_every_k,
+            device_str=tensor_device,
+        )
+    else:
+        trainer = Trainer(**trainer_kwargs)
 
     # ── Train ────────────────────────────────────────────────────────
     print(f"\nStarting training ...")

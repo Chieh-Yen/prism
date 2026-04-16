@@ -17,11 +17,13 @@
 #   CUDA_GPU=0          GPU index (default: 0)
 #   MODELS="llama qwen" Which models (default: both)
 #   TASKS="truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k"
+#   SHAPE_REG=1         Enable shape regularizer (default: off)
+#   LAMBDA_SHAPE=0.1    Shape reg weight (default: 0.1)
 #
 # Examples:
 #   bash run_forgetting_multitask.sh
-#   CUDA_GPU=0 MODELS="llama" TASKS="truthfulqa" bash run_forgetting_multitask.sh
-#   MODELS="qwen" TASKS="bbq social_iqa" bash run_forgetting_multitask.sh
+#   SHAPE_REG=1 bash run_forgetting_multitask.sh
+#   SHAPE_REG=1 LAMBDA_SHAPE=1.0 TASKS="arc" bash run_forgetting_multitask.sh
 # ============================================================
 set -euo pipefail
 
@@ -37,7 +39,19 @@ MODEL_IDS[qwen]="Qwen/Qwen3-8B-Base"
 MODELS="${MODELS:-llama qwen}"
 TASKS="${TASKS:-truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k}"
 
+# ── Shape regularizer ─────────────────────────────────────────────────────
+SHAPE_REG="${SHAPE_REG:-0}"
+LAMBDA_SHAPE="${LAMBDA_SHAPE:-0.1}"
+
+SHAPE_ARGS=""
+if [ "$SHAPE_REG" = "1" ]; then
+    SHAPE_ARGS="--lambda_shape $LAMBDA_SHAPE --reg_every_k 8 --reg_samples 32"
+fi
+
 CKPT_ROOT="./checkpoints/forgetting_multitask"
+if [ "$SHAPE_REG" = "1" ]; then
+    CKPT_ROOT="./checkpoints/forgetting_multitask_shape_lam${LAMBDA_SHAPE}"
+fi
 LOG="screen_forgetting_multitask.log"
 ALT_LOG="screen.forgetting.log"
 
@@ -51,6 +65,11 @@ log "  PRISM Forgetting — LoRA Fine-Tuning + Online Monitoring"
 log "  Models : $MODELS"
 log "  Tasks  : $TASKS"
 log "  GPU    : $GPUID"
+if [ "$SHAPE_REG" = "1" ]; then
+log "  Shape  : ON  (λ=$LAMBDA_SHAPE)"
+else
+log "  Shape  : OFF"
+fi
 log "============================================================"
 
 for MODEL_KEY in $MODELS; do
@@ -74,6 +93,7 @@ for MODEL_KEY in $MODELS; do
             --task "$TASK" \
             --output_dir "$OUT_DIR" \
             --lr 2e-5 \
+            $SHAPE_ARGS \
             2>&1 | tee -a "$LOG" "$ALT_LOG"
 
         log "─── model=$MODEL_KEY  task=$TASK  done ───"
