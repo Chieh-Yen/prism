@@ -7,6 +7,7 @@ for any registered task (HuggingFace datasets, image classification, text, …).
 
 from __future__ import annotations
 
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
@@ -55,12 +56,35 @@ def _format_squad(row: Dict[str, Any]) -> str:
     return f"Context: {context}\nQuestion: {q}\nAnswer: {ans}"
 
 
+def _format_truthfulqa(row: Dict[str, Any]) -> str:
+    return f"Question: {row['question']}\nAnswer: {row['best_answer']}"
+
+
+def _format_bbq(row: Dict[str, Any]) -> str:
+    choices = row["choices"]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    ans_label = labels[row["gold_index"]]
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
+
+
+def _format_social_iqa(row: Dict[str, Any]) -> str:
+    answers = [row["answerA"], row["answerB"], row["answerC"]]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {answers[i]}" for i in range(3))
+    ans_label = labels[int(row["label"]) - 1]  # 1-indexed → 0-indexed
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
+
+
 _FORMATTERS: Dict[str, Callable] = {
-    "gsm8k":    _format_gsm8k,
-    "mmlu":     _format_mmlu,
-    "arc":      _format_arc,
-    "triviaqa": _format_triviaqa,
-    "squad":    _format_squad,
+    "gsm8k":      _format_gsm8k,
+    "mmlu":       _format_mmlu,
+    "arc":        _format_arc,
+    "triviaqa":   _format_triviaqa,
+    "squad":      _format_squad,
+    "truthfulqa": _format_truthfulqa,
+    "bbq":        _format_bbq,
+    "social_iqa": _format_social_iqa,
 }
 
 
@@ -94,12 +118,33 @@ def _prompt_squad(row: Dict[str, Any]) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\nAnswer:"
 
 
+def _prompt_truthfulqa(row: Dict[str, Any]) -> str:
+    return f"Question: {row['question']}\nAnswer:"
+
+
+def _prompt_bbq(row: Dict[str, Any]) -> str:
+    choices = row["choices"]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
+
+
+def _prompt_social_iqa(row: Dict[str, Any]) -> str:
+    answers = [row["answerA"], row["answerB"], row["answerC"]]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {answers[i]}" for i in range(3))
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
+
+
 _PROMPT_FORMATTERS: Dict[str, Callable] = {
-    "gsm8k":    _prompt_gsm8k,
-    "mmlu":     _prompt_mmlu,
-    "arc":      _prompt_arc,
-    "triviaqa": _prompt_triviaqa,
-    "squad":    _prompt_squad,
+    "gsm8k":      _prompt_gsm8k,
+    "mmlu":       _prompt_mmlu,
+    "arc":        _prompt_arc,
+    "triviaqa":   _prompt_triviaqa,
+    "squad":      _prompt_squad,
+    "truthfulqa": _prompt_truthfulqa,
+    "bbq":        _prompt_bbq,
+    "social_iqa": _prompt_social_iqa,
 }
 
 
@@ -145,6 +190,13 @@ TASK_REGISTRY: Dict[str, Dict] = {
     "squad":         {"hf_id": "rajpurkar/squad",                                    "formatter": "squad",    "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
+                      "z_mode": "concat", "loss_mode": "answer"},
+    # Safety / truthfulness / social reasoning
+    "truthfulqa":    {"hf_id": "truthful_qa",         "hf_subset": "generation",    "formatter": "truthfulqa", "split_map": {"test": "validation[80%:]"},
+                      "z_mode": "concat", "loss_mode": "answer"},
+    "bbq":           {"hf_id": "lighteval/bbq_helm",  "hf_subset": "all",           "formatter": "bbq",   "split_map": {"test": "test[80%:]"},
+                      "z_mode": "concat", "loss_mode": "answer"},
+    "social_iqa":    {"hf_id": "allenai/social_i_qa",                               "formatter": "social_iqa", "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
 }
 
@@ -292,6 +344,48 @@ class TextDataset(Dataset):
 
 
 # ======================================================================
+# Social IQa custom loader (HF script deprecated)
+# ======================================================================
+_SOCIAL_IQA_URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/socialiqa-train-dev.zip"
+_SOCIAL_IQA_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "social_iqa")
+
+
+def _load_social_iqa(split: str):
+    """Download Social IQa from AI2's public bucket and return an HF Dataset."""
+    import io
+    import json
+    import os
+    import zipfile
+
+    import requests
+    from datasets import Dataset as HFDataset
+
+    os.makedirs(_SOCIAL_IQA_CACHE, exist_ok=True)
+
+    # Map HF-style split names to file names
+    split_name = "dev" if split in ("validation", "dev", "test") else "train"
+    jsonl_path = os.path.join(_SOCIAL_IQA_CACHE, f"{split_name}.jsonl")
+    labels_path = os.path.join(_SOCIAL_IQA_CACHE, f"{split_name}-labels.lst")
+
+    if not os.path.exists(jsonl_path) or not os.path.exists(labels_path):
+        r = requests.get(_SOCIAL_IQA_URL, timeout=60)
+        r.raise_for_status()
+        z = zipfile.ZipFile(io.BytesIO(r.content))
+        for name in ["train.jsonl", "train-labels.lst", "dev.jsonl", "dev-labels.lst"]:
+            with z.open(f"socialiqa-train-dev/{name}") as zf, \
+                 open(os.path.join(_SOCIAL_IQA_CACHE, name), "wb") as out:
+                out.write(zf.read())
+
+    with open(jsonl_path) as f:
+        rows = [json.loads(line) for line in f]
+    with open(labels_path) as f:
+        labels = [line.strip() for line in f]
+    for row, label in zip(rows, labels):
+        row["label"] = label
+    return HFDataset.from_list(rows)
+
+
+# ======================================================================
 # Public API
 # ======================================================================
 def load_task_data(
@@ -331,13 +425,17 @@ def load_task_data(
     meta = TASK_REGISTRY[task_name]
     hf_split = meta.get("split_map", {}).get(split, split)
 
-    load_kwargs = {"split": hf_split}
-    if "hf_subset" in meta:
-        load_kwargs["name"] = meta["hf_subset"]
-    if meta.get("streaming"):
-        load_kwargs["streaming"] = True
+    # Social IQa: HF loading script is deprecated; use custom loader
+    if task_name == "social_iqa":
+        hf_dataset = _load_social_iqa(hf_split)
+    else:
+        load_kwargs = {"split": hf_split}
+        if "hf_subset" in meta:
+            load_kwargs["name"] = meta["hf_subset"]
+        if meta.get("streaming"):
+            load_kwargs["streaming"] = True
 
-    hf_dataset = load_dataset(meta["hf_id"], **load_kwargs)
+        hf_dataset = load_dataset(meta["hf_id"], **load_kwargs)
 
     if meta.get("streaming"):
         # Streaming datasets (c4): take first N rows; shuffle not supported.

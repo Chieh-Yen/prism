@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Stage 1 — LoRA fine-tune a base model on one of 5 tasks.
+Stage 1 — LoRA fine-tune a base model on one of 8 tasks.
 
-At every checkpoint, computes PRISM forgetting metrics on ALL 5 eval tasks
+At every checkpoint, computes PRISM forgetting metrics on ALL 8 eval tasks
 and saves the full results to JSON.  This eliminates the need for a separate
 Stage 2 inference pass for most analysis.
 
-Fine-tuning tasks: ARC, MMLU, SQuAD, TriviaQA, GSM8K
+Fine-tuning tasks: TruthfulQA, BBQ, Social IQa, ARC, MMLU, SQuAD, TriviaQA, GSM8K
 Models: meta-llama/Llama-3.1-8B, Qwen/Qwen3-8B-Base (or any causal LM)
 
 Under LoRA the lm_head is frozen (H_t = H_0), so PRISM's head divergence
@@ -91,12 +91,35 @@ def _format_gsm8k(row: dict) -> str:
     return f"Question: {row['question']}\nAnswer: {row['answer']}"
 
 
+def _format_truthfulqa(row: dict) -> str:
+    return f"Question: {row['question']}\nAnswer: {row['best_answer']}"
+
+
+def _format_bbq(row: dict) -> str:
+    choices = row["choices"]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    ans_label = labels[row["gold_index"]]
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
+
+
+def _format_social_iqa(row: dict) -> str:
+    answers = [row["answerA"], row["answerB"], row["answerC"]]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {answers[i]}" for i in range(3))
+    ans_label = labels[int(row["label"]) - 1]  # 1-indexed → 0-indexed
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
+
+
 FORMATTERS = {
     "arc": _format_arc,
     "mmlu": _format_mmlu,
     "squad": _format_squad,
     "triviaqa": _format_triviaqa,
     "gsm8k": _format_gsm8k,
+    "truthfulqa": _format_truthfulqa,
+    "bbq": _format_bbq,
+    "social_iqa": _format_social_iqa,
 }
 
 
@@ -132,12 +155,33 @@ def _prompt_gsm8k(row: dict) -> str:
     return f"Question: {row['question']}\nAnswer:"
 
 
+def _prompt_truthfulqa(row: dict) -> str:
+    return f"Question: {row['question']}\nAnswer:"
+
+
+def _prompt_bbq(row: dict) -> str:
+    choices = row["choices"]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
+
+
+def _prompt_social_iqa(row: dict) -> str:
+    answers = [row["answerA"], row["answerB"], row["answerC"]]
+    labels = ["A", "B", "C"]
+    opts = "\n".join(f"{labels[i]}. {answers[i]}" for i in range(3))
+    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
+
+
 PROMPT_FORMATTERS = {
     "arc": _prompt_arc,
     "mmlu": _prompt_mmlu,
     "squad": _prompt_squad,
     "triviaqa": _prompt_triviaqa,
     "gsm8k": _prompt_gsm8k,
+    "truthfulqa": _prompt_truthfulqa,
+    "bbq": _prompt_bbq,
+    "social_iqa": _prompt_social_iqa,
 }
 
 
@@ -184,6 +228,38 @@ class AnswerOnlyDataCollator:
 # ── Task-specific dataset configuration ───────────────────────────────────
 
 TASK_CONFIGS = {
+    # ── New tasks (safety / truthfulness / social reasoning) ─────────
+    "truthfulqa": {
+        "hf_id": "truthful_qa",
+        "hf_subset": "generation",
+        "train_split": "validation[:80%]",   # only split; first 80% for train (~653)
+        "eval_split": "validation[80%:]",    # last 20% for eval (~164)
+        "max_train_samples": None,
+        "max_eval_samples": None,
+        "default_max_steps": 700,
+        "default_save_steps": 25,
+    },
+    "bbq": {
+        "hf_id": "lighteval/bbq_helm",
+        "hf_subset": "all",
+        "train_split": "test[:80%]",         # only split; first 80% for train (~800)
+        "eval_split": "test[80%:]",          # last 20% for eval (~200)
+        "max_train_samples": None,
+        "max_eval_samples": None,
+        "default_max_steps": 700,
+        "default_save_steps": 25,
+    },
+    "social_iqa": {
+        "hf_id": "allenai/social_i_qa",
+        "hf_subset": None,
+        "train_split": "train",
+        "eval_split": "validation",
+        "max_train_samples": 8000,
+        "max_eval_samples": 256,
+        "default_max_steps": 1500,
+        "default_save_steps": 50,
+    },
+    # ── Original tasks ───────────────────────────────────────────────
     "arc": {
         "hf_id": "allenai/ai2_arc",
         "hf_subset": "ARC-Challenge",
@@ -192,7 +268,7 @@ TASK_CONFIGS = {
         "max_train_samples": None,   # use all 1,119
         "max_eval_samples": 256,
         "default_max_steps": 700,
-        "default_save_steps": 50,
+        "default_save_steps": 25,
     },
     "mmlu": {
         "hf_id": "cais/mmlu",
@@ -202,7 +278,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 100,
+        "default_save_steps": 50,
     },
     "squad": {
         "hf_id": "rajpurkar/squad",
@@ -212,7 +288,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 100,
+        "default_save_steps": 50,
     },
     "triviaqa": {
         "hf_id": "trivia_qa",
@@ -222,7 +298,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 100,
+        "default_save_steps": 50,
     },
     "gsm8k": {
         "hf_id": "openai/gsm8k",
@@ -232,11 +308,22 @@ TASK_CONFIGS = {
         "max_train_samples": None,   # use all 7,473
         "max_eval_samples": 256,
         "default_max_steps": 1400,
-        "default_save_steps": 100,
+        "default_save_steps": 50,
     },
 }
 
-ALL_EVAL_TASKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
+BASE_EVAL_TASKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
+
+
+def get_eval_tasks(trained_task: str) -> list:
+    """Return eval task list: trained task (first) + base tasks.
+
+    If the trained task is already in BASE_EVAL_TASKS, just return the base
+    list with the trained task moved to front.  Otherwise prepend it (6 total).
+    """
+    if trained_task in BASE_EVAL_TASKS:
+        return [trained_task] + [t for t in BASE_EVAL_TASKS if t != trained_task]
+    return [trained_task] + BASE_EVAL_TASKS
 
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",
@@ -249,7 +336,7 @@ LORA_TARGET_MODULES = [
 # ======================================================================
 
 class PRISMCheckpointCallback(TrainerCallback):
-    """Evaluate PRISM forgetting metrics on all 5 tasks at each checkpoint.
+    """Evaluate PRISM forgetting metrics on eval tasks at each checkpoint.
 
     Pre-computes base-model features once, then at every save step:
       1. Switches the PEFT model to eval mode
@@ -269,6 +356,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         eval_dataloaders: Dict[str, Tuple[Any, str]],
         extractor: LLMExtractor,
         trained_task: str,
+        eval_tasks: List[str],
         model_id: str,
         output_dir: str,
         device: str,
@@ -280,6 +368,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         self.eval_dataloaders = eval_dataloaders  # {task: (dataloader, z_mode)}
         self.extractor = extractor
         self.trained_task = trained_task
+        self.eval_tasks = eval_tasks             # tasks to evaluate at each checkpoint
         self.model_id = model_id
         self.output_dir = output_dir
         self.device = device
@@ -327,8 +416,8 @@ class PRISMCheckpointCallback(TrainerCallback):
         task_results: Dict[str, Dict[str, Any]] = {}
 
         with torch.no_grad():
-            total_tasks = len(ALL_EVAL_TASKS)
-            for idx, task in enumerate(ALL_EVAL_TASKS, start=1):
+            total_tasks = len(self.eval_tasks)
+            for idx, task in enumerate(self.eval_tasks, start=1):
                 dl, z_mode = self.eval_dataloaders[task]
                 marker = " *" if task == self.trained_task else ""
                 task_t0 = time.time()
@@ -453,7 +542,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         print(hdr_a)
         print(f"  {'─' * (len(hdr_a) - 2)}")
 
-        for task in ALL_EVAL_TASKS:
+        for task in self.eval_tasks:
             r = task_results[task]
             marker = " *" if task == self.trained_task else "  "
             bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] is not None else "       —"
@@ -476,7 +565,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         print(hdr_b)
         print(f"  {'─' * (len(hdr_b) - 2)}")
 
-        for task in ALL_EVAL_TASKS:
+        for task in self.eval_tasks:
             r = task_results[task]
             marker = " *" if task == self.trained_task else "  "
             bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] is not None else "       —"
@@ -506,7 +595,7 @@ class PRISMCheckpointCallback(TrainerCallback):
 
         # Compute base rho from stored Z for completeness
         base_summary = {}
-        for task in ALL_EVAL_TASKS:
+        for task in self.eval_tasks:
             Z = self.base_features[task]["Z"]
             import math
             rho = Z.norm("fro").item() / math.sqrt(Z.shape[0])
@@ -560,20 +649,21 @@ def pre_compute_base_features(
     model: torch.nn.Module,
     tokenizer,
     extractor: LLMExtractor,
+    eval_tasks: List[str],
     num_samples: int,
     batch_size: int,
     max_length: int,
     seed: int,
     device: str,
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Tuple[Any, str]]]:
-    """Extract base model features + loss on all 5 eval tasks.
+    """Extract base model features + loss on eval tasks.
 
     Returns:
         base_features:    {task: {Z, H, loss_full, loss_answer, Z_shape}}
         eval_dataloaders: {task: (DataLoader, z_mode)}  — reused in callback
     """
     print(f"\n{'─' * 78}")
-    print(f"  Pre-computing base model features on {len(ALL_EVAL_TASKS)} eval tasks")
+    print(f"  Pre-computing base model features on {len(eval_tasks)} eval tasks")
     print(f"  (n={num_samples}, batch_size={batch_size}, max_length={max_length})")
     print(f"{'─' * 78}")
 
@@ -581,7 +671,7 @@ def pre_compute_base_features(
     base_features: Dict[str, Dict[str, Any]] = {}
     eval_dataloaders: Dict[str, Tuple[Any, str]] = {}
 
-    for task in ALL_EVAL_TASKS:
+    for task in eval_tasks:
         meta = get_task_metadata(task)
         z_mode = meta["z_mode"]
         print(f"  {task:<10s} (z_mode={z_mode}) ... ", end="", flush=True)
@@ -682,10 +772,64 @@ def parse_args() -> argparse.Namespace:
 # Data loading  (for training only — PRISM eval uses prism.data.loaders)
 # ======================================================================
 
+_SOCIAL_IQA_URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/socialiqa-train-dev.zip"
+_SOCIAL_IQA_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "social_iqa")
+
+
+def _load_social_iqa(split: str):
+    """Download Social IQa from the original source and return an HF Dataset.
+
+    The allenai/social_i_qa HuggingFace repo uses a deprecated loading script,
+    so we download the raw JSONL + label files directly from AI2's public bucket.
+    """
+    import io
+    import json
+    import zipfile
+    import requests
+    from datasets import Dataset as HFDataset
+
+    cache_dir = _SOCIAL_IQA_CACHE
+    os.makedirs(cache_dir, exist_ok=True)
+
+    split_name = "train" if split == "train" else "dev"
+    jsonl_path = os.path.join(cache_dir, f"{split_name}.jsonl")
+    labels_path = os.path.join(cache_dir, f"{split_name}-labels.lst")
+
+    # Download and extract if not cached
+    if not os.path.exists(jsonl_path) or not os.path.exists(labels_path):
+        print(f"  Downloading Social IQa from {_SOCIAL_IQA_URL} ...")
+        r = requests.get(_SOCIAL_IQA_URL, timeout=60)
+        r.raise_for_status()
+        z = zipfile.ZipFile(io.BytesIO(r.content))
+        for name in ["train.jsonl", "train-labels.lst", "dev.jsonl", "dev-labels.lst"]:
+            src = f"socialiqa-train-dev/{name}"
+            dst = os.path.join(cache_dir, name)
+            with z.open(src) as zf, open(dst, "wb") as out:
+                out.write(zf.read())
+        print(f"  Cached to {cache_dir}")
+
+    # Load JSONL + labels
+    with open(jsonl_path) as f:
+        rows = [json.loads(line) for line in f]
+    with open(labels_path) as f:
+        labels = [line.strip() for line in f]
+
+    for row, label in zip(rows, labels):
+        row["label"] = label
+
+    return HFDataset.from_list(rows)
+
+
 def _load_hf_dataset(task_name: str, split: str):
     cfg = TASK_CONFIGS[task_name]
+
+    # Social IQa requires custom loading (HF script is deprecated)
+    if task_name == "social_iqa":
+        actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
+        return _load_social_iqa(actual_split)
+
     hf_args = [cfg["hf_id"]]
-    if cfg["hf_subset"] is not None:
+    if cfg.get("hf_subset") is not None:
         hf_args.append(cfg["hf_subset"])
     actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
     return load_dataset(*hf_args, split=actual_split)
@@ -780,9 +924,13 @@ def main() -> None:
 
     warmup_steps = int(args.warmup_ratio * max_steps)
 
+    # ── Eval tasks: trained task + 5 base tasks ────────────────────
+    eval_tasks = get_eval_tasks(args.task)
+
     experiment_config = {
         "model": args.model,
         "trained_task": args.task,
+        "eval_tasks": eval_tasks,
         "lora_r": args.lora_r,
         "lora_alpha": args.lora_alpha,
         "lora_dropout": args.lora_dropout,
@@ -833,6 +981,7 @@ def main() -> None:
 
     base_features, eval_dataloaders = pre_compute_base_features(
         model, tokenizer, extractor,
+        eval_tasks=eval_tasks,
         num_samples=args.prism_eval_samples,
         batch_size=args.prism_eval_batch_size,
         max_length=args.max_length,
@@ -885,6 +1034,7 @@ def main() -> None:
         eval_dataloaders=eval_dataloaders,
         extractor=extractor,
         trained_task=args.task,
+        eval_tasks=eval_tasks,
         model_id=args.model,
         output_dir=output_dir,
         device=tensor_device,

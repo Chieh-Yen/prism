@@ -2,9 +2,12 @@
 # ============================================================
 # PRISM — Multi-Task Catastrophic Forgetting Experiment
 #
-# LoRA fine-tune 2 models × 5 tasks.  PRISM forgetting metrics
+# LoRA fine-tune 2 models × 8 tasks.  PRISM forgetting metrics
 # (Ω, δ, γ, Bound, |ΔR|) are computed online at every checkpoint
 # via the built-in callback — no separate inference stage needed.
+#
+# For each fine-tuning task, PRISM eval runs on the trained task
+# plus the 5 base tasks (arc, mmlu, squad, triviaqa, gsm8k) — 6 total.
 #
 # Terminology (paper Sec 3.2):
 #   Target = base model θ₀  (frozen reference)
@@ -13,12 +16,12 @@
 # Environment variables (all optional):
 #   CUDA_GPU=0          GPU index (default: 0)
 #   MODELS="llama qwen" Which models (default: both)
-#   TASKS="arc mmlu squad triviaqa gsm8k"  Which tasks (default: all 5)
+#   TASKS="truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k"
 #
 # Examples:
 #   bash run_forgetting_multitask.sh
-#   CUDA_GPU=0 MODELS="llama" TASKS="gsm8k" bash run_forgetting_multitask.sh
-#   MODELS="qwen" TASKS="arc mmlu" bash run_forgetting_multitask.sh
+#   CUDA_GPU=0 MODELS="llama" TASKS="truthfulqa" bash run_forgetting_multitask.sh
+#   MODELS="qwen" TASKS="bbq social_iqa" bash run_forgetting_multitask.sh
 # ============================================================
 set -euo pipefail
 
@@ -32,7 +35,7 @@ MODEL_IDS[qwen]="Qwen/Qwen3-8B-Base"
 
 # ── Parameters ────────────────────────────────────────────────────────────
 MODELS="${MODELS:-llama qwen}"
-TASKS="${TASKS:-arc mmlu squad triviaqa gsm8k}"
+TASKS="${TASKS:-truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k}"
 
 CKPT_ROOT="./checkpoints/forgetting_multitask"
 LOG="screen_forgetting_multitask.log"
@@ -70,6 +73,7 @@ for MODEL_KEY in $MODELS; do
             --model "$MODEL_ID" \
             --task "$TASK" \
             --output_dir "$OUT_DIR" \
+            --lr 2e-5 \
             2>&1 | tee -a "$LOG" "$ALT_LOG"
 
         log "─── model=$MODEL_KEY  task=$TASK  done ───"
