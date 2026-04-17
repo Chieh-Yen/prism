@@ -13,6 +13,11 @@
 #   Target = base model θ₀  (frozen reference)
 #   Proxy  = fine-tuned θ_t  (drifting model)
 #
+# Bound constants (paper Eq. 8, Appendix A): K_feat = max_{j,k} ||h_j - h_k||_2
+# and K_pred = sqrt(2) are now computed automatically from the base model's
+# lm_head inside train_forgetting_multitask.py (UnifiedBound.theoretical_K).
+# No K=1 placeholder — the bound Theorem 2 holds as stated.
+#
 # Environment variables (all optional):
 #   CUDA_GPU=0          GPU index (default: 0)
 #   MODELS="llama qwen" Which models (default: both)

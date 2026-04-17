@@ -267,6 +267,15 @@ class ShapeRegularizedTrainer(Trainer):
         outputs = model(**inputs)
         ce_loss = outputs.loss
 
+        # Shape regularizer is a training-time signal only: skip entirely
+        # during eval so that (a) eval_loss stays pure CE, (b) shape_loss /
+        # omega_ref logs reflect training-side values only, and (c) we don't
+        # waste forward passes on ref_dataloader under torch.no_grad().
+        if not model.training:
+            if return_outputs:
+                return ce_loss, outputs
+            return ce_loss
+
         do_reg = self._lambda > 0 and self._micro % self._reg_k == 0
         self._micro += 1
 
@@ -468,6 +477,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         output_dir: str,
         device: str,
         experiment_config: Dict[str, Any],
+        K_theory: Dict[str, float],
     ):
         super().__init__()
         self.model = model
@@ -480,6 +490,14 @@ class PRISMCheckpointCallback(TrainerCallback):
         self.output_dir = output_dir
         self.device = device
         self.experiment_config = experiment_config
+
+        # Tight Lipschitz constants for paper Eq. 8 bound (see Appendix A):
+        #   K_feat = max_{j,k} ||h_j - h_k||_2   (simplex polarisation)
+        #   K_pred = sqrt(2)                     (CE gradient in logit space)
+        # Stored once; H_T is the frozen base head and is identical across tasks.
+        self.K_theory = K_theory
+        self.K_feat = K_theory["K_feat"]
+        self.K_pred = K_theory["K_pred"]
 
         self.all_checkpoints: List[Dict[str, Any]] = []
         self.json_path = os.path.join(output_dir, "prism_forgetting_metrics.json")
@@ -550,7 +568,8 @@ class PRISMCheckpointCallback(TrainerCallback):
                     W=torch.eye(d, dtype=Z_T.dtype),
                     label=f"step-{step}_{task}",
                 )
-                UnifiedBound.fill_result(prism, K_feat=1.0, K_pred=1.0)
+                UnifiedBound.fill_result(
+                    prism, K_feat=self.K_feat, K_pred=self.K_pred)
 
                 # Proxy losses
                 loss_P_full = loss_stats_P["losses"].mean().item()
@@ -762,12 +781,20 @@ def pre_compute_base_features(
     max_length: int,
     seed: int,
     device: str,
-) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Tuple[Any, str]]]:
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Tuple[Any, str]], Dict[str, float]]:
     """Extract base model features + loss on eval tasks.
+
+    Also computes the tight Lipschitz constants K_feat, K_pred from the
+    base model's lm_head once (identical across tasks since H_T is the
+    same frozen base head). These are required for the paper's bound
+    |R_T - R_P| <= K_feat * delta + K_pred * gamma to hold; K = 1 is
+    not a valid assumption for cross-entropy loss.
 
     Returns:
         base_features:    {task: {Z, H, loss_full, loss_answer, Z_shape}}
         eval_dataloaders: {task: (DataLoader, z_mode)}  — reused in callback
+        K_theory:         {K_feat, K_pred, K_feat_naive, ...} from
+                          UnifiedBound.theoretical_K (paper Eq. 8 constants)
     """
     print(f"\n{'─' * 78}")
     print(f"  Pre-computing base model features on {len(eval_tasks)} eval tasks")
@@ -777,6 +804,7 @@ def pre_compute_base_features(
     model.eval()
     base_features: Dict[str, Dict[str, Any]] = {}
     eval_dataloaders: Dict[str, Tuple[Any, str]] = {}
+    K_theory: Dict[str, float] = None  # filled on first iter, reused
 
     for task in eval_tasks:
         meta = get_task_metadata(task)
@@ -794,6 +822,19 @@ def pre_compute_base_features(
             model, dl, device, z_mode=z_mode,
         )
         H_T = extractor.extract_head(model)
+
+        # Compute K_feat/K_pred once on GPU (paper Eq. 8, Appendix A).
+        # H_T is the same frozen base head for every task, so the tight
+        # bound K_feat = max_{j,k} ||h_j - h_k||_2 is task-independent.
+        if K_theory is None:
+            print(f"\n  [computing tight Lipschitz constants on H_T "
+                  f"{tuple(H_T.shape)} ...] ", end="", flush=True)
+            kt0 = time.time()
+            K_theory = UnifiedBound.theoretical_K(H_T)
+            print(f"K_feat={K_theory['K_feat']:.4f}  "
+                  f"K_pred={K_theory['K_pred']:.4f}  "
+                  f"({time.time() - kt0:.1f}s)\n  {task:<10s} ... ",
+                  end="", flush=True)
 
         loss_full = loss_stats["losses"].mean().item()
         loss_answer = (
@@ -815,7 +856,7 @@ def pre_compute_base_features(
         print(f"Z={list(Z_T.shape)}  loss={loss_full:.4f}{la_s}  ({elapsed:.1f}s)")
 
     print(f"{'─' * 78}")
-    return base_features, eval_dataloaders
+    return base_features, eval_dataloaders, K_theory
 
 
 # ======================================================================
@@ -1099,7 +1140,7 @@ def main() -> None:
     extractor = LLMExtractor()
     tensor_device = "cuda"
 
-    base_features, eval_dataloaders = pre_compute_base_features(
+    base_features, eval_dataloaders, K_theory = pre_compute_base_features(
         model, tokenizer, extractor,
         eval_tasks=eval_tasks,
         num_samples=args.prism_eval_samples,
@@ -1108,6 +1149,12 @@ def main() -> None:
         seed=args.seed,
         device=tensor_device,
     )
+
+    # Record tight Lipschitz constants in the experiment config so they're
+    # written to prism_forgetting_metrics.json for reproducibility.
+    experiment_config["K_feat"] = K_theory["K_feat"]
+    experiment_config["K_pred"] = K_theory["K_pred"]
+    experiment_config["K_feat_naive"] = K_theory.get("K_feat_naive")
 
     # ── Pre-compute reference features for shape regularizer ────────
     Z_T_ref = None
@@ -1183,6 +1230,7 @@ def main() -> None:
         output_dir=output_dir,
         device=tensor_device,
         experiment_config=experiment_config,
+        K_theory=K_theory,
     )
 
     # ── Trainer ──────────────────────────────────────────────────────

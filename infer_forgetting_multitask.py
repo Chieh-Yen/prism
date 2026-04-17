@@ -144,8 +144,16 @@ def compute_prism_metrics(
     Z_T: Tensor, H_T: Tensor,
     Z_P: Tensor, H_P: Tensor,
     label: str,
+    K_feat: float,
+    K_pred: float,
 ) -> PRISMResult:
-    """Compute PRISM metrics with identity alignment (W = I)."""
+    """Compute PRISM metrics with identity alignment (W = I).
+
+    K_feat and K_pred are the tight Lipschitz constants from paper Eq. 8
+    (Appendix A); they must be supplied by the caller via
+    UnifiedBound.theoretical_K(H_T_base). Pass K=1 only for sanity
+    checks — the bound theorem does not hold otherwise.
+    """
     d = Z_T.shape[1]
     result = PRISMMetrics.compute_all(
         Z_T.float(), H_T.float(),
@@ -153,9 +161,7 @@ def compute_prism_metrics(
         W=torch.eye(d, dtype=Z_T.dtype),
         label=label,
     )
-    # Fill risk bound with K_feat=1, K_pred=1 as placeholders.
-    # The actual K values are computed from H_T if needed.
-    UnifiedBound.fill_result(result, K_feat=1.0, K_pred=1.0)
+    UnifiedBound.fill_result(result, K_feat=K_feat, K_pred=K_pred)
     return result
 
 
@@ -308,6 +314,7 @@ def main() -> None:
     t0 = time.time()
     base_model = load_base_model(base_model_id, device_map={"": 0})
 
+    K_theory: Dict[str, float] = None
     for task in eval_tasks:
         dl, meta = dataloaders[task]
         z_mode = meta["z_mode"]
@@ -317,6 +324,16 @@ def main() -> None:
             base_model, dl, extractor, tensor_device,
             z_mode=z_mode,
         )
+        # Tight Lipschitz constants from paper Eq. 8 (Appendix A);
+        # base H_T is task-independent, so compute once on GPU.
+        if K_theory is None:
+            print(f"    Computing tight Lipschitz constants on H_T "
+                  f"{tuple(H_T.shape)} ...", end=" ", flush=True)
+            kt0 = time.time()
+            K_theory = UnifiedBound.theoretical_K(H_T)
+            print(f"K_feat={K_theory['K_feat']:.4f}  "
+                  f"K_pred={K_theory['K_pred']:.4f}  "
+                  f"({time.time() - kt0:.1f}s)")
         # Move to CPU to free GPU for proxy models
         base_data[task] = {
             "Z": Z_T.cpu(),
@@ -332,6 +349,8 @@ def main() -> None:
 
     elapsed_base = time.time() - t0
     print(f"  Base model features extracted in {elapsed_base:.1f}s")
+    K_feat = K_theory["K_feat"]
+    K_pred = K_theory["K_pred"]
     free_model(base_model)
 
     # ── Phase 2: Iterate over checkpoints ────────────────────────────────
@@ -382,6 +401,7 @@ def main() -> None:
             prism = compute_prism_metrics(
                 Z_T, H_T, Z_P.cpu(), H_P.cpu(),
                 label=f"step-{step}_{task}",
+                K_feat=K_feat, K_pred=K_pred,
             )
 
             delta_risk_full = abs(loss_proxy_full - loss_target_full)
