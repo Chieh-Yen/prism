@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 """
-Generate a LaTeX table for Meta-Llama-3.1-8B × {mmlu, triviaqa, gsm8k}.
+Generate LaTeX tables per (model × task group).
 
 Rows: (benchmark, family, method)
 Columns: rho_T, rho_P, Omega, delta, gamma, Bound, |dR|
 
+Output files land in ./paper/tables/ and are named by model + task group:
+  paper/tables/table_{model_short}_{task_group}.tex
+
+Task groups:
+  main  = mmlu, triviaqa, gsm8k          (reasoning / QA / math, paper body)
+  ext   = arc, squad, fineweb_edu,       (additional eval: MC, extractive,
+           wikitext                        perplexity-style)
+
+Models covered (bases used in the quantization grid plots):
+  llama    = meta-llama/Meta-Llama-3.1-8B
+  mistral  = mistralai/Ministral-3-8B-Base-2512
+  qwen     = Qwen/Qwen3-8B-Base
+  deepseek = deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+
 Highlights:
-  - Omega < 0.85: \cellcolor{red!10}  (structural collapse)
-  - gamma structurally zero (BnB/GPTQ): $0^{\dagger}$
-  - r_s per benchmark: bold
+  - Omega < 0.95 / 0.80 → two-level red on (Omega, delta, Bound, |MdR|)
+  - gamma structurally zero (BnB / GPTQ / FP16) → sky-blue $0$
+  - r_s(delta, |MdR|) per benchmark printed under the dataset label
 """
 
 import csv
@@ -19,9 +33,40 @@ from collections import defaultdict
 from pathlib import Path
 
 CSV_PATH = Path("quantization_merged_slim.csv")
-TARGET_MODEL = "meta-llama/Meta-Llama-3.1-8B"
-DATASETS = ["mmlu", "triviaqa", "gsm8k"]
-DS_DISPLAY = {"mmlu": "MMLU", "triviaqa": "TriviaQA", "gsm8k": "GSM8K"}
+OUT_DIR = Path("paper/tables")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Model / task config
+# ═══════════════════════════════════════════════════════════════════
+MODELS = [
+    {"path": "meta-llama/Meta-Llama-3.1-8B",
+     "short": "llama",    "display": "Llama-3.1-8B"},
+    {"path": "mistralai/Ministral-3-8B-Base-2512",
+     "short": "mistral",  "display": "Ministral-3-8B-Base"},
+    {"path": "Qwen/Qwen3-8B-Base",
+     "short": "qwen",     "display": "Qwen3-8B-Base"},
+    {"path": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+     "short": "deepseek", "display": "DeepSeek-R1-Distill-Llama-8B"},
+]
+
+TASK_GROUPS = [
+    {"name": "main", "datasets": ["mmlu", "triviaqa", "gsm8k"]},
+    {"name": "ext",  "datasets": ["arc", "squad", "fineweb_edu", "wikitext"]},
+    {"name": "all",  "datasets": ["mmlu", "triviaqa", "gsm8k",
+                                  "arc", "squad", "fineweb_edu", "wikitext"]},
+]
+
+DS_DISPLAY = {
+    "arc": "ARC", "mmlu": "MMLU", "squad": "SQuAD",
+    "triviaqa": "TriviaQA", "gsm8k": "GSM8K",
+    "fineweb_edu": "FineWeb-Edu", "wikitext": "WikiText",
+}
+
+# Per-model proxy exclusions (e.g. keep ModelCloud GPTQ, drop shuyuej)
+EXCLUDE_PROXY = {
+    "meta-llama/Meta-Llama-3.1-8B": {"shuyuej/Meta-Llama-3.1-8B-GPTQ [GPTQ]"},
+}
 
 # (method, family) in display order
 METHOD_TABLE = [
@@ -36,19 +81,16 @@ METHOD_TABLE = [
     ("NF4",       "BnB"),
     ("FP4",       "BnB"),
     ("GPTQ-4bit", "GPTQ"),
+    ("GPTQ-8bit", "GPTQ"),
 ]
 
-# Families where gamma is structurally zero (head preserved in FP16)
 GAMMA_ZERO_FAMILIES = {"BnB", "GPTQ", "--"}
 
-# Omega thresholds for red highlight
-OMEGA_LIGHT = 0.95   # light red
-OMEGA_DEEP = 0.80    # deep red
+OMEGA_LIGHT = 0.95
+OMEGA_DEEP = 0.80
 
-# Columns to highlight red when Omega collapses
 RED_COLS = {"Omega_I", "delta_I", "Bound_I", "|MdR|"}
 
-# CSV column key -> LaTeX header
 COLUMNS = [
     ("rho_T",   r"$\rho_T$"),
     ("rho_P",   r"$\rho_P$"),
@@ -60,7 +102,10 @@ COLUMNS = [
 ]
 
 
-def parse_method(label):
+# ═══════════════════════════════════════════════════════════════════
+# Parsing helpers
+# ═══════════════════════════════════════════════════════════════════
+def parse_method(label: str) -> str:
     rhs = label.replace("BF16 vs ", "").strip()
     if rhs == "FP16":
         return "FP16"
@@ -69,7 +114,11 @@ def parse_method(label):
             return g
     if rhs in ("INT8", "NF4", "FP4"):
         return rhs
-    if re.match(r"GPTQ\(", rhs):
+    m = re.match(r"GPTQ\((.+)\)", rhs)
+    if m:
+        inner = m.group(1).lower()
+        if "int8" in inner or "8bit" in inner:
+            return "GPTQ-8bit"
         return "GPTQ-4bit"
     return rhs
 
@@ -100,58 +149,49 @@ def spearman(x, y):
     return num / den if den > 0 else float("nan")
 
 
-def fmt4(val):
-    try:
-        v = float(val)
-    except (TypeError, ValueError):
-        return "--"
-    return f"{v:.4f}"
-
-
 def fmt_cell(col_key, val, family, omega_level=None):
-    """Format a cell with conditional highlighting.
-    omega_level: None, "light", or "deep"
-    """
     if val is None:
         return "--"
-
-    # gamma: structural zero for BnB/GPTQ/FP16 → sky blue
     if col_key == "gamma_I" and family in GAMMA_ZERO_FAMILIES:
         return r"\cellcolor{cyan!12} $0$"
-
-    # Omega collapse → two-level red on Omega, delta, Bound, |MdR|
     if col_key in RED_COLS and omega_level:
         color = "red!35" if omega_level == "deep" else "red!18"
         return r"\cellcolor{" + color + "} " + f"{val:.4f}"
-
     return f"{val:.4f}"
 
 
-def main():
-    with CSV_PATH.open(newline="") as f:
-        rows = list(csv.DictReader(f))
+# ═══════════════════════════════════════════════════════════════════
+# Table builder
+# ═══════════════════════════════════════════════════════════════════
+def build_table(model_cfg, group_cfg, rows):
+    target_model = model_cfg["path"]
+    short = model_cfg["short"]
+    display = model_cfg["display"]
+    datasets = group_cfg["datasets"]
+    group_name = group_cfg["name"]
 
-    # Exclude shuyuej GPTQ variant, keep only ModelCloud
-    EXCLUDE_PROXY = {"shuyuej/Meta-Llama-3.1-8B-GPTQ [GPTQ]"}
+    exclude = EXCLUDE_PROXY.get(target_model, set())
 
-    # Index data: (dataset, method) -> list of row dicts
     data = defaultdict(list)
+    valid_methods = {m for m, _ in METHOD_TABLE}
     for r in rows:
-        if r["target_model"] != TARGET_MODEL:
+        if r["target_model"] != target_model:
             continue
-        if r.get("proxy_model", "") in EXCLUDE_PROXY:
+        if r.get("proxy_model", "") in exclude:
             continue
-        method = parse_method(r["Label"])
-        ds = r["dataset"]
-        if ds in DATASETS and method in [m for m, _ in METHOD_TABLE]:
-            data[(ds, method)].append(r)
+        if r["dataset"] not in datasets:
+            continue
+        m = parse_method(r["Label"])
+        if m in valid_methods:
+            data[(r["dataset"], m)].append(r)
 
-    # Compute Spearman r_s(delta_I, |MdR|) per benchmark
     rho_per_ds = {}
-    for ds in DATASETS:
+    for ds in datasets:
         xs, ys = [], []
         for r in rows:
-            if r["target_model"] != TARGET_MODEL or r["dataset"] != ds:
+            if r["target_model"] != target_model or r["dataset"] != ds:
+                continue
+            if r.get("proxy_model", "") in exclude:
                 continue
             try:
                 x, y = float(r["delta_I"]), float(r["|MdR|"])
@@ -162,36 +202,39 @@ def main():
                 pass
         rho_per_ds[ds] = spearman(xs, ys)
 
-    # Build LaTeX
     n_data_cols = len(COLUMNS)
     col_spec = "ll l " + "r" * n_data_cols
     header_cols = " & ".join(h for _, h in COLUMNS)
 
+    caption = (
+        r"Geometric decomposition for \textbf{" + display + r"} under identity "
+        r"alignment ($W{=}I$) --- " + group_name + r" task group. "
+        r"Each benchmark section reports Spearman's "
+        r"$r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants."
+    )
+    label = f"tab:{short}_decomposition_{group_name}"
+
     L = []
     L.append(r"\begin{table}[t]")
     L.append(r"\centering")
-    L.append(r"\caption{Geometric decomposition for \textbf{Llama-3.1-8B} under identity alignment ($W{=}I$). "
-             r"Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}")
-    L.append(r"\label{tab:llama_decomposition}")
+    L.append(r"\caption{" + caption + r"}")
+    L.append(r"\label{" + label + r"}")
     L.append(r"\resizebox{\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
     L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
     L.append(r"\midrule")
 
-    for di, ds in enumerate(DATASETS):
+    for di, ds in enumerate(datasets):
         if di > 0:
             L.append(r"\midrule")
 
         methods_present = [(m, f) for m, f in METHOD_TABLE if data.get((ds, m))]
-        n_rows_ds = len(methods_present)
-
         prev_family = None
 
         for row_i, (method, family) in enumerate(methods_present):
             entries = data[(ds, method)]
 
-            # Average values across entries (for multiple GPTQ variants)
             avg = {}
             for col_key, _ in COLUMNS:
                 vals = []
@@ -202,26 +245,23 @@ def main():
                         pass
                 avg[col_key] = sum(vals) / len(vals) if vals else None
 
-            # Dataset label on first row; bold r_s on second row
             if row_i == 0:
-                ds_cell = DS_DISPLAY[ds]
+                ds_cell = DS_DISPLAY.get(ds, ds)
             elif row_i == 1:
                 rho = rho_per_ds[ds]
-                ds_cell = r"{\small ($\mathbf{r_s{=}" + f"{rho:.2f}" + r"}$)}"
+                rho_str = f"{rho:.2f}" if not math.isnan(rho) else "--"
+                ds_cell = r"{\small ($\mathbf{r_s{=}" + rho_str + r"}$)}"
             else:
                 ds_cell = ""
 
-            # Family label: first row of each family group only
             if family != prev_family:
                 fam_cell = "--" if family == "--" else family
                 prev_family = family
             else:
                 fam_cell = ""
 
-            # Method display
             method_disp = method.replace("_", r"\_")
 
-            # Detect Omega collapse level for this row
             omega_val = avg.get("Omega_I")
             if omega_val is not None and omega_val < OMEGA_DEEP:
                 omega_level = "deep"
@@ -230,25 +270,40 @@ def main():
             else:
                 omega_level = None
 
-            # Format each data cell with conditional highlighting
             vals_str = " & ".join(
-                fmt_cell(ck, avg.get(ck), family, omega_level) for ck, _ in COLUMNS
+                fmt_cell(ck, avg.get(ck), family, omega_level)
+                for ck, _ in COLUMNS
             )
 
-            L.append(f"{ds_cell} & {fam_cell} & {method_disp} & {vals_str} " + r"\\")
+            L.append(f"{ds_cell} & {fam_cell} & {method_disp} & "
+                     f"{vals_str} " + r"\\")
 
     L.append(r"\bottomrule")
     L.append(r"\end{tabular}}")
     L.append(r"\end{table}")
 
-    table_body = "\n".join(L)
+    return "\n".join(L)
 
-    # Includable table
-    out_path = Path("table_llama_decomposition.tex")
-    out_path.write_text(table_body)
-    print(f"Saved → {out_path}")
 
-    # Standalone preview
+# ═══════════════════════════════════════════════════════════════════
+# Main
+# ═══════════════════════════════════════════════════════════════════
+def main():
+    with CSV_PATH.open(newline="") as f:
+        rows = list(csv.DictReader(f))
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    stems = []
+    for model_cfg in MODELS:
+        for group_cfg in TASK_GROUPS:
+            table = build_table(model_cfg, group_cfg, rows)
+            stem = f"table_{model_cfg['short']}_{group_cfg['name']}"
+            out_path = OUT_DIR / f"{stem}.tex"
+            out_path.write_text(table)
+            print(f"Saved → {out_path}")
+            stems.append(stem)
+
     preamble = (
         r"\documentclass[11pt]{article}" "\n"
         r"\usepackage[utf8]{inputenc}" "\n"
@@ -256,15 +311,15 @@ def main():
         r"\usepackage{booktabs,amsmath,amssymb,graphicx}" "\n"
         r"\usepackage[table]{xcolor}" "\n"
         r"\usepackage[margin=1cm,landscape]{geometry}" "\n"
-        r"\newcommand{\subsection}[1]{}" "\n"
         r"\pagestyle{empty}" "\n"
         r"\begin{document}" "\n"
     )
-    preview_path = Path("table_llama_preview.tex")
-    preview_path.write_text(preamble + table_body + "\n" + r"\end{document}" + "\n")
-    print(f"Saved → {preview_path}  (standalone)")
-
-    print(table_body)
+    body = "\n\n\\clearpage\n\n".join(
+        f"\\input{{{stem}}}" for stem in stems)
+    preview_path = OUT_DIR / "preview_all.tex"
+    preview_path.write_text(preamble + body + "\n" + r"\end{document}" + "\n")
+    print(f"Saved → {preview_path}  "
+          f"(\\input{{...}} references each table_*.tex)")
 
 
 if __name__ == "__main__":
