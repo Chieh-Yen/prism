@@ -38,6 +38,7 @@ MODEL_IDS[qwen]="Qwen/Qwen3-8B-Base"
 # ── Parameters ────────────────────────────────────────────────────────────
 MODELS="${MODELS:-llama qwen}"
 TASKS="${TASKS:-truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k}"
+TASKS="${TASKS:-truthfulqa bbq social_iqa squad triviaqa gsm8k arc mmlu}"
 
 # ── Shape regularizer ─────────────────────────────────────────────────────
 SHAPE_REG="${SHAPE_REG:-0}"
@@ -92,7 +93,7 @@ for MODEL_KEY in $MODELS; do
             --model "$MODEL_ID" \
             --task "$TASK" \
             --output_dir "$OUT_DIR" \
-            --lr 2e-5 \
+            --lr 1e-5 \
             $SHAPE_ARGS \
             2>&1 | tee -a "$LOG" "$ALT_LOG"
 

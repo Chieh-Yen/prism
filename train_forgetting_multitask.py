@@ -364,7 +364,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 50,
+        "default_save_steps": 25,
     },
     # ── Original tasks ───────────────────────────────────────────────
     "arc": {
@@ -385,7 +385,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 50,
+        "default_save_steps": 25,
     },
     "squad": {
         "hf_id": "rajpurkar/squad",
@@ -395,7 +395,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 50,
+        "default_save_steps": 25,
     },
     "triviaqa": {
         "hf_id": "trivia_qa",
@@ -405,7 +405,7 @@ TASK_CONFIGS = {
         "max_train_samples": 8000,
         "max_eval_samples": 256,
         "default_max_steps": 1500,
-        "default_save_steps": 50,
+        "default_save_steps": 25,
     },
     "gsm8k": {
         "hf_id": "openai/gsm8k",
@@ -415,7 +415,7 @@ TASK_CONFIGS = {
         "max_train_samples": None,   # use all 7,473
         "max_eval_samples": 256,
         "default_max_steps": 1400,
-        "default_save_steps": 50,
+        "default_save_steps": 25,
     },
 }
 
