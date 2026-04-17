@@ -330,15 +330,20 @@ class ShapeRegularizedTrainer(Trainer):
         return shape_loss, omega_I.item()
 
     # ------------------------------------------------------------------
-    def log(self, logs: Dict[str, float]) -> None:
-        """Inject shape regularizer metrics into log entries."""
+    def log(self, logs: Dict[str, float], *args, **kwargs) -> None:
+        """Inject shape regularizer metrics into log entries.
+
+        HF Trainer.log() added ``start_time`` as a second positional arg
+        in newer versions; accept *args/**kwargs and pass them through so
+        this override stays compatible across transformers releases.
+        """
         if self._count > 0:
             logs["shape_loss"] = round(self._shape_sum / self._count, 6)
             logs["omega_ref"] = round(self._omega_sum / self._count, 6)
             self._shape_sum = 0.0
             self._omega_sum = 0.0
             self._count = 0
-        super().log(logs)
+        super().log(logs, *args, **kwargs)
 
 
 # ── Task-specific dataset configuration ───────────────────────────────────
