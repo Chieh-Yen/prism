@@ -16,14 +16,16 @@ Usage:
   python plot_grid_2x5.py --corr spearman             # r_s only
   python plot_grid_2x5.py --corr pearson              # r_p only (raw values)
   python plot_grid_2x5.py --corr pearson_log          # r_p on log(x), log(y)
-  python plot_grid_2x5.py --corr spearman,pearson,pearson_log   # all three
+  python plot_grid_2x5.py --corr pearson_both         # r_p AND r_p^log stacked
+  python plot_grid_2x5.py --corr spearman,pearson,pearson_log   # pick a subset
 
-Default --corr: spearman,pearson,pearson_log
+Default --corr: spearman,pearson,pearson_log,pearson_both
 
 Output files:
-  spearman    → forgetting_grid_{bound|omega}_{model}.pdf
-  pearson     → forgetting_grid_{bound|omega}_{model}_rp.pdf
-  pearson_log → forgetting_grid_{bound|omega}_{model}_rplog.pdf
+  spearman     → forgetting_grid_{bound|omega}_{model}.pdf
+  pearson      → forgetting_grid_{bound|omega}_{model}_rp.pdf
+  pearson_log  → forgetting_grid_{bound|omega}_{model}_rplog.pdf
+  pearson_both → forgetting_grid_{bound|omega}_{model}_rpboth.pdf
 """
 
 import json
@@ -82,9 +84,15 @@ MODE_CONFIG = {
 }
 
 CORR_CONFIG = {
-    "spearman":    {"label": "r_s",          "suffix": ""},
-    "pearson":     {"label": "r_p",          "suffix": "_rp"},
-    "pearson_log": {"label": "r_p^{\\log}",  "suffix": "_rplog"},
+    "spearman":    {"labels": ["r_s"],         "methods": ["spearman"],
+                    "suffix": ""},
+    "pearson":     {"labels": ["r_p"],         "methods": ["pearson"],
+                    "suffix": "_rp"},
+    "pearson_log": {"labels": ["r_p^{\\log}"], "methods": ["pearson_log"],
+                    "suffix": "_rplog"},
+    "pearson_both":{"labels": ["r_p", "r_p^{\\log}"],
+                    "methods": ["pearson", "pearson_log"],
+                    "suffix": "_rpboth"},
 }
 
 
@@ -316,15 +324,20 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
                 yt_hi = int(np.ceil(np.log10(ylim[1])))
                 ax.set_yticks([10**i for i in range(yt_lo, yt_hi + 1)])
 
-            # Correlation (bottom-right)
+            # Correlation (bottom-right) — one line per configured method
             if len(plot_pts) >= 3:
                 vx, vy = [p[1] for p in plot_pts], [p[2] for p in plot_pts]
-                rho = compute_corr(corr_method, vx, vy)
-                rho_str = f"{rho:.2f}".lstrip("0") if rho >= 0 else f"{rho:.2f}"
+                lines = []
+                for lbl, meth in zip(corr_cfg["labels"], corr_cfg["methods"]):
+                    rho = compute_corr(meth, vx, vy)
+                    rho_str = (f"{rho:.2f}".lstrip("0") if rho >= 0
+                               else f"{rho:.2f}")
+                    lines.append(f"${lbl}$={rho_str}")
                 ax.text(
-                    0.96, 0.04, f"${corr_cfg['label']}$={rho_str}",
+                    0.96, 0.04, "\n".join(lines),
                     transform=ax.transAxes, ha="right", va="bottom",
                     fontsize=12, fontstyle="italic",
+                    linespacing=1.15,
                     bbox=dict(boxstyle="round,pad=0.2", fc="white",
                               alpha=0.85, ec="0.7", lw=0.5),
                 )
@@ -438,7 +451,7 @@ def main():
         modes = ["bound", "omega"]
 
     if corr_methods is None:
-        corr_methods = ["spearman", "pearson", "pearson_log"]
+        corr_methods = ["spearman", "pearson", "pearson_log", "pearson_both"]
     for c in corr_methods:
         if c not in CORR_CONFIG:
             print(f"Unknown --corr value: {c} (expected: {list(CORR_CONFIG)})")

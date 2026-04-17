@@ -206,7 +206,7 @@ PRISM introduces a distinct paradigm: \emph{Geometric Control Variates}.
 Rather than extrapolating from scaling trends, we exploit the fact that a geometrically aligned proxy ($\Omega \approx 1$) produces per-sample losses that are highly correlated with those of the target.
 Our unified bound guarantees that the variance of the loss difference $\ell_T(x) - \ell_P(x)$ is controlled by the geometric terms, enabling accurate estimation of full-benchmark performance from a small calibration set with strict statistical guarantees via Popoviciu's inequality.
 
-\input{prism_geometric_decomposition.tex}
+\input{figures/prism_geometric_decomposition.tex}
 
 \section{A Geometric Framework for Proxy Performance Estimation}
 \label{sec:geometric_foundation}
@@ -451,14 +451,14 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.98\linewidth]{prism_grid_bound.pdf}
+    \includegraphics[width=0.98\linewidth]{tables/prism_grid_bound.pdf}
     \caption{PRISM Bound.}
     \label{fig:grid_bound}
 \end{figure}
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.98\linewidth]{prism_grid_feature.pdf}
+    \includegraphics[width=0.98\linewidth]{tables/prism_grid_feature.pdf}
     \caption{Feature alignment error.}
     \label{fig:grid_bound}
 \end{figure}
@@ -469,7 +469,7 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
 % - Scatter plots: Ω vs. actual performance degradation
 % - Comparison across quantization formats
 % - Forgetting curves: Ω trajectory during fine-tuning
-\input{table_llama_decomposition}
+\input{tables/table_llama_decomposition}
 
 
 
@@ -864,7 +864,7 @@ In the two primary regimes:
 The Riemannian formulation becomes relevant only when comparing models with \emph{both} rotated features and divergent heads (e.g., full-parameter SFT). We leave this regime to future work.
 
 
-\input{model_quantization}
+\input{appendix/model_quantization}
 
 \end{document}
 
