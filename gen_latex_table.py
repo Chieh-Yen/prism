@@ -41,13 +41,20 @@ OUT_DIR = Path("paper/tables")
 # ═══════════════════════════════════════════════════════════════════
 MODELS = [
     {"path": "meta-llama/Meta-Llama-3.1-8B",
-     "short": "llama",    "display": "Llama-3.1-8B"},
+     "short": "llama",             "display": "Llama-3.1-8B"},
     {"path": "mistralai/Ministral-3-8B-Base-2512",
-     "short": "mistral",  "display": "Ministral-3-8B-Base"},
+     "short": "mistral",           "display": "Ministral-3-8B-Base"},
     {"path": "Qwen/Qwen3-8B-Base",
-     "short": "qwen",     "display": "Qwen3-8B-Base"},
+     "short": "qwen",              "display": "Qwen3-8B-Base"},
     {"path": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-     "short": "deepseek", "display": "DeepSeek-R1-Distill-Llama-8B"},
+     "short": "deepseek",          "display": "DeepSeek-R1-Distill-Llama-8B"},
+    # Instruct counterparts
+    {"path": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+     "short": "llama_instruct",    "display": "Llama-3.1-8B-Instruct"},
+    {"path": "mistralai/Ministral-3-8B-Instruct-2512",
+     "short": "mistral_instruct",  "display": "Ministral-3-8B-Instruct"},
+    {"path": "Qwen/Qwen3-8B",
+     "short": "qwen_instruct",     "display": "Qwen3-8B-Instruct"},
 ]
 
 TASK_GROUPS = [
@@ -66,9 +73,15 @@ DS_DISPLAY = {
     "fineweb_edu": "FineWeb-Edu", "wikitext": "WikiText",
 }
 
-# Per-model proxy exclusions (e.g. keep ModelCloud GPTQ, drop shuyuej)
+# Per-model proxy exclusions (keep ModelCloud GPTQ as canonical 4-bit variant)
 EXCLUDE_PROXY = {
-    "meta-llama/Meta-Llama-3.1-8B": {"shuyuej/Meta-Llama-3.1-8B-GPTQ [GPTQ]"},
+    "meta-llama/Meta-Llama-3.1-8B": {
+        "shuyuej/Meta-Llama-3.1-8B-GPTQ [GPTQ]",
+    },
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": {
+        "shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ [GPTQ]",
+        "hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4 [GPTQ]",
+    },
 }
 
 # (method, family) in display order
@@ -292,6 +305,8 @@ def _wrap_longtable(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\small")
     L.append(r"\setlength{\tabcolsep}{4pt}")
     L.append(r"\renewcommand{\arraystretch}{1.05}")
+    # longtable caption defaults to 4in; widen to textwidth
+    L.append(r"\setlength{\LTcapwidth}{\textwidth}")
     L.append(r"\begin{longtable}{" + col_spec + "}")
     L.append(r"\caption{" + caption + r"}\label{" + label + r"}\\")
     # First-page header
