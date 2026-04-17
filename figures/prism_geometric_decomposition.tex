@@ -1,0 +1,90 @@
+\begin{figure}[t]
+\centering
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{1pt}
+\begin{tikzpicture}[
+    x=1cm,
+    y=1cm,
+    font=\sffamily\footnotesize,
+    >=Stealth,
+    line cap=round,
+    line join=round,
+    module/.style={draw=black!55, line width=0.75pt, rounded corners=2pt, fill=white, align=center, minimum height=0.58cm, minimum width=1.3cm, inner sep=2pt},
+    stage/.style={draw=gray!30, line width=0.75pt, rounded corners=4pt, fill=gray!3},
+    termbox/.style={draw=gray!40, line width=0.75pt, rounded corners=3.5pt, fill=white, minimum width=2.95cm, minimum height=1.55cm, align=center},
+    targetcol/.style={blue!70!black},
+    proxycol/.style={orange!85!black},
+    accent/.style={violet!70!black}
+]
+
+\node[align=center, font=\bfseries\footnotesize] (input) at (0.2,4.15) {Input\\$(x,y)\sim\mathcal{D}$};
+
+\draw[stage] (1.2,4.7) rectangle (6.35,5.8);
+\node[font=\bfseries\scriptsize, text=gray!75!black, anchor=north] at (3.78,5.8) {Target model $T$};
+\node[module, draw=targetcol, fill=blue!5] (backT) at (2.25,5.18) {Backbone\\$\phi_T$};
+\node[module] (featT) at (4.02,5.18) {Features\\$Z_T$};
+\node[module, dashed] (headT) at (5.55,5.18) {Head\\$H_T$};
+\draw[->, line width=0.9pt, targetcol] (backT) -- (featT);
+\draw[->, line width=0.8pt, dashed, targetcol] (featT) -- (headT);
+
+\draw[stage] (1.2,2.95) rectangle (6.35,4.05);
+\node[font=\bfseries\scriptsize, text=gray!75!black, anchor=north] at (3.78,4.05) {Proxy model $P$};
+\node[module, draw=proxycol, fill=orange!6] (backP) at (2.25,3.43) {Backbone\\$\phi_P$};
+\node[module] (featP) at (4.02,3.43) {Features\\$Z_P$};
+\node[module, dashed] (headP) at (5.55,3.43) {Head\\$H_P$};
+\draw[->, line width=0.9pt, proxycol] (backP) -- (featP);
+\draw[->, line width=0.8pt, dashed, proxycol] (featP) -- (headP);
+
+\draw[->, line width=0.85pt, gray!70!black] (input.east) -- (1.2,4.55) |- (1.7,5.18);
+\draw[->, line width=0.85pt, gray!70!black] (input.east) -- (1.2,3.6) |- (1.7,3.43);
+
+\draw[stage] (7.0,3.18) rectangle (10.3,5.55);
+\node[font=\bfseries\scriptsize, text=gray!75!black, anchor=north] at (8.65,5.55) {Risk decomposition};
+\node[module, draw=accent, fill=violet!6, minimum width=2.25cm] (align) at (8.65,4.95) {Procrustes align\\$W^*$};
+\node[align=center, font=\scriptsize] at (8.65,4.18) {$|\mathcal{R}_T-\mathcal{R}_P|\le \delta + \gamma$};
+\node[align=center, font=\scriptsize] at (8.65,3.55) {$\delta$: feature alignment error\\$\gamma$: head discrepancy};
+
+\draw[->, line width=0.95pt, targetcol] (featT.east) -- (7.52,5.18) -- (7.95,5.18);
+\draw[->, line width=0.95pt, proxycol] (featP.east) -- (7.52,3.43) -- (7.95,4.72);
+\draw[->, line width=0.8pt, dashed, targetcol] (headT.east) -- (7.55,5.18) -- (9.45,5.18);
+\draw[->, line width=0.8pt, dashed, proxycol] (headP.east) -- (7.55,3.43) -- (9.35,4.72);
+
+\node[termbox, anchor=west] (scalebox) at (11.0,4.95) {};
+\node[termbox, anchor=west] (shapebox) at (11.0,3.35) {};
+\node[termbox, anchor=west] (headbox) at (11.0,1.75) {};
+
+\node[font=\bfseries\scriptsize, anchor=north west] at ($(scalebox.north west)+(0.18,-0.16)$) {Scale mismatch};
+\node[font=\scriptsize, anchor=north west] at ($(scalebox.north west)+(0.18,-0.56)$) {$(\Delta\rho)^2$};
+\draw[targetcol, line width=0.85pt, dashed, fill=blue!4] ($(scalebox.center)+(-0.72,-0.1)$) circle (0.34);
+\draw[proxycol, line width=0.85pt, dashed, fill=orange!15] ($(scalebox.center)+(-0.72,-0.1)$) circle (0.19);
+\node[targetcol, font=\scriptsize\bfseries] at ($(scalebox.center)+(-0.2,-0.1)$) {$\rho_T$};
+\node[proxycol, font=\scriptsize\bfseries] at ($(scalebox.center)+(-0.72,-0.1)$) {$\rho_P$};
+
+\node[font=\bfseries\scriptsize, anchor=north west] at ($(shapebox.north west)+(0.18,-0.16)$) {Shape mismatch};
+\node[font=\scriptsize, anchor=north west] at ($(shapebox.north west)+(0.18,-0.56)$) {$1-\Omega$};
+\filldraw[targetcol, line width=0.85pt, fill=blue!8] ($(shapebox.center)+(-0.95,-0.18)$) .. controls +(0.18,0.28) and +(-0.22,0.22) .. ($(shapebox.center)+(-0.35,-0.12)$) .. controls +(0.12,-0.28) and +(0.08,0.22) .. ($(shapebox.center)+(-0.56,0.3)$) .. controls +(-0.32,0.04) and +(0.14,-0.08) .. cycle;
+\filldraw[proxycol, line width=0.85pt, fill=orange!8] ($(shapebox.center)+(0.18,-0.22)$) .. controls +(0.18,-0.22) and +(-0.2,0.16) .. ($(shapebox.center)+(0.82,-0.05)$) .. controls +(-0.04,0.3) and +(0.12,-0.18) .. ($(shapebox.center)+(0.56,0.34)$) .. controls +(-0.26,0.04) and +(0.18,-0.08) .. cycle;
+\draw[->, line width=0.8pt, gray!70!black] ($(shapebox.center)+(-0.02,0.0)$) -- ($(shapebox.center)+(0.16,0.0)$);
+\node[targetcol, font=\scriptsize\bfseries] at ($(shapebox.center)+(-0.65,-0.52)$) {$Z_T$};
+\node[proxycol, font=\scriptsize\bfseries] at ($(shapebox.center)+(0.55,-0.52)$) {$Z_PW^*$};
+
+\node[font=\bfseries\scriptsize, anchor=north west] at ($(headbox.north west)+(0.18,-0.16)$) {Head discrepancy};
+\node[font=\scriptsize, anchor=north west] at ($(headbox.north west)+(0.18,-0.56)$) {$\|\Sigma_P^{1/2}\Delta H\|_F$};
+\draw[draw=gray!72, line width=0.75pt, fill=gray!15] ($(headbox.center)+(-0.62,-0.14)$) ellipse (0.72 and 0.2);
+\node[gray!72!black, font=\scriptsize] at ($(headbox.center)+(-0.64,-0.48)$) {$\Sigma_P$};
+\draw[->, line width=0.9pt, targetcol] ($(headbox.center)+(-0.62,-0.14)$) -- ($(headbox.center)+(-0.08,0.34));
+\draw[->, line width=0.9pt, proxycol] ($(headbox.center)+(-0.62,-0.14)$) -- ($(headbox.center)+(0.5,-0.02));
+\draw[line width=0.85pt, accent] ($(headbox.center)+(-0.08,0.34)$) -- ($(headbox.center)+(0.5,-0.02));
+\node[targetcol, font=\scriptsize] at ($(headbox.center)+(0.02,0.52)$) {$H_T$};
+\node[proxycol, font=\scriptsize] at ($(headbox.center)+(0.66,-0.08)$) {$H_P$};
+\node[accent, font=\scriptsize\bfseries] at ($(headbox.center)+(0.34,0.28)$) {$\Delta H$};
+
+\draw[->, line width=0.9pt, accent] (10.3,4.95) -- (11.0,4.95);
+\draw[->, line width=0.9pt, accent] (10.3,4.18) -- (11.0,4.18);
+\draw[->, line width=0.9pt, accent] (10.3,3.55) |- (10.62,2.53) -| (11.0,2.53);
+
+\end{tikzpicture}
+\caption{\textbf{PRISM geometric decomposition.} Target and proxy features are aligned by Procrustes rotation $W^*$, yielding a risk decomposition into feature alignment error $\delta$ and head discrepancy $\gamma$. The feature term further separates into scale mismatch and shape mismatch.}
+\label{fig:prism_concept}
+\end{figure}
+

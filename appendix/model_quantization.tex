@@ -1,0 +1,229 @@
+% ============================================================
+% PRISM — Model & Quantization Configuration (Appendix)
+% Include via:  \input{model_quantization}
+% ============================================================
+
+\section{Model and Quantization Details}
+\label{app:model_details}
+
+\subsection{Target Models}
+
+Table~\ref{tab:target_models} lists all target (full-precision) models evaluated in the quantization experiments.
+All targets are loaded in BF16 as the reference precision; an FP16 proxy is additionally included for each model to measure the BF16$\to$FP16 precision-drift baseline.
+
+\begin{table}[h]
+\centering
+\caption{Target models used in quantization experiments. All models are loaded in BF16.}
+\label{tab:target_models}
+\small
+\begin{tabular}{@{}clllrrr@{}}
+\toprule
+\# & Family & HuggingFace ID & Variant & Params & $d$ & $|V|$ \\
+\midrule
+1  & Qwen 3     & \texttt{Qwen/Qwen3-8B-Base}                         & Base      & 8B   & 4096 & 151K \\
+2  & Llama 3.1  & \texttt{meta-llama/Meta-Llama-3.1-8B}               & Base      & 8B   & 4096 & 128K \\
+3  & Ministral 3 & \texttt{mistralai/Ministral-3-8B-Base-2512}         & Base      & 8B   & 4096 & 131K \\
+4  & Qwen 3     & \texttt{Qwen/Qwen3-8B}                              & Instruct  & 8B   & 4096 & 151K \\
+5  & Llama 3.1  & \texttt{meta-llama/Meta-Llama-3.1-8B-Instruct}      & Instruct  & 8B   & 4096 & 128K \\
+6  & Ministral 3 & \texttt{mistralai/Ministral-3-8B-Instruct-2512}    & Instruct  & 8B   & 4096 & 131K \\
+7  & DeepSeek R1 & \texttt{deepseek-ai/DeepSeek-R1-Distill-Llama-8B} & Distilled & 8B   & 4096 & 128K \\
+8  & Qwen 2.5   & \texttt{Qwen/Qwen2.5-7B}                           & Base      & 7B   & 3584 & 151K \\
+9  & Qwen 2.5   & \texttt{Qwen/Qwen2.5-7B-Instruct}                  & Instruct  & 7B   & 3584 & 151K \\
+10 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-v0.3}                 & Base      & 7B   & 4096 & 33K  \\
+11 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-Instruct-v0.3}        & Instruct  & 7B   & 4096 & 33K  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+Models 2, 5 (\texttt{meta-llama}) are gated and require accepting the Meta Community License on HuggingFace before access.
+
+\subsection{Quantization Backends and Bit-Widths}
+\label{app:quant_tiers}
+
+Every target model is evaluated against up to four quantization backends.
+Table~\ref{tab:quant_tiers} summarises the shared GGUF and BitsAndBytes (BnB) configurations applied uniformly across all models.
+
+\begin{table}[h]
+\centering
+\caption{Shared quantization tiers applied to all target models. GGUF quants use the \texttt{llama.cpp} k-quant scheme; BnB quants use on-the-fly quantization from the full-precision checkpoint.}
+\label{tab:quant_tiers}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+Tier & Backend & Tag & Description \\
+\midrule
+FP16 reference & dtype   & \texttt{dtype:float16} & BF16$\to$FP16 precision drift baseline \\
+\midrule
+8-bit          & GGUF    & \texttt{Q8\_0}         & Round-to-nearest, 8-bit \\
+               & BnB     & \texttt{bnb:int8}      & LLM.int8() absmax \\
+6-bit          & GGUF    & \texttt{Q6\_K}         & k-quant, 6-bit (super-blocks) \\
+5-bit          & GGUF    & \texttt{Q5\_K\_M}      & k-quant, 5-bit (medium) \\
+4-bit          & GGUF    & \texttt{Q4\_K\_M}      & k-quant, 4-bit (medium) \\
+               & BnB     & \texttt{bnb:nf4}       & NormalFloat4 (QLoRA format) \\
+               & BnB     & \texttt{bnb:fp4}       & FP4 with FP16 compute \\
+3-bit          & GGUF    & \texttt{Q3\_K\_M}      & k-quant, 3-bit (medium) \\
+2-bit          & GGUF    & \texttt{Q2\_K}         & k-quant, 2-bit \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Per-Model GPTQ and AWQ Repositories}
+\label{app:gptq_awq}
+
+Table~\ref{tab:gptq_awq} lists the pre-quantized GPTQ and AWQ checkpoints used for each target model.
+All repositories are publicly hosted on HuggingFace and loaded via the standard \texttt{transformers} API unless otherwise noted.
+
+\begin{table}[h]
+\centering
+\caption{Pre-quantized GPTQ and AWQ checkpoints per model.
+``---'' indicates no publicly available checkpoint at the time of writing.
+$^\dagger$Efficient-ML repos use a non-standard \texttt{.pth} format incompatible with \texttt{transformers}; they are included for completeness but skipped at runtime.
+$^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect clean quantization error.}
+\label{tab:gptq_awq}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}cl p{5.8cm} p{4.8cm}@{}}
+\toprule
+\# & Model & GPTQ Repository & AWQ Repository \\
+\midrule
+1  & Qwen3-8B-Base
+   & \texttt{Efficient-ML/...-w4-128}$^\dagger$ \newline
+     \texttt{Efficient-ML/...-w8-128}$^\dagger$ \newline
+     \texttt{Efficient-ML/...-w4-perchannel}$^\dagger$ \newline
+     \texttt{Efficient-ML/...-w8-perchannel}$^\dagger$ \newline
+     \texttt{AlphaGaO/Qwen3-8B-GPTQ}$^\ddagger$
+   & --- \\
+\addlinespace
+2  & Llama-3.1-8B
+   & \texttt{ModelCloud/...-gptq-4bit} \newline
+     \texttt{shuyuej/...-GPTQ}
+   & \texttt{UCLA-EMC/...-AWQ-INT4} \\
+\addlinespace
+3  & Ministral-3-Base
+   & --- & --- \\
+\addlinespace
+4  & Qwen3-8B
+   & \texttt{Efficient-ML/...-w4-128}$^\dagger$ \newline
+     \texttt{Efficient-ML/...-w8-128}$^\dagger$ \newline
+     \texttt{Efficient-ML/...-w4-perchannel}$^\dagger$ \newline
+     \texttt{Efficient-ML/...-w8-perchannel}$^\dagger$ \newline
+     \texttt{JunHowie/...-GPTQ-Int8} \newline
+     \texttt{RedHatAI/...-quantized.w4a16}
+   & \texttt{Qwen/Qwen3-8B-AWQ} \\
+\addlinespace
+5  & Llama-3.1-8B-Inst.
+   & \texttt{hugging-quants/...-GPTQ-INT4} \newline
+     \texttt{ModelCloud/...-gptq-4bit} \newline
+     \texttt{shuyuej/...-GPTQ}
+   & \texttt{hugging-quants/...-AWQ-INT4} \\
+\addlinespace
+6  & Ministral-3-Inst.
+   & --- & \texttt{cyankiwi/...-AWQ-4bit} \\
+\addlinespace
+7  & DeepSeek-R1-Distill
+   & \texttt{jakiAJK/...-GPTQ-int4}
+   & \texttt{casperhansen/...-awq} \\
+\addlinespace
+8  & Qwen2.5-7B
+   & --- & --- \\
+\addlinespace
+9  & Qwen2.5-7B-Inst.
+   & \texttt{Qwen/...-GPTQ-Int4} \newline
+     \texttt{Qwen/...-GPTQ-Int8}
+   & \texttt{Qwen/...-AWQ} \\
+\addlinespace
+10 & Mistral-7B-v0.3
+   & \texttt{iproskurina/...-GPTQ-4bit-g128}
+   & \texttt{solidrust/...-AWQ} \\
+\addlinespace
+11 & Mistral-7B-Inst.-v0.3
+   & \texttt{thesven/...-GPTQ}
+   & \texttt{solidrust/...-AWQ} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{GGUF Repositories}
+\label{app:gguf_repos}
+
+Table~\ref{tab:gguf_repos} lists the GGUF repositories and filename conventions for each model.
+GGUF files follow one of two naming conventions depending on the repository provider:
+\emph{dot convention} (\texttt{Model.Q4\_K\_M.gguf}) used by QuantFactory and mradermacher,
+or \emph{dash convention} (\texttt{Model-Q4\_K\_M.gguf}) used by Qwen, bartowski, and most official releases.
+
+\begin{table}[h]
+\centering
+\caption{GGUF repositories and filename templates. Each repository provides quants \texttt{Q8\_0}, \texttt{Q6\_K}, \texttt{Q5\_K\_M}, \texttt{Q4\_K\_M}, \texttt{Q3\_K\_M}, and \texttt{Q2\_K} unless otherwise noted.}
+\label{tab:gguf_repos}
+\small
+\begin{tabular}{@{}clll@{}}
+\toprule
+\# & Model & GGUF Repository & Filename Template \\
+\midrule
+1  & Qwen3-8B-Base        & \texttt{mradermacher/Qwen3-8B-Base-GGUF}       & \texttt{Qwen3-8B-Base.\{Q\}.gguf} \\
+2  & Llama-3.1-8B         & \texttt{QuantFactory/Meta-Llama-3.1-8B-GGUF}   & \texttt{Meta-Llama-3.1-8B.\{Q\}.gguf} \\
+3  & Ministral-3-Base     & \texttt{mradermacher/Ministral-3-8B-Base-2512-GGUF} & \texttt{Ministral-3-8B-Base-2512.\{Q\}.gguf} \\
+4  & Qwen3-8B             & \texttt{Qwen/Qwen3-8B-GGUF}                    & \texttt{Qwen3-8B-\{Q\}.gguf} \\
+5  & Llama-3.1-8B-Inst.   & \texttt{bartowski/Meta-Llama-3.1-8B-Instruct-GGUF} & \texttt{...-Instruct-\{Q\}.gguf} \\
+6  & Ministral-3-Inst.    & \texttt{bartowski/mistralai\_Ministral-3-8B-Instruct-2512-GGUF} & \texttt{...-2512-\{Q\}.gguf} \\
+7  & DeepSeek-R1-Distill  & \texttt{bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF} & \texttt{...-Llama-8B-\{Q\}.gguf} \\
+8  & Qwen2.5-7B           & \texttt{QuantFactory/Qwen2.5-7B-GGUF}          & \texttt{Qwen2.5-7B.\{Q\}.gguf} \\
+9  & Qwen2.5-7B-Inst.     & \texttt{Qwen/Qwen2.5-7B-Instruct-GGUF}         & \texttt{...-Instruct-\{Q\}.gguf} \\
+10 & Mistral-7B-v0.3      & \texttt{mradermacher/Mistral-7B-v0.3-GGUF}     & \texttt{Mistral-7B-v0.3.\{Q\}.gguf} \\
+11 & Mistral-7B-Inst.-v0.3 & \texttt{bartowski/Mistral-7B-Instruct-v0.3-GGUF} & \texttt{...-v0.3-\{Q\}.gguf} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Backend Coverage Summary}
+\label{app:coverage}
+
+Table~\ref{tab:coverage} provides a per-model summary of quantization backend coverage.
+Five model--backend combinations lack publicly available checkpoints, all involving base (pre-trained) models for which community quantization activity is lower.
+
+\begin{table}[h]
+\centering
+\caption{Quantization backend coverage per model.
+\cmark\ = available and included in our experiments;
+--- = no publicly available checkpoint found on HuggingFace at the time of writing.}
+\label{tab:coverage}
+\small
+\begin{tabular}{@{}clcccc@{}}
+\toprule
+\# & Model & BnB & GGUF & GPTQ & AWQ \\
+\midrule
+1  & Qwen3-8B-Base               & \cmark & \cmark & \cmark$^\dagger$ & ---    \\
+2  & Llama-3.1-8B                & \cmark & \cmark & \cmark            & \cmark \\
+3  & Ministral-3-8B-Base         & \cmark & \cmark & ---               & ---    \\
+4  & Qwen3-8B                    & \cmark & \cmark & \cmark            & \cmark \\
+5  & Llama-3.1-8B-Instruct       & \cmark & \cmark & \cmark            & \cmark \\
+6  & Ministral-3-8B-Instruct     & \cmark & \cmark & ---               & \cmark \\
+7  & DeepSeek-R1-Distill-Llama   & \cmark & \cmark & \cmark            & \cmark \\
+8  & Qwen2.5-7B                  & \cmark & \cmark & ---               & ---    \\
+9  & Qwen2.5-7B-Instruct         & \cmark & \cmark & \cmark            & \cmark \\
+10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark            & \cmark \\
+11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark            & \cmark \\
+\midrule
+   & \textbf{Total}              & 11/11  & 11/11  & 8/11              & 8/11   \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+$^\dagger$Efficient-ML GPTQ checkpoints use a non-standard \texttt{.pth} format; the standard-format \texttt{AlphaGaO/Qwen3-8B-GPTQ} is additionally included.
+
+\paragraph{Missing combinations.}
+The five missing entries (3 models $\times$ GPTQ/AWQ) share a common pattern: they are all \emph{base} (pre-trained) models for which the community quantization ecosystem is less active than for their instruct-tuned counterparts.
+Specifically:
+\begin{itemize}[nosep]
+    \item \textbf{Qwen3-8B-Base} --- no AWQ checkpoint; the official \texttt{Qwen/Qwen3-8B-AWQ} is quantized from the instruct variant.
+    \item \textbf{Ministral-3-8B-Base-2512} --- no GPTQ or AWQ checkpoint; only instruct and reasoning variants have community quants.
+    \item \textbf{Ministral-3-8B-Instruct-2512} --- no GPTQ checkpoint; AWQ is available via \texttt{cyankiwi}.
+    \item \textbf{Qwen2.5-7B} --- no GPTQ or AWQ checkpoint for the base model; official quantizations are published only for the instruct variant.
+\end{itemize}
+For these models, GGUF (6 bit-widths) and BitsAndBytes (3 configurations) still provide comprehensive coverage across the 2--8 bit range.
+
