@@ -51,10 +51,13 @@ MODELS = [
 ]
 
 TASK_GROUPS = [
-    {"name": "main", "datasets": ["mmlu", "triviaqa", "gsm8k"]},
-    {"name": "ext",  "datasets": ["arc", "squad", "fineweb_edu", "wikitext"]},
-    {"name": "all",  "datasets": ["mmlu", "triviaqa", "gsm8k",
-                                  "arc", "squad", "fineweb_edu", "wikitext"]},
+    {"name": "main", "layout": "table",
+     "datasets": ["mmlu", "triviaqa", "gsm8k"]},
+    {"name": "ext",  "layout": "table",
+     "datasets": ["arc", "squad", "fineweb_edu", "wikitext"]},
+    {"name": "all",  "layout": "longtable",
+     "datasets": ["mmlu", "triviaqa", "gsm8k",
+                  "arc", "squad", "fineweb_edu", "wikitext"]},
 ]
 
 DS_DISPLAY = {
@@ -163,13 +166,9 @@ def fmt_cell(col_key, val, family, omega_level=None):
 # ═══════════════════════════════════════════════════════════════════
 # Table builder
 # ═══════════════════════════════════════════════════════════════════
-def build_table(model_cfg, group_cfg, rows):
+def _collect(model_cfg, datasets, rows):
+    """Return (data, rho_per_ds) filtered for this (model, dataset-list)."""
     target_model = model_cfg["path"]
-    short = model_cfg["short"]
-    display = model_cfg["display"]
-    datasets = group_cfg["datasets"]
-    group_name = group_cfg["name"]
-
     exclude = EXCLUDE_PROXY.get(target_model, set())
 
     data = defaultdict(list)
@@ -202,29 +201,12 @@ def build_table(model_cfg, group_cfg, rows):
                 pass
         rho_per_ds[ds] = spearman(xs, ys)
 
-    n_data_cols = len(COLUMNS)
-    col_spec = "ll l " + "r" * n_data_cols
-    header_cols = " & ".join(h for _, h in COLUMNS)
+    return data, rho_per_ds
 
-    caption = (
-        r"Geometric decomposition for \textbf{" + display + r"} under identity "
-        r"alignment ($W{=}I$) --- " + group_name + r" task group. "
-        r"Each benchmark section reports Spearman's "
-        r"$r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants."
-    )
-    label = f"tab:{short}_decomposition_{group_name}"
 
+def _render_body_rows(data, rho_per_ds, datasets):
+    """Render the content rows (no header, no rules outside inter-dataset)."""
     L = []
-    L.append(r"\begin{table}[t]")
-    L.append(r"\centering")
-    L.append(r"\caption{" + caption + r"}")
-    L.append(r"\label{" + label + r"}")
-    L.append(r"\resizebox{\textwidth}{!}{%")
-    L.append(r"\begin{tabular}{" + col_spec + "}")
-    L.append(r"\toprule")
-    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
-    L.append(r"\midrule")
-
     for di, ds in enumerate(datasets):
         if di > 0:
             L.append(r"\midrule")
@@ -277,12 +259,90 @@ def build_table(model_cfg, group_cfg, rows):
 
             L.append(f"{ds_cell} & {fam_cell} & {method_disp} & "
                      f"{vals_str} " + r"\\")
+    return L
 
+
+def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
+    L = []
+    L.append(r"\begin{table}[t]")
+    L.append(r"\centering")
+    L.append(r"\caption{" + caption + r"}")
+    L.append(r"\label{" + label + r"}")
+    L.append(r"\resizebox{\textwidth}{!}{%")
+    L.append(r"\begin{tabular}{" + col_spec + "}")
+    L.append(r"\toprule")
+    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
+    L.append(r"\midrule")
+    L.extend(body_rows)
     L.append(r"\bottomrule")
     L.append(r"\end{tabular}}")
     L.append(r"\end{table}")
-
     return "\n".join(L)
+
+
+def _wrap_longtable(body_rows, caption, label, col_spec, header_cols):
+    """Multi-page longtable with repeating header + continuation markers.
+
+    Uses \\small + tight \\tabcolsep instead of \\resizebox (which longtable
+    does not support). 10 data/label columns fit NeurIPS textwidth at \\small.
+    """
+    ncols = col_spec.count("r") + col_spec.count("l")
+    L = []
+    L.append(r"\begingroup")
+    L.append(r"\small")
+    L.append(r"\setlength{\tabcolsep}{4pt}")
+    L.append(r"\renewcommand{\arraystretch}{1.05}")
+    L.append(r"\begin{longtable}{" + col_spec + "}")
+    L.append(r"\caption{" + caption + r"}\label{" + label + r"}\\")
+    # First-page header
+    L.append(r"\toprule")
+    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
+    L.append(r"\midrule")
+    L.append(r"\endfirsthead")
+    # Subsequent-page header
+    L.append(r"\multicolumn{" + str(ncols) + r"}{l}"
+             r"{\small\itshape (continued from previous page)}\\")
+    L.append(r"\toprule")
+    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
+    L.append(r"\midrule")
+    L.append(r"\endhead")
+    # Mid-page footer (when breaking)
+    L.append(r"\midrule")
+    L.append(r"\multicolumn{" + str(ncols) + r"}{r}"
+             r"{\small\itshape continued on next page}\\")
+    L.append(r"\endfoot")
+    # Last-page footer
+    L.append(r"\bottomrule")
+    L.append(r"\endlastfoot")
+    L.extend(body_rows)
+    L.append(r"\end{longtable}")
+    L.append(r"\endgroup")
+    return "\n".join(L)
+
+
+def build_table(model_cfg, group_cfg, rows):
+    display = model_cfg["display"]
+    short = model_cfg["short"]
+    group_name = group_cfg["name"]
+    datasets = group_cfg["datasets"]
+    layout = group_cfg.get("layout", "table")
+
+    data, rho_per_ds = _collect(model_cfg, datasets, rows)
+    body_rows = _render_body_rows(data, rho_per_ds, datasets)
+
+    col_spec = "ll l " + "r" * len(COLUMNS)
+    header_cols = " & ".join(h for _, h in COLUMNS)
+    caption = (
+        r"Geometric decomposition for \textbf{" + display + r"} under identity "
+        r"alignment ($W{=}I$) --- " + group_name + r" task group. "
+        r"Each benchmark section reports Spearman's "
+        r"$r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants."
+    )
+    label = f"tab:{short}_decomposition_{group_name}"
+
+    if layout == "longtable":
+        return _wrap_longtable(body_rows, caption, label, col_spec, header_cols)
+    return _wrap_regular_table(body_rows, caption, label, col_spec, header_cols)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -309,6 +369,7 @@ def main():
         r"\usepackage[utf8]{inputenc}" "\n"
         r"\usepackage[T1]{fontenc}" "\n"
         r"\usepackage{booktabs,amsmath,amssymb,graphicx}" "\n"
+        r"\usepackage{longtable}" "\n"
         r"\usepackage[table]{xcolor}" "\n"
         r"\usepackage[margin=1cm,landscape]{geometry}" "\n"
         r"\pagestyle{empty}" "\n"

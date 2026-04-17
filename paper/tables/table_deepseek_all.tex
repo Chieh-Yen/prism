@@ -1,12 +1,23 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{DeepSeek-R1-Distill-Llama-8B} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:deepseek_decomposition_all}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{DeepSeek-R1-Distill-Llama-8B} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:deepseek_decomposition_all}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 MMLU & -- & FP16 & 130.4216 & 130.3021 & 0.9998 & 2.4328 & \cellcolor{cyan!12} $0$ & 6.3231 & 0.0029 \\
 {\small ($\mathbf{r_s{=}0.75}$)} & GGUF & Q8\_0 & 130.4216 & 130.0445 & 0.9986 & 6.8825 & 3.6188 & 23.0059 & 0.0038 \\
  &  & Q6\_K & 130.4216 & 130.5045 & 0.9956 & 12.2018 & 11.3344 & 47.7428 & 0.0205 \\
@@ -90,6 +101,5 @@ WikiText & -- & FP16 & 136.2122 & 136.2121 & 1.0000 & 0.0001 & \cellcolor{cyan!1
  &  & NF4 & 136.2122 & 135.9999 & 0.9805 & 26.8622 & \cellcolor{cyan!12} $0$ & 69.8174 & 0.1505 \\
  &  & FP4 & 136.2122 & 136.5206 & \cellcolor{red!18} 0.9325 & \cellcolor{red!18} 50.1154 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 130.2545 & \cellcolor{red!18} 0.2247 \\
  & GPTQ & GPTQ-4bit & 136.2122 & 137.8447 & 0.9528 & 42.1538 & \cellcolor{cyan!12} $0$ & 109.5617 & 0.2886 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup

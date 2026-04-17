@@ -1,12 +1,23 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{Qwen3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:qwen_decomposition_all}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{Qwen3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:qwen_decomposition_all}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 MMLU & -- & FP16 & 332.8740 & 332.9986 & 1.0000 & 0.1246 & \cellcolor{cyan!12} $0$ & 0.4310 & 0.0057 \\
 {\small ($\mathbf{r_s{=}0.87}$)} & GGUF & Q8\_0 & 332.8740 & 332.7277 & 1.0000 & 0.1463 & 18.9548 & 27.3120 & 0.0044 \\
  &  & Q6\_K & 332.8740 & 332.1199 & 1.0000 & 0.7540 & 60.1581 & 87.6841 & 0.0087 \\
@@ -90,6 +101,5 @@ WikiText & -- & FP16 & 295.2926 & 295.0471 & 1.0000 & 0.2454 & \cellcolor{cyan!1
  &  & NF4 & 295.2926 & 292.1749 & 1.0000 & 3.1177 & \cellcolor{cyan!12} $0$ & 10.7818 & 0.2456 \\
  &  & FP4 & 295.2926 & 295.3420 & 1.0000 & 0.0494 & \cellcolor{cyan!12} $0$ & 0.1709 & 0.6045 \\
  & GPTQ & GPTQ-4bit & 295.2926 & 149.8725 & \cellcolor{red!18} 0.9176 & \cellcolor{red!18} 168.6552 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 1379.7079 & \cellcolor{red!18} 0.5577 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup

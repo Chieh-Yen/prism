@@ -1,12 +1,23 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:mistral_decomposition_all}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:mistral_decomposition_all}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 MMLU & -- & FP16 & 191.0614 & 191.0400 & 0.9999 & 2.7396 & \cellcolor{cyan!12} $0$ & 2.6983 & 0.0033 \\
 {\small ($\mathbf{r_s{=}0.92}$)} & GGUF & Q8\_0 & 191.0614 & 191.0361 & 0.9996 & 5.2595 & 2.9475 & 9.3485 & 0.0056 \\
  &  & Q6\_K & 191.0614 & 191.1255 & 0.9983 & 11.0202 & 9.1283 & 23.7632 & 0.0022 \\
@@ -83,6 +94,5 @@ WikiText & -- & FP16 & 186.6289 & 186.6784 & 1.0000 & 0.0495 & \cellcolor{cyan!1
  & BnB & INT8 & 186.6289 & 186.7133 & 1.0000 & 0.0844 & \cellcolor{cyan!12} $0$ & 0.0831 & 0.0229 \\
  &  & NF4 & 186.6289 & 186.5334 & 1.0000 & 0.0955 & \cellcolor{cyan!12} $0$ & 0.0940 & 0.0475 \\
  &  & FP4 & 186.6289 & 186.8392 & 1.0000 & 0.2104 & \cellcolor{cyan!12} $0$ & 0.2072 & 0.0635 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup
