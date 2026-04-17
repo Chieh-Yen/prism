@@ -8,9 +8,20 @@ Two modes:
   - "feature":  x = delta_I, no safe zone (predictive correlation)
 
 Usage:
-  python plot_grid_4x5.py              # both PDFs
-  python plot_grid_4x5.py bound        # Bound_I only
-  python plot_grid_4x5.py feature      # delta_I only
+  python plot_grid_4x5.py                             # both modes × all corrs
+  python plot_grid_4x5.py bound                       # Bound_I only
+  python plot_grid_4x5.py feature                     # delta_I only
+  python plot_grid_4x5.py --corr spearman             # r_s only
+  python plot_grid_4x5.py --corr pearson              # r_p (raw) only
+  python plot_grid_4x5.py --corr pearson_log          # r_p on log(x), log(y)
+  python plot_grid_4x5.py --corr spearman,pearson_log # pick a subset
+
+Default --corr: spearman,pearson,pearson_log
+
+Output files:
+  spearman    → prism_grid_{bound|feature}.pdf
+  pearson     → prism_grid_{bound|feature}_rp.pdf
+  pearson_log → prism_grid_{bound|feature}_rplog.pdf
 """
 
 import csv
@@ -65,7 +76,7 @@ MODE_CONFIG = {
         "xlim": (2e-2, 3e3),
         "ylim": (3e-6, 3e0),
         "safe_zone": True,
-        "outfile": "prism_grid_bound.pdf",
+        "outfile": "prism_grid_bound{suffix}.pdf",
     },
     "feature": {
         "xcol": "delta_I",
@@ -73,8 +84,14 @@ MODE_CONFIG = {
         "xlim": (2e-3, 5e2),
         "ylim": (3e-6, 3e0),
         "safe_zone": False,
-        "outfile": "prism_grid_feature.pdf",
+        "outfile": "prism_grid_feature{suffix}.pdf",
     },
+}
+
+CORR_CONFIG = {
+    "spearman":    {"label": "r_s",          "suffix": ""},
+    "pearson":     {"label": "r_p",          "suffix": "_rp"},
+    "pearson_log": {"label": "r_p^{\\log}",  "suffix": "_rplog"},
 }
 
 
@@ -147,15 +164,42 @@ def _rankdata(values):
     return ranks
 
 
+def pearson(x, y):
+    if len(x) < 3:
+        return float("nan")
+    mx, my = statistics.mean(x), statistics.mean(y)
+    num = sum((a - mx) * (b - my) for a, b in zip(x, y))
+    den = math.sqrt(sum((a - mx) ** 2 for a in x)
+                    * sum((b - my) ** 2 for b in y))
+    return num / den if den > 0 else float("nan")
+
+
 def spearman(x, y):
     if len(x) < 3:
         return float("nan")
     rx, ry = _rankdata(x), _rankdata(y)
-    mx, my = statistics.mean(rx), statistics.mean(ry)
-    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
-    den = math.sqrt(sum((a - mx) ** 2 for a in rx)
-                    * sum((b - my) ** 2 for b in ry))
-    return num / den if den > 0 else float("nan")
+    return pearson(rx, ry)
+
+
+def pearson_log(x, y):
+    """Pearson on log-transformed values — slope-like summary for log-log
+    scatter. Non-positive pairs are dropped defensively."""
+    pairs = [(a, b) for a, b in zip(x, y) if a > 0 and b > 0]
+    if len(pairs) < 3:
+        return float("nan")
+    lx = [math.log(a) for a, _ in pairs]
+    ly = [math.log(b) for _, b in pairs]
+    return pearson(lx, ly)
+
+
+def compute_corr(method: str, x, y):
+    if method == "spearman":
+        return spearman(x, y)
+    if method == "pearson":
+        return pearson(x, y)
+    if method == "pearson_log":
+        return pearson_log(x, y)
+    raise ValueError(f"Unknown correlation method: {method}")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -187,8 +231,9 @@ def load_data():
 # ═══════════════════════════════════════════════════════════════════
 # Core plotting function
 # ═══════════════════════════════════════════════════════════════════
-def plot_grid(mode: str):
+def plot_grid(mode: str, corr_method: str = "spearman"):
     cfg = MODE_CONFIG[mode]
+    corr_cfg = CORR_CONFIG[corr_method]
     xcol = cfg["xcol"]
     rows = load_data()
 
@@ -271,12 +316,13 @@ def plot_grid(mode: str):
             yt_hi = int(np.ceil(np.log10(ylim[1])))
             ax.set_yticks([10**i for i in range(yt_lo, yt_hi + 1)])
 
-            # ── Spearman r_s (bottom-right) ───────────────────────
+            # ── Correlation (bottom-right) ────────────────────────
             if len(xs) >= 3:
-                rho = spearman(xs, ys)
-                rho_str = f"{rho:.2f}".lstrip("0")
+                rho = compute_corr(corr_method, xs, ys)
+                rho_str = (f"{rho:.2f}".lstrip("0") if rho >= 0
+                           else f"{rho:.2f}")
                 ax.text(
-                    0.96, 0.04, f"$r_s$={rho_str}",
+                    0.96, 0.04, f"${corr_cfg['label']}$={rho_str}",
                     transform=ax.transAxes, ha="right", va="bottom",
                     fontsize=13, fontstyle="italic",
                     bbox=dict(boxstyle="round,pad=0.2", fc="white",
@@ -339,7 +385,7 @@ def plot_grid(mode: str):
             handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
         )
 
-    outpath = Path(cfg["outfile"])
+    outpath = Path(cfg["outfile"].format(suffix=corr_cfg["suffix"]))
     fig.savefig(str(outpath), format="pdf", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved → {outpath}")
@@ -350,16 +396,37 @@ def plot_grid(mode: str):
 # ═══════════════════════════════════════════════════════════════════
 def main():
     args = sys.argv[1:]
-    if not args:
+
+    corr_methods = None
+    filtered = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--corr" and i + 1 < len(args):
+            corr_methods = [c.strip() for c in args[i + 1].split(",")]
+            i += 2
+        else:
+            filtered.append(args[i])
+            i += 1
+
+    if not filtered:
         modes = ["bound", "feature"]
     else:
-        modes = [a for a in args if a in MODE_CONFIG]
+        modes = [a for a in filtered if a in MODE_CONFIG]
         if not modes:
-            print(f"Usage: {sys.argv[0]} [bound|feature]")
+            print(f"Usage: {sys.argv[0]} [bound|feature] "
+                  f"[--corr spearman,pearson,pearson_log]")
+            sys.exit(1)
+
+    if corr_methods is None:
+        corr_methods = ["spearman", "pearson", "pearson_log"]
+    for c in corr_methods:
+        if c not in CORR_CONFIG:
+            print(f"Unknown --corr value: {c} (expected: {list(CORR_CONFIG)})")
             sys.exit(1)
 
     for m in modes:
-        plot_grid(m)
+        for c in corr_methods:
+            plot_grid(m, corr_method=c)
 
 
 if __name__ == "__main__":

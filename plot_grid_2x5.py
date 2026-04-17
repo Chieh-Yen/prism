@@ -13,13 +13,17 @@ Usage:
   python plot_grid_2x5.py bound                       # Bound only
   python plot_grid_2x5.py omega                       # Omega only
   python plot_grid_2x5.py --model mistral             # switch model dir
-  python plot_grid_2x5.py --corr spearman             # r_s only (no _rp file)
-  python plot_grid_2x5.py --corr pearson              # r_p only
-  python plot_grid_2x5.py --corr spearman,pearson     # both (default)
+  python plot_grid_2x5.py --corr spearman             # r_s only
+  python plot_grid_2x5.py --corr pearson              # r_p only (raw values)
+  python plot_grid_2x5.py --corr pearson_log          # r_p on log(x), log(y)
+  python plot_grid_2x5.py --corr spearman,pearson,pearson_log   # all three
+
+Default --corr: spearman,pearson,pearson_log
 
 Output files:
-  Spearman: forgetting_grid_{bound|omega}_{model}.pdf
-  Pearson : forgetting_grid_{bound|omega}_{model}_rp.pdf
+  spearman    → forgetting_grid_{bound|omega}_{model}.pdf
+  pearson     → forgetting_grid_{bound|omega}_{model}_rp.pdf
+  pearson_log → forgetting_grid_{bound|omega}_{model}_rplog.pdf
 """
 
 import json
@@ -78,8 +82,9 @@ MODE_CONFIG = {
 }
 
 CORR_CONFIG = {
-    "spearman": {"label": "r_s", "suffix": ""},
-    "pearson":  {"label": "r_p", "suffix": "_rp"},
+    "spearman":    {"label": "r_s",          "suffix": ""},
+    "pearson":     {"label": "r_p",          "suffix": "_rp"},
+    "pearson_log": {"label": "r_p^{\\log}",  "suffix": "_rplog"},
 }
 
 
@@ -118,11 +123,24 @@ def spearman(x, y):
     return pearson(rx, ry)
 
 
+def pearson_log(x, y):
+    """Pearson on log-transformed values — slope-like summary for log-log
+    scatter. Non-positive pairs are dropped defensively."""
+    pairs = [(a, b) for a, b in zip(x, y) if a > 0 and b > 0]
+    if len(pairs) < 3:
+        return float("nan")
+    lx = [math.log(a) for a, _ in pairs]
+    ly = [math.log(b) for _, b in pairs]
+    return pearson(lx, ly)
+
+
 def compute_corr(method: str, x, y):
     if method == "spearman":
         return spearman(x, y)
     if method == "pearson":
         return pearson(x, y)
+    if method == "pearson_log":
+        return pearson_log(x, y)
     raise ValueError(f"Unknown correlation method: {method}")
 
 
@@ -420,7 +438,7 @@ def main():
         modes = ["bound", "omega"]
 
     if corr_methods is None:
-        corr_methods = ["spearman", "pearson"]
+        corr_methods = ["spearman", "pearson", "pearson_log"]
     for c in corr_methods:
         if c not in CORR_CONFIG:
             print(f"Unknown --corr value: {c} (expected: {list(CORR_CONFIG)})")
