@@ -616,10 +616,13 @@ class PRISMCheckpointCallback(TrainerCallback):
                     "shape": prism.shape_mismatch,              # 2 ρ_T ρ_P (1 − Ω)
                     "delta": prism.feature_error,               # δ/K_feat = √(Scale + Shape)
                     "gamma": prism.head_discrepancy,            # γ/K_pred = ‖Σ^½(WH_T−H_P)‖_F
-                    # Bound  (with K_feat=1, K_pred=1)
+                    # Tight Lipschitz constants (paper Eq. 8, Appendix A)
+                    "K_feat": self.K_feat,                      # max_{j,k} ‖h_j − h_k‖₂  (from base H_T)
+                    "K_pred": self.K_pred,                      # √2
+                    # Bound (using tight K_feat, K_pred above)
                     "bound_feature": prism.risk_bound_feature,  # K_feat × δ
                     "bound_head": prism.risk_bound_head,        # K_pred × γ
-                    "bound_total": prism.risk_bound_total,      # δ + γ
+                    "bound_total": prism.risk_bound_total,      # K_feat·δ + K_pred·γ
                     # Empirical risk — answer-only (primary)
                     "loss_T": loss_T_answer,                    # R(θ₀) on answer tokens
                     "loss_P": loss_P_answer,                    # R(θ_t) on answer tokens
@@ -742,7 +745,11 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "shape": "2 ρ_T ρ_P (1 − Ω_I) — shape mismatch under W=I",
                 "delta": "√(scale + shape) — feature alignment error (δ/K_feat) under W=I",
                 "gamma": "‖Σ_P^½ (H_T − H_P)‖_F — head discrepancy (γ/K_pred) under W=I",
-                "bound_total": "δ + γ — unified risk bound (K_feat=K_pred=1)",
+                "K_feat": "max_{j,k} ‖h_j − h_k‖₂ — simplex-polarization Lipschitz of CE in features (from base H_T, Appendix A)",
+                "K_pred": "√2 — Lipschitz of CE in logits (Proposition 1)",
+                "bound_feature": "K_feat × δ — feature term of the unified bound",
+                "bound_head": "K_pred × γ — head term of the unified bound",
+                "bound_total": "K_feat·δ + K_pred·γ — unified risk bound (Eq. 8)",
                 "loss_T": "R(θ₀) — base model answer-only CE loss",
                 "loss_P": "R(θ_t) — fine-tuned model answer-only CE loss",
                 "delta_risk": "|R(θ_t) − R(θ₀)| — empirical forgetting (answer-only)",
