@@ -9,10 +9,17 @@ Two modes:
   - "omega": x = Ω_I, no safe zone
 
 Usage:
-  python plot_grid_2x5.py                     # both PDFs, model=llama
-  python plot_grid_2x5.py bound               # Bound only
-  python plot_grid_2x5.py omega               # Omega only
-  python plot_grid_2x5.py --model mistral     # switch model dir
+  python plot_grid_2x5.py                             # both modes × {r_s, r_p}
+  python plot_grid_2x5.py bound                       # Bound only
+  python plot_grid_2x5.py omega                       # Omega only
+  python plot_grid_2x5.py --model mistral             # switch model dir
+  python plot_grid_2x5.py --corr spearman             # r_s only (no _rp file)
+  python plot_grid_2x5.py --corr pearson              # r_p only
+  python plot_grid_2x5.py --corr spearman,pearson     # both (default)
+
+Output files:
+  Spearman: forgetting_grid_{bound|omega}_{model}.pdf
+  Pearson : forgetting_grid_{bound|omega}_{model}_rp.pdf
 """
 
 import json
@@ -57,7 +64,7 @@ MODE_CONFIG = {
         "safe_zone": True,
         "log_x": True,
         "log_y": True,
-        "outfile": "forgetting_grid_bound_{model}.pdf",
+        "outfile": "forgetting_grid_bound_{model}{suffix}.pdf",
     },
     "omega": {
         "xcol": "omega",
@@ -66,8 +73,13 @@ MODE_CONFIG = {
         "log_x": True,
         "log_y": True,
         "transform_x": lambda v: 1 - v,
-        "outfile": "forgetting_grid_omega_{model}.pdf",
+        "outfile": "forgetting_grid_omega_{model}{suffix}.pdf",
     },
+}
+
+CORR_CONFIG = {
+    "spearman": {"label": "r_s", "suffix": ""},
+    "pearson":  {"label": "r_p", "suffix": "_rp"},
 }
 
 
@@ -89,15 +101,29 @@ def _rankdata(values):
     return ranks
 
 
+def pearson(x, y):
+    if len(x) < 3:
+        return float("nan")
+    mx, my = statistics.mean(x), statistics.mean(y)
+    num = sum((a - mx) * (b - my) for a, b in zip(x, y))
+    den = math.sqrt(sum((a - mx) ** 2 for a in x)
+                    * sum((b - my) ** 2 for b in y))
+    return num / den if den > 0 else float("nan")
+
+
 def spearman(x, y):
     if len(x) < 3:
         return float("nan")
     rx, ry = _rankdata(x), _rankdata(y)
-    mx, my = statistics.mean(rx), statistics.mean(ry)
-    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
-    den = math.sqrt(sum((a - mx) ** 2 for a in rx)
-                    * sum((b - my) ** 2 for b in ry))
-    return num / den if den > 0 else float("nan")
+    return pearson(rx, ry)
+
+
+def compute_corr(method: str, x, y):
+    if method == "spearman":
+        return spearman(x, y)
+    if method == "pearson":
+        return pearson(x, y)
+    raise ValueError(f"Unknown correlation method: {method}")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -135,8 +161,10 @@ def extract_points(data: dict, eval_task: str, xcol: str, max_steps: int = 0,
 # ═══════════════════════════════════════════════════════════════════
 # Core plotting function
 # ═══════════════════════════════════════════════════════════════════
-def plot_grid(mode: str, model_dir: str, max_steps: int = 500):
+def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
+              corr_method: str = "spearman"):
     cfg = MODE_CONFIG[mode]
+    corr_cfg = CORR_CONFIG[corr_method]
     xcol = cfg["xcol"]
     transform_x = cfg.get("transform_x")
 
@@ -270,13 +298,13 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500):
                 yt_hi = int(np.ceil(np.log10(ylim[1])))
                 ax.set_yticks([10**i for i in range(yt_lo, yt_hi + 1)])
 
-            # Spearman r_s (bottom-right)
+            # Correlation (bottom-right)
             if len(plot_pts) >= 3:
                 vx, vy = [p[1] for p in plot_pts], [p[2] for p in plot_pts]
-                rho = spearman(vx, vy)
+                rho = compute_corr(corr_method, vx, vy)
                 rho_str = f"{rho:.2f}".lstrip("0") if rho >= 0 else f"{rho:.2f}"
                 ax.text(
-                    0.96, 0.04, f"$r_s$={rho_str}",
+                    0.96, 0.04, f"${corr_cfg['label']}$={rho_str}",
                     transform=ax.transAxes, ha="right", va="bottom",
                     fontsize=12, fontstyle="italic",
                     bbox=dict(boxstyle="round,pad=0.2", fc="white",
@@ -350,7 +378,8 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500):
         handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
     )
 
-    outpath = Path(cfg["outfile"].format(model=model_dir))
+    outpath = Path(cfg["outfile"].format(
+        model=model_dir, suffix=corr_cfg["suffix"]))
     fig.savefig(str(outpath), format="pdf", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved → {outpath}")
@@ -365,6 +394,7 @@ def main():
     # Parse flags
     model_dir = "llama"
     max_steps = 300
+    corr_methods = None
     filtered = []
     i = 0
     while i < len(args):
@@ -374,6 +404,9 @@ def main():
         elif args[i] == "--max_steps" and i + 1 < len(args):
             max_steps = int(args[i + 1])
             i += 2
+        elif args[i] == "--corr" and i + 1 < len(args):
+            corr_methods = [c.strip() for c in args[i + 1].split(",")]
+            i += 2
         else:
             filtered.append(args[i])
             i += 1
@@ -381,12 +414,21 @@ def main():
     modes = [a for a in filtered if a in MODE_CONFIG]
     if not modes:
         if filtered:
-            print(f"Usage: {sys.argv[0]} [bound|omega] [--model MODEL_DIR] [--max_steps N]")
+            print(f"Usage: {sys.argv[0]} [bound|omega] [--model MODEL_DIR] "
+                  f"[--max_steps N] [--corr spearman,pearson]")
             sys.exit(1)
         modes = ["bound", "omega"]
 
+    if corr_methods is None:
+        corr_methods = ["spearman", "pearson"]
+    for c in corr_methods:
+        if c not in CORR_CONFIG:
+            print(f"Unknown --corr value: {c} (expected: {list(CORR_CONFIG)})")
+            sys.exit(1)
+
     for m in modes:
-        plot_grid(m, model_dir, max_steps)
+        for c in corr_methods:
+            plot_grid(m, model_dir, max_steps, corr_method=c)
 
 
 if __name__ == "__main__":
