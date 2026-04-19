@@ -76,6 +76,18 @@ def _format_social_iqa(row: Dict[str, Any]) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
 
 
+def _format_no_robots(row: Dict[str, Any]) -> str:
+    msgs = row["messages"]
+    user = next(m["content"] for m in msgs if m["role"] == "user")
+    asst = next(m["content"] for m in msgs if m["role"] == "assistant")
+    return f"Instruction: {user}\nResponse: {asst}"
+
+
+def _format_lima(row: Dict[str, Any]) -> str:
+    convs = row["conversations"]
+    return f"Instruction: {convs[0]}\nResponse: {convs[1]}"
+
+
 _FORMATTERS: Dict[str, Callable] = {
     "gsm8k":      _format_gsm8k,
     "mmlu":       _format_mmlu,
@@ -85,6 +97,8 @@ _FORMATTERS: Dict[str, Callable] = {
     "truthfulqa": _format_truthfulqa,
     "bbq":        _format_bbq,
     "social_iqa": _format_social_iqa,
+    "no_robots":  _format_no_robots,
+    "lima":       _format_lima,
 }
 
 
@@ -136,6 +150,17 @@ def _prompt_social_iqa(row: Dict[str, Any]) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
 
 
+def _prompt_no_robots(row: Dict[str, Any]) -> str:
+    msgs = row["messages"]
+    user = next(m["content"] for m in msgs if m["role"] == "user")
+    return f"Instruction: {user}\nResponse:"
+
+
+def _prompt_lima(row: Dict[str, Any]) -> str:
+    convs = row["conversations"]
+    return f"Instruction: {convs[0]}\nResponse:"
+
+
 _PROMPT_FORMATTERS: Dict[str, Callable] = {
     "gsm8k":      _prompt_gsm8k,
     "mmlu":       _prompt_mmlu,
@@ -145,6 +170,8 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
     "truthfulqa": _prompt_truthfulqa,
     "bbq":        _prompt_bbq,
     "social_iqa": _prompt_social_iqa,
+    "no_robots":  _prompt_no_robots,
+    "lima":       _prompt_lima,
 }
 
 
@@ -198,7 +225,30 @@ TASK_REGISTRY: Dict[str, Dict] = {
                       "z_mode": "concat", "loss_mode": "answer"},
     "social_iqa":    {"hf_id": "allenai/social_i_qa",                               "formatter": "social_iqa", "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
+    # Instruction-following SFT targets (single-turn filter applied at load time)
+    "no_robots":     {"hf_id": "HuggingFaceH4/no_robots",                            "formatter": "no_robots",  "split_map": {"test": "test"},
+                      "z_mode": "concat", "loss_mode": "answer"},
+    "lima":          {"hf_id": "GAIR/lima",                                          "formatter": "lima",       "split_map": {"test": "train[95%:]"},
+                      "z_mode": "concat", "loss_mode": "answer"},
 }
+
+
+def _filter_single_turn(hf_dataset, task_name: str):
+    """Keep only single-turn rows for instruction-following datasets.
+
+    no_robots: messages length exactly 2 with roles [user, assistant].
+    lima:      conversations length exactly 2.
+    """
+    if task_name == "no_robots":
+        def ok(row):
+            msgs = row["messages"]
+            return (len(msgs) == 2
+                    and msgs[0]["role"] == "user"
+                    and msgs[1]["role"] == "assistant")
+        return hf_dataset.filter(ok)
+    if task_name == "lima":
+        return hf_dataset.filter(lambda r: len(r["conversations"]) == 2)
+    return hf_dataset
 
 
 def get_task_metadata(task_name: str) -> Dict:
@@ -381,6 +431,49 @@ _SOCIAL_IQA_URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/so
 _SOCIAL_IQA_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "social_iqa")
 
 
+def _load_lima(split: str):
+    """Fetch LIMA JSONL directly from the HF repo (its loader script is
+    unsupported by newer ``datasets`` versions).
+
+    Always reads ``train.jsonl``; ``test.jsonl`` is prompt-only and cannot
+    be used for CE-loss eval.  Supports HF-style slice syntax
+    (``"train[95%:]"``, ``"train[:N]"``) so callers can cut a held-out
+    split from the single 1030-row corpus.
+    """
+    import json
+    import re
+    from huggingface_hub import hf_hub_download
+    from datasets import Dataset as HFDataset
+
+    path = hf_hub_download(repo_id="GAIR/lima", filename="train.jsonl", repo_type="dataset")
+    with open(path) as f:
+        rows = [json.loads(line) for line in f]
+    # Pre-filter to single-turn so slice math operates on a clean 1000-row
+    # corpus (LIMA's 30 multi-turn rows cluster at the tail and would
+    # otherwise starve small eval slices).
+    rows = [r for r in rows if len(r["conversations"]) == 2]
+    ds = HFDataset.from_list(rows)
+
+    m = re.match(r"(\w+)(?:\[(.*)\])?$", split)
+    if m and m.group(2):
+        spec = m.group(2)
+        n = len(ds)
+
+        def _idx(s):
+            s = s.strip()
+            if not s:
+                return None
+            if s.endswith("%"):
+                return int(float(s[:-1]) * n / 100)
+            return int(s)
+
+        start_s, _, end_s = spec.partition(":")
+        start = _idx(start_s) or 0
+        end = _idx(end_s) if end_s else n
+        ds = ds.select(range(start, end))
+    return ds
+
+
 def _load_social_iqa(split: str):
     """Download Social IQa from AI2's public bucket and return an HF Dataset."""
     import io
@@ -459,6 +552,9 @@ def load_task_data(
     # Social IQa: HF loading script is deprecated; use custom loader
     if task_name == "social_iqa":
         hf_dataset = _load_social_iqa(hf_split)
+    elif task_name == "lima":
+        # LIMA ships a legacy loading script; pull JSONL directly instead.
+        hf_dataset = _load_lima(hf_split)
     else:
         load_kwargs = {"split": hf_split}
         if "hf_subset" in meta:
@@ -474,6 +570,9 @@ def load_task_data(
         from datasets import Dataset as HFDataset
         hf_dataset = HFDataset.from_list(rows)
     else:
+        # Single-turn filter for instruction-following datasets; applied
+        # before sampling so the chosen N are all single-turn.
+        hf_dataset = _filter_single_turn(hf_dataset, task_name)
         # Shuffle before selecting so the chosen N samples are random but
         # reproducible.  Skip when seed is None to preserve legacy behaviour.
         if seed is not None:

@@ -2,7 +2,7 @@
 # ============================================================
 # PRISM — Multi-Task Catastrophic Forgetting Experiment
 #
-# LoRA fine-tune 2 models × 8 tasks.  PRISM forgetting metrics
+# LoRA fine-tune 2 models × 10 tasks.  PRISM forgetting metrics
 # (Ω, δ, γ, Bound, |ΔR|) are computed online at every checkpoint
 # via the built-in callback — no separate inference stage needed.
 #
@@ -21,7 +21,7 @@
 # Environment variables (all optional):
 #   CUDA_GPU=0          GPU index (default: 0)
 #   MODELS="llama qwen" Which models (default: both)
-#   TASKS="truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k"
+#   TASKS="truthfulqa bbq social_iqa no_robots lima arc mmlu squad triviaqa gsm8k"
 #   SHAPE_REG=1         Enable shape regularizer (default: off)
 #   LAMBDA_SHAPE=0.1    Shape reg weight (default: 0.1)
 #
@@ -35,6 +35,11 @@ set -euo pipefail
 # ── GPU ───────────────────────────────────────────────────────────────────
 GPUID="${CUDA_GPU:-0}"
 
+# ── CUDA allocator: expandable segments reduce fragmentation on varying
+#    sequence lengths (dynamic padding at max_length=1024 leaves ~10 GB
+#    reserved-but-unallocated on Qwen3 without this).  Numerics unchanged.
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+
 # ── Model definitions ─────────────────────────────────────────────────────
 declare -A MODEL_IDS
 MODEL_IDS[llama]="meta-llama/Llama-3.1-8B"
@@ -42,8 +47,8 @@ MODEL_IDS[qwen]="Qwen/Qwen3-8B-Base"
 
 # ── Parameters ────────────────────────────────────────────────────────────
 MODELS="${MODELS:-llama qwen}"
-TASKS="${TASKS:-truthfulqa bbq social_iqa arc mmlu squad triviaqa gsm8k}"
-TASKS="${TASKS:-truthfulqa bbq social_iqa squad triviaqa gsm8k arc mmlu}"
+TASKS="${TASKS:-truthfulqa bbq social_iqa no_robots lima arc mmlu squad triviaqa gsm8k}"
+TASKS="${TASKS:-no_robots lima truthfulqa bbq social_iqa squad triviaqa gsm8k arc mmlu}"
 
 # ── Shape regularizer ─────────────────────────────────────────────────────
 SHAPE_REG="${SHAPE_REG:-0}"
@@ -71,6 +76,7 @@ log "  PRISM Forgetting — LoRA Fine-Tuning + Online Monitoring"
 log "  Models : $MODELS"
 log "  Tasks  : $TASKS"
 log "  GPU    : $GPUID"
+log "  Alloc  : PYTORCH_CUDA_ALLOC_CONF=$PYTORCH_CUDA_ALLOC_CONF"
 if [ "$SHAPE_REG" = "1" ]; then
 log "  Shape  : ON  (λ=$LAMBDA_SHAPE)"
 else

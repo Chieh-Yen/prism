@@ -111,6 +111,18 @@ def _format_social_iqa(row: dict) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
 
 
+def _format_no_robots(row: dict) -> str:
+    msgs = row["messages"]
+    user = next(m["content"] for m in msgs if m["role"] == "user")
+    asst = next(m["content"] for m in msgs if m["role"] == "assistant")
+    return f"Instruction: {user}\nResponse: {asst}"
+
+
+def _format_lima(row: dict) -> str:
+    convs = row["conversations"]
+    return f"Instruction: {convs[0]}\nResponse: {convs[1]}"
+
+
 FORMATTERS = {
     "arc": _format_arc,
     "mmlu": _format_mmlu,
@@ -120,6 +132,8 @@ FORMATTERS = {
     "truthfulqa": _format_truthfulqa,
     "bbq": _format_bbq,
     "social_iqa": _format_social_iqa,
+    "no_robots": _format_no_robots,
+    "lima": _format_lima,
 }
 
 
@@ -173,6 +187,17 @@ def _prompt_social_iqa(row: dict) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
 
 
+def _prompt_no_robots(row: dict) -> str:
+    msgs = row["messages"]
+    user = next(m["content"] for m in msgs if m["role"] == "user")
+    return f"Instruction: {user}\nResponse:"
+
+
+def _prompt_lima(row: dict) -> str:
+    convs = row["conversations"]
+    return f"Instruction: {convs[0]}\nResponse:"
+
+
 PROMPT_FORMATTERS = {
     "arc": _prompt_arc,
     "mmlu": _prompt_mmlu,
@@ -182,6 +207,8 @@ PROMPT_FORMATTERS = {
     "truthfulqa": _prompt_truthfulqa,
     "bbq": _prompt_bbq,
     "social_iqa": _prompt_social_iqa,
+    "no_robots": _prompt_no_robots,
+    "lima": _prompt_lima,
 }
 
 
@@ -430,6 +457,30 @@ TASK_CONFIGS = {
         "max_eval_samples": 256,
         "default_max_steps": 1400,
         "default_save_steps": 25,
+    },
+    # ── Instruction-following SFT targets ────────────────────────────
+    "no_robots": {
+        "hf_id": "HuggingFaceH4/no_robots",
+        "hf_subset": None,
+        "train_split": "train",
+        "eval_split": "test",
+        "max_train_samples": 8000,
+        "max_eval_samples": 256,
+        "default_max_steps": 1500,
+        "default_save_steps": 25,
+        "max_length": 1024,          # override: responses are long-form
+    },
+    "lima": {
+        "hf_id": "GAIR/lima",
+        "hf_subset": None,
+        # test.jsonl has prompts only — carve held-out eval from end of train
+        "train_split": "train[:95%]",
+        "eval_split": "train[95%:]",
+        "max_train_samples": None,   # ~950 single-turn after filter
+        "max_eval_samples": 256,
+        "default_max_steps": 700,
+        "default_save_steps": 25,
+        "max_length": 1024,
     },
 }
 
@@ -931,6 +982,11 @@ def parse_args() -> argparse.Namespace:
                    help="Number of reference samples for shape regularizer")
     p.add_argument("--reg_batch_size", type=int, default=8,
                    help="Batch size for reference forward pass")
+    p.add_argument("--reg_max_length", type=int, default=512,
+                   help="Max sequence length for shape-reg reference forward pass. "
+                        "Kept separate from --max_length so long-form tasks (e.g. "
+                        "no_robots with max_length=1024) don't OOM the grad-retained "
+                        "hidden-state concat inside _compute_shape_loss.")
 
     # Misc
     p.add_argument("--seed", type=int, default=42)
@@ -990,6 +1046,50 @@ def _load_social_iqa(split: str):
     return HFDataset.from_list(rows)
 
 
+def _load_lima(split: str):
+    """Load LIMA by pulling raw JSONL from the HF repo (its loader script is
+    unsupported by newer ``datasets`` versions).
+
+    Always reads ``train.jsonl`` because ``test.jsonl`` stores prompts only
+    (no reference response) — it's meant for GPT-4-as-judge eval, which
+    doesn't fit our CE-loss pipeline.  Supports HF-style slice syntax
+    (``"train[:95%]"``, ``"train[95%:]"``, ``"train[:N]"``) on that corpus
+    so callers can carve out a held-out split.
+    """
+    import json
+    import re
+    from huggingface_hub import hf_hub_download
+    from datasets import Dataset as HFDataset
+
+    path = hf_hub_download(repo_id="GAIR/lima", filename="train.jsonl", repo_type="dataset")
+    with open(path) as f:
+        rows = [json.loads(line) for line in f]
+    # Pre-filter to single-turn so downstream slice math (e.g. 95%:) yields
+    # deterministic counts; LIMA's 30 multi-turn rows happen to cluster at
+    # the tail and would otherwise starve a small eval slice.
+    rows = [r for r in rows if len(r["conversations"]) == 2]
+    ds = HFDataset.from_list(rows)
+
+    m = re.match(r"(\w+)(?:\[(.*)\])?$", split)
+    if m and m.group(2):
+        spec = m.group(2)
+        n = len(ds)
+
+        def _idx(s):
+            s = s.strip()
+            if not s:
+                return None
+            if s.endswith("%"):
+                return int(float(s[:-1]) * n / 100)
+            return int(s)
+
+        start_s, _, end_s = spec.partition(":")
+        start = _idx(start_s) or 0
+        end = _idx(end_s) if end_s else n
+        ds = ds.select(range(start, end))
+    return ds
+
+
 def _load_hf_dataset(task_name: str, split: str):
     cfg = TASK_CONFIGS[task_name]
 
@@ -998,11 +1098,30 @@ def _load_hf_dataset(task_name: str, split: str):
         actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
         return _load_social_iqa(actual_split)
 
+    # LIMA: loader script unsupported; fetch JSONL directly and respect
+    # the slice syntax in TASK_CONFIGS (test file is prompt-only, so we
+    # carve eval from the tail of train).
+    if task_name == "lima":
+        actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
+        return _load_lima(actual_split)
+
     hf_args = [cfg["hf_id"]]
     if cfg.get("hf_subset") is not None:
         hf_args.append(cfg["hf_subset"])
     actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
-    return load_dataset(*hf_args, split=actual_split)
+    ds = load_dataset(*hf_args, split=actual_split)
+
+    # Single-turn filter for instruction-following datasets so the
+    # prompt/response formatters can assume a clean (user, assistant) pair.
+    if task_name == "no_robots":
+        ds = ds.filter(lambda r: (
+            len(r["messages"]) == 2
+            and r["messages"][0]["role"] == "user"
+            and r["messages"][1]["role"] == "assistant"
+        ))
+    elif task_name == "lima":
+        ds = ds.filter(lambda r: len(r["conversations"]) == 2)
+    return ds
 
 
 def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
@@ -1085,6 +1204,13 @@ def main() -> None:
         if args.max_eval_samples is not None
         else task_cfg["max_eval_samples"]
     )
+
+    # Per-task max_length override (e.g. instruction-tuning datasets need longer).
+    # Only applied when the user did not pass --max_length explicitly (i.e. it
+    # still equals the argparse default of 512).
+    task_max_length = task_cfg.get("max_length")
+    if task_max_length is not None and args.max_length == 512:
+        args.max_length = task_max_length
 
     model_short = args.model.split("/")[-1].lower()
     output_dir = args.output_dir or os.path.join(
@@ -1180,7 +1306,7 @@ def main() -> None:
             num_samples=args.reg_samples,
             batch_size=args.reg_batch_size,
             tokenizer=tokenizer,
-            max_length=args.max_length,
+            max_length=min(args.max_length, args.reg_max_length),
             seed=args.seed + 1000,
         )
 
