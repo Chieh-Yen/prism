@@ -11,7 +11,10 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent
@@ -344,18 +347,45 @@ def check_lower_than_zero(table):
                   f"{cnt['0.5'][0]}/{cnt['0.5'][1]:<14}")
 
 
+TASK_DISPLAY = {
+    "bbq": "BBQ",
+    "lima": "LIMA",
+    "no_robots": "No-Robots",
+    "social_iqa": "Social IQA",
+    "truthfulqa": "TruthfulQA",
+    "arc": "ARC",
+    "mmlu": "MMLU",
+    "squad": "SQuAD",
+    "triviaqa": "TriviaQA",
+    "gsm8k": "GSM8K",
+}
+MODEL_DISPLAY = {"llama": "Llama-3.1-8B", "qwen": "Qwen3-8B-Base"}
+ROW_DISPLAY = {k: f"FT: {TASK_DISPLAY[k]}" for k in TASK_DISPLAY}
+
+# λ colors + distinct markers (helps distinguish overlapping lines)
+LAM_STYLE = {
+    "0.0": {"color": "#d62728", "marker": "o", "ls": "-"},
+    "0.1": {"color": "#ff7f0e", "marker": "s", "ls": "-"},
+    "0.5": {"color": "#2ca02c", "marker": "^", "ls": "-"},
+    "1.0": {"color": "#1f77b4", "marker": "D", "ls": "-"},
+}
+# λ=1.0 has incomplete runs (missing lima/no_robots for llama; early-stop on
+# bbq/truthfulqa), so we drop it from grouped figures to avoid misleading gaps.
+PLOT_LAMBDAS = ["0.0", "0.1", "0.5"]
+
+
 def plot_grouped(table, out_dir: Path):
-    """4 grouped figures. Each figure: rows = targets, cols = 6 eval tasks
-    (row's target + 5 downstream). Subplot: x=step 0–300, y=ΔR, lines=λ.
+    """4 grouped figures. Rows = targets, cols = 6 eval tasks (row's target
+    + 5 downstream). Subplot: x=step 0–300, y=ΔR, lines=λ.
 
       - combined_llama_truthfulqa_bbq.pdf   (2 rows)
       - combined_llama_others.pdf           (3 rows: lima, no_robots, social_iqa)
       - combined_qwen_truthfulqa_bbq.pdf    (2 rows)
       - combined_qwen_others.pdf            (3 rows)
+    Style matches plot_grid_2x5.py conventions.
     """
     out_dir.mkdir(exist_ok=True)
-    lam_colors = {"0.0": "#d62728", "0.1": "#ff7f0e", "0.5": "#2ca02c", "1.0": "#1f77b4"}
-    x_max = 300
+    x_max = ALIGN_STEP
     groups = [
         ("truthfulqa_bbq", ["truthfulqa", "bbq"]),
         ("others", ["lima", "no_robots", "social_iqa"]),
@@ -363,16 +393,29 @@ def plot_grouped(table, out_dir: Path):
 
     for model in MODELS:
         for suffix, targets_in_group in groups:
-            n_rows = len(targets_in_group)
-            fig, axes = plt.subplots(n_rows, 6, figsize=(22, 3.1 * n_rows),
-                                     sharex=True, squeeze=False)
-            for r, target in enumerate(targets_in_group):
+            nrow = len(targets_in_group)
+            ncol = 6
+            fig, axes = plt.subplots(
+                nrow, ncol,
+                figsize=(ncol * 3.6, nrow * 3.0 + 1.4),
+                squeeze=False,
+            )
+            plt.subplots_adjust(
+                hspace=0.28, wspace=0.28,
+                top=0.88, bottom=0.10, left=0.08, right=0.97,
+            )
+
+            seen_lams = []
+            for ri, target in enumerate(targets_in_group):
                 eval_tasks = [target] + DOWNSTREAM
-                for c, ev in enumerate(eval_tasks):
-                    ax = axes[r, c]
-                    ax.axhline(0, color="gray", lw=0.6, ls="--")
+                for ci, ev in enumerate(eval_tasks):
+                    ax = axes[ri][ci]
+                    # Stronger ΔR=0 reference line
+                    ax.axhline(0, color="black", ls="--", lw=1.3, alpha=0.75,
+                               zorder=2)
+
                     plotted = False
-                    for lam in LAMBDAS:
+                    for li, lam in enumerate(PLOT_LAMBDAS):
                         runs = table[lam][model]
                         if target not in runs:
                             continue
@@ -383,38 +426,80 @@ def plot_grouped(table, out_dir: Path):
                         if not steps:
                             continue
                         vals = [ev_series[s] for s in steps]
-                        ax.plot(steps, vals, color=lam_colors[lam], lw=1.7,
-                                marker="o", markersize=3, label=f"λ={lam}")
+                        style = LAM_STYLE[lam]
+                        ax.plot(steps, vals,
+                                color=style["color"], marker=style["marker"],
+                                linestyle=style["ls"],
+                                markersize=6, markeredgecolor="k",
+                                markeredgewidth=0.5,
+                                lw=1.6, alpha=0.85, zorder=3 + li)
                         plotted = True
-                    is_target = (ev == target)
-                    title = f"{ev}" + (" (target)" if is_target else "")
-                    ax.set_title(title, fontsize=10,
-                                 fontweight="bold" if is_target else "normal")
-                    ax.grid(alpha=0.3)
+                        if lam not in seen_lams:
+                            seen_lams.append(lam)
+
                     ax.set_xlim(0, x_max)
-                    if r == n_rows - 1:
-                        ax.set_xlabel("step")
-                    if c == 0:
-                        ax.set_ylabel(f"{target}\nΔR = loss_P − loss_T", fontsize=10)
+                    ax.tick_params(labelsize=9)
+                    ax.tick_params(axis="both", which="minor", length=0)
+                    ax.grid(True, which="major", ls=":", alpha=0.35)
+
+                    # Column title (top row only)
+                    if ri == 0:
+                        ax.set_title(TASK_DISPLAY[ev], fontsize=16,
+                                     fontweight="bold", pad=5)
+
+                    # Y label: row name + ΔR on left col, just ΔR elsewhere
+                    if ci == 0:
+                        ax.set_ylabel(
+                            ROW_DISPLAY[target] + "\n$\\Delta\\mathcal{R}$",
+                            fontsize=12, fontweight="bold", labelpad=2,
+                        )
+                    else:
+                        ax.set_ylabel("$\\Delta\\mathcal{R}$",
+                                      fontsize=10, labelpad=2)
+                    # Force every y-label to the same horizontal position so
+                    # subplots with wider tick labels don't push the ΔR text
+                    # inward or outward. Applied uniformly across the figure.
+                    ax.yaxis.set_label_coords(-0.18, 0.5)
+
+                    # X label on bottom row
+                    if ri == nrow - 1:
+                        ax.set_xlabel("Training Step", fontsize=13, labelpad=2)
+
                     if not plotted:
-                        ax.text(0.5, 0.5, "no data", ha="center", va="center",
-                                transform=ax.transAxes, color="gray")
-            # single legend from first subplot that has data
-            handles, labels = [], []
-            for ax in axes.flat:
-                h, l = ax.get_legend_handles_labels()
-                if h:
-                    handles, labels = h, l
-                    break
-            if handles:
-                fig.legend(handles, labels, loc="upper center", ncol=4,
-                           bbox_to_anchor=(0.5, 1.0 + 0.015 * (4 - n_rows)))
-            fig.suptitle(f"{model}  —  targets: {', '.join(targets_in_group)}",
-                         fontsize=13, y=1.0 + 0.02 * (4 - n_rows))
-            plt.tight_layout()
+                        ax.text(0.5, 0.5, "no data",
+                                ha="center", va="center",
+                                transform=ax.transAxes, color="0.6",
+                                fontsize=10)
+
+            # ── Legend (top center, no suptitle) ──────────────────────
+            legend_entries = []
+            for lam in PLOT_LAMBDAS:
+                if lam not in seen_lams:
+                    continue
+                style = LAM_STYLE[lam]
+                legend_entries.append((
+                    Line2D([0], [0], marker=style["marker"], color=style["color"],
+                           linestyle=style["ls"],
+                           markerfacecolor=style["color"], markeredgecolor="k",
+                           markeredgewidth=0.5, markersize=9, lw=1.8),
+                    f"$\\lambda={lam}$",
+                ))
+            legend_entries.append((
+                Line2D([0], [0], color="black", ls="--", lw=1.3, alpha=0.75),
+                "$\\Delta\\mathcal{R}=0$",
+            ))
+            handles, labels = zip(*legend_entries)
+            fig.legend(
+                handles, labels,
+                loc="upper center", bbox_to_anchor=(0.52, 0.99),
+                ncol=min(len(labels), 7), fontsize=11,
+                frameon=True, fancybox=True,
+                handletextpad=0.4, columnspacing=1.2, borderpad=0.4,
+            )
+
             out = out_dir / f"combined_{model}_{suffix}.pdf"
-            plt.savefig(out, bbox_inches="tight")
-            plt.close()
+            fig.savefig(str(out), format="pdf", dpi=300, bbox_inches="tight")
+            plt.close(fig)
             print(f"  saved {out.name}")
 
 
