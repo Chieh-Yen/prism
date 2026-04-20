@@ -397,12 +397,15 @@ def plot_grouped(table, out_dir: Path):
             ncol = 6
             fig, axes = plt.subplots(
                 nrow, ncol,
-                figsize=(ncol * 3.6, nrow * 3.0 + 1.4),
+                figsize=(ncol * 4.0, nrow * 2.9 + 1.2),
                 squeeze=False,
             )
+            # Tight layout: y-labels only on first col, so wspace can be small.
+            # Keep enough hspace so bottom row's tick labels don't collide with
+            # the upper row's x-axis.
             plt.subplots_adjust(
-                hspace=0.28, wspace=0.28,
-                top=0.88, bottom=0.10, left=0.08, right=0.97,
+                hspace=0.22, wspace=0.18,
+                top=0.89, bottom=0.11, left=0.055, right=0.985,
             )
 
             seen_lams = []
@@ -432,7 +435,8 @@ def plot_grouped(table, out_dir: Path):
                                 linestyle=style["ls"],
                                 markersize=6, markeredgecolor="k",
                                 markeredgewidth=0.5,
-                                lw=1.6, alpha=0.85, zorder=3 + li)
+                                lw=1.6, alpha=0.85, zorder=3 + li,
+                                clip_on=False)
                         plotted = True
                         if lam not in seen_lams:
                             seen_lams.append(lam)
@@ -447,19 +451,13 @@ def plot_grouped(table, out_dir: Path):
                         ax.set_title(TASK_DISPLAY[ev], fontsize=16,
                                      fontweight="bold", pad=5)
 
-                    # Y label: row name + ΔR on left col, just ΔR elsewhere
+                    # Y label only on leftmost column
                     if ci == 0:
                         ax.set_ylabel(
                             ROW_DISPLAY[target] + "\n$\\Delta\\mathcal{R}$",
-                            fontsize=12, fontweight="bold", labelpad=2,
+                            fontsize=13, fontweight="bold", labelpad=2,
                         )
-                    else:
-                        ax.set_ylabel("$\\Delta\\mathcal{R}$",
-                                      fontsize=10, labelpad=2)
-                    # Force every y-label to the same horizontal position so
-                    # subplots with wider tick labels don't push the ΔR text
-                    # inward or outward. Applied uniformly across the figure.
-                    ax.yaxis.set_label_coords(-0.18, 0.5)
+                        ax.yaxis.set_label_coords(-0.22, 0.5)
 
                     # X label on bottom row
                     if ri == nrow - 1:
