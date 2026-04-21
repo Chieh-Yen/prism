@@ -35,8 +35,8 @@
 \node[font=\tiny\bfseries, text=black!50] at (7.00, 4.08) {Risk};
 
 % Lane labels (compact, far-left, out of the arrow path)
-\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (0.18, 3.60) {$T$};
-\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (0.18, 2.50) {$P$};
+\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (0.18, 3.60) {Target $T$};
+\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (0.18, 2.50) {Proxy $P$};
 
 % Shared input
 \node[align=center, font=\tiny\bfseries] (in) at (0.35, 3.05)
@@ -73,18 +73,19 @@
                        font=\tiny\bfseries, text=Acol] {$W^{*}$}
     (ZT.south);
 
-% Risk-gap brace (curly "}" grouping R_T and R_P, opening right toward equation)
-\draw[decoration={brace, mirror, amplitude=4pt}, decorate,
-      Acol, line width=0.85pt]
-    ([xshift=4pt]RT.north east) -- ([xshift=4pt]RP.south east);
-
-% Bound equation (aligned, sqrt kept on one line via \smash[b])
-\node[anchor=north west, font=\scriptsize, inner sep=1pt] at (7.65, 4.10)
+% Bound equation: |R_T-R_P| <= { delta / + / gamma }  with right curly brace
+% |.| placed middle-left between delta and gamma; sqrt kept on one line via \smash[b]
+% Right brace drawn via TikZ (reliably stretches across the 3 rows)
+\node[anchor=north west, font=\scriptsize, inner sep=1pt] (eq) at (6.30, 4.10)
 {$\begin{aligned}
-{\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|} &\;\le\; \delta \;+\; \gamma \\[1pt]
-\delta &\;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[13pt]
-\gamma &\;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
+& \delta \;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[10pt]
+{\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|}\;\le\; & \;+\; \\[10pt]
+& \gamma \;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
 \end{aligned}$};
+
+% Right curly brace "}" on the right side of the equation block
+\draw[decoration={brace, amplitude=5pt}, decorate, red, line width=1.4pt]
+    ([xshift=3pt]eq.north east) -- ([xshift=3pt]eq.south east);
 
 % ═══════════════════════════════════════════════════════════
 % BOTTOM ROW — three decomposition icons
@@ -94,18 +95,18 @@
 \node[termbox, anchor=south west] (sbox) at (0.02, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]sbox.north) {Scale mismatch\,$(\rho_T{-}\rho_P)^{2}$};
-\coordinate (sC) at ($(sbox.center)+(0,-0.08)$);
-\draw[Tcol, line width=0.95pt, dashed, fill=Tcol!7] (sC) circle (0.55);
-\draw[Pcol, line width=0.95pt, dashed, fill=Pcol!15] (sC) circle (0.30);
+\coordinate (sC) at ($(sbox.center)+(0,-0.06)$);
+\draw[Tcol, line width=0.9pt, dashed, fill=Tcol!7] (sC) circle (0.44);
+\draw[Pcol, line width=0.9pt, dashed, fill=Pcol!15] (sC) circle (0.24);
 % blue ρ_T radius: rotated CCW 15° from horizontal-left (angle 195°)
-\draw[->, line width=0.7pt, Tcol] (sC) -- ++(195:0.55);
+\draw[->, line width=0.65pt, Tcol] (sC) -- ++(195:0.44);
 % orange ρ_P radius: horizontal right
-\draw[->, line width=0.7pt, Pcol] (sC) -- ++(0:0.30);
+\draw[->, line width=0.65pt, Pcol] (sC) -- ++(0:0.24);
 \node[Tcol, font=\tiny\bfseries, anchor=east]
-    at ($(sC)+(195:0.72)$) {$\rho_T$};
+    at ($(sC)+(195:0.60)$) {$\rho_T$};
 % ρ_P label placed outside the outer circle, slightly above horizontal
 \node[Pcol, font=\tiny\bfseries, anchor=west]
-    at ($(sC)+(0.60,0.08)$) {$\rho_P$};
+    at ($(sC)+(0.50,0.06)$) {$\rho_P$};
 
 % --- Shape mismatch ---
 \node[termbox, anchor=south west] (hbox) at (4.72, 0.02) {};
