@@ -47,6 +47,10 @@ import numpy as np
 # ═══════════════════════════════════════════════════════════════════
 # Shared config
 # ═══════════════════════════════════════════════════════════════════
+ROOT = Path(__file__).resolve().parent
+IN_DIR = ROOT / "exp_result" / "forgetting"
+FIG_DIR = ROOT / "paper" / "figures" / "forgetting"
+
 ROW_TASKS = ["truthfulqa", "social_iqa", "bbq"]
 COL_BENCHMARKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
 
@@ -156,7 +160,7 @@ def compute_corr(method: str, x, y):
 # Data loading
 # ═══════════════════════════════════════════════════════════════════
 def load_json(model_dir: str, ft_task: str) -> dict:
-    path = Path("forgetting_exp_log_safety") / model_dir / f"prism_forgetting_metrics_{ft_task}.json"
+    path = IN_DIR / model_dir / f"prism_forgetting_metrics_{ft_task}.json"
     with path.open() as f:
         return json.load(f)
 

@@ -45,7 +45,9 @@ import seaborn as sns
 # ═══════════════════════════════════════════════════════════════════
 # Shared config
 # ═══════════════════════════════════════════════════════════════════
-CSV_PATH = Path("quantization_merged_slim.csv")
+ROOT = Path(__file__).resolve().parent
+CSV_PATH = ROOT / "exp_result" / "quantization" / "quantization_merged_slim.csv"
+FIG_DIR = ROOT / "paper" / "figures" / "quantization"
 
 ROW_MODELS = [
     "meta-llama/Meta-Llama-3.1-8B",
@@ -397,7 +399,8 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
             handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
         )
 
-    outpath = Path(cfg["outfile"].format(suffix=corr_cfg["suffix"]))
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    outpath = FIG_DIR / cfg["outfile"].format(suffix=corr_cfg["suffix"])
     fig.savefig(str(outpath), format="pdf", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved → {outpath}")

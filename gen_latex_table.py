@@ -32,8 +32,9 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
-CSV_PATH = Path("quantization_merged_slim.csv")
-OUT_DIR = Path("paper/tables")
+ROOT = Path(__file__).resolve().parent
+CSV_PATH = ROOT / "exp_result" / "quantization" / "quantization_merged_slim.csv"
+OUT_DIR = ROOT / "paper" / "tables" / "quantization"
 
 
 # ═══════════════════════════════════════════════════════════════════
