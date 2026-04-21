@@ -1,0 +1,35 @@
+\begin{table}[t]
+\centering
+\caption{Trace-norm forgetting decomposition for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{Social IQA} under identity alignment ($W{=}I$).  Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model).  Each benchmark also reports Spearman $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ pooled across $\lambda \times$ checkpoints.}
+\label{tab:trace_norm_qwen_social_iqa}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+Dataset & $\lambda$ & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+Social IQA (self) & $\lambda{=}0.0$ & 316.5654 & 246.5202 & \cellcolor{red!18} 0.9417 & \cellcolor{red!18} 118.3549 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 118.3549 & \cellcolor{red!18} 0.0878 \\
+{\small ($\mathbf{r_s{=}0.30}$)} & $\lambda{=}0.1$ & 316.5654 & 294.5351 & 0.9860 & 55.6584 & \cellcolor{cyan!12} $0$ & 192.4823 & 0.0735 \\
+ & $\lambda{=}0.5$ & 316.5654 & 304.8703 & 0.9931 & 38.2407 & \cellcolor{cyan!12} $0$ & 132.2469 & 0.0690 \\
+\midrule
+ARC & $\lambda{=}0.0$ & 332.9777 & 326.7121 & 0.9914 & 43.6473 & \cellcolor{cyan!12} $0$ & 43.6473 & 0.2813 \\
+{\small ($\mathbf{r_s{=}0.65}$)} & $\lambda{=}0.1$ & 332.9777 & 330.4846 & 0.9986 & 17.6797 & \cellcolor{cyan!12} $0$ & 61.1412 & 0.2114 \\
+ & $\lambda{=}0.5$ & 332.9777 & 330.3748 & 0.9992 & 13.6696 & \cellcolor{cyan!12} $0$ & 47.2731 & 0.1975 \\
+\midrule
+MMLU & $\lambda{=}0.0$ & 333.5282 & 332.4656 & 0.9959 & 30.1901 & \cellcolor{cyan!12} $0$ & 30.1901 & 0.1436 \\
+{\small ($\mathbf{r_s{=}0.62}$)} & $\lambda{=}0.1$ & 333.5282 & 332.7050 & 0.9993 & 12.2403 & \cellcolor{cyan!12} $0$ & 42.3305 & 0.1241 \\
+ & $\lambda{=}0.5$ & 333.5282 & 332.6547 & 0.9996 & 9.2245 & \cellcolor{cyan!12} $0$ & 31.9009 & 0.1175 \\
+\midrule
+SQuAD & $\lambda{=}0.0$ & 297.6789 & 291.7302 & 0.9979 & 20.0064 & \cellcolor{cyan!12} $0$ & 20.0064 & 0.1632 \\
+{\small ($\mathbf{r_s{=}0.67}$)} & $\lambda{=}0.1$ & 297.6789 & 292.6788 & 1.0000 & 5.5508 & \cellcolor{cyan!12} $0$ & 19.1963 & 0.1183 \\
+ & $\lambda{=}0.5$ & 297.6789 & 293.8399 & 1.0000 & 3.8390 & \cellcolor{cyan!12} $0$ & 13.2764 & 0.1000 \\
+\midrule
+TriviaQA & $\lambda{=}0.0$ & 240.4206 & 231.9922 & 0.9966 & 21.1702 & \cellcolor{cyan!12} $0$ & 21.1702 & 0.0143 \\
+{\small ($\mathbf{r_s{=}0.54}$)} & $\lambda{=}0.1$ & 240.4206 & 235.8842 & 0.9994 & 9.2385 & \cellcolor{cyan!12} $0$ & 31.9492 & 0.0549 \\
+ & $\lambda{=}0.5$ & 240.4206 & 236.4224 & 0.9997 & 6.9702 & \cellcolor{cyan!12} $0$ & 24.1048 & 0.0479 \\
+\midrule
+GSM8K & $\lambda{=}0.0$ & 269.0630 & 267.0020 & 1.0000 & 2.0610 & \cellcolor{cyan!12} $0$ & 2.0610 & 0.0039 \\
+{\small ($\mathbf{r_s{=}0.80}$)} & $\lambda{=}0.1$ & 269.0630 & 266.8573 & 1.0000 & 2.2058 & \cellcolor{cyan!12} $0$ & 7.6282 & 0.0116 \\
+ & $\lambda{=}0.5$ & 269.0630 & 266.8758 & 1.0000 & 2.1872 & \cellcolor{cyan!12} $0$ & 7.5641 & 0.0109 \\
+\bottomrule
+\end{tabular}}
+\end{table}
