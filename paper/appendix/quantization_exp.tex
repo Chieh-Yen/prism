@@ -1,6 +1,11 @@
 % Full per-model quantization tables for the appendix.
 % This file is meant to be \input-ed by the main paper, not compiled standalone.
 
+\section{Per-Model Quantization Decomposition Tables}
+\label{app:quant_tables}
+
+We report the full geometric decomposition (Eq.~\ref{eq:exact_equality}) for each evaluated model, covering all quantization variants and benchmarks. Each table column lists the base RMS scale $\rho_T$, proxy RMS scale $\rho_P$, identity-alignment similarity $\Omega_I$, feature alignment error $\delta$, head discrepancy $\gamma$, full PRISM bound $\mathcal{B}$, and empirical cross-entropy gap $|\Delta\mathcal{R}|$. Per-dataset Spearman rank correlations $r_s(\delta,|\Delta\mathcal{R}|)$ appear in the left-hand column of each benchmark block.
+
 \input{tables/quantization/table_llama_ext}
 
 \clearpage
