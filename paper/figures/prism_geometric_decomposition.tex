@@ -34,9 +34,9 @@
 \node[font=\tiny\bfseries, text=black!50] at (5.35, 4.08) {Head};
 \node[font=\tiny\bfseries, text=black!50] at (7.00, 4.08) {Risk};
 
-% Lane labels
-\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (1.34, 3.60) {Target $T$};
-\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (1.34, 2.50) {Proxy $P$};
+% Lane labels (compact, far-left, out of the arrow path)
+\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (0.18, 3.60) {$T$};
+\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (0.18, 2.50) {$P$};
 
 % Shared input
 \node[align=center, font=\tiny\bfseries] (in) at (0.35, 3.05)
@@ -60,8 +60,9 @@
 \draw[arrP] (ZP) -- (HP);
 \draw[arrP] (HP) -- (RP);
 
-% Input → both backbones (branch)
-\coordinate (inJ) at (1.40, 3.05);
+% Input → both backbones: L-shape with the horizontal segment longer than
+% the vertical segment so the arrow head sits on a clean horizontal run.
+\coordinate (inJ) at (0.95, 3.05);
 \draw[line width=0.7pt, black!60] (in.east) -- (inJ);
 \draw[arrT] (inJ) |- (phiT.west);
 \draw[arrP] (inJ) |- (phiP.west);
@@ -72,15 +73,16 @@
                        font=\tiny\bfseries, text=Acol] {$W^{*}$}
     (ZT.south);
 
-% Risk-gap bracket
-\draw[<->, line width=0.9pt, Acol]
-    ([xshift=0.28cm]RT.east) -- ([xshift=0.28cm]RP.east);
+% Risk-gap brace (curly "}" grouping R_T and R_P, opening right toward equation)
+\draw[decoration={brace, mirror, amplitude=4pt}, decorate,
+      Acol, line width=0.85pt]
+    ([xshift=4pt]RT.north east) -- ([xshift=4pt]RP.south east);
 
 % Bound equation (aligned, sqrt kept on one line via \smash[b])
-\node[anchor=north west, font=\scriptsize, inner sep=1pt] at (7.70, 4.10)
+\node[anchor=north west, font=\scriptsize, inner sep=1pt] at (7.65, 4.10)
 {$\begin{aligned}
 {\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|} &\;\le\; \delta \;+\; \gamma \\[1pt]
-\delta &\;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[7pt]
+\delta &\;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[13pt]
 \gamma &\;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
 \end{aligned}$};
 
@@ -95,12 +97,15 @@
 \coordinate (sC) at ($(sbox.center)+(0,-0.18)$);
 \draw[Tcol, line width=0.95pt, dashed, fill=Tcol!7] (sC) circle (0.55);
 \draw[Pcol, line width=0.95pt, dashed, fill=Pcol!15] (sC) circle (0.30);
-\draw[->, line width=0.7pt, Tcol] (sC) -- ++(-0.55,0);
-\draw[->, line width=0.7pt, Pcol] (sC) -- ++(0.30,0);
+% blue ρ_T radius: rotated CCW 15° from horizontal-left (angle 195°)
+\draw[->, line width=0.7pt, Tcol] (sC) -- ++(195:0.55);
+% orange ρ_P radius: horizontal right
+\draw[->, line width=0.7pt, Pcol] (sC) -- ++(0:0.30);
 \node[Tcol, font=\tiny\bfseries, anchor=east]
-    at ($(sC)+(-0.60,0.00)$) {$\rho_T$};
-\node[Pcol, font=\tiny\bfseries, anchor=west]
-    at ($(sC)+(0.60,0.00)$) {$\rho_P$};
+    at ($(sC)+(195:0.72)$) {$\rho_T$};
+% ρ_P label moved downward (below the horizontal arrow tip)
+\node[Pcol, font=\tiny\bfseries, anchor=north west]
+    at ($(sC)+(0.32,-0.04)$) {$\rho_P$};
 
 % --- Shape mismatch ---
 \node[termbox, anchor=south west] (hbox) at (4.72, 0.02) {};
@@ -123,7 +128,7 @@
     .. controls +(-0.32,0.0) and +(0.20,-0.06) .. cycle;
 \draw[<->, line width=0.8pt, Acol, densely dashed]
     ($(hC)+(-0.28,-0.10)$) -- node[midway, above=-2pt,
-         font=\tiny, text=Acol] {$1{-}\Omega$}
+         font=\tiny, text=Acol] {$\Omega$}
     ($(hC)+(0.23,-0.10)$);
 \node[Tcol, font=\tiny\bfseries, anchor=north]
     at ($(hC)+(-0.72,-0.36)$) {$Z_T$};
