@@ -21,7 +21,7 @@
     arrT/.style={->, line width=0.85pt, Tcol},
     arrP/.style={->, line width=0.85pt, Pcol},
     termbox/.style={draw=panelcol, line width=0.6pt, rounded corners=3pt, fill=white,
-                    minimum width=4.55cm, minimum height=1.95cm, align=center, inner sep=2pt}
+                    minimum width=4.55cm, minimum height=1.75cm, align=center, inner sep=2pt}
 ]
 
 % ═══════════════════════════════════════════════════════════
@@ -60,9 +60,9 @@
 \draw[arrP] (ZP) -- (HP);
 \draw[arrP] (HP) -- (RP);
 
-% Input → both backbones: L-shape with the horizontal segment longer than
-% the vertical segment so the arrow head sits on a clean horizontal run.
-\coordinate (inJ) at (0.95, 3.05);
+% Input → short black horizontal run, then branch (T up, P down) with the
+% arrow head sitting on a clean horizontal shaft.
+\coordinate (inJ) at (1.10, 3.05);
 \draw[line width=0.7pt, black!60] (in.east) -- (inJ);
 \draw[arrT] (inJ) |- (phiT.west);
 \draw[arrP] (inJ) |- (phiP.west);
@@ -94,7 +94,7 @@
 \node[termbox, anchor=south west] (sbox) at (0.02, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]sbox.north) {Scale mismatch\,$(\rho_T{-}\rho_P)^{2}$};
-\coordinate (sC) at ($(sbox.center)+(0,-0.18)$);
+\coordinate (sC) at ($(sbox.center)+(0,-0.08)$);
 \draw[Tcol, line width=0.95pt, dashed, fill=Tcol!7] (sC) circle (0.55);
 \draw[Pcol, line width=0.95pt, dashed, fill=Pcol!15] (sC) circle (0.30);
 % blue ρ_T radius: rotated CCW 15° from horizontal-left (angle 195°)
@@ -103,43 +103,46 @@
 \draw[->, line width=0.7pt, Pcol] (sC) -- ++(0:0.30);
 \node[Tcol, font=\tiny\bfseries, anchor=east]
     at ($(sC)+(195:0.72)$) {$\rho_T$};
-% ρ_P label moved downward (below the horizontal arrow tip)
-\node[Pcol, font=\tiny\bfseries, anchor=north west]
-    at ($(sC)+(0.32,-0.04)$) {$\rho_P$};
+% ρ_P label placed outside the outer circle, slightly above horizontal
+\node[Pcol, font=\tiny\bfseries, anchor=west]
+    at ($(sC)+(0.60,0.08)$) {$\rho_P$};
 
 % --- Shape mismatch ---
 \node[termbox, anchor=south west] (hbox) at (4.72, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]hbox.north) {Shape mismatch\,$2\rho_T\rho_P(1{-}\Omega)$};
-\coordinate (hC) at ($(hbox.center)+(0,-0.22)$);
+\coordinate (hC) at ($(hbox.center)+(0,-0.10)$);
+% Target blob shifted further left
 \filldraw[Tcol, line width=0.85pt, fill=Tcol!10]
-    ($(hC)+(-1.05,-0.22)$)
+    ($(hC)+(-1.30,-0.22)$)
     .. controls +(0.16,0.38) and +(-0.20,0.26) ..
-    ($(hC)+(-0.52,0.10)$)
+    ($(hC)+(-0.77,0.10)$)
     .. controls +(0.22,-0.14) and +(-0.08,0.20) ..
-    ($(hC)+(-0.44,-0.38)$)
+    ($(hC)+(-0.69,-0.38)$)
     .. controls +(-0.32,0.02) and +(0.22,-0.08) .. cycle;
+% Proxy (aligned) blob shifted further right
 \filldraw[Pcol, line width=0.85pt, fill=Pcol!12]
-    ($(hC)+(0.36,-0.17)$)
+    ($(hC)+(0.61,-0.17)$)
     .. controls +(0.15,0.34) and +(-0.20,0.18) ..
-    ($(hC)+(0.96,0.13)$)
+    ($(hC)+(1.21,0.13)$)
     .. controls +(0.08,-0.20) and +(0.12,0.22) ..
-    ($(hC)+(1.07,-0.37)$)
+    ($(hC)+(1.32,-0.37)$)
     .. controls +(-0.32,0.0) and +(0.20,-0.06) .. cycle;
+% Wider Ω arrow between the two blobs (less cramped)
 \draw[<->, line width=0.8pt, Acol, densely dashed]
-    ($(hC)+(-0.28,-0.10)$) -- node[midway, above=-2pt,
+    ($(hC)+(-0.55,-0.10)$) -- node[midway, above=-2pt,
          font=\tiny, text=Acol] {$\Omega$}
-    ($(hC)+(0.23,-0.10)$);
+    ($(hC)+(0.48,-0.10)$);
 \node[Tcol, font=\tiny\bfseries, anchor=north]
-    at ($(hC)+(-0.72,-0.36)$) {$Z_T$};
+    at ($(hC)+(-0.97,-0.36)$) {$Z_T$};
 \node[Pcol, font=\tiny\bfseries, anchor=north]
-    at ($(hC)+(0.75,-0.36)$) {$Z_PW^{*}$};
+    at ($(hC)+(1.00,-0.36)$) {$Z_PW^{*}$};
 
 % --- Head discrepancy ---
 \node[termbox, anchor=south west] (dbox) at (9.42, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]dbox.north) {Head discrepancy\,$\|\Sigma_P^{1/2}\Delta H\|_F$};
-\coordinate (dC) at ($(dbox.center)+(-0.05,-0.55)$);
+\coordinate (dC) at ($(dbox.center)+(-0.05,-0.42)$);
 \draw[draw=black!50, line width=0.65pt, fill=black!10]
     (dC) ellipse (1.00 and 0.24);
 \node[font=\tiny, text=black!55]
