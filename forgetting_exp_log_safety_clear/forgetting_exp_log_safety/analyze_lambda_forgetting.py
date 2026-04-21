@@ -159,13 +159,13 @@ def validate_hypotheses(rows):
 
 def plot_curves(table, out_path: Path):
     """Grid: rows=models, cols=targets. Each panel: ΔR vs step for all eval tasks & λ."""
-    fig, axes = plt.subplots(len(MODELS), len(TARGETS), figsize=(24, 8), sharex=False)
+    fig, axes = plt.subplots(len(MODELS), len(TARGETS), figsize=(36, 14), sharex=False)
     lam_colors = {"0.0": "#d62728", "0.1": "#ff7f0e", "0.5": "#2ca02c", "1.0": "#1f77b4"}
 
     for i, model in enumerate(MODELS):
         for j, target in enumerate(TARGETS):
             ax = axes[i, j]
-            ax.axhline(0, color="gray", lw=0.5, ls="--")
+            ax.axhline(0, color="gray", lw=1.6, ls="--")
             for lam in LAMBDAS:
                 runs = table[lam][model]
                 if target not in runs:
@@ -175,7 +175,7 @@ def plot_curves(table, out_path: Path):
                 if target in series:
                     steps = sorted(series[target].keys())
                     vals = [series[target][s] for s in steps]
-                    ax.plot(steps, vals, color=lam_colors[lam], lw=2.2, ls="-",
+                    ax.plot(steps, vals, color=lam_colors[lam], lw=4.2, ls="-",
                             label=f"λ={lam} target" if i == 0 and j == 0 else None)
                 # downstream: thin dashed, averaged
                 agg = defaultdict(list)
@@ -186,16 +186,18 @@ def plot_curves(table, out_path: Path):
                 if agg:
                     steps = sorted(agg)
                     means = [np.mean(agg[s]) for s in steps]
-                    ax.plot(steps, means, color=lam_colors[lam], lw=1.2, ls=":",
+                    ax.plot(steps, means, color=lam_colors[lam], lw=2.6, ls=":",
                             label=f"λ={lam} downstream avg" if i == 0 and j == 0 else None)
-            ax.set_title(f"{model} / {target}")
-            ax.set_xlabel("step")
+            ax.set_title(f"{model} / {target}", fontsize=24, fontweight="bold")
+            ax.set_xlabel("step", fontsize=21)
             if j == 0:
-                ax.set_ylabel("ΔR = loss_P − loss_T")
+                ax.set_ylabel("ΔR = loss_P − loss_T", fontsize=21)
+            ax.tick_params(axis="both", labelsize=18)
             ax.grid(alpha=0.3)
     # single legend
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.02))
+    fig.legend(handles, labels, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.02),
+               fontsize=21)
     plt.tight_layout()
     plt.savefig(out_path, bbox_inches="tight")
     plt.close()
@@ -397,15 +399,15 @@ def plot_grouped(table, out_dir: Path):
             ncol = 6
             fig, axes = plt.subplots(
                 nrow, ncol,
-                figsize=(ncol * 4.0, nrow * 2.9 + 1.2),
+                figsize=(ncol * 6.0, nrow * 4.6 + 2.0),
                 squeeze=False,
             )
             # Tight layout: y-labels only on first col, so wspace can be small.
             # Keep enough hspace so bottom row's tick labels don't collide with
             # the upper row's x-axis.
             plt.subplots_adjust(
-                hspace=0.22, wspace=0.18,
-                top=0.89, bottom=0.11, left=0.055, right=0.985,
+                hspace=0.28, wspace=0.22,
+                top=0.87, bottom=0.14, left=0.07, right=0.985,
             )
 
             seen_lams = []
@@ -414,7 +416,7 @@ def plot_grouped(table, out_dir: Path):
                 for ci, ev in enumerate(eval_tasks):
                     ax = axes[ri][ci]
                     # Stronger ΔR=0 reference line
-                    ax.axhline(0, color="black", ls="--", lw=1.3, alpha=0.75,
+                    ax.axhline(0, color="black", ls="--", lw=2.6, alpha=0.8,
                                zorder=2)
 
                     plotted = False
@@ -433,41 +435,41 @@ def plot_grouped(table, out_dir: Path):
                         ax.plot(steps, vals,
                                 color=style["color"], marker=style["marker"],
                                 linestyle=style["ls"],
-                                markersize=6, markeredgecolor="k",
-                                markeredgewidth=0.5,
-                                lw=1.6, alpha=0.85, zorder=3 + li,
+                                markersize=15, markeredgecolor="k",
+                                markeredgewidth=1.1,
+                                lw=3.6, alpha=0.88, zorder=3 + li,
                                 clip_on=False)
                         plotted = True
                         if lam not in seen_lams:
                             seen_lams.append(lam)
 
                     ax.set_xlim(0, x_max)
-                    ax.tick_params(labelsize=9)
+                    ax.tick_params(labelsize=19)
                     ax.tick_params(axis="both", which="minor", length=0)
                     ax.grid(True, which="major", ls=":", alpha=0.35)
 
                     # Column title (top row only)
                     if ri == 0:
-                        ax.set_title(TASK_DISPLAY[ev], fontsize=16,
-                                     fontweight="bold", pad=5)
+                        ax.set_title(TASK_DISPLAY[ev], fontsize=30,
+                                     fontweight="bold", pad=12)
 
                     # Y label only on leftmost column
                     if ci == 0:
                         ax.set_ylabel(
                             ROW_DISPLAY[target] + "\n$\\Delta\\mathcal{R}$",
-                            fontsize=13, fontweight="bold", labelpad=2,
+                            fontsize=24, fontweight="bold", labelpad=6,
                         )
-                        ax.yaxis.set_label_coords(-0.22, 0.5)
+                        ax.yaxis.set_label_coords(-0.26, 0.5)
 
                     # X label on bottom row
                     if ri == nrow - 1:
-                        ax.set_xlabel("Training Step", fontsize=13, labelpad=2)
+                        ax.set_xlabel("Training Step", fontsize=24, labelpad=6)
 
                     if not plotted:
                         ax.text(0.5, 0.5, "no data",
                                 ha="center", va="center",
                                 transform=ax.transAxes, color="0.6",
-                                fontsize=10)
+                                fontsize=20)
 
             # ── Legend (top center, no suptitle) ──────────────────────
             legend_entries = []
@@ -479,20 +481,20 @@ def plot_grouped(table, out_dir: Path):
                     Line2D([0], [0], marker=style["marker"], color=style["color"],
                            linestyle=style["ls"],
                            markerfacecolor=style["color"], markeredgecolor="k",
-                           markeredgewidth=0.5, markersize=9, lw=1.8),
+                           markeredgewidth=1.1, markersize=19, lw=3.8),
                     f"$\\lambda={lam}$",
                 ))
             legend_entries.append((
-                Line2D([0], [0], color="black", ls="--", lw=1.3, alpha=0.75),
+                Line2D([0], [0], color="black", ls="--", lw=2.6, alpha=0.8),
                 "$\\Delta\\mathcal{R}=0$",
             ))
             handles, labels = zip(*legend_entries)
             fig.legend(
                 handles, labels,
-                loc="upper center", bbox_to_anchor=(0.52, 0.99),
-                ncol=min(len(labels), 7), fontsize=11,
+                loc="upper center", bbox_to_anchor=(0.52, 0.998),
+                ncol=min(len(labels), 7), fontsize=23,
                 frameon=True, fancybox=True,
-                handletextpad=0.4, columnspacing=1.2, borderpad=0.4,
+                handletextpad=0.6, columnspacing=1.8, borderpad=0.6,
             )
 
             out = out_dir / f"combined_{model}_{suffix}.pdf"
@@ -516,11 +518,11 @@ def plot_per_target(table, out_dir: Path):
             if not has_any:
                 continue
 
-            fig, axes = plt.subplots(2, 3, figsize=(14, 7), sharex=True)
+            fig, axes = plt.subplots(2, 3, figsize=(26, 14), sharex=True)
             axes = axes.flatten()
             for k, ev in enumerate(eval_tasks):
                 ax = axes[k]
-                ax.axhline(0, color="gray", lw=0.6, ls="--")
+                ax.axhline(0, color="gray", lw=1.6, ls="--")
                 for lam in LAMBDAS:
                     runs = table[lam][model]
                     if target not in runs:
@@ -532,21 +534,24 @@ def plot_per_target(table, out_dir: Path):
                     if not steps:
                         continue
                     vals = [ev_series[s] for s in steps]
-                    ax.plot(steps, vals, color=lam_colors[lam], lw=1.8,
-                            marker="o", markersize=3, label=f"λ={lam}")
+                    ax.plot(steps, vals, color=lam_colors[lam], lw=3.8,
+                            marker="o", markersize=10, markeredgecolor="k",
+                            markeredgewidth=1.0, label=f"λ={lam}")
                 is_target = (ev == target)
                 title = f"{ev}" + (" (target)" if is_target else "")
-                ax.set_title(title, fontsize=11, fontweight="bold" if is_target else "normal")
+                ax.set_title(title, fontsize=24, fontweight="bold" if is_target else "normal")
+                ax.tick_params(axis="both", labelsize=19)
                 ax.grid(alpha=0.3)
                 if k >= 3:
-                    ax.set_xlabel("step")
+                    ax.set_xlabel("step", fontsize=22)
                 if k % 3 == 0:
-                    ax.set_ylabel("ΔR = loss_P − loss_T")
+                    ax.set_ylabel("ΔR = loss_P − loss_T", fontsize=22)
                 ax.set_xlim(0, x_max)
             handles, labels = axes[0].get_legend_handles_labels()
-            fig.legend(handles, labels, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.02))
+            fig.legend(handles, labels, loc="upper center", ncol=4,
+                       bbox_to_anchor=(0.5, 1.02), fontsize=22)
             fig.suptitle(f"{model} / target={target}  (ΔR per eval task, step 0–{x_max})",
-                         fontsize=13, y=1.06)
+                         fontsize=26, fontweight="bold", y=1.06)
             plt.tight_layout()
             out = out_dir / f"per_target_{model}_{target}.pdf"
             plt.savefig(out, bbox_inches="tight")
@@ -561,14 +566,14 @@ def plot_tradeoff(rows, out_path: Path):
         if dt is None:
             continue
         by_mt[(model, target)][lam] = (dt, af)
-    fig, axes = plt.subplots(len(MODELS), len(TARGETS), figsize=(24, 8), sharex=False, sharey=False)
+    fig, axes = plt.subplots(len(MODELS), len(TARGETS), figsize=(36, 14), sharex=False, sharey=False)
     lam_colors = {"0.0": "#d62728", "0.1": "#ff7f0e", "0.5": "#2ca02c", "1.0": "#1f77b4"}
     for i, model in enumerate(MODELS):
         for j, target in enumerate(TARGETS):
             ax = axes[i, j]
             key = (model, target)
             if key not in by_mt:
-                ax.set_title(f"{model}/{target} (no data)")
+                ax.set_title(f"{model}/{target} (no data)", fontsize=24, fontweight="bold")
                 continue
             xs, ys, lams_seq = [], [], []
             for lam in LAMBDAS:
@@ -577,19 +582,23 @@ def plot_tradeoff(rows, out_path: Path):
                     xs.append(af)
                     ys.append(-dt)
                     lams_seq.append(lam)
-            ax.plot(xs, ys, "-", color="gray", lw=0.8, alpha=0.6)
+            ax.plot(xs, ys, "-", color="gray", lw=2.2, alpha=0.6)
             for x, y, lam in zip(xs, ys, lams_seq):
-                ax.scatter(x, y, s=80, color=lam_colors[lam], label=f"λ={lam}" if i == 0 and j == 0 else None, zorder=3)
-                ax.annotate(lam, (x, y), textcoords="offset points", xytext=(6, 4), fontsize=8)
-            ax.axhline(0, color="gray", lw=0.4, ls="--")
-            ax.axvline(0, color="gray", lw=0.4, ls="--")
-            ax.set_title(f"{model}/{target}")
-            ax.set_xlabel("avg downstream forgetting →")
+                ax.scatter(x, y, s=300, color=lam_colors[lam],
+                           edgecolors="k", linewidths=1.2,
+                           label=f"λ={lam}" if i == 0 and j == 0 else None, zorder=3)
+                ax.annotate(lam, (x, y), textcoords="offset points", xytext=(10, 8), fontsize=18)
+            ax.axhline(0, color="gray", lw=1.4, ls="--")
+            ax.axvline(0, color="gray", lw=1.4, ls="--")
+            ax.set_title(f"{model}/{target}", fontsize=24, fontweight="bold")
+            ax.set_xlabel("avg downstream forgetting →", fontsize=20)
             if j == 0:
-                ax.set_ylabel("target improvement (−Δ) ↑")
+                ax.set_ylabel("target improvement (−Δ) ↑", fontsize=20)
+            ax.tick_params(axis="both", labelsize=18)
             ax.grid(alpha=0.3)
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.02))
+    fig.legend(handles, labels, loc="upper center", ncol=4,
+               bbox_to_anchor=(0.5, 1.02), fontsize=22)
     plt.tight_layout()
     plt.savefig(out_path, bbox_inches="tight")
     plt.close()
