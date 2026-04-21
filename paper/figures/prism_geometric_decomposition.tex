@@ -14,79 +14,79 @@
     >={Stealth[length=1.9mm,width=1.5mm]},
     line cap=round, line join=round,
     blk/.style={draw=black!55, line width=0.7pt, rounded corners=2pt, fill=white,
-                minimum height=0.52cm, minimum width=1.05cm, inner sep=1pt, align=center,
+                minimum height=0.55cm, minimum width=1.10cm, inner sep=1pt, align=center,
                 font=\sffamily\scriptsize},
     blkT/.style={blk, draw=Tcol, fill=Tcol!5},
     blkP/.style={blk, draw=Pcol, fill=Pcol!6},
-    arrT/.style={->, line width=0.8pt, Tcol},
-    arrP/.style={->, line width=0.8pt, Pcol},
+    arrT/.style={->, line width=0.85pt, Tcol},
+    arrP/.style={->, line width=0.85pt, Pcol},
     termbox/.style={draw=panelcol, line width=0.6pt, rounded corners=3pt, fill=white,
                     minimum width=4.55cm, minimum height=1.95cm, align=center, inner sep=2pt}
 ]
 
-% ═══════════════════════════════════════════════════════
-% TOP ROW: left = pipelines, right = bound equation
-% ═══════════════════════════════════════════════════════
+% ═══════════════════════════════════════════════════════════
+% TOP ROW — pipelines (left, widened) + bound equation (right)
+% ═══════════════════════════════════════════════════════════
 
-% Column headers (Backbone / Features / Head / Risk)
-\node[font=\tiny\bfseries, text=black!50] at (1.85, 4.05) {Backbone};
-\node[font=\tiny\bfseries, text=black!50] at (3.05, 4.05) {Features};
-\node[font=\tiny\bfseries, text=black!50] at (4.25, 4.05) {Head};
-\node[font=\tiny\bfseries, text=black!50] at (5.45, 4.05) {Risk};
+% Column headers over the pipeline columns (widened x's)
+\node[font=\tiny\bfseries, text=black!50] at (2.05, 4.08) {Backbone};
+\node[font=\tiny\bfseries, text=black!50] at (3.70, 4.08) {Features};
+\node[font=\tiny\bfseries, text=black!50] at (5.35, 4.08) {Head};
+\node[font=\tiny\bfseries, text=black!50] at (7.00, 4.08) {Risk};
 
 % Lane labels
-\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (1.12, 3.60) {Target $T$};
-\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (1.12, 2.50) {Proxy $P$};
+\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (1.34, 3.60) {Target $T$};
+\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (1.34, 2.50) {Proxy $P$};
 
-% Input (centered between the two rows)
-\node[align=center, font=\tiny\bfseries] (in) at (0.2, 3.05)
+% Shared input
+\node[align=center, font=\tiny\bfseries] (in) at (0.35, 3.05)
     {Input\\$(x,y){\sim}\mathcal{D}$};
 
-% Target pipeline row (y=3.60)
-\node[blkT] (phiT) at (1.85, 3.60) {$\phi_T$};
-\node[blkT] (ZT)   at (3.05, 3.60) {$Z_T$};
-\node[blkT] (HT)   at (4.25, 3.60) {$H_T$};
-\node[blkT] (RT)   at (5.45, 3.60) {$\mathcal{R}_T$};
+% Target pipeline (y=3.60), spacing 1.65cm
+\node[blkT] (phiT) at (2.05, 3.60) {$\phi_T$};
+\node[blkT] (ZT)   at (3.70, 3.60) {$Z_T$};
+\node[blkT] (HT)   at (5.35, 3.60) {$H_T$};
+\node[blkT] (RT)   at (7.00, 3.60) {$\mathcal{R}_T$};
 \draw[arrT] (phiT) -- (ZT);
 \draw[arrT] (ZT) -- (HT);
 \draw[arrT] (HT) -- (RT);
 
-% Proxy pipeline row (y=2.50)
-\node[blkP] (phiP) at (1.85, 2.50) {$\phi_P$};
-\node[blkP] (ZP)   at (3.05, 2.50) {$Z_P$};
-\node[blkP] (HP)   at (4.25, 2.50) {$H_P$};
-\node[blkP] (RP)   at (5.45, 2.50) {$\mathcal{R}_P$};
+% Proxy pipeline (y=2.50)
+\node[blkP] (phiP) at (2.05, 2.50) {$\phi_P$};
+\node[blkP] (ZP)   at (3.70, 2.50) {$Z_P$};
+\node[blkP] (HP)   at (5.35, 2.50) {$H_P$};
+\node[blkP] (RP)   at (7.00, 2.50) {$\mathcal{R}_P$};
 \draw[arrP] (phiP) -- (ZP);
 \draw[arrP] (ZP) -- (HP);
 \draw[arrP] (HP) -- (RP);
 
-% Shared input branches to both backbones
-\coordinate (inJ) at (1.15, 3.05);
+% Input → both backbones (branch)
+\coordinate (inJ) at (1.40, 3.05);
 \draw[line width=0.7pt, black!60] (in.east) -- (inJ);
 \draw[arrT] (inJ) |- (phiT.west);
 \draw[arrP] (inJ) |- (phiP.west);
 
-% Procrustes alignment between features
+% Procrustes W*
 \draw[<->, line width=0.85pt, Acol, densely dashed]
     (ZP.north) -- node[midway, anchor=west, xshift=1pt,
                        font=\tiny\bfseries, text=Acol] {$W^{*}$}
     (ZT.south);
 
-% Risk-gap bracket (right of R_T, R_P)
-\draw[<->, line width=0.85pt, Acol]
-    ([xshift=0.25cm]RT.east) -- ([xshift=0.25cm]RP.east);
+% Risk-gap bracket
+\draw[<->, line width=0.9pt, Acol]
+    ([xshift=0.28cm]RT.east) -- ([xshift=0.28cm]RP.east);
 
-% ─── Bound equation on the right ────────────────────────
-\node[anchor=west, font=\footnotesize] at (6.40, 3.60)
-    {\color{Acol}$\bm{|\mathcal{R}_T-\mathcal{R}_P|}\;\le\;\delta \;+\; \gamma$};
-\node[anchor=west, font=\scriptsize, text=black!85] at (6.40, 2.88)
-    {$\delta \;=\; K_{\mathrm{feat}}\sqrt{\underbrace{(\rho_T{-}\rho_P)^{2}}_{\text{scale}} \,+\, \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}$};
-\node[anchor=west, font=\scriptsize, text=black!85] at (6.40, 2.12)
-    {$\gamma \;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\,\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F$};
+% Bound equation (aligned, sqrt kept on one line via \smash[b])
+\node[anchor=north west, font=\scriptsize, inner sep=1pt] at (7.70, 4.10)
+{$\begin{aligned}
+{\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|} &\;\le\; \delta \;+\; \gamma \\[1pt]
+\delta &\;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[7pt]
+\gamma &\;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
+\end{aligned}$};
 
-% ═══════════════════════════════════════════════════════
-% BOTTOM ROW: three icon cards (Scale | Shape | Head)
-% ═══════════════════════════════════════════════════════
+% ═══════════════════════════════════════════════════════════
+% BOTTOM ROW — three decomposition icons
+% ═══════════════════════════════════════════════════════════
 
 % --- Scale mismatch ---
 \node[termbox, anchor=south west] (sbox) at (0.02, 0.02) {};
@@ -152,6 +152,6 @@
     ($(dC)+(0.66,0.42)$);
 
 \end{tikzpicture}
-\caption{\textbf{PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal{R}_T{-}\mathcal{R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta$ and a head discrepancy $\gamma$ (Thm.~\ref{thm:unified_bound}). Under Procrustes alignment $W^{*}{=}\arg\min_{W\in\mathcal{O}(d)}\|Z_T{-}Z_PW\|_F$, $\delta$ decomposes exactly into \emph{scale mismatch} $(\rho_T{-}\rho_P)^{2}$ and \emph{shape mismatch} $2\rho_T\rho_P(1{-}\Omega)$ (Prop.~\ref{prop:exact_decomposition}); $\gamma$ measures $\Delta H{=}W^{*}H_T{-}H_P$ re-weighted by the proxy covariance $\Sigma_P$, vanishing when $H_T{=}H_P$ (frozen-head LoRA).}
+\caption{\textbf{PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal{R}_T{-}\mathcal{R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta$ and a head discrepancy $\gamma$ (Thm.~\ref{thm:unified_bound}). Under Procrustes alignment $W^{*}{=}\arg\min_{W\in\mathcal{O}(d)}\|Z_T{-}Z_PW\|_F$, $\delta$ decomposes exactly into \emph{scale mismatch} $(\Delta\rho)^{2}{=}(\rho_T{-}\rho_P)^{2}$ and \emph{shape mismatch} $2\rho_T\rho_P(1{-}\Omega)$ (Prop.~\ref{prop:exact_decomposition}); $\gamma$ measures $\Delta H{=}W^{*}H_T{-}H_P$ re-weighted by the proxy covariance $\Sigma_P$, vanishing when $H_T{=}H_P$ (frozen-head LoRA).}
 \label{fig:prism_concept}
 \end{figure}
