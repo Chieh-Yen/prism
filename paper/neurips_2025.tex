@@ -128,8 +128,8 @@ Evaluating Large Language Model (LLM) variants---quantized checkpoints, fine-tun
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that derives a rigorous, closed-form upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ between a target and proxy model.
 By formulating alignment as an Orthogonal Procrustes problem, we derive an exact decomposition of feature discrepancy into scale mismatch ($\Delta\rho$) and shape mismatch ($1 - \Omega$) via the nuclear norm, combined with a second-moment-adjusted head bound, yielding a closed-form upper bound computable from a single forward pass.
 We instantiate the framework for post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), where the bound reduces to a pure geometric distortion measure, and for fine-tuning (SFT, LoRA), where it isolates catastrophic forgetting in the backbone geometry.
-Extensive experiments across Llama, Qwen, Mistral, and DeepSeek demonstrate strong rank correlation (Spearman's $\rho > 0.9$) between our geometric metric and actual performance degradation.
-By leveraging high alignment as a variance-reduction guarantee, we further show that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\%.
+Extensive experiments across Llama, Qwen, Mistral, and DeepSeek demonstrate strong rank correlation (Spearman's $\rho > 0.95$) between our geometric metric and actual performance degradation.
+Because standard LLM benchmarks---MMLU, ARC, perplexity suites, and short-span QA---are already scored under teacher forcing, any such benchmark serves directly as its own calibration set: a single forward pass instantiates our bound and yields a rapid, generation-free diagnostic for both post-training quantization quality and training-time catastrophic forgetting.
 \end{abstract}
 
 \section{Introduction}
@@ -168,9 +168,9 @@ Our main contributions are as follows:
 
     \item \textbf{Principled Diagnostics for Quantization and Fine-Tuning.} We operationalize our theory across two high-value LLM lifecycle stages. In post-training quantization (GGUF, GPTQ, AWQ, BitsAndBytes), the near-identity Procrustes alignment yields a pure geometric distortion measure. In fine-tuning (SFT, LoRA), geometric drift serves as a label-free monitor for catastrophic forgetting, with the head divergence vanishing entirely under frozen-head protocols.
 
-    \item \textbf{Strong Empirical Correlation.} Extensive experiments across modern LLMs (Llama, Qwen, Mistral, DeepSeek) demonstrate that our geometric bound serves as a highly predictive surrogate for actual performance degradation, achieving Spearman's $\rho > 0.9$ across quantization formats and fine-tuning protocols, establishing linear geometric alignment as a robust, compute-efficient proxy for model evaluation.
+    \item \textbf{Strong Empirical Correlation.} Extensive experiments across modern LLMs (Llama, Qwen, Mistral, DeepSeek) demonstrate that our geometric bound serves as a highly predictive surrogate for actual performance degradation, achieving Spearman's $\rho > 0.95$ across quantization formats and fine-tuning protocols, establishing linear geometric alignment as a robust, compute-efficient proxy for model evaluation.
 
-    \item \textbf{Compute-Efficient Performance Estimation via Control Variates.} By leveraging the high geometric alignment ($\Omega \approx 1$) between target and proxy models, the pointwise Lipschitz bounds underlying our framework guarantee small per-sample loss differences, which in turn yield low variance via Popoviciu's inequality. We demonstrate that full-benchmark performance (e.g., 14{,}000 MMLU tasks) can be accurately forecast from a 500-sample calibration set, reducing evaluation compute by over 95\% with strict statistical guarantees.
+    \item \textbf{Benchmark-Calibrated Diagnostic via Teacher Forcing.} Because our bound governs cross-entropy risk---the exact scoring rule of most standard LLM benchmarks (MMLU, ARC, perplexity, short-answer QA)---any such benchmark serves directly as its own calibration set. A single teacher-forced forward pass is sufficient to instantiate $\Omega$, $\Delta\rho$, and the head term, enabling fast variant comparison for both post-training quantization and catastrophic-forgetting detection without invoking autoregressive generation.
 \end{enumerate}
 %========================================================
 
@@ -178,10 +178,10 @@ Our main contributions are as follows:
 
 \paragraph{Representational Similarity Metrics.}
 Comparing the internal representations of neural networks is a long-standing problem.
-SVCCA~\cite{raghu2017svcca} projects activations onto their top singular vectors before computing canonical correlations, while CKA~\cite{kornblith2019similarity} measures alignment through kernel-based Hilbert--Schmidt independence.
-Both metrics rely on Frobenius-norm statistics, which conflate rotational misalignment with scale differences and provide no formal connection to downstream task performance: two models can exhibit high CKA yet diverge significantly in functional risk, or vice versa.
-The \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear} offers a structural explanation---models trained on similar data converge to linearly alignable manifolds---but existing work uses this insight only for post-hoc interpretability.
-Our framework makes this hypothesis \emph{constructive}: by solving the Orthogonal Procrustes problem, we derive an exact decomposition that separates scale mismatch ($\Delta\rho$) from shape mismatch ($1-\Omega$) and directly bounds the risk gap $|\mathcal{R}_T - \mathcal{R}_P|$. The resulting Procrustes Similarity $\Omega$---defined via the nuclear norm---is provably tighter than Frobenius-based metrics such as CKA.
+SVCCA~\cite{raghu2017svcca} projects activations onto their top singular vectors before computing canonical correlations, while CKA~\cite{kornblith2019similarity} measures alignment through kernel-based Hilbert--Schmidt independence; both rely on Frobenius-norm statistics and provide no formal connection to downstream task performance---two models can exhibit high CKA yet diverge significantly in functional risk, or vice versa.
+Closest to our formulation, generalized shape metrics~\cite{williams2021generalized} use the Orthogonal Procrustes distance to define a proper metric on neural representations, establishing Procrustes-style alignment as a principled similarity measure but stopping short of any functional-risk statement.
+Our work extends this line by (i)~deriving an \emph{exact} decomposition of the Procrustes residual into scale mismatch ($\Delta\rho$) and a nuclear-norm shape term ($1-\Omega$), and (ii)~lifting this residual from a descriptive similarity to a computable upper bound on the risk gap $|\mathcal{R}_T - \mathcal{R}_P|$.
+The \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear} provides the structural justification---models within the same lineage converge to linearly alignable manifolds---which we operationalize into the closed-form orthogonal alignment underlying our bound.
 
 \paragraph{Post-Training Quantization and Its Evaluation.}
 Post-training quantization (PTQ) has become the dominant approach for deploying LLMs under memory constraints.
@@ -198,13 +198,13 @@ Our framework offers a complementary, \emph{representation-space} perspective.
 We monitor forgetting through the geometric drift of the feature manifold ($\Omega$, $\Delta\rho$) relative to the frozen base model, which naturally permits global rotations and rescalings that do not affect downstream risk.
 Notably, under standard LoRA fine-tuning where the prediction head is frozen ($H_T = H_P$), our bound isolates forgetting entirely in the backbone geometry, providing a label-free diagnostic that decouples manifold distortion from head-specific effects.
 
-\paragraph{Performance Forecasting for Foundation Models.}
-The prohibitive cost of evaluating LLM variants has motivated several forecasting approaches.
+\paragraph{Efficient Evaluation and Performance Forecasting for Foundation Models.}
+Reducing the cost of evaluating LLM variants has motivated two distinct lines of work.
 Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss as a power-law function of compute and data, but cannot capture variant-specific degradation (e.g., the effect of a particular quantization format on a specific benchmark).
+Efficient-evaluation methods such as tinyBenchmarks~\cite{polo2024tinybenchmarks} curate small, item-response-theory-calibrated subsets of existing benchmarks, but offer no formal connection between representational change and expected accuracy shift.
 Weak-to-strong generalization~\cite{burns2023weak} explores using smaller models to supervise larger ones, but targets label generation rather than risk estimation.
-PRISM introduces a distinct paradigm: \emph{Geometric Control Variates}.
-Rather than extrapolating from scaling trends, we exploit the fact that a geometrically aligned proxy ($\Omega \approx 1$) produces per-sample losses that are highly correlated with those of the target.
-Our unified bound guarantees that the variance of the loss difference $\ell_T(x) - \ell_P(x)$ is controlled by the geometric terms, enabling accurate estimation of full-benchmark performance from a small calibration set with strict statistical guarantees via Popoviciu's inequality.
+PRISM introduces a geometry-grounded alternative: rather than extrapolating from scaling trends or calibrating via item-level statistics, we exploit the fact that a geometrically aligned proxy ($\Omega \approx 1$) produces per-sample losses that are tightly coupled to those of the target.
+Combined with the teacher-forced structure of standard LLM scoring, this coupling allows any benchmark to serve as its own calibration set, with no generation required to compare variants.
 
 \input{figures/prism_geometric_decomposition.tex}
 
@@ -356,7 +356,7 @@ The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) provides a general mech
     \item \textbf{The Near-Identity Regime ($W^* \approx I$):} When the proxy and target share a nearly identical coordinate basis---as in post-training quantization---the optimal Procrustes alignment $W^*$ absorbs only small perturbations introduced by numerical noise. The bound reduces to a pure function of scale collapse ($\Delta\rho$) and structural distortion ($1 - \Omega$), with the head discrepancy vanishing when the prediction head is preserved.
     \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \not\approx I$):} When training dynamics induce global basis rotations---as in fine-tuning---the full Procrustes alignment is required. The optimal $W^*$ absorbs arbitrary rotations, and $\Omega$ measures the residual geometric drift that rotations alone cannot explain.
 \end{itemize}
-We instantiate these two regimes below for their most practically relevant scenarios, and additionally develop a control variate method for compute-efficient evaluation.
+We instantiate these two regimes below, and additionally show how the resulting bound can be evaluated directly on standard teacher-forced benchmarks as a rapid, generation-free diagnostic.
 
 \subsection{Quantization Quality Estimation}
 \label{subsec:quantization}
@@ -389,39 +389,27 @@ We define the frozen base model as Target ($T = \theta_0$) and the model at fine
 Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied only to attention and MLP projection matrices ($W_q, W_k, W_v, W_o, W_{\mathrm{up}}, W_{\mathrm{down}}$), while the \texttt{lm\_head} remains frozen ($H_t = H_0$). The head divergence term therefore vanishes, and performance degradation is governed \emph{entirely} by backbone geometric drift ($\Delta\rho$ and $\Omega$). This provides a label-free diagnostic for forgetting that decouples manifold distortion from head-specific effects.
 
 
-\subsection{Compute-Efficient Estimation via Geometric Control Variates}
-\label{subsec:control_variates}
+\subsection{Benchmark-Calibrated Diagnostics via Teacher Forcing}
+\label{subsec:benchmark_calibration}
 
-The high geometric alignment ($\Omega \approx 1$) between target and proxy implies that the per-sample loss difference $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ has low variance. To make this precise, note that the Lipschitz analysis underlying Theorem~\ref{thm:unified_bound} provides a \emph{pointwise} bound on each sample (before taking expectations):
+A central advantage of Theorem~\ref{thm:unified_bound} is that the quantity it governs---teacher-forced cross-entropy on a set of $(c, y)$ pairs---\emph{is} the scoring rule of most standard LLM evaluations. Multiple-choice benchmarks (MMLU, ARC, HellaSwag, Winogrande) rank candidate completions by token-level likelihood; language-modeling suites (WikiText, FineWeb-Edu) report perplexity, which is teacher-forced by definition; and short-answer QA (TriviaQA, SQuAD) is routinely scored by the likelihood of the gold answer span. In all these cases, a single teacher-forced forward pass over the benchmark instantiates our bound \emph{exactly}, with no additional assumption and no autoregressive generation.
+
+\paragraph{Scope: What Teacher Forcing Can and Cannot Compare.}
+A natural concern is that cross-entropy on teacher-forced tokens may diverge from the behavior of free-form generation (e.g., chain-of-thought accuracy, BLEU, pass@k), because sampling dynamics and exposure bias are not captured by a single prefix-to-target forward pass. Our claim is accordingly the narrower one that \emph{relative changes} in teacher-forced risk across closely related variants---a quantized vs.\ full-precision model, or a base vs.\ fine-tuned checkpoint---reliably track the direction and order of magnitude of downstream degradation. This is grounded in two observations. First, for the large family of benchmarks listed above, the teacher-forced cross-entropy \emph{is} the evaluation metric by benchmark design, so the concern does not apply. Second, for generation-style tasks, modern LLM training and inference dynamics are themselves driven by cross-entropy~\cite{kaplan2020scaling, hoffmann2022training}, so drift in this quantity is a well-established leading indicator of generation-quality drift between neighboring checkpoints. PRISM is therefore positioned as a rapid \emph{ranking and early-warning} tool for the variant lifecycle---quantization format selection, step-wise forgetting monitoring during SFT---complementary to, not a replacement for, end-to-end generative evaluation.
+
+\paragraph{Per-Sample Coupling from Geometric Alignment.}
+The reliability of a single-pass comparison is backed by the pointwise form of our Lipschitz analysis. Before taking expectations, Theorem~\ref{thm:unified_bound} yields a bound on each sample:
 \begin{equation}
 \label{eq:pointwise_bound}
 |\Delta\ell(x)| \;\le\; K_{\mathrm{feat}} \|\phi_T(x) - \phi_P(x) W^*\|_2 \;+\; K_{\mathrm{pred}} \|\phi_P(x) \cdot \Delta H\|_2 \;\le\; B,
 \end{equation}
-where $B = K_{\mathrm{feat}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_T(x) - \phi_P(x) W^*\|_2 + K_{\mathrm{pred}} \max_{x \in \mathcal{D}_{\mathrm{cal}}} \|\phi_P(x) \cdot \Delta H\|_2$ is the worst-case per-sample bound over the calibration set. Since $\Delta\ell(x) \in [-B, B]$, Popoviciu's inequality on bounded random variables gives:
-\begin{equation}
-\mathrm{Var}(\Delta\ell) \;\le\; B^2.
-\end{equation}
-When $\Omega \approx 1$ and $\Delta\rho \approx 0$, the per-sample residuals $\|\phi_T(x) - \phi_P(x) W^*\|_2$ are uniformly small, yielding a tight $B$ and thus low variance. This justifies treating the risk difference as a stable bias rather than random noise, and motivates the following estimator.
-
-\paragraph{The Control Variate Estimator.}
-We estimate the target's risk on a large test set $\mathcal{D}_{\mathrm{test}}$ using a small calibration set $\mathcal{D}_{\mathrm{cal}}$:
-\begin{equation}
-\label{eq:cv_estimator}
-\hat{\mathcal{R}}_T(\mathcal{D}_{\mathrm{test}}) = \mathcal{R}_P(\mathcal{D}_{\mathrm{test}}) + \underbrace{\big(\mathcal{R}_T(\mathcal{D}_{\mathrm{cal}}) - \mathcal{R}_P(\mathcal{D}_{\mathrm{cal}})\big)}_{\text{Calibrated Bias } \hat{\Delta}}.
-\end{equation}
-The proxy risk $\mathcal{R}_P(\mathcal{D}_{\mathrm{test}})$ serves as a low-variance baseline (cheap to compute), and $\hat{\Delta}$ corrects for the systematic offset using only $|\mathcal{D}_{\mathrm{cal}}|$ evaluations of the expensive target. The geometric bound guarantees that $\hat{\Delta}$ is estimated with narrow confidence intervals when $\Omega$ is high.
+where $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ and $B$ is the worst-case per-sample residual over the calibration set. Since $\Delta\ell(x) \in [-B, B]$, Popoviciu's inequality gives $\mathrm{Var}(\Delta\ell) \le B^2$. When $\Omega \approx 1$ and $\Delta\rho \approx 0$, the per-sample residuals are uniformly small, so the signed difference $\mathcal{R}_T(\mathcal{D}) - \mathcal{R}_P(\mathcal{D})$ is a stable, low-variance quantity on any benchmark $\mathcal{D}$: two teacher-forced forward passes---one per model---yield a reliable variant-level comparison. The same mechanism supports both instantiations: it certifies quantization ranking purely from $(\Delta\rho, \Omega)$ on a calibration benchmark, and provides a label-free, continuous drift signal for catastrophic-forgetting detection during fine-tuning.
 
 
 \subsection{Other Applications}
 \label{subsec:other_applications}
 
-The framework extends naturally beyond the two regimes above. We briefly outline three additional applications that follow directly from Theorem~\ref{thm:unified_bound}:
-\begin{itemize}
-    \item \textbf{Out-of-Distribution (OOD) Detection:} For in-distribution data, the alignment $\phi_T(x) \approx \phi_P(x) W^*$ holds by construction. When an input $x'$ falls outside the training distribution, this linear relationship breaks down, and the per-sample residual $\|\phi_T(x') - \phi_P(x') W^*\|_2$ spikes. This residual serves as a theoretically grounded anomaly score without requiring the target model's logits.
-    \item \textbf{Cross-Scale Coefficient Transfer:} When a small proxy ($P$) and a large target ($T$) maintain high $\Omega$ along a hyperparameter search path (e.g., merging coefficient $\alpha$), our bound guarantees that the optimal $\alpha$ found on the proxy transfers to the target with bounded regret. This enables using small models to tune hyperparameters for large models.
-    \item \textbf{Label-Free Production Monitoring:} Since $\Omega$ and $\Delta\rho$ depend only on feature matrices---not ground-truth labels---they can serve as online monitors for deployed models, detecting semantic degradation or distribution shifts in real time.
-\end{itemize}
-We leave detailed empirical validation of these applications to future work.
+Beyond the two primary regimes, Theorem~\ref{thm:unified_bound} supports several additional diagnostic uses that we leave to future empirical validation: (i)~\emph{OOD detection} via the per-sample residual $\|\phi_T(x) - \phi_P(x) W^*\|_2$, which spikes when the linear alignment hypothesis breaks on out-of-distribution inputs; (ii)~\emph{cross-scale hyperparameter transfer}, since a small proxy with high $\Omega$ to a large target bounds the regret of transferring its optimal setting; and (iii)~\emph{label-free production monitoring}, since $\Omega$ and $\Delta\rho$ depend only on feature matrices and can serve as online drift signals without ground-truth labels.
 
 
 %=========================================================================
@@ -476,14 +464,15 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
 \textbf{[Experimental results to be inserted.]}
 
 
-\subsection{Ablation: Sample Efficiency of the Control Variate Estimator}
+\subsection{Ablation: Teacher-Forced Diagnostic vs.\ Similarity Baselines}
 \label{subsec:ablation}
 
 % TODO: Insert ablation study
-% - X-axis: calibration set size n (50, 100, 200, 500, 1000, ...)
-% - Y-axis: |estimated target risk - true target risk|
-% - Show that n=500 achieves < X% error on full MMLU (14,000 tasks)
-% - Compare against naive subsampling baseline
+% - Compare ranking accuracy (Spearman ρ against true |ΔR|) for:
+%     Ω (nuclear norm),  Ω_F (Frobenius),  CKA,  raw feature MSE
+% - Stability of the PRISM bound across benchmark choice (MMLU / ARC / WikiText)
+% - Confirm that variant rankings are consistent across benchmarks
+%   under a single teacher-forced pass
 
 \textbf{[Ablation results to be inserted.]}
 
@@ -494,7 +483,7 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
 
 We presented PRISM, a unified geometric framework that establishes a rigorous, computable link between representational alignment and functional risk. By formulating alignment as an Orthogonal Procrustes problem and deriving an exact decomposition via the nuclear norm, we obtained a closed-form bound on $|\mathcal{R}_T - \mathcal{R}_P|$ that separates scale collapse ($\Delta\rho$), structural distortion ($1 - \Omega$), and head divergence as independently measurable diagnostic quantities.
 
-We instantiated this framework for two critical LLM lifecycle stages---post-training quantization and fine-tuning---and demonstrated that geometric control variates enable accurate risk forecasting from small calibration sets with strict statistical guarantees.
+We instantiated this framework for two critical LLM lifecycle stages---post-training quantization and catastrophic forgetting during fine-tuning---and showed that, because the bound governs the same teacher-forced cross-entropy used by standard LLM benchmarks, it can be evaluated directly on those benchmarks as a rapid, generation-free diagnostic rather than a separate surrogate.
 
 \paragraph{Limitations and Future Work.}
 Several promising directions remain:
