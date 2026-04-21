@@ -413,8 +413,9 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
         handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
     )
 
-    outpath = Path(cfg["outfile"].format(
-        model=model_dir, suffix=corr_cfg["suffix"]))
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    outpath = FIG_DIR / cfg["outfile"].format(
+        model=model_dir, suffix=corr_cfg["suffix"])
     fig.savefig(str(outpath), format="pdf", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved → {outpath}")

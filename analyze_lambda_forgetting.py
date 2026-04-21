@@ -19,7 +19,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent
 IN_DIR = ROOT / "exp_result" / "regularization"
-FIG_DIR = ROOT / "paper" / "figures"
+FIG_DIR = ROOT / "paper" / "figures" / "forgetting"
 LAMBDAS = ["0.0", "0.1", "0.5", "1.0"]
 MODELS = ["llama", "qwen"]
 TARGETS = ["bbq", "lima", "no_robots", "social_iqa", "truthfulqa"]
