@@ -2,6 +2,9 @@
 \centering
 \setlength{\abovecaptionskip}{4pt}
 \setlength{\belowcaptionskip}{1pt}
+\colorlet{targetcol}{blue!70!black}
+\colorlet{proxycol}{orange!85!black}
+\colorlet{accent}{violet!70!black}
 \begin{tikzpicture}[
     x=1cm,
     y=1cm,
@@ -11,10 +14,7 @@
     line join=round,
     module/.style={draw=black!55, line width=0.75pt, rounded corners=2pt, fill=white, align=center, minimum height=0.58cm, minimum width=1.3cm, inner sep=2pt},
     stage/.style={draw=gray!30, line width=0.75pt, rounded corners=4pt, fill=gray!3},
-    termbox/.style={draw=gray!40, line width=0.75pt, rounded corners=3.5pt, fill=white, minimum width=2.95cm, minimum height=1.55cm, align=center},
-    targetcol/.style={blue!70!black},
-    proxycol/.style={orange!85!black},
-    accent/.style={violet!70!black}
+    termbox/.style={draw=gray!40, line width=0.75pt, rounded corners=3.5pt, fill=white, minimum width=2.95cm, minimum height=1.55cm, align=center}
 ]
 
 \node[align=center, font=\bfseries\footnotesize] (input) at (0.2,4.15) {Input\\$(x,y)\sim\mathcal{D}$};
@@ -72,9 +72,9 @@
 \node[font=\scriptsize, anchor=north west] at ($(headbox.north west)+(0.18,-0.56)$) {$\|\Sigma_P^{1/2}\Delta H\|_F$};
 \draw[draw=gray!72, line width=0.75pt, fill=gray!15] ($(headbox.center)+(-0.62,-0.14)$) ellipse (0.72 and 0.2);
 \node[gray!72!black, font=\scriptsize] at ($(headbox.center)+(-0.64,-0.48)$) {$\Sigma_P$};
-\draw[->, line width=0.9pt, targetcol] ($(headbox.center)+(-0.62,-0.14)$) -- ($(headbox.center)+(-0.08,0.34));
-\draw[->, line width=0.9pt, proxycol] ($(headbox.center)+(-0.62,-0.14)$) -- ($(headbox.center)+(0.5,-0.02));
-\draw[line width=0.85pt, accent] ($(headbox.center)+(-0.08,0.34)$) -- ($(headbox.center)+(0.5,-0.02));
+\draw[->, line width=0.9pt, targetcol] ($(headbox.center)+(-0.62,-0.14)$) -- ($(headbox.center)+(-0.08,0.34)$);
+\draw[->, line width=0.9pt, proxycol] ($(headbox.center)+(-0.62,-0.14)$) -- ($(headbox.center)+(0.5,-0.02)$);
+\draw[line width=0.85pt, accent] ($(headbox.center)+(-0.08,0.34)$) -- ($(headbox.center)+(0.5,-0.02)$);
 \node[targetcol, font=\scriptsize] at ($(headbox.center)+(0.02,0.52)$) {$H_T$};
 \node[proxycol, font=\scriptsize] at ($(headbox.center)+(0.66,-0.08)$) {$H_P$};
 \node[accent, font=\scriptsize\bfseries] at ($(headbox.center)+(0.34,0.28)$) {$\Delta H$};
