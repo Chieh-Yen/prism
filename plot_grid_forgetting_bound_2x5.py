@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-2×5 grid: rows=fine-tune datasets (truthfulqa, social_iqa),
+2×5 grid: rows=fine-tune datasets (truthfulqa, bbq),  # social_iqa commented out
           cols=eval benchmarks (ARC, MMLU, SQuAD, TriviaQA, GSM8K).
 Each subplot: scatter of x-metric vs |ΔR|, colored by training step.
 
@@ -51,12 +51,16 @@ ROOT = Path(__file__).resolve().parent
 IN_DIR = ROOT / "exp_result" / "forgetting"
 FIG_DIR = ROOT / "paper" / "figures" / "forgetting"
 
-ROW_TASKS = ["truthfulqa", "social_iqa", "bbq"]
+ROW_TASKS = [
+    "truthfulqa",
+    # "social_iqa",
+    "bbq",
+]
 COL_BENCHMARKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
 
 ROW_DISPLAY = {
     "truthfulqa": "FT: TruthfulQA",
-    "social_iqa": "FT: Social IQA",
+    # "social_iqa": "FT: Social IQA",
     "bbq": "FT: BBQ",
 }
 COL_DISPLAY = {
@@ -428,7 +432,7 @@ def main():
     args = sys.argv[1:]
 
     # Parse flags
-    model_dir = "llama"
+    model_dir = "qwen"
     max_steps = 300
     corr_methods = None
     filtered = []
