@@ -550,6 +550,7 @@ We instantiated this framework for two critical LLM lifecycle stages---post-trai
 Several promising directions remain:
 \begin{itemize}
     \item \textbf{Dynamic Trajectory Alignment:} Our current formulation validates static (prefill) feature manifolds. Extending to multi-step generation trajectories would enable proxy estimation for long Chain-of-Thought reasoning and agentic workflows.
+    \item \textbf{Cross-Lineage Proxy Scenarios:} The current framework targets same-lineage comparisons (a base and its post-training descendants). Extending the alignment step beyond orthogonal Procrustes would naturally support proxy scenarios that bridge different lineages---such as teacher--student distillation---generalizing PRISM to a broader class of model comparisons.
     \item \textbf{Cross-Modal Generalization:} The Linear Representation Hypothesis extends beyond text. Investigating PRISM's applicability to vision transformers and cross-modal models (e.g., CLIP) remains a natural next step.
 \end{itemize}
 
