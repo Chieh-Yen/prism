@@ -35,8 +35,8 @@
 \node[font=\tiny\bfseries, text=black!50] at (7.00, 4.08) {Risk};
 
 % Lane labels (compact, far-left, out of the arrow path)
-\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (0.18, 3.60) {Target $T$};
-\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (0.18, 2.50) {Proxy $P$};
+\node[anchor=east, text=Tcol, font=\scriptsize\bfseries] at (0.18, 3.60) {$T$};
+\node[anchor=east, text=Pcol, font=\scriptsize\bfseries] at (0.18, 2.50) {$P$};
 
 % Shared input
 \node[align=center, font=\tiny\bfseries] (in) at (0.35, 3.05)
@@ -73,19 +73,24 @@
                        font=\tiny\bfseries, text=Acol] {$W^{*}$}
     (ZT.south);
 
-% Bound equation: |R_T-R_P| <= { delta / + / gamma }  with right curly brace
-% |.| placed middle-left between delta and gamma; sqrt kept on one line via \smash[b]
-% Right brace drawn via TikZ (reliably stretches across the 3 rows)
-\node[anchor=north west, font=\scriptsize, inner sep=1pt] (eq) at (6.30, 4.10)
-{$\begin{aligned}
-& \delta \;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[10pt]
-{\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|}\;\le\; & \;+\; \\[10pt]
-& \gamma \;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
-\end{aligned}$};
+% Procrustes W*
+\draw[<->, line width=0.85pt, Acol, densely dashed]
+    (HT.south) -- node[midway, anchor=west, xshift=1pt,
+                       font=\tiny\bfseries, text=Acol] {$W^{*}$}
+    (HP.north);
 
-% Right curly brace "}" on the right side of the equation block
-\draw[decoration={brace, amplitude=5pt}, decorate, red, line width=1.4pt]
-    ([xshift=3pt]eq.north east) -- ([xshift=3pt]eq.south east);
+% Risk-gap brace (curly "}" grouping R_T and R_P, opening right toward equation)
+\draw[decoration={brace, mirror, amplitude=4pt}, decorate,
+      Acol, line width=0.85pt]
+    ([xshift=8pt]RT.north east) -- ([xshift=8pt]RP.south east);
+
+% Bound equation (aligned, sqrt kept on one line via \smash[b])
+\node[anchor=north west, font=\scriptsize, inner sep=1pt] at (8.0, 4.10)
+{$\begin{aligned}
+{\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|} &\;\le\; \delta \;+\; \gamma \\[1pt]
+\delta &\;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[13pt]
+\gamma &\;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
+\end{aligned}$};
 
 % ═══════════════════════════════════════════════════════════
 % BOTTOM ROW — three decomposition icons
@@ -94,24 +99,24 @@
 % --- Scale mismatch ---
 \node[termbox, anchor=south west] (sbox) at (0.02, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
-    at ([yshift=-0.10cm]sbox.north) {Scale mismatch\,$(\rho_T{-}\rho_P)^{2}$};
-\coordinate (sC) at ($(sbox.center)+(0,-0.06)$);
-\draw[Tcol, line width=0.9pt, dashed, fill=Tcol!7] (sC) circle (0.44);
-\draw[Pcol, line width=0.9pt, dashed, fill=Pcol!15] (sC) circle (0.24);
+    at ([yshift=-0.10cm]sbox.north) {Scale mismatch \,$(\rho_T{-}\rho_P)^{2}$};
+\coordinate (sC) at ($(sbox.center)+(0,-0.22)$);
+\draw[Tcol, line width=0.95pt, dashed, fill=Tcol!7] (sC) circle (0.55);
+\draw[Pcol, line width=0.95pt, dashed, fill=Pcol!15] (sC) circle (0.30);
 % blue ρ_T radius: rotated CCW 15° from horizontal-left (angle 195°)
-\draw[->, line width=0.65pt, Tcol] (sC) -- ++(195:0.44);
+\draw[->, line width=0.7pt, Tcol] (sC) -- ++(195:0.55);
 % orange ρ_P radius: horizontal right
-\draw[->, line width=0.65pt, Pcol] (sC) -- ++(0:0.24);
+\draw[->, line width=0.7pt, Pcol] (sC) -- ++(0:0.30);
 \node[Tcol, font=\tiny\bfseries, anchor=east]
     at ($(sC)+(195:0.60)$) {$\rho_T$};
 % ρ_P label placed outside the outer circle, slightly above horizontal
 \node[Pcol, font=\tiny\bfseries, anchor=west]
-    at ($(sC)+(0.50,0.06)$) {$\rho_P$};
+    at ($(sC)+(0.60,0.08)$) {$\rho_P$};
 
 % --- Shape mismatch ---
 \node[termbox, anchor=south west] (hbox) at (4.72, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
-    at ([yshift=-0.10cm]hbox.north) {Shape mismatch\,$2\rho_T\rho_P(1{-}\Omega)$};
+    at ([yshift=-0.10cm]hbox.north) {Shape mismatch \,$2\rho_T\rho_P(1{-}\Omega)$};
 \coordinate (hC) at ($(hbox.center)+(0,-0.10)$);
 % Target blob shifted further left
 \filldraw[Tcol, line width=0.85pt, fill=Tcol!10]
@@ -142,8 +147,8 @@
 % --- Head discrepancy ---
 \node[termbox, anchor=south west] (dbox) at (9.42, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
-    at ([yshift=-0.10cm]dbox.north) {Head discrepancy\,$\|\Sigma_P^{1/2}\Delta H\|_F$};
-\coordinate (dC) at ($(dbox.center)+(-0.05,-0.42)$);
+    at ([yshift=-0.10cm]dbox.north) {Head discrepancy \,$\|\Sigma_P^{1/2}\Delta H\|_F$};
+\coordinate (dC) at ($(dbox.center)+(-0.05,-0.52)$);
 \draw[draw=black!50, line width=0.65pt, fill=black!10]
     (dC) ellipse (1.00 and 0.24);
 \node[font=\tiny, text=black!55]
@@ -155,7 +160,7 @@
     at ($(dC)+(-0.50,0.62)$) {$W^{*}H_T$};
 \node[Pcol, font=\tiny\bfseries, anchor=west]
     at ($(dC)+(0.68,0.42)$) {$H_P$};
-\draw[<->, line width=0.85pt, Acol]
+\draw[<->, line width=0.85pt, Acol, dashed]
     ($(dC)+(-0.48,0.62)$) -- node[midway, above=-2pt,
          font=\tiny\bfseries, text=Acol] {$\Delta H$}
     ($(dC)+(0.66,0.42)$);
@@ -164,3 +169,4 @@
 \caption{\textbf{PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal{R}_T{-}\mathcal{R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta$ and a head discrepancy $\gamma$ (Thm.~\ref{thm:unified_bound}). Under Procrustes alignment $W^{*}{=}\arg\min_{W\in\mathcal{O}(d)}\|Z_T{-}Z_PW\|_F$, $\delta$ decomposes exactly into \emph{scale mismatch} $(\Delta\rho)^{2}{=}(\rho_T{-}\rho_P)^{2}$ and \emph{shape mismatch} $2\rho_T\rho_P(1{-}\Omega)$ (Prop.~\ref{prop:exact_decomposition}); $\gamma$ measures $\Delta H{=}W^{*}H_T{-}H_P$ re-weighted by the proxy covariance $\Sigma_P$, vanishing when $H_T{=}H_P$ (frozen-head LoRA).}
 \label{fig:prism_concept}
 \end{figure}
+
