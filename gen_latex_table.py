@@ -62,10 +62,10 @@ TASK_GROUPS = [
     {"name": "main", "layout": "table",
      "datasets": ["mmlu", "triviaqa", "gsm8k"]},
     {"name": "ext",  "layout": "table",
-     "datasets": ["arc", "squad", "fineweb_edu", "wikitext"]},
+     "datasets": ["arc", "squad", "wikitext", "fineweb_edu"]},
     {"name": "all",  "layout": "longtable",
-     "datasets": ["mmlu", "triviaqa", "gsm8k",
-                  "arc", "squad", "fineweb_edu", "wikitext"]},
+     "datasets": ["arc", "mmlu", "squad", "triviaqa", "gsm8k",
+                  "wikitext", "fineweb_edu"]},
 ]
 
 DS_DISPLAY = {
@@ -171,10 +171,11 @@ def fmt_cell(col_key, val, family, omega_level=None):
         return "--"
     if col_key == "gamma_I" and family in GAMMA_ZERO_FAMILIES:
         return r"\cellcolor{cyan!12} $0$"
+    prec = 2 if col_key in ("rho_T", "rho_P") else 4
     if col_key in RED_COLS and omega_level:
         color = "red!35" if omega_level == "deep" else "red!18"
-        return r"\cellcolor{" + color + "} " + f"{val:.4f}"
-    return f"{val:.4f}"
+        return r"\cellcolor{" + color + "} " + f"{val:.{prec}f}"
+    return f"{val:.{prec}f}"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -226,11 +227,11 @@ def _render_body_rows(data, rho_per_ds, datasets):
             L.append(r"\midrule")
 
         methods_present = [(m, f) for m, f in METHOD_TABLE if data.get((ds, m))]
-        prev_family = None
 
-        for row_i, (method, family) in enumerate(methods_present):
+        # Pre-compute averages so we can filter rows before rendering.
+        rendered = []
+        for method, family in methods_present:
             entries = data[(ds, method)]
-
             avg = {}
             for col_key, _ in COLUMNS:
                 vals = []
@@ -241,6 +242,21 @@ def _render_body_rows(data, rho_per_ds, datasets):
                         pass
                 avg[col_key] = sum(vals) / len(vals) if vals else None
 
+            # Drop GPTQ rows whose rho_T / rho_P ratio exceeds 1.8x.
+            # TODO: this is an access issue (unable to pull GPTQ activations
+            #   cleanly for some proxies); remove this skip once upstream
+            #   access / extraction is fixed.
+            if family == "GPTQ":
+                rt, rp = avg.get("rho_T"), avg.get("rho_P")
+                if rt is not None and rp is not None and min(abs(rt), abs(rp)) > 0:
+                    ratio = max(abs(rt), abs(rp)) / min(abs(rt), abs(rp))
+                    if ratio > 1.8:
+                        continue
+
+            rendered.append((method, family, avg))
+
+        prev_family = None
+        for row_i, (method, family, avg) in enumerate(rendered):
             if row_i == 0:
                 ds_cell = DS_DISPLAY.get(ds, ds)
             elif row_i == 1:
