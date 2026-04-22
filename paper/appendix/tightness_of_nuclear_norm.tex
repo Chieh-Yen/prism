@@ -1,0 +1,154 @@
+
+\section{Tightness of Nuclear Norm over Frobenius Norm}
+\label{app:tightness}
+
+We show that the nuclear-norm-based Procrustes Similarity $\Omega$ yields a strictly tighter alignment residual than its Frobenius-based counterpart $\Omega_F$, and clarify the relationship to CKA.
+
+\paragraph{Statement.}
+Define the Frobenius-based similarity $\Omega_F := \|Z_T^\top Z_P\|_F / (\|Z_T\|_F \|Z_P\|_F)$. For any feature matrices $Z_T, Z_P$:
+\begin{equation}
+\Omega_F \le \Omega,
+\end{equation}
+with equality if and only if the cross-moment matrix $Z_T^\top Z_P$ has at most one nonzero singular value (i.e., rank $\le 1$).
+
+\paragraph{Proof.}
+Let $\sigma_1, \ldots, \sigma_d$ be the singular values of $Z_T^\top Z_P$. Then:
+\begin{equation}
+\|Z_T^\top Z_P\|_F = \sqrt{\sum_i \sigma_i^2}, \qquad \|Z_T^\top Z_P\|_* = \sum_i \sigma_i.
+\end{equation}
+By the Cauchy--Schwarz inequality applied to the vectors $(\sigma_1, \ldots, \sigma_d)$ and $(1, \ldots, 1)$:
+\begin{equation}
+\|Z_T^\top Z_P\|_F = \sqrt{\sum_i \sigma_i^2} \le \sum_i \sigma_i = \|Z_T^\top Z_P\|_*,
+\end{equation}
+since $\|\mathbf{x}\|_1 \ge \|\mathbf{x}\|_2$ for any non-negative vector. Dividing both sides by $\|Z_T\|_F \|Z_P\|_F$ gives $\Omega_F \le \Omega$.
+
+\paragraph{Consequence for Risk Bounding.}
+The alignment residual using $\Omega_F$ is:
+\begin{equation}
+(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_F) \ge (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega).
+\end{equation}
+Therefore, substituting $\Omega_F$ into the unified bound produces a \emph{strictly looser} upper bound on risk discrepancy. The nuclear norm $\Omega$ is the tightest possible metric because it exactly solves the Procrustes optimization---any other norm-based similarity applied to the same alignment residual either underestimates the alignment or fails to correspond to a well-defined geometric minimization.
+
+\paragraph{Relation to CKA.}
+Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$, which differs from $\Omega_F^2 = \|Z_T^\top Z_P\|_F^2 / (\|Z_T\|_F^2 \|Z_P\|_F^2)$ in its denominator. The two denominators are related by the inequality $\|Z_M^\top Z_M\|_F \le \|Z_M\|_F^2 = \operatorname{Tr}(Z_M^\top Z_M)$ (since $\|A\|_F \le \operatorname{Tr}(A)$ for any positive semidefinite $A$, by Cauchy--Schwarz on the eigenvalues), which gives $\mathrm{CKA} \ge \Omega_F^2$. Hence CKA can overestimate alignment relative to $\Omega_F$, and it is not directly substitutable into our Procrustes residual. More fundamentally, CKA is not derived from any alignment optimization and therefore lacks the operational meaning of $\Omega$, which exactly solves the Orthogonal Procrustes problem.
+
+\section{Extension to General Orthogonal Alignments}
+\label{app:general_W}
+
+The main text (Theorem~\ref{thm:unified_bound}) derives the risk bound using the Procrustes-optimal alignment $W^*$, which yields the \emph{tightest possible feature bound} via the nuclear norm. Here we present the more general formulation where $W$ is an arbitrary orthogonal matrix, and discuss two important specializations: the identity alignment ($W = I$) and the joint optimization over both feature and head terms. We relegate this material to the appendix because: (i)~the Procrustes solution $W^*$ is the natural, canonical choice that minimizes the feature alignment residual with a closed-form solution; (ii)~in the two primary application regimes of this paper---post-training quantization ($W^* \approx I$) and frozen-head fine-tuning ($\gamma = 0$ for any $W$)---alternative choices of $W$ yield negligible practical differences; and (iii)~the general formulation introduces a $\delta$--$\gamma$ trade-off that complicates interpretation without improving the bound in these regimes.
+
+\subsection{The General Bound for Arbitrary $W$}
+\label{app:general_bound}
+
+The exact geometric decomposition (Proposition~\ref{prop:exact_decomposition}) generalizes to any $W \in \mathcal{O}(d)$. Expanding the squared Frobenius norm and using the orthogonality of $W$:
+\begin{equation}
+\frac{1}{n} \| Z_T - Z_P W \|_F^2
+\;=\;
+(\rho_T - \rho_P)^2
+\;+\;
+2 \rho_T \rho_P \big( 1 - \Omega_W \big),
+\end{equation}
+where $\Omega_W(Z_T, Z_P)$ is the \emph{alignment-dependent similarity}:
+\begin{equation}
+\label{eq:omega_W_def}
+\Omega_W(Z_T, Z_P) \;:=\; \frac{\operatorname{Tr}(Z_T^\top Z_P\, W)}{\|Z_T\|_F \, \|Z_P\|_F}.
+\end{equation}
+This yields a family of risk bounds parameterized by $W$:
+\begin{equation}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_W)}}_{\delta(W)} + \underbrace{K_{\mathrm{pred}} \|\Sigma_P^{1/2}(W H_T - H_P)\|_F}_{\gamma(W)}.
+\end{equation}
+The Procrustes solution $W^*$ minimizes $\delta(W)$ alone, yielding $\Omega_{W^*} = \Omega$ (the nuclear-norm similarity). However, $W^*$ enters the head term $\gamma(W^*)$, which can be inflated when the rotation is applied to a nearly preserved head ($H_T \approx H_P$). This creates a fundamental trade-off: $W^*$ gives the tightest feature bound but may worsen the head bound, while $W = I$ preserves head coherence at the cost of a looser feature bound.
+
+\subsection{The Trace Specialization ($W = I$)}
+\label{app:trace_specialization}
+
+Setting $W = I$, the alignment-dependent similarity reduces to the \emph{trace similarity}:
+\begin{equation}
+\label{eq:omega_tr}
+\Omega_{\mathrm{tr}} \;:=\; \Omega_I \;=\; \frac{\operatorname{Tr}(Z_T^\top Z_P)}{\|Z_T\|_F\,\|Z_P\|_F}.
+\end{equation}
+
+\paragraph{Ordering of Similarities.}
+Since the Procrustes solution maximizes $\operatorname{Tr}(Z_T^\top Z_P W)$ over $\mathcal{O}(d)$:
+\begin{equation}
+\operatorname{Tr}(Z_T^\top Z_P) \;\le\; \|Z_T^\top Z_P\|_*,
+\end{equation}
+which gives $\Omega_{\mathrm{tr}} \le \Omega$. Equality holds if and only if $W^* = I$, i.e., $Z_T^\top Z_P$ is symmetric positive semidefinite.
+
+\paragraph{When does $\Omega_{\mathrm{tr}} = \Omega$?}
+Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD. Then $\Omega_{\mathrm{tr}} = \Omega$ iff $VU^\top = I$, i.e., $U = V$, which holds when $Z_T^\top Z_P$ is symmetric. In post-training quantization with mild noise, $Z_F^\top Z_Q \approx Z_F^\top Z_F$ is approximately SPSD, so $\Omega_{\mathrm{tr}} \approx \Omega$. As quantization becomes more aggressive, asymmetric perturbations cause $\Omega_{\mathrm{tr}}$ to fall below $\Omega$, and this gap reflects genuine asymmetric distortion that a rotation-invariant metric would mask.
+
+\paragraph{Full Bound under $W = I$.}
+The identity alignment yields:
+\begin{equation}
+\label{eq:bound_identity}
+|\mathcal{R}_T - \mathcal{R}_P|
+\;\le\;
+K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_{\mathrm{tr}})}
+\;+\;
+K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(H_T - H_P)\|_F.
+\end{equation}
+The head term reduces to $\|H_T - H_P\|$ without rotational contamination, which vanishes when the prediction head is preserved (as in quantization with FP16 heads, or frozen-head LoRA).
+
+\paragraph{Relation to CKA.}
+Both $\Omega_{\mathrm{tr}}$ and the Frobenius similarity $\Omega_F$ (Appendix~\ref{app:tightness}) are bounded above by $\Omega$ (since $\operatorname{Tr}(M) \le \|M\|_*$ and $\|M\|_F \le \|M\|_*$), but $\Omega_{\mathrm{tr}}$ and $\Omega_F$ do not have a fixed ordering relative to each other. Linear CKA avoids explicit rotational alignment like $\Omega_{\mathrm{tr}}$, but uses the Frobenius norm rather than the trace, and lacks a direct operational interpretation as an alignment residual.
+
+
+\subsection{Joint Optimization on the Stiefel Manifold}
+\label{app:joint_opt}
+
+The tightest bound over all orthogonal alignments requires solving:
+\begin{equation}
+\label{eq:joint_obj}
+W_{\mathrm{opt}} = \arg\min_{W \in \mathcal{O}(d)}
+\Big[
+\underbrace{K_{\mathrm{feat}} \sqrt{\tfrac{1}{n}\|Z_T - Z_P W\|_F^2}}_{\delta(W)}
+\;+\;
+\underbrace{K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(W H_T - H_P)\|_F}_{\gamma(W)}
+\Big].
+\end{equation}
+Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admits the closed-form $W^* = VU^\top$), the addition of $\gamma(W)$ introduces a quadratic dependence on $W$ through the head term, related to the \emph{Weighted Orthogonal Procrustes Problem} (WOPP)~\cite{gower2004procrustes}.
+
+\paragraph{Why No Closed-Form Solution Exists.}
+The feature term $\delta(W)$ is concave in $\operatorname{Tr}(Z_T^\top Z_P W)$, while $\gamma(W)$ is convex in $W$. Their sum is neither convex nor concave on $\mathcal{O}(d)$, precluding a simple variational characterization.
+
+\paragraph{Special Case: Isotropic Features.}
+If $\Sigma_P \approx \lambda I$, the head term becomes independent of $W$ and the joint objective reduces to a standard Procrustes problem. However, the isotropic assumption is unrealistic for LLM representations, which exhibit well-documented anisotropy~\cite{ethayarajh2019contextual, dettmers2022gpt3}.
+
+\paragraph{Numerical Solution.}
+For the general case, $W_{\mathrm{opt}}$ can be approximated via Riemannian gradient descent on the Stiefel manifold, but this entangles scale, shape, and head components, destroying the clean physical interpretation.
+
+\paragraph{Practical Irrelevance for This Paper's Regimes.}
+In the two primary regimes:
+\begin{itemize}
+    \item \textbf{Quantization ($H_T \approx H_P$):} The head term is negligible, so $W_{\mathrm{opt}} \approx W^*$ and the Procrustes solution suffices.
+    \item \textbf{LoRA ($H_T = H_P$):} The head term vanishes for any $W$, so the joint problem reduces to standard Procrustes.
+\end{itemize}
+The Riemannian formulation becomes relevant only when comparing models with \emph{both} rotated features and divergent heads (e.g., full-parameter SFT). We leave this regime to future work.
+
+
+\section{Extension to Autoregressive Generation}
+\label{app:ar_extension}
+
+The bound of Theorem~\ref{thm:unified_bound} applies to any matrix pair $(Z_T, Z_P) \in \mathbb{R}^{n \times d}$ of feature vectors, whatever the origin of the rows. We spell out here the autoregressive instantiation informally summarized in Sec.~\ref{subsec:ar_extension}.
+
+\paragraph{From tokens to matrices.}
+Under teacher forcing, each target token $y_t$ in a sequence $(c, y)$ contributes an independent feature--loss pair $(\phi_M(c, y_{<t}), \ell(\phi_M(c, y_{<t}) H_M, y_t))$. The per-sequence average inside Eq.~(\ref{eq:ar_risk}) is therefore the empirical mean of these pairs over the $|y|$ positions, and the expectation over sequences becomes an empirical mean over all $N = \sum_{(c,y)} |y|$ tokens in the calibration set. Stacking the token-level features into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ therefore reduces the autoregressive risk gap to exactly the per-row setting that Theorem~\ref{thm:unified_bound} controls.
+
+\begin{corollary}[Autoregressive Risk Bound]
+\label{cor:ar_bound}
+Let $Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ be the token-level feature matrices collected under teacher forcing, with RMS scales $\rho_T^{\mathrm{AR}}, \rho_P^{\mathrm{AR}}$, Procrustes similarity $\Omega^{\mathrm{AR}}$, and covariance $\Sigma_P^{\mathrm{AR}}$. Then
+\begin{equation}
+\label{eq:ar_bound}
+|\mathcal{R}_T^{\mathrm{AR}} - \mathcal{R}_P^{\mathrm{AR}}| \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T^{\mathrm{AR}} - \rho_P^{\mathrm{AR}})^2 + 2\,\rho_T^{\mathrm{AR}}\,\rho_P^{\mathrm{AR}}(1 - \Omega^{\mathrm{AR}})} \;+\; K_{\mathrm{pred}} \,\big\|(\Sigma_P^{\mathrm{AR}})^{1/2}(W^* H_T - H_P)\big\|_F.
+\end{equation}
+\end{corollary}
+
+\begin{proof}
+Each row of $Z_M^{\mathrm{AR}}$ is a feature vector of dimension $d$, and the Lipschitz analysis of Appendix~\ref{app:kfeat} together with the Procrustes decomposition of Appendix~\ref{app:procrustes} depend only on the matrix shape, not on the provenance of its rows. Applying Theorem~\ref{thm:unified_bound} to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$ yields the stated inequality.
+\end{proof}
+
+This unification enables one bound to cover point-wise classification (MMLU, ARC, where $|y|{=}1$), language modeling (WikiText, where $y$ is a long chunk), and short-horizon QA (SQuAD, TriviaQA, where $y$ is a 1--5 token span).
+
+
+
