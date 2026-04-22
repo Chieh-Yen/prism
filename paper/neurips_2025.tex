@@ -426,16 +426,12 @@ Figure~\ref{fig:forget_grid_llama} establishes the forgetting regime's key claim
 Figure~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:trace_norm_llama_truthfulqa} together answer the central empirical question raised by Sec.~\ref{subsec:shape_reg}: does minimizing $(1-\Omega_I)$ during fine-tuning actually suppress forgetting, and at what cost? For Llama-3.1-8B fine-tuned on TruthfulQA, Table~\ref{tab:trace_norm_llama_truthfulqa} gives a concrete decomposition at step $300$: as $\lambda$ rises from $0.0$ to $0.5$, $\Omega_I$ on downstream benchmarks increases (e.g., ARC $0.82\!\to\!0.93$, MMLU $0.87\!\to\!0.95$, GSM8K $0.94\!\to\!1.00$), and the held-out $|\Delta\mathcal{R}|$ drops substantially on every benchmark; crucially, target-task fit is \emph{maintained} rather than collapsed---the self-task $|\Delta\mathcal{R}|$ at $\lambda{=}0.1$ is an order of magnitude smaller than at $\lambda{=}0.0$, indicating that the penalty is preventing pathological overshooting rather than blocking learning. Three aggregate patterns emerge from Fig.~\ref{fig:shape_reg_combined_llama}. First, the reduction is \emph{uniform across benchmarks}: ARC, MMLU, SQuAD, TriviaQA, and GSM8K move in the same direction under the same $\lambda$. Second, the trade-off is \emph{monotone and controllable}: increasing $\lambda$ strengthens downstream preservation while gradually relaxing target-task fit, the predictable behaviour one would expect from a bound-motivated regularizer. Third, even the mildest setting $\lambda{=}0.1$ already eliminates a substantial fraction of forgetting, suggesting that a weak geometric prior suffices to stabilize the backbone. The Qwen3-8B replication and the BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
 
 
-\subsection{Ablation: PRISM Bound vs.\ Similarity Baselines}
+\subsection{Ablation: Component-Wise Contribution to Variant Ranking}
 \label{subsec:ablation}
 
-% TODO: Insert ablation study
-% - Compare ranking accuracy (Spearman r_s against true |Delta R|) for:
-%     Omega_I (trace, used throughout main text), Omega (nuclear), Omega_F (Frobenius), CKA, raw feature MSE
-% - Stability of the PRISM bound across benchmark choice (MMLU / ARC / WikiText)
-% - Confirm that variant rankings are consistent across benchmarks
+\input{tables/quantization/baseline}
 
-\textbf{[Ablation results to be inserted.]}
+Table~\ref{tab:baseline} isolates the marginal ranking contribution of each component of the PRISM bound by progressively adding them. The shape-only similarity $\Omega_I$ already achieves mean $|r_s|{=}0.77$, confirming that the relational geometry of token features alone carries most of the variant-ranking signal. Adding the scale term to form the feature alignment error $\delta_I$ lifts the mean by $+0.054$ to $0.82$ and wins the plurality of cells, making scale collapse the single largest per-component contributor. Adding the covariance-weighted head term to form the full bound $\mathcal{B}_I$ brings the aggregate mean slightly down to $0.79$: because our suite mixes protocols that quantize the output embedding ($\gamma{>}0$ for GGUF k-quant tiers) with protocols that keep it in FP16 ($\gamma{\equiv}0$ for GPTQ and BnB), the $\gamma$ term injects non-monotone variance across the pooled scatter. Two observations keep $\mathcal{B}_I$ the right \emph{default} metric. First, it is the certified upper bound of Theorem~\ref{thm:unified_bound} and is strictly required whenever $\gamma{>}0$; $\delta_I$ alone is not a valid bound in that regime. Second, $\mathcal{B}_I$ has the smallest cross-lineage spread (per-lineage std $\approx 0.04$ vs.\ $0.05$--$0.06$ for $\Omega_I$ and $\delta_I$), so its ranking performance is the most robust across the four model families tested.
 
 
 %=========================================================================
