@@ -69,69 +69,36 @@ FP16 reference & dtype   & \texttt{dtype:float16} & BF16$\to$FP16 precision drif
 \end{table}
 
 
-\subsection{Per-Model GPTQ and AWQ Repositories}
+\subsection{Per-Model GPTQ Repositories}
 \label{app:gptq_awq}
 
-Table~\ref{tab:gptq_awq} lists the pre-quantized GPTQ and AWQ checkpoints used for each target model.
+Table~\ref{tab:gptq_awq} lists the pre-quantized GPTQ checkpoint used for each target model.
 All repositories are publicly hosted on HuggingFace and loaded via the standard \texttt{transformers} API unless otherwise noted.
 
 \begin{table}[h]
 \centering
-\caption{Pre-quantized GPTQ and AWQ checkpoints per model.
-Only repositories actually loaded during our experiments are listed;
-``---'' indicates no publicly available checkpoint at the time of writing.
+\caption{Pre-quantized GPTQ checkpoints per model.
+One repository per model, corresponding to the variant actually loaded in our experiments;
+``---'' indicates no GPTQ checkpoint was evaluated for that model.
 $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect clean quantization error.}
 \label{tab:gptq_awq}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}cl p{5.8cm} p{4.8cm}@{}}
+\begin{tabular}{@{}cl p{8cm}@{}}
 \toprule
-\# & Model & GPTQ Repository & AWQ Repository \\
+\# & Model & GPTQ Repository \\
 \midrule
-1  & Qwen3-8B-Base
-   & \texttt{AlphaGaO/Qwen3-8B-GPTQ}$^\ddagger$
-   & --- \\
-\addlinespace
-2  & Llama-3.1-8B
-   & \texttt{ModelCloud/...-gptq-4bit} \newline
-     \texttt{shuyuej/...-GPTQ}
-   & \texttt{UCLA-EMC/...-AWQ-INT4} \\
-\addlinespace
-3  & Ministral-3-Base
-   & --- & --- \\
-\addlinespace
-4  & Qwen3-8B
-   & \texttt{JunHowie/...-GPTQ-Int8}
-   & \texttt{Qwen/Qwen3-8B-AWQ} \\
-\addlinespace
-5  & Llama-3.1-8B-Inst.
-   & \texttt{hugging-quants/...-GPTQ-INT4} \newline
-     \texttt{ModelCloud/...-gptq-4bit} \newline
-     \texttt{shuyuej/...-GPTQ}
-   & \texttt{hugging-quants/...-AWQ-INT4} \\
-\addlinespace
-6  & Ministral-3-Inst.
-   & --- & \texttt{cyankiwi/...-AWQ-4bit} \\
-\addlinespace
-7  & DeepSeek-R1-Distill
-   & \texttt{jakiAJK/...-GPTQ-int4}
-   & \texttt{casperhansen/...-awq} \\
-\addlinespace
-8  & Qwen2.5-7B
-   & --- & --- \\
-\addlinespace
-9  & Qwen2.5-7B-Inst.
-   & \texttt{Qwen/...-GPTQ-Int4} \newline
-     \texttt{Qwen/...-GPTQ-Int8}
-   & \texttt{Qwen/...-AWQ} \\
-% \addlinespace
-% 10 & Mistral-7B-v0.3
-%    & \texttt{iproskurina/...-GPTQ-4bit-g128}
-%    & \texttt{solidrust/...-AWQ} \\
-% \addlinespace
-% 11 & Mistral-7B-Inst.-v0.3
-%    & \texttt{thesven/...-GPTQ}
-%    & \texttt{solidrust/...-AWQ} \\
+1  & Qwen3-8B-Base       & \texttt{AlphaGaO/Qwen3-8B-GPTQ}$^\ddagger$ \\
+2  & Llama-3.1-8B        & \texttt{ModelCloud/Meta-Llama-3.1-8B-gptq-4bit} \\
+3  & Ministral-3-Base    & --- \\
+4  & Qwen3-8B            & \texttt{JunHowie/Qwen3-8B-GPTQ-Int8} \\
+5  & Llama-3.1-8B-Inst.  & \texttt{ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit} \\
+6  & Ministral-3-Inst.   & --- \\
+7  & DeepSeek-R1-Distill & \texttt{jakiAJK/DeepSeek-R1-Distill-Llama-8B\_GPTQ-int4} \\
+8  & Qwen2.5-7B          & --- \\
+9  & Qwen2.5-7B-Inst.    & \texttt{Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4} \\
+% 10 & Mistral-7B-v0.3       & \texttt{iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128} \\
+% 11 & Mistral-7B-Inst.-v0.3 & \texttt{thesven/Mistral-7B-Instruct-v0.3-GPTQ} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -182,28 +149,28 @@ Table~\ref{tab:coverage} provides a per-model summary of quantization backend co
 --- = not evaluated in this study.}
 \label{tab:coverage}
 \small
-\begin{tabular}{@{}clcccc@{}}
+\begin{tabular}{@{}clccc@{}}
 \toprule
-\# & Model & BnB & GGUF & GPTQ & AWQ \\
+\# & Model & BnB & GGUF & GPTQ \\
 \midrule
-1  & Qwen3-8B-Base               & \cmark & \cmark & \cmark            & ---    \\
-2  & Llama-3.1-8B                & \cmark & \cmark & \cmark            & \cmark \\
-3  & Ministral-3-8B-Base         & \cmark & \cmark & ---               & ---    \\
-4  & Qwen3-8B                    & \cmark & \cmark & \cmark            & \cmark \\
-5  & Llama-3.1-8B-Instruct       & \cmark & \cmark & \cmark            & \cmark \\
-6  & Ministral-3-8B-Instruct     & \cmark & \cmark & ---               & \cmark \\
-7  & DeepSeek-R1-Distill-Llama   & \cmark & \cmark & \cmark            & \cmark \\
-8  & Qwen2.5-7B                  & \cmark & \cmark & ---               & ---    \\
-9  & Qwen2.5-7B-Instruct         & \cmark & \cmark & \cmark            & \cmark \\
-% 10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark            & \cmark \\
-% 11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark            & \cmark \\
+1  & Qwen3-8B-Base               & \cmark & \cmark & \cmark \\
+2  & Llama-3.1-8B                & \cmark & \cmark & \cmark \\
+3  & Ministral-3-8B-Base         & \cmark & \cmark & ---    \\
+4  & Qwen3-8B                    & \cmark & \cmark & \cmark \\
+5  & Llama-3.1-8B-Instruct       & \cmark & \cmark & \cmark \\
+6  & Ministral-3-8B-Instruct     & \cmark & \cmark & ---    \\
+7  & DeepSeek-R1-Distill-Llama   & \cmark & \cmark & \cmark \\
+8  & Qwen2.5-7B                  & \cmark & \cmark & ---    \\
+9  & Qwen2.5-7B-Instruct         & \cmark & \cmark & \cmark \\
+% 10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark \\
+% 11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark \\
 \midrule
-   & \textbf{Total}              & 9/9    & 9/9    & 6/9               & 6/9    \\
+   & \textbf{Total}              & 9/9    & 9/9    & 6/9    \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Experiment scope.}
-Each model is evaluated on the backend/bit-width combinations marked \cmark\ in Table~\ref{tab:coverage}: GGUF (6 bit-widths) and BitsAndBytes (3 configurations) on every model, plus the GPTQ and AWQ checkpoints listed in Table~\ref{tab:gptq_awq} where available.
+Each model is evaluated on the backend/bit-width combinations marked \cmark\ in Table~\ref{tab:coverage}: GGUF (6 bit-widths) and BitsAndBytes (3 configurations) on every model, plus the GPTQ checkpoint listed in Table~\ref{tab:gptq_awq} where available.
 The cells marked ``---'' are outside our experiment scope under the compute and time budget for this study.
 

@@ -28,7 +28,7 @@ models:
       - gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel
       - gptq:JunHowie/Qwen3-8B-GPTQ-Int8
       - gptq:RedHatAI/Qwen3-8B-quantized.w4a16
-      - awq:Qwen/Qwen3-8B-AWQ
+      # - awq:Qwen/Qwen3-8B-AWQ  # AWQ excluded from current study
 
   - id: llama31_8b_instruct
     target_model: meta-llama/Meta-Llama-3.1-8B-Instruct
@@ -47,7 +47,7 @@ models:
       - gptq:hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4
       - gptq:ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit
       - gptq:shuyuej/Meta-Llama-3.1-8B-Instruct-GPTQ
-      - awq:hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4
+      # - awq:hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4  # AWQ excluded
 
   - id: ministral3_8b_instruct
     target_model: mistralai/Ministral-3-8B-Instruct-2512
@@ -63,7 +63,7 @@ models:
       - bnb:int8
       - bnb:nf4
       - bnb:fp4
-      - awq:cyankiwi/Ministral-3-8B-Instruct-2512-AWQ-4bit
+      # - awq:cyankiwi/Ministral-3-8B-Instruct-2512-AWQ-4bit  # AWQ excluded
 
   # - id: mistral7b_v03_instruct
   #   target_model: mistralai/Mistral-7B-Instruct-v0.3
@@ -97,7 +97,7 @@ models:
       - bnb:nf4
       - bnb:fp4
       - gptq:jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4
-      - awq:casperhansen/deepseek-r1-distill-llama-8b-awq
+      # - awq:casperhansen/deepseek-r1-distill-llama-8b-awq  # AWQ excluded
 
   - id: qwen3_8b_base
     target_model: Qwen/Qwen3-8B-Base
@@ -137,7 +137,7 @@ models:
       - bnb:fp4
       - gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit
       - gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ
-      - awq:UCLA-EMC/Meta-Llama-3.1-8B-AWQ-INT4
+      # - awq:UCLA-EMC/Meta-Llama-3.1-8B-AWQ-INT4  # AWQ excluded
 
   - id: ministral3_8b_base
     target_model: mistralai/Ministral-3-8B-Base-2512
@@ -189,7 +189,7 @@ models:
       - bnb:fp4
       - gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4
       - gptq:Qwen/Qwen2.5-7B-Instruct-GPTQ-Int8
-      - awq:Qwen/Qwen2.5-7B-Instruct-AWQ
+      # - awq:Qwen/Qwen2.5-7B-Instruct-AWQ  # AWQ excluded
 
   - id: qwen25_7b_base
     target_model: Qwen/Qwen2.5-7B
