@@ -212,56 +212,33 @@ Because the bound decomposes into three diagnostic axes---$\Delta\rho$, $1-\Omeg
 \section{A Geometric Framework for Proxy Performance Estimation}
 \label{sec:geometric_foundation}
 
-We derive a rigorous upper bound on the risk discrepancy $|\mathcal{R}_T - \mathcal{R}_P|$ between a target model $T$ and a proxy model $P$, grounded in their representational geometry. We first formalize the backbone-plus-linear-head architecture, then state our main theorem linking geometric alignment to functional risk, and finally extend the bound to autoregressive generation.
+We derive a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ between a target model and a proxy, grounded entirely in their feature geometry. We first state the setup, then prove an exact decomposition of the bound into three diagnostic axes (scale, shape, head), explain the operational form ($\Omega_I$ at $W{=}I$) used throughout our experiments, extend the bound to autoregressive generation, and finally lift it into a training-time regularizer.
 
-\subsection{Problem Setup}
+\subsection{Setup}
 \label{subsec:problem_setup}
 
-\paragraph{The Backbone-Plus-Linear-Head Architecture.}
-We consider a \emph{Target Model} $T$ (e.g., full-precision) and a \emph{Proxy Model} $P$ (e.g., quantized or fine-tuned variant), both with hidden dimension $d$. Each model $M \in \{T, P\}$ decomposes as:
+We consider a \emph{Target model} $T$ (e.g., a full-precision base) and a \emph{Proxy model} $P$ (e.g., a quantized or fine-tuned variant) with shared hidden dimension $d$. Each model factors into a Transformer backbone $\phi_M: \mathcal{X} \to \mathbb{R}^d$ followed by a linear prediction head $H_M \in \mathbb{R}^{d \times V}$ (the \texttt{lm\_head}):
 \begin{equation}
 \label{eq:model_decomp}
-f_M(x) = \mathrm{softmax}\!\big(\phi_M(x) \cdot H_M\big),
+f_M(x) = \mathrm{softmax}\!\big(\phi_M(x) \cdot H_M\big), \qquad M \in \{T, P\}.
 \end{equation}
-where $\phi_M: \mathcal{X} \to \mathbb{R}^{d}$ is the \emph{feature extractor} (Transformer backbone), producing a feature vector $z_M = \phi_M(x)$, and $H_M \in \mathbb{R}^{d \times V}$ is the \emph{prediction head} (\texttt{lm\_head}), projecting features onto the vocabulary of size $V$. We denote the columns of $H_M$ (token embeddings) as $h_{M,1}, \ldots, h_{M,V} \in \mathbb{R}^d$.
-
-\paragraph{Risk via Cross-Entropy.}
-For a data distribution $\mathcal{D}$ over input-label pairs $(x, y)$, the \emph{risk} of model $M$ is:
+The risk of $M$ under data distribution $\mathcal{D}$ is the cross-entropy expectation
 \begin{equation}
 \label{eq:ce_def}
-\mathcal{R}_M = \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\Big[\ell\!\big(\phi_M(x) \cdot H_M,\; y\big)\Big], \quad \text{where} \quad \ell(v, y) = -v_y + \log\!\sum_{j=1}^{V} e^{v_j}
+\mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j} e^{v_j}.
 \end{equation}
-is the cross-entropy loss, with logits $v = \phi_M(x) \cdot H_M \in \mathbb{R}^V$ and ground-truth index $y$.
-
-\paragraph{The Linear Alignment Hypothesis.}
-Following the Linear Representation Hypothesis~\cite{moschella2022relative, park2023linear}, we posit that models within the same lineage learn feature manifolds related by a near-isometric linear transformation: there exists an orthogonal $W \in \mathcal{O}(d) = \{W \in \mathbb{R}^{d \times d} \mid W^\top W = I_d\}$ such that
-\begin{equation}
-\label{eq:alignment_hypothesis}
-\phi_T(x) \approx \phi_P(x)\, W, \quad \forall x \in \mathcal{X}.
-\end{equation}
-
-\paragraph{Notation.}
-Given $n$ samples, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$. We define the RMS feature scale $\rho_M = \frac{1}{\sqrt{n}}\|Z_M\|_F$ and the empirical second-moment matrix $\Sigma_P = \frac{1}{n} Z_P^\top Z_P$.
+Following the \emph{Linear Representation Hypothesis}~\cite{moschella2022relative, park2023linear}, we assume the two backbones lie in a common lineage: there exists an orthogonal $W \in \mathcal{O}(d)$ such that $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$, denote the columns of $H_M$ by $h_{M,1},\ldots,h_{M,V}$, and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical second-moment matrix $\Sigma_P = Z_P^\top Z_P / n$.
 
 
 \subsection{The Unified Risk Bound}
 \label{subsec:unified_bound}
 
-We derive a computable upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ in three steps; full proofs are in Appendix~\ref{app:detailed_proofs}.
+To bound $|\mathcal{R}_T - \mathcal{R}_P|$ we introduce a hybrid risk $\mathcal{R}_{P \to T} := \mathbb{E}[\ell(\phi_P(x)\,W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features. The triangle inequality splits the gap into a \emph{feature error} $\delta := |\mathcal{R}_T - \mathcal{R}_{P\to T}|$ and a \emph{head error} $\gamma := |\mathcal{R}_{P\to T} - \mathcal{R}_P|$; each admits a closed-form bound whose full derivation is in Appendix~\ref{app:detailed_proofs}.
 
-\paragraph{Step 1: Decomposing the risk gap.}
-Introducing an intermediate \emph{hybrid} risk $\mathcal{R}_{P \to T} = \mathbb{E}[\ell(\phi_P(x) W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features, the triangle inequality gives (Appendix~\ref{app:risk_decomp}):
-\begin{equation}
-\label{eq:risk_decomp}
-|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{\big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big|}_{\text{Feature alignment error } \delta} \;+\; \underbrace{\big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big|}_{\text{Head discrepancy } \gamma}.
-\end{equation}
+\paragraph{Feature error $\delta$.}
+The cross-entropy loss is Lipschitz in $z$ with constant $K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2$, the simplex diameter of $H_T$'s token embeddings (Appendix~\ref{app:kfeat}). Minimizing the alignment residual $\|Z_T - Z_P W\|_F^2$ over $W \in \mathcal{O}(d)$ via the classical Orthogonal Procrustes problem yields an \emph{exact identity}---the paper's central mathematical result.
 
-\paragraph{Step 2: Bounding the feature alignment error $\delta$.}
-The cross-entropy loss is Lipschitz in $z$ with constant $K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2$ (the maximum pairwise distance between token embeddings in $H_T$; see Appendix~\ref{app:kfeat}). Combined with Jensen's inequality, this gives $\delta \le K_{\mathrm{feat}} \sqrt{\frac{1}{n}\|Z_T - Z_P W\|_F^2}$.
-
-To minimize this residual over orthogonal $W$, we solve the classical \emph{Orthogonal Procrustes problem}. Its closed-form solution $W^* = V U^\top$ (from the SVD $Z_T^\top Z_P = U \Sigma V^\top$) yields an \emph{exact} decomposition of the residual:
-
-\begin{proposition}[Exact Geometric Decomposition]
+\begin{proposition}[Exact Scale--Shape Decomposition]
 \label{prop:exact_decomposition}
 \begin{equation}
 \label{eq:exact_equality}
@@ -271,115 +248,76 @@ To minimize this residual over orthogonal $W$, we solve the classical \emph{Orth
 \;+\;
 \underbrace{2 \rho_T \rho_P \big( 1 - \Omega \big)}_{\text{\rm Shape Mismatch}},
 \end{equation}
-where $\Omega(Z_T, Z_P)$ is the \emph{Procrustes Similarity}, defined via the nuclear norm of the cross-moment:
+where $\Omega(Z_T, Z_P)$ is the \emph{Procrustes Similarity} defined via the nuclear norm of the cross-moment:
 \begin{equation}
 \label{eq:omega_def}
-\Omega(Z_T, Z_P) := \frac{\| Z_T^\top Z_P \|_*}{\| Z_T \|_F \| Z_P \|_F} \;\in [0,\, 1].
+\Omega(Z_T, Z_P) \;:=\; \frac{\| Z_T^\top Z_P \|_*}{\| Z_T \|_F\, \| Z_P \|_F} \;\in [0,\, 1].
 \end{equation}
 \end{proposition}
 
-\begin{remark}[Relation to classical Procrustes shape distances]
-\label{rem:williams_relation}
-The left-hand side of Eq.~(\ref{eq:exact_equality}) is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Sections~\ref{subsec:quantization} and~\ref{subsec:forgetting} show that the two arms of this split have qualitatively different operational meanings and dominate the risk gap under different LLM lifecycle regimes.
-\end{remark}
+The two arms are operationally distinct: the scale term isolates activation-magnitude collapse, the shape term captures structural distortion of the feature manifold. The Procrustes residual itself is classical~\cite{williams2021generalized}; our contribution is this explicit split and its lifting into a functional-risk bound---see Appendix~\ref{app:detailed_proofs} for the relation to the classical shape-metric literature. Combining the identity with the Lipschitz bound gives $\delta \le K_{\mathrm{feat}}\sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega)}$, with $\Omega$ strictly tighter than Frobenius-based surrogates such as CKA (Appendix~\ref{app:tightness}).
 
-\noindent Eq.~(\ref{eq:exact_equality}) is an exact identity: minimizing feature discrepancy is equivalent to maximizing $\Omega$ while matching scales $\rho$. The nuclear norm is provably tighter than Frobenius-based metrics such as CKA (Appendix~\ref{app:tightness}). Combining:
-\begin{equation}
-\label{eq:delta_main}
-\delta \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T \rho_P(1 - \Omega)}.
-\end{equation}
-
-\paragraph{Step 3: Bounding the head discrepancy $\gamma$.}
-Using the Lipschitz constant of cross-entropy with respect to logits ($K_{\mathrm{pred}} \le \sqrt{2}$) and projecting the head misalignment $\Delta H = W^* H_T - H_P$ onto the empirical second-moment matrix (Appendix~\ref{app:head_bound}):
-\begin{equation}
-\label{eq:gamma_main}
-\gamma \;\le\; K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F.
-\end{equation}
-The second-moment weighting $\Sigma_P^{1/2}$ ensures that only misalignment within the \emph{active subspace} of the data is penalized.
-
-\paragraph{Main Result.}
-Combining Eqs.~(\ref{eq:risk_decomp}), (\ref{eq:delta_main}), and (\ref{eq:gamma_main}):
+\paragraph{Head error $\gamma$.}
+Writing $\Delta H := W^* H_T - H_P$ for the head misalignment, one has $\gamma \le K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}\Delta H\|_F$ with $K_{\mathrm{pred}} \le \sqrt{2}$ (Appendix~\ref{app:head_bound}). The covariance weighting $\Sigma_P^{1/2}$ ensures that only head misalignment within the \emph{active subspace} of the data contributes.
 
 \begin{theorem}[Unified Risk Bound]
 \label{thm:unified_bound}
-Let $W^* \in \mathcal{O}(d)$ be the optimal Procrustes alignment. Then:
+Let $W^* \in \mathcal{O}(d)$ be the optimal Procrustes alignment. Then
 \begin{equation}
 \label{eq:unified_bound_eq}
-\begin{aligned}
-|\mathcal{R}_T - \mathcal{R}_P| \;\;\le\;\; & \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big( 1 - \Omega(Z_T, Z_P) \big) }}_{\text{\rm Geometric Alignment Error}} \\
-& + \underbrace{K_{\mathrm{pred}} \cdot \| \Sigma_P^{1/2} (W^* H_T - H_P) \|_F}_{\text{\rm Second-Moment-Weighted Head Error}}.
-\end{aligned}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big(1 - \Omega(Z_T, Z_P)\big) }}_{\text{\rm Geometric Alignment Error}} \;+\; \underbrace{K_{\mathrm{pred}} \,\| \Sigma_P^{1/2} (W^* H_T - H_P) \|_F}_{\text{\rm Second-Moment-Weighted Head Error}}.
 \end{equation}
 \end{theorem}
 
 
-\subsection{Geometric Interpretation: Three Independent Axes of Drift}
+\subsection{Three Diagnostic Axes and the Operational Form $\Omega_I$}
 \label{subsec:interpretation}
 
-Theorem~\ref{thm:unified_bound} decomposes the risk gap along three independent axes, each a separately measurable failure mode of the proxy and each attached to a distinct operational signature:
+Theorem~\ref{thm:unified_bound} decomposes the risk gap along three \emph{independently measurable} axes, each attached to a distinct failure mode of the proxy.
 
-\paragraph{Scale Matching ($\rho_T \approx \rho_P$).}
-Divergence in activation magnitude directly amplifies the geometric error term. In post-training quantization, aggressive bit-width reduction clips activation outliers~\cite{dettmers2022gpt3, xiao2023smoothquant}, shrinking $\rho_Q < \rho_F$. Our bound isolates this \emph{scale collapse} as a primary and independently measurable source of degradation.
+\paragraph{Scale mismatch $\Delta\rho$.}
+Divergence in activation magnitude directly amplifies the feature error. Aggressive bit-width reduction clips activation outliers~\cite{dettmers2022gpt3, xiao2023smoothquant}, shrinking $\rho_P < \rho_T$; the scale axis isolates this \emph{scale collapse}.
 
-\paragraph{Shape Alignment ($\Omega \to 1$).}
-The shape mismatch term is governed by $\Omega$, which captures how well the relational structure of the feature manifold is preserved up to rotation. A drop in $\Omega$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}. Defined via the nuclear norm, $\Omega$ is strictly tighter than Frobenius-based surrogates such as CKA for the Procrustes alignment residual; the full comparison is deferred to Appendix~\ref{app:tightness}.
+\paragraph{Shape mismatch $1-\Omega$.}
+The shape term captures distortion of the feature manifold up to rotation. A drop in $\Omega$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}.
 
-\paragraph{Head Coherence ($\|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F \to 0$).}
-The head error term quantifies how differently the two prediction heads interpret aligned features, weighted by the empirical second-moment matrix $\Sigma_P$. Misalignment in directions orthogonal to the data manifold does not contribute, as it cannot affect predictions. Notably, under standard LoRA fine-tuning~\cite{hu2022lora} where the \texttt{lm\_head} is frozen ($H_T = H_P$), this term vanishes entirely, isolating all performance change in the backbone geometry ($\Delta\rho$ and $\Omega$).
+\paragraph{Head divergence $\|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F$.}
+The head term quantifies how differently the two prediction heads interpret aligned features, weighted by $\Sigma_P$ so that only directions along which the data actually lives can contribute. Under standard LoRA fine-tuning~\cite{hu2022lora} with a frozen \texttt{lm\_head} ($H_T = H_P$), this term vanishes entirely, isolating all performance change in backbone geometry.
 
-\paragraph{Operational form used in experiments.}
-Although $\Omega$ is the tightest Procrustes-residual similarity, all experiments in Sec.~\ref{sec:experiments} and the shape regularizer of Sec.~\ref{subsec:shape_reg} instead report its identity-alignment \emph{trace specialization}
+\paragraph{Operational form: why $W = I$ throughout this paper.}
+All experiments in Sec.~\ref{sec:experiments} and the shape regularizer of Sec.~\ref{subsec:shape_reg} report the identity-alignment \emph{trace specialization}
 \begin{equation}
 \label{eq:omega_I_def}
-\Omega_I(Z_T, Z_P) \;:=\; \frac{\operatorname{Tr}(Z_T^\top Z_P)}{\|Z_T\|_F \, \|Z_P\|_F},
+\Omega_I(Z_T, Z_P) \;:=\; \frac{\operatorname{Tr}(Z_T^\top Z_P)}{\|Z_T\|_F\,\|Z_P\|_F},
 \end{equation}
-for two reasons. First, both of our primary instantiations satisfy $W^*\approx I$: post-training quantization preserves the coordinate basis by construction, while LoRA fine-tuning with a frozen head empirically produces only small rotational drift in the backbone. Second, $\Omega_I \le \Omega$ (Appendix~\ref{app:trace_specialization}), so substituting $\Omega_I$ into Theorem~\ref{thm:unified_bound} yields a \emph{conservative upper bound} on the nuclear-form bound---the tight nuclear form remains the reference theoretical statement, while $\Omega_I$ provides an SVD-free, autograd-compatible operational form. Unless stated otherwise, $\Omega$ in the sequel refers to $\Omega_I$.
+which sets $W = I$ in the Procrustes decomposition. Three properties justify this operational choice. \textbf{(i)~Regime match.} Both primary instantiations satisfy $W^* \approx I$---post-training quantization preserves the coordinate basis by construction, and LoRA fine-tuning with a frozen head empirically produces only small rotational drift in the backbone---so $\Omega_I \approx \Omega$ in practice. \textbf{(ii)~Safety.} $\Omega_I \le \Omega$ (Appendix~\ref{app:trace_specialization}), so substituting $\Omega_I$ into Theorem~\ref{thm:unified_bound} yields a \emph{conservative} upper bound on the nuclear-form bound---any conclusion drawn from $\Omega_I$ still holds under the tighter form. \textbf{(iii)~Differentiability.} $\Omega_I$ is a smooth function of $Z_T, Z_P$ and back-propagates through standard autograd with no SVD, enabling the training-time regularizer of Sec.~\ref{subsec:shape_reg}. Unless stated otherwise, $\Omega$ in the sequel refers to $\Omega_I$.
 
 
 \subsection{Extension to Autoregressive Generation}
 \label{subsec:ar_extension}
 
-The framework above treats each evaluation as a single feature-to-loss mapping. We now show that it extends naturally to sequence-level autoregressive generation, unifying both point-wise classification and language modeling under a single bound.
-
-\paragraph{Autoregressive Risk.}
-For a sequence $(c, y)$ drawn from $\mathcal{D}$, where $c$ denotes the context (prompt) and $y = (y_1, \ldots, y_{|y|})$ the target continuation, the autoregressive risk is:
+The bound applies unchanged to sequence-level generation. For a sequence $(c, y)$ with context $c$ and target continuation $y = (y_1, \ldots, y_{|y|})$, the autoregressive risk is
 \begin{equation}
 \label{eq:ar_risk}
-\mathcal{R}_M^{\mathrm{AR}} = \mathbb{E}_{(c, y) \sim \mathcal{D}} \left[ \frac{1}{|y|} \sum_{t=1}^{|y|} \ell\!\big(\phi_M(c, y_{<t}) \cdot H_M,\; y_t\big) \right],
+\mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{t=1}^{|y|} \ell\!\big(\phi_M(c, y_{<t}) \cdot H_M,\; y_t\big) \right].
 \end{equation}
-where $\phi_M(c, y_{<t}) \in \mathbb{R}^d$ is the feature vector at position $t$, encoding the context $c$ and all preceding target tokens $y_{<t}$.
-
-\paragraph{From Tokens to Matrices.}
-Under teacher forcing, all token-level features $\{\phi_M(c, y_{<t})\}_{t=1}^{|y|}$ are extracted in a single forward pass---each token contributes an independent feature-loss pair to the average. Collecting all $N = \sum_{(c,y)} |y|$ token-level features into a single matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$, we apply Theorem~\ref{thm:unified_bound} directly:
-
-\begin{corollary}[Autoregressive Risk Bound]
-\label{cor:ar_bound}
-Let $Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ be the token-level feature matrices collected under teacher forcing. Then:
-\begin{equation}
-\label{eq:ar_bound}
-|\mathcal{R}_T^{\mathrm{AR}} - \mathcal{R}_P^{\mathrm{AR}}| \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T^{\scriptscriptstyle\mathrm{AR}} - \rho_P^{\scriptscriptstyle\mathrm{AR}})^2 + 2\,\rho_T^{\scriptscriptstyle\mathrm{AR}}\,\rho_P^{\scriptscriptstyle\mathrm{AR}}\!\big(1 - \Omega^{\mathrm{AR}}\big)} + K_{\mathrm{pred}} \,\big\|\Sigma_P^{\mathrm{AR}\,1/2}(W^* H_T - H_P)\big\|_F,
-\end{equation}
-where $\rho^{\mathrm{AR}}$, $\Omega^{\mathrm{AR}}$, and $\Sigma_P^{\mathrm{AR}}$ are computed over the token-level matrices $Z^{\mathrm{AR}}$.
-\end{corollary}
+Under teacher forcing, all token-level features $\phi_M(c, y_{<t})$ are extracted in a single forward pass and collected into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ (with $N$ the total number of target tokens across the calibration set); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$, unifying point-wise classification (MMLU, ARC), language modeling (WikiText), and short-horizon QA (SQuAD, TriviaQA) under a single bound. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
-\subsection{Shape Regularization as a Training Objective}
+\subsection{From Diagnostic to Training: Shape Regularization}
 \label{subsec:shape_reg}
 
-Theorem~\ref{thm:unified_bound} is typically used \emph{diagnostically}---computed post-hoc to compare trained variants. The same quantity can instead serve as a \emph{training-time penalty} that actively constrains geometric drift. Under LoRA fine-tuning with a frozen prediction head ($H_T = H_P$), the head term of the unified bound vanishes and the risk gap reduces to
+Theorem~\ref{thm:unified_bound} is used diagnostically throughout most of our experiments---computed post-hoc to compare trained variants---but the \emph{same} quantity lifts into a training-time penalty when the head term vanishes. Under LoRA fine-tuning with a frozen head, the head term drops out and the risk gap between the base model $\theta_0$ and a checkpoint $\theta_t$ reduces to
 \begin{equation}
 \label{eq:lora_bound}
-|\mathcal{R}_0 - \mathcal{R}_t| \;\le\; K_{\mathrm{feat}}\sqrt{(\rho_0-\rho_t)^2 + 2\rho_0\rho_t(1-\Omega)},
+|\mathcal{R}_0 - \mathcal{R}_t| \;\le\; K_{\mathrm{feat}}\sqrt{(\rho_0-\rho_t)^2 + 2\rho_0\rho_t(1-\Omega_I)}.
 \end{equation}
-where $t$ indexes the current fine-tuning checkpoint relative to the frozen base model $\theta_0$. Because $1-\Omega$ enters linearly under the square root, minimizing it during training directly shrinks the bound. We therefore augment the fine-tuning objective with a PRISM-guided regularizer:
+Because $1-\Omega_I$ enters linearly under the square root and is differentiable in $Z_t$ (property (iii) of Sec.~\ref{subsec:interpretation}), we augment the fine-tuning objective with a PRISM-guided penalty:
 \begin{equation}
 \label{eq:shape_reg}
 L_{\mathrm{total}} \;=\; \underbrace{L_{\mathrm{CE}}\bigl(\theta_t;\,\mathcal{D}_{\mathrm{FT}}\bigr)}_{\text{task loss}} \;+\; \lambda\,\bigl(1 - \Omega_I\!\bigl(Z_0^{\text{ref}},\, Z_t^{\text{ref}}\bigr)\bigr),
 \end{equation}
-where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are the base and current feature matrices on a fixed reference set and $\Omega_I$ is the trace specialization of Eq.~(\ref{eq:omega_I_def}). $Z_0^{\text{ref}}$ is pre-computed once with the frozen base model; $Z_t^{\text{ref}}$ is recomputed every $k$ micro-batches during training, adding negligible wall-clock overhead at 8B scale.
-
-\paragraph{Why $\Omega_I$ at training time.}
-Three properties make $\Omega_I$ strictly preferable to $\Omega$ inside a training loop: (a)~\emph{Differentiability}---$\Omega_I$ is a smooth function of $Z_t$ and back-propagates through standard autograd with no SVD; (b)~\emph{Safety}---$\Omega_I \le \Omega$ (Appendix~\ref{app:trace_specialization}), so $(1-\Omega_I)$ upper-bounds $(1-\Omega)$ and minimizing the former also shrinks the tight nuclear-form bound; (c)~\emph{Regime match}---LoRA with a frozen head keeps the backbone near its base coordinate basis ($W^*\approx I$), making $\Omega_I \approx \Omega$ in practice. This lifts the bound from a post-hoc diagnostic to an active geometric constraint; its empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
+where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices on a fixed reference set. $Z_0^{\text{ref}}$ is pre-computed once with the frozen base model; $Z_t^{\text{ref}}$ is recomputed every $k$ micro-batches during training, adding negligible wall-clock overhead at 8B scale. The same geometric signal that \emph{diagnoses} backbone drift thereby \emph{prevents} it---an active constraint against catastrophic forgetting whose empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
 
 
 \section{Applications Across the LLM Post-Training Lifecycle}
@@ -394,20 +332,20 @@ We designate the full-precision model as Target ($T$) and the quantized variant 
 \begin{enumerate}
     \item \textbf{Near-Identity Alignment ($W^* \approx I$):} Standard PTQ introduces element-wise numerical noise that largely preserves the coordinate basis. The optimal Procrustes alignment $W^*$ absorbs the small, non-symmetric perturbations in the cross-moment matrix $Z_F^\top Z_Q$, and the Procrustes Similarity $\Omega$ (Eq.~\ref{eq:omega_def}) remains the correct measure of structural alignment.\footnote{%
     Setting $W = I$ exactly would replace the nuclear norm $\|Z_F^\top Z_Q\|_*$ in the decomposition with $\operatorname{Tr}(Z_F^\top Z_Q)$, which equals the nuclear norm only when $Z_F^\top Z_Q$ is symmetric positive semidefinite---a condition not guaranteed under quantisation noise. Using the full Procrustes solution avoids this issue while yielding the tightest bound. See Appendix~\ref{app:general_W} for a detailed analysis of alternative alignment choices.}
-    \item \textbf{Head Stability ($H_Q \approx H_F$):} Modern protocols (GPTQ, and typical GGUF / BitsAndBytes configurations) retain the prediction head in FP16, causing the head discrepancy to vanish.
+    \item \textbf{Head Stability ($H_Q \approx H_F$):} GPTQ and most BitsAndBytes configurations retain the prediction head in FP16, making the head discrepancy vanish. This assumption is \emph{not} trivially satisfied by GGUF, where several k-quant tiers (e.g., \texttt{Q2\_K}, \texttt{Q3\_K\_M}) also quantize \texttt{lm\_head} and induce a non-negligible head offset $\Delta H = H_F - H_Q$. We therefore keep the head term explicit below rather than drop it.
 \end{enumerate}
-Under these conditions, the risk gap is dominated purely by the geometric deformation of the feature manifold:
+Under these conditions, the risk gap is dominated by the geometric deformation of the feature manifold plus a residual head-discrepancy contribution:
 \begin{equation}
 \label{eq:quant_bound}
-|\mathcal{R}_F - \mathcal{R}_Q| \;\;\lessapprox\;\; K_{\mathrm{feat}} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{\rm Scale Collapse}} + \underbrace{2\rho_F \rho_Q \big(1 - \Omega(Z_F, Z_Q)\big)}_{\text{\rm Structural Distortion}} }.
+|\mathcal{R}_F - \mathcal{R}_Q| \;\;\lessapprox\;\; K_{\mathrm{feat}} \sqrt{ \underbrace{(\rho_F - \rho_Q)^2}_{\text{\rm Scale Collapse}} + \underbrace{2\rho_F \rho_Q \big(1 - \Omega(Z_F, Z_Q)\big)}_{\text{\rm Structural Distortion}} } \;+\; \underbrace{K_{\mathrm{pred}}\,\| \Sigma_Q^{1/2} (H_F - H_Q) \|_F}_{\text{\rm Head Divergence}}.
 \end{equation}
-This establishes $\Omega$ and $\Delta\rho$ as generation-free diagnostics: \emph{scale collapse} ($\rho_Q < \rho_F$) captures activation clipping from aggressive bit-width reduction, while a drop in $\Omega$ signals corruption of the relational geometry between tokens. Practitioners can rank quantization configurations purely from feature statistics on a small calibration set.
+For GPTQ and BnB the last term collapses to zero and ranking can proceed on feature statistics alone; for GGUF at aggressive bit-widths that quantize \texttt{lm\_head}, the head-divergence term is non-zero and must be retained to keep the bound tight. In all three families, $\Omega$ and $\Delta\rho$ remain generation-free diagnostics: \emph{scale collapse} ($\rho_Q < \rho_F$) captures activation clipping from aggressive bit-width reduction, while a drop in $\Omega$ signals corruption of the relational geometry between tokens.
 
 
 \subsection{Geometric Monitoring of Catastrophic Forgetting}
 \label{subsec:forgetting}
 
-We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). Applying Theorem~\ref{thm:unified_bound}:
+\emph{Setting.} We fine-tune a base model on a single designated \emph{target task} and ask how the risk on a suite of \emph{other, held-out tasks} drifts as training proceeds---this held-out risk decay is the empirical signature of catastrophic forgetting that we want to track. Accordingly, we designate the frozen base model as $T{=}\theta_0$ and the fine-tuned checkpoint at step $t$ as $P{=}\theta_t$, and evaluate the bound on the held-out tasks, not on the fine-tuned target task. Applying Theorem~\ref{thm:unified_bound}:
 \begin{equation}
 \label{eq:forgetting_bound}
 \begin{aligned}
@@ -421,7 +359,7 @@ Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied 
 \subsection{Other Applications}
 \label{subsec:other_applications}
 
-Beyond these two instantiations, Theorem~\ref{thm:unified_bound} supports several additional diagnostic uses that we leave to future empirical validation: (i)~\emph{OOD detection} via the per-sample residual $\|\phi_T(x) - \phi_P(x) W^*\|_2$, which spikes when the linear alignment hypothesis breaks on out-of-distribution inputs; (ii)~\emph{cross-scale hyperparameter transfer}, since a small proxy with high $\Omega$ to a large target bounds the regret of transferring its optimal setting; and (iii)~\emph{label-free production monitoring}, since $\Omega$ and $\Delta\rho$ depend only on feature matrices and can serve as online drift signals without ground-truth labels.
+Beyond these two instantiations, Theorem~\ref{thm:unified_bound} supports several additional diagnostic uses that we leave to future empirical validation: (i)~\emph{OOD detection} via both axes of the feature alignment error---the scale discrepancy $|\rho_T(x) - \rho_P(x)|$ at the per-sample or per-batch level \emph{and} the shape residual $\|\phi_T(x) - \phi_P(x) W^*\|_2$---either of which can spike on out-of-distribution inputs, and which together cover activation-magnitude shifts (scale) and breakdowns of the linear alignment hypothesis (shape); (ii)~\emph{cross-scale hyperparameter transfer}, since a small proxy with high $\Omega$ to a large target bounds the regret of transferring its optimal setting; and (iii)~\emph{label-free production monitoring}, since $\Omega$ and $\Delta\rho$ depend only on feature matrices and can serve as online drift signals without ground-truth labels.
 
 
 %=========================================================================
@@ -564,6 +502,12 @@ Several promising directions remain:
 \label{app:detailed_proofs}
 
 We provide the complete proof of Theorem~\ref{thm:unified_bound}, deriving the bound on $|\mathcal{R}_T - \mathcal{R}_P|$ from the cross-entropy loss definition. The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, exact Procrustes decomposition via SVD, second-moment-adjusted head bound, and final assembly.
+
+\subsection{Relation to Classical Procrustes Shape Metrics}
+\label{app:shape_metrics_relation}
+
+The left-hand side of Eq.~(\ref{eq:exact_equality}) is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Sections~\ref{subsec:quantization} and~\ref{subsec:forgetting} show that the two arms of this split have qualitatively different operational meanings and dominate the risk gap under different LLM lifecycle regimes.
+
 
 \subsection{Step 1: Risk Decomposition via Triangle Inequality}
 \label{app:risk_decomp}
@@ -904,6 +848,30 @@ In the two primary regimes:
     \item \textbf{LoRA ($H_T = H_P$):} The head term vanishes for any $W$, so the joint problem reduces to standard Procrustes.
 \end{itemize}
 The Riemannian formulation becomes relevant only when comparing models with \emph{both} rotated features and divergent heads (e.g., full-parameter SFT). We leave this regime to future work.
+
+
+\section{Extension to Autoregressive Generation}
+\label{app:ar_extension}
+
+The bound of Theorem~\ref{thm:unified_bound} applies to any matrix pair $(Z_T, Z_P) \in \mathbb{R}^{n \times d}$ of feature vectors, whatever the origin of the rows. We spell out here the autoregressive instantiation informally summarized in Sec.~\ref{subsec:ar_extension}.
+
+\paragraph{From tokens to matrices.}
+Under teacher forcing, each target token $y_t$ in a sequence $(c, y)$ contributes an independent feature--loss pair $(\phi_M(c, y_{<t}), \ell(\phi_M(c, y_{<t}) H_M, y_t))$. The per-sequence average inside Eq.~(\ref{eq:ar_risk}) is therefore the empirical mean of these pairs over the $|y|$ positions, and the expectation over sequences becomes an empirical mean over all $N = \sum_{(c,y)} |y|$ tokens in the calibration set. Stacking the token-level features into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ therefore reduces the autoregressive risk gap to exactly the per-row setting that Theorem~\ref{thm:unified_bound} controls.
+
+\begin{corollary}[Autoregressive Risk Bound]
+\label{cor:ar_bound}
+Let $Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ be the token-level feature matrices collected under teacher forcing, with RMS scales $\rho_T^{\mathrm{AR}}, \rho_P^{\mathrm{AR}}$, Procrustes similarity $\Omega^{\mathrm{AR}}$, and covariance $\Sigma_P^{\mathrm{AR}}$. Then
+\begin{equation}
+\label{eq:ar_bound}
+|\mathcal{R}_T^{\mathrm{AR}} - \mathcal{R}_P^{\mathrm{AR}}| \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T^{\mathrm{AR}} - \rho_P^{\mathrm{AR}})^2 + 2\,\rho_T^{\mathrm{AR}}\,\rho_P^{\mathrm{AR}}(1 - \Omega^{\mathrm{AR}})} \;+\; K_{\mathrm{pred}} \,\big\|(\Sigma_P^{\mathrm{AR}})^{1/2}(W^* H_T - H_P)\big\|_F.
+\end{equation}
+\end{corollary}
+
+\begin{proof}
+Each row of $Z_M^{\mathrm{AR}}$ is a feature vector of dimension $d$, and the Lipschitz analysis of Appendix~\ref{app:kfeat} together with the Procrustes decomposition of Appendix~\ref{app:procrustes} depend only on the matrix shape, not on the provenance of its rows. Applying Theorem~\ref{thm:unified_bound} to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$ yields the stated inequality.
+\end{proof}
+
+This unification enables one bound to cover point-wise classification (MMLU, ARC, where $|y|{=}1$), language modeling (WikiText, where $y$ is a long chunk), and short-horizon QA (SQuAD, TriviaQA, where $y$ is a 1--5 token span).
 
 
 \input{appendix/model_quantization}
