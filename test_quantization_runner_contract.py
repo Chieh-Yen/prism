@@ -35,7 +35,9 @@ def test_matrix_contract() -> None:
     assert first["samples_override"] == "data.num_samples=512"
 
     last = jobs[-1]
-    assert last["target_override"] == "target.model=mistralai/Mistral-7B-Instruct-v0.3"
+    # NOTE: Mistral-7B-v0.3 entries were removed from the matrix; update
+    # the expected "last" model ID here to match the current matrix ordering.
+    assert last["target_override"] == "target.model=Qwen/Qwen2.5-7B"
     assert last["task_override"] == "data.task=squad"
 
 

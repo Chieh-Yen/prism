@@ -29,8 +29,8 @@ All targets are loaded in BF16 as the reference precision; an FP16 proxy is addi
 7  & DeepSeek R1 & \texttt{deepseek-ai/DeepSeek-R1-Distill-Llama-8B} & Distilled & 8B   & 4096 & 128K \\
 8  & Qwen 2.5   & \texttt{Qwen/Qwen2.5-7B}                           & Base      & 7B   & 3584 & 151K \\
 9  & Qwen 2.5   & \texttt{Qwen/Qwen2.5-7B-Instruct}                  & Instruct  & 7B   & 3584 & 151K \\
-10 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-v0.3}                 & Base      & 7B   & 4096 & 33K  \\
-11 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-Instruct-v0.3}        & Instruct  & 7B   & 4096 & 33K  \\
+% 10 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-v0.3}                 & Base      & 7B   & 4096 & 33K  \\
+% 11 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-Instruct-v0.3}        & Instruct  & 7B   & 4096 & 33K  \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -78,8 +78,8 @@ All repositories are publicly hosted on HuggingFace and loaded via the standard 
 \begin{table}[h]
 \centering
 \caption{Pre-quantized GPTQ and AWQ checkpoints per model.
+Only repositories actually loaded during our experiments are listed;
 ``---'' indicates no publicly available checkpoint at the time of writing.
-$^\dagger$Efficient-ML repos use a non-standard \texttt{.pth} format incompatible with \texttt{transformers}; they are included for completeness but skipped at runtime.
 $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect clean quantization error.}
 \label{tab:gptq_awq}
 \small
@@ -89,11 +89,7 @@ $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect cl
 \# & Model & GPTQ Repository & AWQ Repository \\
 \midrule
 1  & Qwen3-8B-Base
-   & \texttt{Efficient-ML/...-w4-128}$^\dagger$ \newline
-     \texttt{Efficient-ML/...-w8-128}$^\dagger$ \newline
-     \texttt{Efficient-ML/...-w4-perchannel}$^\dagger$ \newline
-     \texttt{Efficient-ML/...-w8-perchannel}$^\dagger$ \newline
-     \texttt{AlphaGaO/Qwen3-8B-GPTQ}$^\ddagger$
+   & \texttt{AlphaGaO/Qwen3-8B-GPTQ}$^\ddagger$
    & --- \\
 \addlinespace
 2  & Llama-3.1-8B
@@ -105,12 +101,7 @@ $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect cl
    & --- & --- \\
 \addlinespace
 4  & Qwen3-8B
-   & \texttt{Efficient-ML/...-w4-128}$^\dagger$ \newline
-     \texttt{Efficient-ML/...-w8-128}$^\dagger$ \newline
-     \texttt{Efficient-ML/...-w4-perchannel}$^\dagger$ \newline
-     \texttt{Efficient-ML/...-w8-perchannel}$^\dagger$ \newline
-     \texttt{JunHowie/...-GPTQ-Int8} \newline
-     \texttt{RedHatAI/...-quantized.w4a16}
+   & \texttt{JunHowie/...-GPTQ-Int8}
    & \texttt{Qwen/Qwen3-8B-AWQ} \\
 \addlinespace
 5  & Llama-3.1-8B-Inst.
@@ -133,14 +124,14 @@ $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect cl
    & \texttt{Qwen/...-GPTQ-Int4} \newline
      \texttt{Qwen/...-GPTQ-Int8}
    & \texttt{Qwen/...-AWQ} \\
-\addlinespace
-10 & Mistral-7B-v0.3
-   & \texttt{iproskurina/...-GPTQ-4bit-g128}
-   & \texttt{solidrust/...-AWQ} \\
-\addlinespace
-11 & Mistral-7B-Inst.-v0.3
-   & \texttt{thesven/...-GPTQ}
-   & \texttt{solidrust/...-AWQ} \\
+% \addlinespace
+% 10 & Mistral-7B-v0.3
+%    & \texttt{iproskurina/...-GPTQ-4bit-g128}
+%    & \texttt{solidrust/...-AWQ} \\
+% \addlinespace
+% 11 & Mistral-7B-Inst.-v0.3
+%    & \texttt{thesven/...-GPTQ}
+%    & \texttt{solidrust/...-AWQ} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -172,8 +163,8 @@ or \emph{dash convention} (\texttt{Model-Q4\_K\_M.gguf}) used by Qwen, bartowski
 7  & DeepSeek-R1-Distill  & \texttt{bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF} & \texttt{...-Llama-8B-\{Q\}.gguf} \\
 8  & Qwen2.5-7B           & \texttt{QuantFactory/Qwen2.5-7B-GGUF}          & \texttt{Qwen2.5-7B.\{Q\}.gguf} \\
 9  & Qwen2.5-7B-Inst.     & \texttt{Qwen/Qwen2.5-7B-Instruct-GGUF}         & \texttt{...-Instruct-\{Q\}.gguf} \\
-10 & Mistral-7B-v0.3      & \texttt{mradermacher/Mistral-7B-v0.3-GGUF}     & \texttt{Mistral-7B-v0.3.\{Q\}.gguf} \\
-11 & Mistral-7B-Inst.-v0.3 & \texttt{bartowski/Mistral-7B-Instruct-v0.3-GGUF} & \texttt{...-v0.3-\{Q\}.gguf} \\
+% 10 & Mistral-7B-v0.3      & \texttt{mradermacher/Mistral-7B-v0.3-GGUF}     & \texttt{Mistral-7B-v0.3.\{Q\}.gguf} \\
+% 11 & Mistral-7B-Inst.-v0.3 & \texttt{bartowski/Mistral-7B-Instruct-v0.3-GGUF} & \texttt{...-v0.3-\{Q\}.gguf} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -182,21 +173,20 @@ or \emph{dash convention} (\texttt{Model-Q4\_K\_M.gguf}) used by Qwen, bartowski
 \subsection{Backend Coverage Summary}
 \label{app:coverage}
 
-Table~\ref{tab:coverage} provides a per-model summary of quantization backend coverage.
-Five model--backend combinations lack publicly available checkpoints, all involving base (pre-trained) models for which community quantization activity is lower.
+Table~\ref{tab:coverage} provides a per-model summary of quantization backend coverage across the combinations we evaluated.
 
 \begin{table}[h]
 \centering
 \caption{Quantization backend coverage per model.
-\cmark\ = available and included in our experiments;
---- = no publicly available checkpoint found on HuggingFace at the time of writing.}
+\cmark\ = included in our experiments;
+--- = not evaluated in this study.}
 \label{tab:coverage}
 \small
 \begin{tabular}{@{}clcccc@{}}
 \toprule
 \# & Model & BnB & GGUF & GPTQ & AWQ \\
 \midrule
-1  & Qwen3-8B-Base               & \cmark & \cmark & \cmark$^\dagger$ & ---    \\
+1  & Qwen3-8B-Base               & \cmark & \cmark & \cmark            & ---    \\
 2  & Llama-3.1-8B                & \cmark & \cmark & \cmark            & \cmark \\
 3  & Ministral-3-8B-Base         & \cmark & \cmark & ---               & ---    \\
 4  & Qwen3-8B                    & \cmark & \cmark & \cmark            & \cmark \\
@@ -205,25 +195,15 @@ Five model--backend combinations lack publicly available checkpoints, all involv
 7  & DeepSeek-R1-Distill-Llama   & \cmark & \cmark & \cmark            & \cmark \\
 8  & Qwen2.5-7B                  & \cmark & \cmark & ---               & ---    \\
 9  & Qwen2.5-7B-Instruct         & \cmark & \cmark & \cmark            & \cmark \\
-10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark            & \cmark \\
-11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark            & \cmark \\
+% 10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark            & \cmark \\
+% 11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark            & \cmark \\
 \midrule
-   & \textbf{Total}              & 11/11  & 11/11  & 8/11              & 8/11   \\
+   & \textbf{Total}              & 9/9    & 9/9    & 6/9               & 6/9    \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent
-$^\dagger$Efficient-ML GPTQ checkpoints use a non-standard \texttt{.pth} format; the standard-format \texttt{AlphaGaO/Qwen3-8B-GPTQ} is additionally included.
-
-\paragraph{Missing combinations.}
-The five missing entries (3 models $\times$ GPTQ/AWQ) share a common pattern: they are all \emph{base} (pre-trained) models for which the community quantization ecosystem is less active than for their instruct-tuned counterparts.
-Specifically:
-\begin{itemize}[nosep]
-    \item \textbf{Qwen3-8B-Base} --- no AWQ checkpoint; the official \texttt{Qwen/Qwen3-8B-AWQ} is quantized from the instruct variant.
-    \item \textbf{Ministral-3-8B-Base-2512} --- no GPTQ or AWQ checkpoint; only instruct and reasoning variants have community quants.
-    \item \textbf{Ministral-3-8B-Instruct-2512} --- no GPTQ checkpoint; AWQ is available via \texttt{cyankiwi}.
-    \item \textbf{Qwen2.5-7B} --- no GPTQ or AWQ checkpoint for the base model; official quantizations are published only for the instruct variant.
-\end{itemize}
-For these models, GGUF (6 bit-widths) and BitsAndBytes (3 configurations) still provide comprehensive coverage across the 2--8 bit range.
+\paragraph{Experiment scope.}
+Each model is evaluated on the backend/bit-width combinations marked \cmark\ in Table~\ref{tab:coverage}: GGUF (6 bit-widths) and BitsAndBytes (3 configurations) on every model, plus the GPTQ and AWQ checkpoints listed in Table~\ref{tab:gptq_awq} where available.
+The cells marked ``---'' are outside our experiment scope under the compute and time budget for this study.
 

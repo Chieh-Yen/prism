@@ -12,13 +12,14 @@ DS_ORDER = ["arc", "mmlu", "gsm8k", "squad", "triviaqa", "fineweb_edu", "wikitex
 
 BASE = {
     "Qwen/Qwen2.5-7B", "Qwen/Qwen3-8B-Base",
-    "meta-llama/Meta-Llama-3.1-8B", "mistralai/Mistral-7B-v0.3",
+    "meta-llama/Meta-Llama-3.1-8B",
+    # "mistralai/Mistral-7B-v0.3",  # excluded from current study
     "mistralai/Ministral-3-8B-Base-2512",
 }
 INSTRUCT = {
     "Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen3-8B",
     "meta-llama/Meta-Llama-3.1-8B-Instruct",
-    "mistralai/Mistral-7B-Instruct-v0.3",
+    # "mistralai/Mistral-7B-Instruct-v0.3",  # excluded from current study
     "mistralai/Ministral-3-8B-Instruct-2512",
     "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
 }

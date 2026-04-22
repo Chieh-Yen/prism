@@ -65,22 +65,22 @@ models:
       - bnb:fp4
       - awq:cyankiwi/Ministral-3-8B-Instruct-2512-AWQ-4bit
 
-  - id: mistral7b_v03_instruct
-    target_model: mistralai/Mistral-7B-Instruct-v0.3
-    proxy_model: bartowski/Mistral-7B-Instruct-v0.3-GGUF
-    quantization_bits:
-      - dtype:float16
-      - Q8_0
-      - Q6_K
-      - Q5_K_M
-      - Q4_K_M
-      - Q3_K_M
-      - Q2_K
-      - bnb:int8
-      - bnb:nf4
-      - bnb:fp4
-      - gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ
-      - awq:solidrust/Mistral-7B-Instruct-v0.3-AWQ
+  # - id: mistral7b_v03_instruct
+  #   target_model: mistralai/Mistral-7B-Instruct-v0.3
+  #   proxy_model: bartowski/Mistral-7B-Instruct-v0.3-GGUF
+  #   quantization_bits:
+  #     - dtype:float16
+  #     - Q8_0
+  #     - Q6_K
+  #     - Q5_K_M
+  #     - Q4_K_M
+  #     - Q3_K_M
+  #     - Q2_K
+  #     - bnb:int8
+  #     - bnb:nf4
+  #     - bnb:fp4
+  #     - gptq:thesven/Mistral-7B-Instruct-v0.3-GPTQ
+  #     - awq:solidrust/Mistral-7B-Instruct-v0.3-AWQ
 
   - id: deepseek_r1_distill_llama_8b
     target_model: deepseek-ai/DeepSeek-R1-Distill-Llama-8B
@@ -155,23 +155,23 @@ models:
       - bnb:nf4
       - bnb:fp4
 
-  - id: mistral7b_v03_base
-    target_model: mistralai/Mistral-7B-v0.3
-    proxy_model: mradermacher/Mistral-7B-v0.3-GGUF
-    gguf_template: Mistral-7B-v0.3.{quant}.gguf
-    quantization_bits:
-      - dtype:float16
-      - Q8_0
-      - Q6_K
-      - Q5_K_M
-      - Q4_K_M
-      - Q3_K_M
-      - Q2_K
-      - bnb:int8
-      - bnb:nf4
-      - bnb:fp4
-      - gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128
-      - awq:solidrust/Mistral-7B-v0.3-AWQ
+  # - id: mistral7b_v03_base
+  #   target_model: mistralai/Mistral-7B-v0.3
+  #   proxy_model: mradermacher/Mistral-7B-v0.3-GGUF
+  #   gguf_template: Mistral-7B-v0.3.{quant}.gguf
+  #   quantization_bits:
+  #     - dtype:float16
+  #     - Q8_0
+  #     - Q6_K
+  #     - Q5_K_M
+  #     - Q4_K_M
+  #     - Q3_K_M
+  #     - Q2_K
+  #     - bnb:int8
+  #     - bnb:nf4
+  #     - bnb:fp4
+  #     - gptq:iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128
+  #     - awq:solidrust/Mistral-7B-v0.3-AWQ
 
   - id: qwen25_7b_instruct
     target_model: Qwen/Qwen2.5-7B-Instruct
