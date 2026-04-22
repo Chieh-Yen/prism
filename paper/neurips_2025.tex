@@ -382,15 +382,10 @@ where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are the base and current feature matr
 Three properties make $\Omega_I$ strictly preferable to $\Omega$ inside a training loop: (a)~\emph{Differentiability}---$\Omega_I$ is a smooth function of $Z_t$ and back-propagates through standard autograd with no SVD; (b)~\emph{Safety}---$\Omega_I \le \Omega$ (Appendix~\ref{app:trace_specialization}), so $(1-\Omega_I)$ upper-bounds $(1-\Omega)$ and minimizing the former also shrinks the tight nuclear-form bound; (c)~\emph{Regime match}---LoRA with a frozen head keeps the backbone near its base coordinate basis ($W^*\approx I$), making $\Omega_I \approx \Omega$ in practice. This lifts the bound from a post-hoc diagnostic to an active geometric constraint; its empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
 
 
-\section{Instantiating the Framework}
+\section{Applications Across the LLM Post-Training Lifecycle}
 \label{sec:applications}
 
-The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) provides a general mechanism to estimate functional divergence between any two models. The nature of the geometric relationship between proxy and target determines which terms dominate the bound, giving rise to two distinct regimes:
-\begin{itemize}
-    \item \textbf{The Near-Identity Regime ($W^* \approx I$):} When the proxy and target share a nearly identical coordinate basis---as in post-training quantization---the optimal Procrustes alignment $W^*$ absorbs only small perturbations introduced by numerical noise. The bound reduces to a pure function of scale collapse ($\Delta\rho$) and structural distortion ($1 - \Omega$), with the head discrepancy vanishing when the prediction head is preserved.
-    \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \not\approx I$):} When training dynamics induce global basis rotations---as in fine-tuning---the full Procrustes alignment is required. The optimal $W^*$ absorbs arbitrary rotations, and $\Omega$ measures the residual geometric drift that rotations alone cannot explain.
-\end{itemize}
-We instantiate these two regimes below.
+The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) applies to any two models within a common lineage. We instantiate it below in two lifecycle settings---post-training quantization and LoRA fine-tuning with a frozen head---both of which satisfy the near-identity alignment condition discussed in Sec.~\ref{subsec:interpretation}, so the operational trace form $\Omega_I$ applies in each; the two settings differ in which term of the bound carries the risk gap.
 
 \subsection{Quantization Quality Estimation}
 \label{subsec:quantization}
@@ -412,7 +407,7 @@ This establishes $\Omega$ and $\Delta\rho$ as generation-free diagnostics: \emph
 \subsection{Geometric Monitoring of Catastrophic Forgetting}
 \label{subsec:forgetting}
 
-We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). Unlike quantization---where $W^*$ deviates only slightly from the identity---fine-tuning induces substantial global feature rotations, requiring the full Procrustes alignment. Applying Theorem~\ref{thm:unified_bound}:
+We define the frozen base model as Target ($T = \theta_0$) and the model at fine-tuning step $t$ as Proxy ($P = \theta_t$). Applying Theorem~\ref{thm:unified_bound}:
 \begin{equation}
 \label{eq:forgetting_bound}
 \begin{aligned}
@@ -426,7 +421,7 @@ Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied 
 \subsection{Other Applications}
 \label{subsec:other_applications}
 
-Beyond the two primary regimes, Theorem~\ref{thm:unified_bound} supports several additional diagnostic uses that we leave to future empirical validation: (i)~\emph{OOD detection} via the per-sample residual $\|\phi_T(x) - \phi_P(x) W^*\|_2$, which spikes when the linear alignment hypothesis breaks on out-of-distribution inputs; (ii)~\emph{cross-scale hyperparameter transfer}, since a small proxy with high $\Omega$ to a large target bounds the regret of transferring its optimal setting; and (iii)~\emph{label-free production monitoring}, since $\Omega$ and $\Delta\rho$ depend only on feature matrices and can serve as online drift signals without ground-truth labels.
+Beyond these two instantiations, Theorem~\ref{thm:unified_bound} supports several additional diagnostic uses that we leave to future empirical validation: (i)~\emph{OOD detection} via the per-sample residual $\|\phi_T(x) - \phi_P(x) W^*\|_2$, which spikes when the linear alignment hypothesis breaks on out-of-distribution inputs; (ii)~\emph{cross-scale hyperparameter transfer}, since a small proxy with high $\Omega$ to a large target bounds the regret of transferring its optimal setting; and (iii)~\emph{label-free production monitoring}, since $\Omega$ and $\Delta\rho$ depend only on feature matrices and can serve as online drift signals without ground-truth labels.
 
 
 %=========================================================================
@@ -461,7 +456,7 @@ All PRISM quantities and empirical risk gaps are computed on fixed held-out subs
 (iv)~\textbf{Precedent.} Fixed-subset evaluation for variant ranking is standard in efficient LLM evaluation~\cite{polo2024tinybenchmarks, perlitz2024efficient}.
 
 \paragraph{Shape-Regularization Hyperparameters.}
-For Sec.~\ref{subsec:shape_reg_exp} we sweep $\lambda \in \{0.0,\, 0.1,\, 0.5,\, 1.0\}$, where $\lambda{=}0$ reproduces unregularized LoRA. The reference set used to compute $\Omega_I$ is a fixed held-out batch of $32$ sequences drawn from the base model's pre-training distribution (not from $\mathcal{D}_{\mathrm{FT}}$, so that the penalty and task loss do not directly interfere). $Z_t^{\text{ref}}$ is recomputed every $k{=}8$ micro-steps; checkpoints are saved every 50 training steps, and all analysis figures/tables align to step $300$.
+For Sec.~\ref{subsec:shape_reg_exp} we sweep $\lambda \in \{0.0,\, 0.1,\, 0.5\}$, where $\lambda{=}0$ reproduces unregularized LoRA. The reference set used to compute $\Omega_I$ is a fixed held-out batch of $32$ sequences drawn from the base model's pre-training distribution (not from $\mathcal{D}_{\mathrm{FT}}$, so that the penalty and task loss do not directly interfere). $Z_t^{\text{ref}}$ is recomputed every $k{=}8$ micro-steps; checkpoints are saved every 50 training steps, and all analysis figures/tables align to step $300$.
 
 \paragraph{Teacher-Forced Scoring Protocol.}
 All risks in this paper are computed in the teacher-forced regime: the prompt $c$ and the target tokens $y$ are concatenated and passed through the model once, and the per-token loss is read off at the target positions. This matches the scoring rules of the benchmarks above by construction---multiple-choice items are ranked by gold-label likelihood, perplexity suites are teacher-forced by definition, and short-answer QA is evaluated on the likelihood of the gold span---so no additional evaluation assumption is introduced. The protocol yields three concrete benefits relevant to variant-level diagnostics.
