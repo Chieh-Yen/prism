@@ -1,0 +1,235 @@
+% 1. Tell the TOC to start tracking sections again
+\addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
+
+% 2. Style the TOC header
+\etocsettocstyle{\subsection*{Contents of Appendix}}{}
+
+% 3. Print the standard global TOC (which is now filtered)
+\tableofcontents 
+\clearpage
+
+
+\section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
+\label{app:detailed_proofs}
+
+We provide the complete proof of Theorem~\ref{thm:unified_bound}, deriving the bound on $|\mathcal{R}_T - \mathcal{R}_P|$ from the cross-entropy loss definition. The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, exact Procrustes decomposition via SVD, second-moment-adjusted head bound, and final assembly.
+
+\subsection{Relation to Classical Procrustes Shape Metrics}
+\label{app:shape_metrics_relation}
+
+The left-hand side of Eq.~(\ref{eq:exact_equality}) is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Sections~\ref{subsec:quantization} and~\ref{subsec:forgetting} show that the two arms of this split have qualitatively different operational meanings and dominate the risk gap under different LLM lifecycle regimes.
+
+
+\subsection{Step 1: Risk Decomposition via Triangle Inequality}
+\label{app:risk_decomp}
+
+\paragraph{Setup.}
+Recall that the risk of model $M$ is $\mathcal{R}_M = \mathbb{E}_{(x,y)}[\ell(\phi_M(x) \cdot H_M, y)]$, where $\ell$ is the cross-entropy loss (Eq.~\ref{eq:ce_def}). Given the optimal orthogonal alignment $W^* \in \mathcal{O}(d)$ that maps proxy features toward target features (i.e., $\phi_T(x) \approx \phi_P(x) W^*$), we introduce an intermediate \emph{hybrid risk}:
+\begin{equation}
+\mathcal{R}_{P \to T} := \mathbb{E}_{(x,y)}\!\Big[\ell\!\big(\phi_P(x)\, W^* \cdot H_T,\; y\big)\Big].
+\end{equation}
+This hybrid term evaluates the \emph{target's head} $H_T$ on the \emph{proxy's aligned features} $\phi_P(x) W$, serving as a bridge between $\mathcal{R}_T$ and $\mathcal{R}_P$.
+
+\paragraph{Decomposition.}
+By the triangle inequality on absolute values:
+\begin{equation}
+\label{eq:app_triangle}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{\big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big|}_{\text{Feature Alignment Error } \delta} \;+\; \underbrace{\big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big|}_{\text{Head Discrepancy } \gamma}.
+\end{equation}
+The first term $\delta$ measures how much the \emph{features} differ (through the same head $H_T$); the second term $\gamma$ measures how much the \emph{heads} differ (on the same aligned features). We bound each term separately in the following subsections.
+
+
+\subsection{Step 2: Bounding the Feature Alignment Error $\delta$}
+\label{app:kfeat}
+
+\paragraph{Lipschitz Property of Cross-Entropy with Respect to Features.}
+We bound $\delta$ by showing that the cross-entropy loss is Lipschitz continuous in the feature vector $z$. Define the composition $g_T(z, y) := \ell(z \cdot H_T, y)$. Our goal is to find the tightest constant $K_{\mathrm{feat}}$ such that:
+\begin{equation}
+|g_T(z_1, y) - g_T(z_2, y)| \le K_{\mathrm{feat}} \|z_1 - z_2\|_2, \quad \forall z_1, z_2, y.
+\end{equation}
+
+\paragraph{Computing the Gradient.}
+The logit vector is $v = z \cdot H_T \in \mathbb{R}^V$, and the cross-entropy loss is $\ell(v, y) = -v_y + \log \sum_{j=1}^{V} e^{v_j}$. The gradient with respect to the logits is:
+\begin{equation}
+\frac{\partial \ell}{\partial v} = \hat{p} - e_y,
+\end{equation}
+where $\hat{p} = \mathrm{softmax}(v) \in \mathbb{R}^V$ and $e_y$ is the one-hot vector at index $y$. Applying the chain rule to obtain the gradient with respect to features:
+\begin{equation}
+\nabla_z \ell = H_T (\hat{p} - e_y) = \sum_{j=1}^{V} (\hat{p}_j - \delta_{jy})\, h_{T,j},
+\end{equation}
+where $h_{T,j}$ denotes the $j$-th column of $H_T$ (the embedding vector for token $j$).
+
+\paragraph{Simplex Polarization.}
+We now derive a tight bound on $\|\nabla_z \ell\|_2$ by exploiting the probability simplex constraint $\sum_j \hat{p}_j = 1$. Expanding the gradient for true class $y$:
+\begin{equation}
+\nabla_z \ell = (\hat{p}_y - 1)\, h_{T,y} + \sum_{j \neq y} \hat{p}_j\, h_{T,j}.
+\end{equation}
+Since $1 - \hat{p}_y = \sum_{j \neq y} \hat{p}_j$, we can rewrite:
+\begin{equation}
+\nabla_z \ell = -\Big(\sum_{j \neq y} \hat{p}_j\Big) h_{T,y} + \sum_{j \neq y} \hat{p}_j\, h_{T,j} = \sum_{j \neq y} \hat{p}_j\, (h_{T,j} - h_{T,y}).
+\end{equation}
+This reveals that the gradient is a \emph{convex combination} of the pairwise differences between incorrect-class embeddings and the correct-class embedding. Taking the norm:
+\begin{equation}
+\|\nabla_z \ell\|_2 \le \sum_{j \neq y} \hat{p}_j \|h_{T,j} - h_{T,y}\|_2 \le \max_{j \neq y} \|h_{T,j} - h_{T,y}\|_2 \cdot \underbrace{\sum_{j \neq y} \hat{p}_j}_{\le\, 1}.
+\end{equation}
+Taking the maximum over all possible true classes $y$:
+\begin{equation}
+\label{eq:kfeat_tight}
+K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2.
+\end{equation}
+
+\paragraph{Remark.} This bound depends on the \emph{relative distances} between token embeddings, not their absolute magnitudes. A uniform shift $H_T \to H_T + c\mathbf{1}^\top$ does not change $K_{\mathrm{feat}}$. A naive Cauchy--Schwarz bound gives $K_{\mathrm{feat}}^{\mathrm{naive}} = \sqrt{2}\|H_T\|_2$, which is substantially looser.
+
+\paragraph{Applying the Lipschitz Bound.}
+Using the Lipschitz property with $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x) W^*$:
+\begin{equation}
+\begin{aligned}
+\delta &= \big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big| = \Big|\mathbb{E}\big[g_T(\phi_T(x), y) - g_T(\phi_P(x) W^*, y)\big]\Big| \\
+&\le \mathbb{E}\Big[|g_T(\phi_T(x), y) - g_T(\phi_P(x) W^*, y)|\Big] \\
+&\le K_{\mathrm{feat}} \cdot \mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W^*\|_2\big].
+\end{aligned}
+\end{equation}
+
+To connect this expectation to the Procrustes decomposition, we apply Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$):
+\begin{equation}
+\label{eq:delta_bound}
+\delta \le K_{\mathrm{feat}} \cdot \sqrt{\mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W^*\|_2^2\big]} = K_{\mathrm{feat}} \cdot \sqrt{\frac{1}{n}\|Z_T - Z_P W^*\|_F^2}.
+\end{equation}
+
+
+
+\subsection{Step 3: Exact Geometric Decomposition via Procrustes Analysis}
+\label{app:procrustes}
+
+We now derive the closed-form solution for the Orthogonal Procrustes problem and prove Proposition~\ref{prop:exact_decomposition}.
+
+\paragraph{The Optimization Problem.}
+We seek the orthogonal matrix $W^*$ that minimizes the alignment residual:
+\begin{equation}
+W^* = \arg\min_{W \in \mathcal{O}(d)} \|Z_T - Z_P W\|_F^2.
+\end{equation}
+
+\paragraph{Expansion.} Expanding the squared Frobenius norm:
+\begin{equation}
+\begin{aligned}
+\|Z_T - Z_P W\|_F^2 &= \operatorname{Tr}\!\big[(Z_T - Z_P W)^\top (Z_T - Z_P W)\big] \\
+&= \|Z_T\|_F^2 + \|Z_P W\|_F^2 - 2\operatorname{Tr}(Z_T^\top Z_P W).
+\end{aligned}
+\end{equation}
+Since $W$ is orthogonal, it preserves the Frobenius norm: $\|Z_P W\|_F^2 = \operatorname{Tr}(W^\top Z_P^\top Z_P W) = \operatorname{Tr}(Z_P^\top Z_P) = \|Z_P\|_F^2$, where we used the cyclic property of trace and $W^\top W = I_d$. Therefore:
+\begin{equation}
+\label{eq:procrustes_expand}
+\|Z_T - Z_P W\|_F^2 = \|Z_T\|_F^2 + \|Z_P\|_F^2 - 2\operatorname{Tr}(Z_T^\top Z_P W).
+\end{equation}
+The first two terms are constants independent of $W$. Minimization thus reduces to:
+\begin{equation}
+\label{eq:procrustes_max}
+W^* = \arg\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W).
+\end{equation}
+
+\paragraph{SVD Solution.}
+Let $Z_T^\top Z_P = U \Sigma V^\top$ be the singular value decomposition, where $U, V \in \mathbb{R}^{d \times d}$ are orthogonal and $\Sigma = \mathrm{diag}(\sigma_1, \ldots, \sigma_d)$ with $\sigma_i \ge 0$. Substituting:
+\begin{equation}
+\operatorname{Tr}(Z_T^\top Z_P W) = \operatorname{Tr}(U \Sigma V^\top W) = \operatorname{Tr}(\Sigma V^\top W U) = \operatorname{Tr}(\Sigma R),
+\end{equation}
+where $R = V^\top W U$. Since $W \in \mathcal{O}(d)$ and $U, V \in \mathcal{O}(d)$, we have $R \in \mathcal{O}(d)$. The problem becomes:
+\begin{equation}
+\max_{R \in \mathcal{O}(d)} \operatorname{Tr}(\Sigma R) = \max_{R \in \mathcal{O}(d)} \sum_{i=1}^{d} \sigma_i R_{ii}.
+\end{equation}
+Since $\sigma_i \ge 0$ and $|R_{ii}| \le 1$ for any orthogonal $R$, this is maximized when $R_{ii} = 1$ for all $i$, i.e., $R = I_d$, which yields $V^\top W^* U = I_d$ and thus:
+\begin{equation}
+\label{eq:W_optimal}
+W^* = V U^\top.
+\end{equation}
+The maximum value is:
+\begin{equation}
+\label{eq:max_trace}
+\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W) = \sum_{i=1}^{d} \sigma_i = \|Z_T^\top Z_P\|_*,
+\end{equation}
+where $\|\cdot\|_*$ denotes the nuclear norm.
+
+\paragraph{Substitution and Decomposition.}
+Substituting Eq.~(\ref{eq:max_trace}) into Eq.~(\ref{eq:procrustes_expand}) and dividing by $n$:
+\begin{equation}
+\min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = \frac{1}{n}\|Z_T\|_F^2 + \frac{1}{n}\|Z_P\|_F^2 - \frac{2}{n}\|Z_T^\top Z_P\|_*.
+\end{equation}
+Recalling $\rho_M = \frac{1}{\sqrt{n}}\|Z_M\|_F$ (so $\frac{1}{n}\|Z_M\|_F^2 = \rho_M^2$) and the definition of $\Omega$ (Eq.~\ref{eq:omega_def}):
+\begin{equation}
+\frac{1}{n}\|Z_T^\top Z_P\|_* = \frac{\|Z_T^\top Z_P\|_*}{\|Z_T\|_F\|Z_P\|_F} \cdot \frac{\|Z_T\|_F\|Z_P\|_F}{n} = \Omega \cdot \rho_T \rho_P.
+\end{equation}
+Therefore:
+\begin{equation}
+\min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = \rho_T^2 + \rho_P^2 - 2\,\Omega\,\rho_T\rho_P.
+\end{equation}
+Adding and subtracting $2\rho_T\rho_P$ completes the square:
+\begin{equation}
+= (\rho_T^2 - 2\rho_T\rho_P + \rho_P^2) + 2\rho_T\rho_P - 2\,\Omega\,\rho_T\rho_P = \underbrace{(\rho_T - \rho_P)^2}_{\text{Scale Mismatch}} + \underbrace{2\rho_T\rho_P(1 - \Omega)}_{\text{Shape Mismatch}}.
+\end{equation}
+This completes the proof of Proposition~\ref{prop:exact_decomposition}. \qed
+
+\paragraph{Assembling the Feature Bound.}
+Combining Eq.~(\ref{eq:delta_bound}) with Proposition~\ref{prop:exact_decomposition}:
+\begin{equation}
+\label{eq:delta_final}
+\delta \le K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega)}.
+\end{equation}
+
+
+
+\subsection{Step 4: Bounding the Head Discrepancy $\gamma$}
+\label{app:head_bound}
+
+\paragraph{Lipschitz Property with Respect to Logits.}
+The head discrepancy measures how much the predictions differ when two different ``effective heads'' ($W^* H_T$ vs.\ $H_P$) operate on the same proxy features. Let $z = \phi_P(x)$ denote the (unaligned) proxy feature. Then:
+\begin{equation}
+\gamma = \big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big| = \Big|\mathbb{E}\!\big[\ell(z \cdot W^* H_T, y) - \ell(z \cdot H_P, y)\big]\Big|.
+\end{equation}
+To bound this, we use the Lipschitz property of cross-entropy with respect to \emph{logits}. The gradient of $\ell$ with respect to $v$ is $\nabla_v \ell = \hat{p} - e_y$, with norm:
+\begin{equation}
+\|\nabla_v \ell\|_2 = \|\hat{p} - e_y\|_2.
+\end{equation}
+Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$.
+
+\paragraph{Deriving the Second-Moment Projection.}
+Define the head misalignment matrix $\Delta H = W^* H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W^* H_T - H_P)$, and:
+\begin{equation}
+\begin{aligned}
+\gamma &\le \mathbb{E}\!\big[|\ell(z \cdot W^* H_T, y) - \ell(z \cdot H_P, y)|\big] \\
+&\le K_{\mathrm{pred}} \cdot \mathbb{E}_z\!\big[\|z \cdot \Delta H\|_2\big].
+\end{aligned}
+\end{equation}
+Applying Jensen's inequality on the concave square root:
+\begin{equation}
+\big(\mathbb{E}[\|z \cdot \Delta H\|_2]\big)^2 \le \mathbb{E}\!\big[\|z \cdot \Delta H\|_2^2\big].
+\end{equation}
+Expanding the squared norm using the trace operator:
+\begin{equation}
+\begin{aligned}
+\mathbb{E}\!\big[\|z \cdot \Delta H\|_2^2\big] &= \mathbb{E}\!\Big[\operatorname{Tr}\!\big(\Delta H^\top z^\top z\, \Delta H\big)\Big] \\
+&= \operatorname{Tr}\!\Big(\Delta H^\top \underbrace{\mathbb{E}[z^\top z]}_{\Sigma_P} \Delta H\Big) \\
+&= \|\Sigma_P^{1/2} \Delta H\|_F^2.
+\end{aligned}
+\end{equation}
+Taking the square root:
+\begin{equation}
+\label{eq:gamma_final}
+\gamma \le K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F.
+\end{equation}
+
+\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is strictly tighter than the spectral bound $\gamma \le K_{\mathrm{pred}} \|W^* H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which assumes worst-case alignment between features and head error.
+
+
+\subsection{Step 5: Assembling the Unified Bound}
+\label{app:assembly}
+
+Combining the risk decomposition (Eq.~\ref{eq:app_triangle}), the feature bound (Eq.~\ref{eq:delta_final}), and the head bound (Eq.~\ref{eq:gamma_final}):
+\begin{equation}
+\begin{aligned}
+|\mathcal{R}_T - \mathcal{R}_P| &\le \delta + \gamma \\
+&\le K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega)} + K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W^* H_T - H_P)\|_F.
+\end{aligned}
+\end{equation}
+This completes the proof of Theorem~\ref{thm:unified_bound}. \qed
+
+
+
