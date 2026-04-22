@@ -204,8 +204,8 @@ Reducing the cost of evaluating LLM variants has motivated two distinct lines of
 Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss as a power-law function of compute and data, but cannot capture variant-specific degradation (e.g., the effect of a particular quantization format on a specific benchmark).
 Efficient-evaluation methods---such as tinyBenchmarks~\cite{polo2024tinybenchmarks}, which uses item-response-theory-calibrated subsets of existing benchmarks, and the ranking-reliability framework of~\cite{perlitz2024efficient}---curate small representative item subsets that preserve system orderings, but offer no formal connection between representational change and expected accuracy shift.
 Weak-to-strong generalization~\cite{burns2023weak} uses smaller models to supervise larger ones, but targets label generation rather than risk estimation.
-PRISM takes a different, geometry-grounded route: rather than extrapolating from scaling trends or sub-sampling benchmark items, we exploit the fact that a geometrically aligned proxy ($\Omega \approx 1$) produces per-sample losses tightly coupled to those of the target.
-Combined with the per-sample coupling provided by our bound (Sec.~\ref{subsec:benchmark_calibration}), this allows any benchmark---the full benchmark, not a sub-sample---to serve as its own calibration set via a single forward pass.
+PRISM takes a different, geometry-grounded route: rather than extrapolating aggregate loss from scaling trends or curating a representative benchmark subset via item-response theory, we compute a bound on the risk gap directly from the model's own representational geometry.
+Because the bound decomposes into three diagnostic axes---$\Delta\rho$, $1-\Omega$, and head divergence---it both ranks variants and localizes their failure modes, something an item-curated accuracy subset cannot provide on its own.
 
 \input{figures/prism_geometric_decomposition.tex}
 
@@ -390,7 +390,7 @@ The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) provides a general mech
     \item \textbf{The Near-Identity Regime ($W^* \approx I$):} When the proxy and target share a nearly identical coordinate basis---as in post-training quantization---the optimal Procrustes alignment $W^*$ absorbs only small perturbations introduced by numerical noise. The bound reduces to a pure function of scale collapse ($\Delta\rho$) and structural distortion ($1 - \Omega$), with the head discrepancy vanishing when the prediction head is preserved.
     \item \textbf{The Rotational Regime ($W^* \in \mathcal{O}(d), W^* \not\approx I$):} When training dynamics induce global basis rotations---as in fine-tuning---the full Procrustes alignment is required. The optimal $W^*$ absorbs arbitrary rotations, and $\Omega$ measures the residual geometric drift that rotations alone cannot explain.
 \end{itemize}
-We instantiate these two regimes below; a pointwise variance analysis that underwrites single-pass variant comparison follows in Sec.~\ref{subsec:benchmark_calibration}.
+We instantiate these two regimes below.
 
 \subsection{Quantization Quality Estimation}
 \label{subsec:quantization}
@@ -423,17 +423,6 @@ We define the frozen base model as Target ($T = \theta_0$) and the model at fine
 Under standard LoRA fine-tuning~\cite{hu2022lora}, low-rank updates are applied only to attention and MLP projection matrices ($W_q, W_k, W_v, W_o, W_{\mathrm{up}}, W_{\mathrm{down}}$), while the \texttt{lm\_head} remains frozen ($H_t = H_0$). The head divergence term therefore vanishes, and performance degradation is governed \emph{entirely} by backbone geometric drift ($\Delta\rho$ and $\Omega$). This provides a label-free diagnostic for forgetting that decouples manifold distortion from head-specific effects.
 
 
-\subsection{Per-Sample Coupling and Single-Pass Variant Comparison}
-\label{subsec:benchmark_calibration}
-
-Theorem~\ref{thm:unified_bound} controls the \emph{aggregate} risk gap; variant-level comparison in practice also requires a \emph{per-sample} statement. Before taking expectations, the Lipschitz analysis underlying Thm.~\ref{thm:unified_bound} yields a pointwise bound:
-\begin{equation}
-\label{eq:pointwise_bound}
-|\Delta\ell(x)| \;\le\; K_{\mathrm{feat}} \|\phi_T(x) - \phi_P(x) W^*\|_2 \;+\; K_{\mathrm{pred}} \|\phi_P(x) \cdot \Delta H\|_2 \;\le\; B,
-\end{equation}
-where $\Delta\ell(x) = \ell_T(x) - \ell_P(x)$ and $B$ is the worst-case per-sample residual on the calibration set. Since $\Delta\ell(x) \in [-B, B]$, Popoviciu's inequality gives $\mathrm{Var}(\Delta\ell) \le B^2$. When $\Omega \approx 1$ and $\Delta\rho \approx 0$, the per-sample residuals are uniformly small, so the signed difference $\mathcal{R}_T(\mathcal{D}) - \mathcal{R}_P(\mathcal{D})$ is a stable, low-variance quantity on any benchmark $\mathcal{D}$: a single forward pass per model over $\mathcal{D}$ yields a reliable variant-level comparison. This underwrites both downstream diagnostics---quantization ranking from $(\Delta\rho, \Omega)$ on a calibration benchmark and a label-free drift signal for catastrophic-forgetting detection---whose evaluation protocol (including the use of teacher-forced cross-entropy, its runtime/variance benefits, and its scope relative to generation-based metrics) is detailed in Sec.~\ref{subsec:exp_setup}.
-
-
 \subsection{Other Applications}
 \label{subsec:other_applications}
 
@@ -464,6 +453,13 @@ Following the autoregressive risk formulation (Eq.~\ref{eq:ar_risk}), we organiz
     \item \textbf{Short-Horizon Generation (QA)} --- TriviaQA, SQuAD: $c$ is the question prompt, $y$ is the answer span (1--5 tokens). Loss is evaluated strictly over answer tokens.
 \end{itemize}
 
+\paragraph{Calibration set size.}
+All PRISM quantities and empirical risk gaps are computed on fixed held-out subsets held constant across all variants of a given base model: $N{=}512$ items per benchmark for the quantization regime, and $N{=}256$ items per held-out benchmark for the LoRA forgetting regime (the smaller fine-tuning tasks TruthfulQA and BBQ are evaluated on their full test sets). Four observations justify this protocol.
+(i)~\textbf{Fixed-subset design neutralizes subset-selection noise.} Because the \emph{same} $N$-item subset is evaluated by every variant of a model, subset-selection variance enters every $|\Delta\mathcal{R}|$ and every bound estimate equally and therefore does not affect the variant-to-variant \emph{ranking}---the quantity we ultimately report via Spearman correlation.
+(ii)~\textbf{Signal dominates sampling noise.} The orderings we rank distinguish variants whose true $|\Delta\mathcal{R}|$ values span one to two orders of magnitude (e.g., Q2\_K vs.\ Q8\_0, Table~\ref{tab:llama_decomposition_main}), a regime in which rank preservation is robust at moderate $N$.
+(iii)~\textbf{Pointwise concentration.} The pointwise Lipschitz bound $|\Delta\ell(x)| \le B$ underlying Theorem~\ref{thm:unified_bound} combined with Popoviciu's inequality gives $\mathrm{Var}(\mathcal{R}_T(\mathcal{D}) - \mathcal{R}_P(\mathcal{D})) \le B^2/N$, so the sample-mean estimator is concentrated around the population risk gap whenever $B$ is small---exactly the regime where ranking is tightest.
+(iv)~\textbf{Precedent.} Fixed-subset evaluation for variant ranking is standard in efficient LLM evaluation~\cite{polo2024tinybenchmarks, perlitz2024efficient}.
+
 \paragraph{Shape-Regularization Hyperparameters.}
 For Sec.~\ref{subsec:shape_reg_exp} we sweep $\lambda \in \{0.0,\, 0.1,\, 0.5,\, 1.0\}$, where $\lambda{=}0$ reproduces unregularized LoRA. The reference set used to compute $\Omega_I$ is a fixed held-out batch of $32$ sequences drawn from the base model's pre-training distribution (not from $\mathcal{D}_{\mathrm{FT}}$, so that the penalty and task loss do not directly interfere). $Z_t^{\text{ref}}$ is recomputed every $k{=}8$ micro-steps; checkpoints are saved every 50 training steps, and all analysis figures/tables align to step $300$.
 
@@ -471,7 +467,7 @@ For Sec.~\ref{subsec:shape_reg_exp} we sweep $\lambda \in \{0.0,\, 0.1,\, 0.5,\,
 All risks in this paper are computed in the teacher-forced regime: the prompt $c$ and the target tokens $y$ are concatenated and passed through the model once, and the per-token loss is read off at the target positions. This matches the scoring rules of the benchmarks above by construction---multiple-choice items are ranked by gold-label likelihood, perplexity suites are teacher-forced by definition, and short-answer QA is evaluated on the likelihood of the gold span---so no additional evaluation assumption is introduced. The protocol yields three concrete benefits relevant to variant-level diagnostics.
 (a)~\textbf{Runtime.} A single parallel forward pass replaces token-by-token conditional decoding, avoiding the quadratic KV-cache growth and repeated sampling of autoregressive evaluation; for MMLU-scale benchmarks this collapses hours of generation into one pass per model.
 (b)~\textbf{Training--evaluation consistency.} Teacher-forced cross-entropy is also the objective used during LoRA fine-tuning in our experiments, so our calibration quantity and the fine-tuning loss live on exactly the same scale, making variant-level drift measurements directly commensurate with training signals---a property that decoding-based metrics (BLEU, pass@$k$) cannot match.
-(c)~\textbf{Low variance.} Removing the sampling stage eliminates temperature, top-$k$, and nucleus randomness, producing deterministic per-sample residuals and, together with the per-sample coupling of Sec.~\ref{subsec:benchmark_calibration}, tight confidence intervals for the bound.
+(c)~\textbf{Low variance.} Removing the sampling stage eliminates temperature, top-$k$, and nucleus randomness, producing deterministic per-sample residuals and reproducible variant comparisons under the fixed-subset protocol above.
 We do not claim teacher-forced cross-entropy substitutes for generation-based evaluation in open-ended tasks; PRISM is positioned as a rapid variant-ranking signal complementary to full generative evaluation.
 
 
