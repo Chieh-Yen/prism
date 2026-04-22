@@ -125,7 +125,7 @@ as a Proxy for Performance Transferability}
 \maketitle
 
 \begin{abstract}
-Evaluating Large Language Model (LLM) variants---quantized checkpoints, fine-tuned snapshots, LoRA adaptations---is prohibitively expensive, yet existing representational similarity metrics (e.g., CKA) provide no formal link to downstream performance and collapse all geometric drift into a single opaque score.
+Comparing Large Language Model (LLM) variants---quantized checkpoints, fine-tuned snapshots, LoRA adaptations---faces a diagnostic gap: benchmarks return only a scalar accuracy verdict that cannot say \emph{why} a variant has degraded, and existing representational similarity metrics (e.g., CKA) add no formal link to downstream performance, equally collapsing all geometric drift into a single opaque score.
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a framework that bounds the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ by three independently measurable axes, each computable from a single forward pass: scale mismatch $(\Delta\rho)^2$ and shape mismatch $2\rho_T\rho_P(1-\Omega)$---obtained via an exact Orthogonal Procrustes decomposition under a nuclear-norm similarity strictly tighter than Frobenius surrogates---combined with a second-moment-weighted head-discrepancy term.
 We instantiate the framework for post-training quantization (GPTQ, GGUF, BitsAndBytes), where the bound reduces to a pure geometric distortion measure, and for LoRA fine-tuning, where it isolates catastrophic forgetting in the backbone geometry. Because the trace specialization $\Omega_I$ is differentiable, the same quantity lifts into a training-time \emph{shape regularizer} $\lambda(1-\Omega_I)$ that empirically suppresses downstream forgetting without impairing target-task learning.
 Across four 8B-scale LLM lineages (Llama, Qwen, Ministral, DeepSeek) and five benchmarks, the bound ranks variant-level degradation with strong Spearman correlation under both quantization and LoRA forgetting, and its three axes localize distinct failure modes---shape distortion under low-bit quantization, scale collapse under lineage-specific GPTQ calibration, and head divergence under quantized output embeddings---turning a scalar similarity into a mechanism-level diagnostic whose ranking can be trusted and whose failures can be read off directly.
@@ -133,12 +133,12 @@ Across four 8B-scale LLM lineages (Llama, Qwen, Ministral, DeepSeek) and five be
 
 \section{Introduction}
 
-\paragraph{The post-training evaluation bottleneck.}
+\paragraph{The diagnostic gap in the post-training LLM lifecycle.}
 The post-training lifecycle of large language models has quietly outgrown their pre-training cost.
 A single base checkpoint spawns dozens of derivatives within weeks---quantized at 2/3/4/8-bit across GPTQ~\cite{frantar2022gptq}, GGUF, and BitsAndBytes~\cite{dettmers2022gpt3} protocols; adapted via parameter-efficient methods such as LoRA~\cite{hu2022lora} for each downstream task; distilled for deployment under new memory envelopes~\cite{grattafiori2024llama, qwen2025qwen3}.
-Each derivative in principle demands a full evaluation pass---MMLU alone spans 14{,}000 items, and a realistic deployment decision typically touches five to ten benchmarks at this scale.
-The practitioner's dilemma is stark: run the full suite per variant at hours of GPU time, or ship on faith.
-What the field needs is not another similarity score, but a proxy whose ranking can be trusted, whose mechanism can be inspected, and whose signal can be trained against.
+For each derivative, the practitioner must decide whether to ship, to debug, or to discard---and benchmarks, the canonical source of truth, return only a \emph{scalar accuracy verdict}: a number that says a variant has degraded without saying why, or which knob to turn next.
+An accuracy drop could equally well trace to activation-magnitude collapse from outlier channels, to structural distortion of the feature manifold, or to quantization of the output embedding---three mechanisms demanding three different remediations.
+What the field needs is therefore not a cheaper accuracy number, but a diagnostic whose ranking can be trusted, whose mechanism can be inspected, and whose signal can be trained against.
 
 \paragraph{Similarity scores without risk, without mechanism.}
 The natural shortcut is to borrow a representational similarity metric and declare two models ``close enough.''
@@ -520,7 +520,7 @@ Figure~\ref{fig:forget_grid_llama} establishes the forgetting regime's key claim
 \begin{figure}[t]
     \centering
     \includegraphics[width=1.0\linewidth]{figures/forgetting/combined_llama_truthfulqa_bbq.pdf}
-    \caption{\textbf{PRISM-guided shape regularization suppresses catastrophic forgetting on Llama-3.1-8B.} Fine-tuning with the auxiliary penalty $\lambda(1-\Omega_I(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ (Eq.~\ref{eq:shape_reg}) during LoRA training on TruthfulQA (top row) and BBQ (bottom row). Each subplot contrasts, at step $300$, target-task loss (left column, the task being fine-tuned on) with held-out forgetting on four downstream benchmarks, under $\lambda \in \{0.0, 0.1, 0.5, 1.0\}$. Larger $\lambda$ drives $\Omega_I$ toward $1$ and uniformly shrinks downstream forgetting on ARC, MMLU, SQuAD, TriviaQA, and GSM8K, at a controllable cost to target-task fit. The Qwen3-8B replication is deferred to Appendix~\ref{app:qwen_forgetting}.}
+    \caption{\textbf{PRISM-guided shape regularization suppresses catastrophic forgetting on Llama-3.1-8B.} Fine-tuning with the auxiliary penalty $\lambda(1-\Omega_I(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ (Eq.~\ref{eq:shape_reg}) during LoRA training on TruthfulQA (top row) and BBQ (bottom row). Each subplot contrasts, at step $300$, target-task loss (left column, the task being fine-tuned on) with held-out forgetting on four downstream benchmarks, under $\lambda \in \{0.0, 0.1, 0.5\}$. Larger $\lambda$ drives $\Omega_I$ toward $1$ and uniformly shrinks downstream forgetting on ARC, MMLU, SQuAD, TriviaQA, and GSM8K, at a controllable cost to target-task fit. The Qwen3-8B replication is deferred to Appendix~\ref{app:qwen_forgetting}.}
     \label{fig:shape_reg_combined_llama}
 \end{figure}
 
@@ -547,7 +547,7 @@ Figure~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:trace_norm_llama_tr
 
 We presented PRISM, a unified geometric framework that establishes a rigorous, computable link between representational alignment and functional risk. By formulating alignment as an Orthogonal Procrustes problem and deriving an exact decomposition via the nuclear norm, we obtained a closed-form bound on $|\mathcal{R}_T - \mathcal{R}_P|$ that separates scale collapse ($\Delta\rho$), structural distortion ($1 - \Omega$), and head divergence as independently measurable diagnostic quantities.
 
-We instantiated this framework for two critical LLM lifecycle stages---post-training quantization and catastrophic forgetting during fine-tuning---and showed that evaluating the bound directly on standard LLM benchmarks yields a rapid, low-variance diagnostic for variant ranking that is commensurate with the fine-tuning objective.
+We instantiated this framework for two critical LLM lifecycle stages---post-training quantization and catastrophic forgetting during fine-tuning---and showed that evaluating the bound on standard LLM benchmarks yields a low-variance, mechanism-level diagnostic for variant ranking that is commensurate with the fine-tuning objective and whose dominant axis localizes distinct failure modes (shape distortion, scale collapse, or head divergence) to their respective remediations.
 
 \paragraph{Limitations and Future Work.}
 Several promising directions remain:
