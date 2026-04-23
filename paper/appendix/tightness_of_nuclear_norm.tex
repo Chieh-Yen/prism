@@ -2,12 +2,12 @@
 \section{Tightness of Nuclear Norm over Frobenius Norm}
 \label{app:tightness}
 
-We show that the nuclear-norm-based Procrustes Similarity $\Omega$ yields a strictly tighter alignment residual than its Frobenius-based counterpart $\Omega_F$, and clarify the relationship to CKA.
+We show that the nuclear-norm Procrustes similarity $\Omega_N$ (Eq.~\ref{eq:omega_nuclear}) yields a strictly tighter alignment residual than its Frobenius-based counterpart $\Omega_F$, and clarify the relationship to CKA.
 
 \paragraph{Statement.}
 Define the Frobenius-based similarity $\Omega_F := \|Z_T^\top Z_P\|_F / (\|Z_T\|_F \|Z_P\|_F)$. For any feature matrices $Z_T, Z_P$:
 \begin{equation}
-\Omega_F \le \Omega,
+\Omega_F \le \Omega_N,
 \end{equation}
 with equality if and only if the cross-moment matrix $Z_T^\top Z_P$ has at most one nonzero singular value (i.e., rank $\le 1$).
 
@@ -20,14 +20,14 @@ By the Cauchy--Schwarz inequality applied to the vectors $(\sigma_1, \ldots, \si
 \begin{equation}
 \|Z_T^\top Z_P\|_F = \sqrt{\sum_i \sigma_i^2} \le \sum_i \sigma_i = \|Z_T^\top Z_P\|_*,
 \end{equation}
-since $\|\mathbf{x}\|_1 \ge \|\mathbf{x}\|_2$ for any non-negative vector. Dividing both sides by $\|Z_T\|_F \|Z_P\|_F$ gives $\Omega_F \le \Omega$.
+since $\|\mathbf{x}\|_1 \ge \|\mathbf{x}\|_2$ for any non-negative vector. Dividing both sides by $\|Z_T\|_F \|Z_P\|_F$ gives $\Omega_F \le \Omega_N$.
 
 \paragraph{Consequence for Risk Bounding.}
 The alignment residual using $\Omega_F$ is:
 \begin{equation}
-(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_F) \ge (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega).
+(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_F) \ge (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N).
 \end{equation}
-Therefore, substituting $\Omega_F$ into the unified bound produces a \emph{strictly looser} upper bound on risk discrepancy. The nuclear norm $\Omega$ is the tightest possible metric because it exactly solves the Procrustes optimization---any other norm-based similarity applied to the same alignment residual either underestimates the alignment or fails to correspond to a well-defined geometric minimization.
+Therefore, substituting $\Omega_F$ into the bound produces a \emph{strictly looser} upper bound than substituting $\Omega_N$. The nuclear form $\Omega_N$ is the tightest similarity in the Procrustes family because it exactly solves the maximization $\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W)$. The trace form $\Omega$ used in the main text (Eq.~\ref{eq:omega_def}) is bounded between the two: $\Omega_F \le \Omega \le \Omega_N$ on $Z_T^\top Z_P$ symmetric PSD; in general $\Omega \le \Omega_N$ holds without further assumption (Appendix~\ref{app:trace_specialization}).
 
 \paragraph{Relation to CKA.}
-Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$, which differs from $\Omega_F^2 = \|Z_T^\top Z_P\|_F^2 / (\|Z_T\|_F^2 \|Z_P\|_F^2)$ in its denominator. The two denominators are related by the inequality $\|Z_M^\top Z_M\|_F \le \|Z_M\|_F^2 = \operatorname{Tr}(Z_M^\top Z_M)$ (since $\|A\|_F \le \operatorname{Tr}(A)$ for any positive semidefinite $A$, by Cauchy--Schwarz on the eigenvalues), which gives $\mathrm{CKA} \ge \Omega_F^2$. Hence CKA can overestimate alignment relative to $\Omega_F$, and it is not directly substitutable into our Procrustes residual. More fundamentally, CKA is not derived from any alignment optimization and therefore lacks the operational meaning of $\Omega$, which exactly solves the Orthogonal Procrustes problem.
+Linear CKA~\cite{kornblith2019similarity} is defined as $\mathrm{CKA}(Z_T, Z_P) = \|Z_T^\top Z_P\|_F^2 / (\|Z_T^\top Z_T\|_F \cdot \|Z_P^\top Z_P\|_F)$, which differs from $\Omega_F^2 = \|Z_T^\top Z_P\|_F^2 / (\|Z_T\|_F^2 \|Z_P\|_F^2)$ in its denominator. The two denominators are related by the inequality $\|Z_M^\top Z_M\|_F \le \|Z_M\|_F^2 = \operatorname{Tr}(Z_M^\top Z_M)$ (since $\|A\|_F \le \operatorname{Tr}(A)$ for any positive semidefinite $A$, by Cauchy--Schwarz on the eigenvalues), which gives $\mathrm{CKA} \ge \Omega_F^2$. Hence CKA can overestimate alignment relative to $\Omega_F$, and it is not directly substitutable into our Procrustes residual. More fundamentally, CKA is not derived from any alignment optimization and therefore lacks the operational meaning of $\Omega_N$, which exactly solves the Orthogonal Procrustes problem.

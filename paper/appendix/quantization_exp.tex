@@ -7,19 +7,19 @@
 \subsection{Feature-Only Scatter}
 \label{app:feature_only}
 
-Figure~\ref{fig:quant_grid_feature} reports the feature-alignment-only replication of the main quantization result (Fig.~\ref{fig:quant_grid_bound}), with the x-axis replaced by the head-free term $\delta = K_{\mathrm{feat}}\sqrt{(\rho_T{-}\rho_P)^2 + 2\rho_T\rho_P(1-\Omega_I)}$. The grid isolates the backbone contribution to the bound and is the source of the aggregate feature-only correlation $\overline{r_s}(\delta)$ cited in Sec.~\ref{subsec:quant_exp}.
+Figure~\ref{fig:quant_grid_feature} reports the feature-alignment-only replication of the main quantization result (Fig.~\ref{fig:quant_grid_bound}), with the x-axis replaced by the head-free term $\delta = K_{\mathrm{feat}}\sqrt{(\rho_T{-}\rho_P)^2 + 2\rho_T\rho_P(1-\Omega)}$. The grid isolates the backbone contribution to the bound and is the source of the aggregate feature-only correlation $\overline{r_s}(\delta)$ cited in Sec.~\ref{subsec:quant_exp}.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.98\linewidth]{figures/quantization/prism_grid_feature.pdf}
-    \caption{\textbf{Feature alignment error $\delta$ alone is already highly predictive of the risk gap.} Identical layout to Fig.~\ref{fig:quant_grid_bound} but with x-axis replaced by the feature-only term $\delta$. Because most protocols retain the \texttt{lm\_head} in FP16, the head-discrepancy term $\gamma$ is zero for GPTQ and BitsAndBytes and small for GGUF configurations that quantize output embeddings; $\delta$ therefore captures most of the predictive signal of Fig.~\ref{fig:quant_grid_bound}, confirming that scale collapse $(\Delta\rho)^2$ and shape mismatch $(1-\Omega_I)$ are the dominant degradation channels under PTQ (Sec.~\ref{subsec:quantization}).}
+    \caption{\textbf{Feature alignment error $\delta$ alone is already highly predictive of the risk gap.} Identical layout to Fig.~\ref{fig:quant_grid_bound} but with x-axis replaced by the feature-only term $\delta$. Because most protocols retain the \texttt{lm\_head} in FP16, the head-discrepancy term $\gamma$ is zero for GPTQ and BitsAndBytes and small for GGUF configurations that quantize output embeddings; $\delta$ therefore captures most of the predictive signal of Fig.~\ref{fig:quant_grid_bound}, confirming that scale collapse $(\Delta\rho)^2$ and shape mismatch $(1-\Omega)$ are the dominant degradation channels under PTQ (Sec.~\ref{subsec:quantization}).}
     \label{fig:quant_grid_feature}
 \end{figure}
 
 \subsection{Per-Model Decomposition Tables}
 \label{app:per_model_tables}
 
-We report the full geometric decomposition (Eq.~\ref{eq:exact_equality}) for each evaluated model, covering all quantization variants and benchmarks. Each table column lists the base RMS scale $\rho_T$, proxy RMS scale $\rho_P$, identity-alignment similarity $\Omega_I$, feature alignment error $\delta$, head discrepancy $\gamma$, full PRISM bound $\mathcal{B}$, and empirical cross-entropy gap $|\Delta\mathcal{R}|$. Per-dataset Spearman rank correlations $r_s(\delta,|\Delta\mathcal{R}|)$ appear in the left-hand column of each benchmark block.
+We report the full geometric decomposition (Eq.~\ref{eq:exact_equality}) for each evaluated model, covering all quantization variants and benchmarks. Each table column lists the base RMS scale $\rho_T$, proxy RMS scale $\rho_P$, identity-alignment similarity $\Omega$, feature alignment error $\delta$, head discrepancy $\gamma$, full PRISM bound $\mathcal{B}$, and empirical cross-entropy gap $|\Delta\mathcal{R}|$. Per-dataset Spearman rank correlations $r_s(\delta,|\Delta\mathcal{R}|)$ appear in the left-hand column of each benchmark block.
 
 \input{tables/quantization/table_llama_ext}
 

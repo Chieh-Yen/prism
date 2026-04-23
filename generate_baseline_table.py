@@ -5,7 +5,7 @@ power of three geometric metrics against the empirical cross-entropy risk
 gap |MdR|, across the 4-model x 5-benchmark PTQ grid (20 cells):
 
   - paper/tables/quantization/baseline.tex   (main text, W=I operational form)
-  - paper/tables/quantization/baseline_w.tex (appendix, W=W* Procrustes-optimal)
+  - paper/tables/quantization/baseline_w.tex (appendix, W=W_N Procrustes-optimal)
 
 Both tables share the same row structure (shape -> + scale -> + head) and
 the same per-cell Spearman protocol; they differ only in the alignment
@@ -22,10 +22,10 @@ Reported per metric:
 Median is omitted: per-model mean already exposes dispersion, and Mean is the
 primary aggregate of interest.
 
-Sign convention: Omega_I, Omega_W are similarity scores (higher = more
-similar = smaller |MdR|), so their raw Spearman with |MdR| is negative; the
-PRISM bound has the opposite sign. We report |r_s| so that larger is
-uniformly better and the three metrics are magnitude-comparable.
+Sign convention: Omega (W=I) and Omega_N (W=W_N) are similarity scores
+(higher = more similar = smaller |MdR|), so their raw Spearman with |MdR|
+is negative; the PRISM bound has the opposite sign. We report |r_s| so that
+larger is uniformly better and the three metrics are magnitude-comparable.
 
 Usage:
   python generate_baseline_table.py
@@ -70,27 +70,33 @@ YCOL = "|MdR|"
 # qualifiers in {\scriptsize (...)} start at the same horizontal position
 # across rows (otherwise $\Omega$, $\delta$, $\mathcal{B}$ have different
 # widths and the parens misalign visually).
-_SYM_W = "2.1em"  # wide enough for $\mathcal{B}_W$, the widest symbol
+_SYM_W = "2.1em"  # wide enough for $\mathcal{B}_N$, the widest symbol
 
 
 def _label(symbol_tex, qualifier):
     return rf"\makebox[{_SYM_W}][l]{{${symbol_tex}$}}{{\scriptsize {qualifier}}}"
 
 
+# Operational W=I form: paper convention drops the subscript so the
+# trace-form symbols match the main-text Eq.~\ref{eq:omega_def}.
+# CSV column names (second tuple element) keep their original "_I" suffix
+# to match the data file schema.
 METRICS_I = [
-    (_label(r"\Omega_I",       r"(shape only; baseline)"),     "Omega_I", "omega_i"),
-    (_label(r"\delta_I",       r"(+ scale; no head)"),         "delta_I", "delta_i"),
-    (_label(r"\mathcal{B}_I",  r"(+ head; PRISM, $W{=}I$)"),   "Bound_I", "bound_i"),
+    (_label(r"\Omega",       r"(shape only; baseline)"),     "Omega_I", "omega_i"),
+    (_label(r"\delta",       r"(+ scale; no head)"),         "delta_I", "delta_i"),
+    (_label(r"\mathcal{B}",  r"(+ head; PRISM, $W{=}I$)"),   "Bound_I", "bound_i"),
 ]
 
 # Same ablation ladder, but each metric uses the Procrustes-optimal alignment
-# W=W^* (i.e., \|Z_T - Z_P W^*\|_F^2 minimization in the feature term, and
-# W^* H_T - H_P inside the covariance-weighted head term). Used for the
-# appendix counterpart table.
+# W=W_N (i.e., \|Z_T - Z_P W_N\|_F^2 minimization in the feature term, and
+# W_N H_T - H_P inside the covariance-weighted head term). Symbols carry the
+# "_N" subscript to mark the nuclear-norm specialization used in the appendix
+# counterpart table. CSV column names (second tuple element) keep their
+# original "_W" suffix to match the data file schema.
 METRICS_W = [
-    (_label(r"\Omega_W",       r"(shape only; baseline)"),     "Omega_W", "omega_w"),
-    (_label(r"\delta_W",       r"(+ scale; no head)"),         "delta_W", "delta_w"),
-    (_label(r"\mathcal{B}_W",  r"(+ head; PRISM, $W{=}W^*$)"), "Bound_W", "bound_w"),
+    (_label(r"\Omega_N",       r"(shape only; baseline)"),       "Omega_W", "omega_w"),
+    (_label(r"\delta_N",       r"(+ scale; no head)"),           "delta_W", "delta_w"),
+    (_label(r"\mathcal{B}_N",  r"(+ head; PRISM, $W{=}W_N$)"),   "Bound_W", "bound_w"),
 ]
 
 
@@ -400,16 +406,16 @@ CAPTION_I = (
     r"Per-lineage columns average $|r_s|$ over the 5 benchmarks of that "
     r"lineage. ``Wins'' counts cells where a metric's $|r_s|$ is the largest "
     r"(ties counted for each tied metric); bold = best in column. The "
-    r"Procrustes-optimal $W{=}W^*$ counterpart is in "
+    r"Procrustes-optimal $W{=}W_N$ counterpart is in "
     r"Appendix~Table~\ref{tab:baseline_w}."
 )
 
 CAPTION_W = (
     r"\textbf{Component-wise ablation under Procrustes-optimal alignment "
-    r"($W{=}W^*$).} Counterpart of Table~\ref{tab:baseline}: same row "
+    r"($W{=}W_N$).} Counterpart of Table~\ref{tab:baseline}: same row "
     r"structure (shape $\to +$ scale $\to +$ head) and same per-cell "
     r"Spearman protocol, but every metric is evaluated under the optimal "
-    r"orthogonal alignment $W^*$ rather than identity. Larger $|r_s|$ = "
+    r"orthogonal alignment $W_N$ rather than identity. Larger $|r_s|$ = "
     r"better variant ranking; bold = best in column. As expected, the "
     r"Procrustes-optimal alignment yields modestly stronger ranking on the "
     r"full bound; the operational $W{=}I$ form used in the main text "
@@ -422,12 +428,12 @@ CAPTION_W = (
 CAPTION_COMBINED = (
     r"\textbf{Component-wise ablation under both alignment conventions.} "
     r"Top block: operational $W{=}I$ form (used throughout the main text). "
-    r"Bottom block: Procrustes-optimal $W{=}W^*$ form. Same per-cell "
+    r"Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell "
     r"Spearman protocol throughout. Within each block, rows add bound "
     r"components cumulatively (shape $\to +$ scale $\to +$ head); larger "
     r"$|r_s|$ = better variant ranking; bold = best in column \emph{within "
-    r"its block}. The $W{=}W^*$ block ranks modestly better on the full "
-    r"bound, as expected since $W^*$ minimizes the alignment residual; "
+    r"its block}. The $W{=}W_N$ block ranks modestly better on the full "
+    r"bound, as expected since $W_N$ minimizes the alignment residual; "
     r"the main text adopts $W{=}I$ for autograd compatibility and for the "
     r"head-term simplification $H_T = H_P$ that holds in our "
     r"frozen-\texttt{lm\_head} regimes."
@@ -449,7 +455,7 @@ def main():
         rows, METRICS_W, OUT_PATH_W,
         label="tab:baseline_w",
         caption=CAPTION_W,
-        alignment_tag="W=W*",
+        alignment_tag="W=W_N",
     )
     _emit_combined_latex(
         groups=[
