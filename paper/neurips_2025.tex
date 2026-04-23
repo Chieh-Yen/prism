@@ -85,8 +85,8 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{remark}{Remark}
 
-\title{PRISM: A Geometric Risk Bound for Diagnosing\\
-LLM Variants}
+\title{PRISM: Decomposing Geometric Drift for Risk Diagnosis in LLM Variants}
+% PRISM: A Geometric Risk Bound for Diagnosing LLM Variants
 % Previous: A Geometric Risk Bound for Diagnosing LLM Post-Training Variants
 % Earlier: Geometric Alignment as a Proxy for Performance Transferability
 % PRISM: Proxy Risk Inference via Structural Mapping
@@ -98,7 +98,6 @@ LLM Variants}
 % lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
 % authors names on the first line, and the last on the second line, try using
 % \AND instead of \And before the third author name.
-
 
 \author{%
   David S.~Hippocampus\thanks{Use footnote for providing further information
@@ -121,12 +120,10 @@ LLM Variants}
   % \texttt{email} \\
 }
 
-
 \begin{document}
 
 \maketitle
 \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
-
 
 \begin{abstract}
 Comparing Large Language Model (LLM) variants---quantized checkpoints, fine-tuned snapshots, LoRA adaptations---faces a diagnostic gap: benchmarks report only an overall accuracy score that flags whether a variant has degraded but cannot say \emph{why}, and existing representational similarity metrics (e.g., CKA) offer no formal link to downstream performance, reducing all geometric mismatch to a single opaque number.
@@ -436,8 +433,6 @@ Beyond these boundaries, the bound supports diagnostic uses we leave to future v
     \item \textbf{Cross-Modal Generalization:} The Linear Representation Hypothesis extends beyond text. Investigating PRISM's applicability to vision transformers and cross-modal models (e.g., CLIP) remains a natural next step.
 \end{itemize}
 
-
-
 \renewcommand{\bibname}{References}
 \bibliographystyle{plainnat}
 \bibliography{paper} 
@@ -453,11 +448,4 @@ Beyond these boundaries, the bound supports diagnostic uses we leave to future v
 \input{appendix/quantization_exp}
 \input{appendix/forgetting_qwen}
 
-
 \end{document}
-
-
-
-
-
-
