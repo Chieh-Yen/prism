@@ -303,7 +303,7 @@ The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) instantiates in two LLM
 \subsection{Quantization Quality Estimation}
 \label{subsec:quantization}
 
-We designate the full-precision model as target $T$ and the quantized variant as proxy $P$. PTQ introduces element-wise numerical noise that preserves the coordinate basis, so the bound's feature side dominates via $(\Delta\rho)^2$ and $1-\Omega$. The head-divergence term vanishes for protocols that keep \texttt{lm\_head} intact (GPTQ, BitsAndBytes); GGUF k-quant tiers that also quantize the output embedding contribute a non-negligible head term.
+We designate the BF16 base model as target $T$ and the quantized variant as proxy $P$. PTQ introduces element-wise numerical noise that preserves the coordinate basis, so the bound's feature side dominates via $(\Delta\rho)^2$ and $1-\Omega$. The head-divergence term vanishes for protocols that keep \texttt{lm\_head} intact (GPTQ, BitsAndBytes); GGUF k-quant tiers that also quantize the output embedding contribute a non-negligible head term.
 
 \subsection{Geometric Monitoring of Catastrophic Forgetting}
 \label{subsec:forgetting}
