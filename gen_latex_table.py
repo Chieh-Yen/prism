@@ -242,7 +242,7 @@ def _render_body_rows(data, rho_per_ds, datasets):
                         pass
                 avg[col_key] = sum(vals) / len(vals) if vals else None
 
-            # Drop GPTQ rows whose rho_T / rho_P ratio exceeds 1.8x.
+            # Drop GPTQ rows whose rho_T / rho_P ratio exceeds 1.5x.
             # TODO: this is an access issue (unable to pull GPTQ activations
             #   cleanly for some proxies); remove this skip once upstream
             #   access / extraction is fixed.
@@ -250,7 +250,7 @@ def _render_body_rows(data, rho_per_ds, datasets):
                 rt, rp = avg.get("rho_T"), avg.get("rho_P")
                 if rt is not None and rp is not None and min(abs(rt), abs(rp)) > 0:
                     ratio = max(abs(rt), abs(rp)) / min(abs(rt), abs(rp))
-                    if ratio > 1.8:
+                    if ratio > 1.5:
                         continue
 
             rendered.append((method, family, avg))

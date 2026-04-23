@@ -1,0 +1,35 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Llama-3.1-8B-Instruct} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:llama_instruct_decomposition_main}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 144.62 & 144.62 & 0.9997 & 3.4830 & \cellcolor{cyan!12} $0$ & 9.0568 & 0.0006 \\
+{\small ($\mathbf{r_s{=}0.74}$)} & GGUF & Q8\_0 & 144.62 & 144.53 & 0.9954 & 13.8093 & 4.0153 & 41.5868 & 0.0225 \\
+ &  & Q6\_K & 144.62 & 144.62 & 0.9923 & 17.9276 & 12.4803 & 64.2670 & 0.0147 \\
+ &  & Q5\_K\_M & 144.62 & 144.62 & 0.9851 & 25.0044 & 12.4869 & 82.6780 & 0.0134 \\
+ &  & Q4\_K\_M & 144.62 & 143.11 & \cellcolor{red!18} 0.9401 & \cellcolor{red!18} 49.8141 & 12.2952 & \cellcolor{red!18} 146.9196 & \cellcolor{red!18} 0.1047 \\
+ &  & Q3\_K\_M & 144.62 & 141.90 & \cellcolor{red!18} 0.8548 & \cellcolor{red!18} 77.2496 & 12.1988 & \cellcolor{red!18} 218.1237 & \cellcolor{red!18} 0.0306 \\
+ &  & Q2\_K & 144.62 & 144.24 & \cellcolor{red!35} 0.7331 & \cellcolor{red!35} 105.5181 & 12.4545 & \cellcolor{red!35} 291.9918 & \cellcolor{red!35} 0.6372 \\
+ & BnB & INT8 & 144.62 & 144.44 & 0.9771 & 30.9202 & \cellcolor{cyan!12} $0$ & 80.4019 & 0.0423 \\
+ &  & NF4 & 144.62 & 145.41 & \cellcolor{red!18} 0.9155 & \cellcolor{red!18} 59.6282 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 155.0510 & \cellcolor{red!18} 0.1038 \\
+ &  & FP4 & 144.62 & 144.77 & \cellcolor{red!18} 0.8618 & \cellcolor{red!18} 76.0598 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 197.7782 & \cellcolor{red!18} 0.0551 \\
+ & GPTQ & GPTQ-4bit & 144.62 & 143.76 & \cellcolor{red!18} 0.8708 & \cellcolor{red!18} 73.3123 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 190.6339 & \cellcolor{red!18} 0.0867 \\
+\midrule
+TriviaQA & -- & FP16 & 143.91 & 143.91 & 1.0000 & 0.0014 & \cellcolor{cyan!12} $0$ & 0.0037 & 0.0010 \\
+{\small ($\mathbf{r_s{=}0.95}$)} & GGUF & Q8\_0 & 143.91 & 143.95 & 0.9994 & 4.8796 & 3.9966 & 18.3405 & 0.0021 \\
+ &  & Q6\_K & 143.91 & 144.01 & 0.9969 & 11.3934 & 12.3712 & 47.1219 & 0.0210 \\
+ &  & Q5\_K\_M & 143.91 & 143.91 & 0.9926 & 17.5322 & 12.3603 & 63.0692 & 0.0654 \\
+ &  & Q4\_K\_M & 143.91 & 144.00 & 0.9781 & 30.1318 & 12.3735 & 95.8505 & 0.0653 \\
+ &  & Q3\_K\_M & 143.91 & 144.32 & \cellcolor{red!18} 0.9288 & \cellcolor{red!18} 54.3893 & 12.4065 & \cellcolor{red!18} 158.9739 & \cellcolor{red!18} 0.3116 \\
+ &  & Q2\_K & 143.91 & 145.04 & \cellcolor{red!35} 0.7730 & \cellcolor{red!35} 97.3432 & 12.4896 & \cellcolor{red!35} 270.7843 & \cellcolor{red!35} 1.0636 \\
+ & BnB & INT8 & 143.91 & 144.33 & 0.9843 & 25.5436 & \cellcolor{cyan!12} $0$ & 66.4209 & 0.0496 \\
+ &  & NF4 & 143.91 & 144.84 & \cellcolor{red!18} 0.9450 & \cellcolor{red!18} 47.8877 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 124.5222 & \cellcolor{red!18} 0.1588 \\
+ &  & FP4 & 143.91 & 144.93 & \cellcolor{red!18} 0.9044 & \cellcolor{red!18} 63.1491 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 164.2065 & \cellcolor{red!18} 0.3070 \\
+ & GPTQ & GPTQ-4bit & 143.91 & 144.13 & \cellcolor{red!18} 0.9331 & \cellcolor{red!18} 52.6843 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 136.9950 & \cellcolor{red!18} 0.1271 \\
+\bottomrule
+\end{tabular}}
+\end{table}
