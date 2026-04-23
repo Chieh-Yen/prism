@@ -298,18 +298,17 @@ where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices
 \section{Applications Across the LLM Post-Training Lifecycle}
 \label{sec:applications}
 
-The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) applies to any two models within a common lineage. We instantiate it below in two lifecycle settings---post-training quantization and LoRA fine-tuning with a frozen head---both of which satisfy the near-identity alignment condition ($W_N \approx I$) discussed in Sec.~\ref{subsec:interpretation}, so the operational trace form $\Omega$ applies in each; the two settings differ in which term of the bound dominates the risk gap.
+The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) instantiates in two LLM lifecycle settings---post-training quantization and frozen-head LoRA fine-tuning---which differ in which term of the bound dominates the risk gap.
 
 \subsection{Quantization Quality Estimation}
 \label{subsec:quantization}
 
-We designate the full-precision model as Target $T$ and the quantized variant as Proxy $P$; Theorem~\ref{thm:unified_bound} applies directly. Two PTQ-specific conditions determine which term dominates the risk gap. First, standard PTQ introduces element-wise numerical noise that preserves the coordinate basis ($W_N \approx I$), so the feature error reduces to scale collapse $(\Delta\rho)^2$---capturing the activation clipping induced by outlier channels~\cite{dettmers2022gpt3, xiao2023smoothquant}---and structural distortion $1 - \Omega$---capturing corruption of the relational geometry between token representations. Second, GPTQ and most BitsAndBytes configurations retain the \texttt{lm\_head} in FP16 and the head-divergence term $\|\Sigma_P^{1/2}(W H_T - H_P)\|_F$ vanishes, but several GGUF k-quant tiers (e.g., \texttt{Q2\_K}, \texttt{Q3\_K\_M}) also quantize the output embedding and contribute a non-negligible head discrepancy term. All three terms are generation-free and computable from a single forward pass, letting practitioners rank quantization configurations from feature statistics without decoding.
-
+We designate the full-precision model as target $T$ and the quantized variant as proxy $P$. PTQ introduces element-wise numerical noise that preserves the coordinate basis, so the bound's feature side dominates via $(\Delta\rho)^2$ and $1-\Omega$. The head-divergence term vanishes for protocols that keep \texttt{lm\_head} intact (GPTQ, BitsAndBytes); GGUF k-quant tiers that also quantize the output embedding contribute a non-negligible head term.
 
 \subsection{Geometric Monitoring of Catastrophic Forgetting}
 \label{subsec:forgetting}
 
-We designate the frozen base model as $T = \theta_0$ and the fine-tuned checkpoint at step $t$ as $P = \theta_t$, and evaluate Theorem~\ref{thm:unified_bound} on tasks \emph{other than} the one being fine-tuned on---this downstream risk is the empirical signature of catastrophic forgetting. Under standard LoRA~\cite{hu2022lora}, low-rank updates are confined to attention and MLP projections while the \texttt{lm\_head} stays frozen ($H_t = H_0$), so the head-divergence term vanishes and forgetting is governed \emph{entirely} by backbone geometric drift $(\Delta\rho, 1-\Omega)$---the very quantity that the shape regularizer of Sec.~\ref{subsec:shape_reg} minimizes during training. The result is a label-free diagnostic that decouples backbone-geometry drift from head misalignment.
+We designate the frozen base model as target $T = \theta_0$ and the fine-tuned checkpoint as proxy $P = \theta_t$, both evaluated on downstream benchmarks distinct from the fine-tuning task so that the risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ captures catastrophic forgetting. Under standard LoRA~\cite{hu2022lora} the \texttt{lm\_head} stays frozen, so the head-divergence term vanishes and forgetting is governed entirely by backbone geometric drift $(\Delta\rho, 1-\Omega)$; the shape regularizer of Sec.~\ref{subsec:shape_reg} directly penalizes the shape term $1-\Omega$.
 
 
 %=========================================================================
