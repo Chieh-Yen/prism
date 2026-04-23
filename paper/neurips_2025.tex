@@ -248,8 +248,6 @@ Combined with the Lipschitz bound (Appendix~\ref{app:detailed_proofs}):
 \delta \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T \rho_P (1 - \Omega_W)}.
 \end{equation}
 
-\paragraph{PRISM accommodates a family of Procrustes similarities.} The identity of Prop.~\ref{prop:exact_decomposition} holds for every $W \in \mathcal{O}(d)$; two members of the resulting family $\{\Omega_W\}$ are studied in this paper. The \emph{identity-aligned form} $\Omega := \Omega_{W=I}$ is used throughout the main experiments and the shape regularizer of Sec.~\ref{subsec:shape_reg}. The \emph{nuclear form} $\Omega_N$ (Appendix~\ref{app:tightness}), attained at the Procrustes-optimal alignment $W_N$, is reported as a Sec.~\ref{subsec:ablation} ablation. A related Frobenius-norm similarity $\Omega_F$, which does not arise from the alignment residual but underlies CKA-style comparisons, is also discussed in Appendix~\ref{app:tightness}.
-
 \paragraph{Head error $\gamma$.}
 Let $\Delta H := W H_T - H_P$ for the alignment $W$; then $\gamma \le K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}\Delta H\|_F$ with $K_{\mathrm{pred}} \le \sqrt{2}$ (Appendix~\ref{app:head_bound}). The covariance weighting $\Sigma_P^{1/2}$ ensures that only head misalignment within the \emph{active subspace} of the data contributes.
 
@@ -262,7 +260,7 @@ For any $W \in \mathcal{O}(d)$,
 \end{theorem}
 
 
-\subsection{Three Diagnostic Axes and the Operational Form $\Omega$}
+\subsection{Three Diagnostic Axes}
 \label{subsec:interpretation}
 
 Theorem~\ref{thm:unified_bound} decomposes the risk gap along three \emph{independently measurable} axes, each attached to a distinct failure mode of the proxy.
@@ -276,10 +274,8 @@ The shape term captures distortion of the feature manifold up to rotation. A dro
 \paragraph{Head divergence $\|\Sigma_P^{1/2}(W H_T - H_P)\|_F$.}
 The head term quantifies how differently the two prediction heads interpret features, weighted by $\Sigma_P$ so that only directions along which the data actually lives can contribute.
 
-\paragraph{Identity alignment matches the structure of frozen-head LLM post-training.}
-Both PTQ and LoRA preserve the prediction head---$H_T = H_P$ under frozen-head LoRA and FP16-head PTQ---and the Linear Representation Hypothesis (Sec.~\ref{subsec:problem_setup}) gives a near-isometric backbone alignment, exactly for PTQ and with empirically small rotational drift for LoRA. The identity alignment $W = I$ is precisely what these conditions describe: $\Delta H = H_T - H_P$ at $W = I$, so $\gamma$ vanishes exactly when $H_T = H_P$, whereas any $W \neq I$ would manufacture a head misalignment $\|\Sigma_P^{1/2}(W H_T - H_T)\|_F > 0$ where none exists. The trace form additionally back-propagates through standard autograd without SVD, making the bound directly usable as a training-time penalty (Sec.~\ref{subsec:shape_reg}).
-
-\paragraph{PRISM accommodates a family of Procrustes similarities.} We therefore commit to $W = I$ throughout the main text, specializing the trace family $\{\Omega_W\}$ of Prop.~\ref{prop:exact_decomposition} to $\Omega := \Omega_{W=I}$ for all experiments and the shape regularizer of Sec.~\ref{subsec:shape_reg}. The \emph{nuclear form} $\Omega_N := \Omega_{W=W_N}$, attained at the Procrustes-optimal alignment $W_N$ (Appendix~\ref{app:tightness}), is reported as a Sec.~\ref{subsec:ablation} ablation. A related Frobenius-norm similarity $\Omega_F$, which does not arise from the alignment residual but underlies CKA-style comparisons, is also discussed in Appendix~\ref{app:tightness}. Empirically, $\Omega$ alone already carries most of the variant-ranking signal ($|r_s| = 0.77$ across the 4{$\times$}5 PTQ grid, Sec.~\ref{subsec:ablation}); adding scale lifts it to $0.82$, and the full bound to $0.79$ with the smallest cross-lineage variance.
+\paragraph{PRISM accommodates a family of Procrustes similarities.}
+The family $\{\Omega_W\}$ of Prop.~\ref{prop:exact_decomposition} includes the trace form $\Omega_{W=I}$ and the nuclear form $\Omega_N := \Omega_{W=W_N}$ (Appendix~\ref{app:tightness}); a related Frobenius similarity $\Omega_F$, tied to CKA, is discussed there as an external comparison. The main text commits to $\Omega := \Omega_{W=I}$ because the frozen-head regimes studied here---LoRA and FP16-head PTQ---keep $H_T = H_P$ in most configurations, so the head term simplifies at $W = I$ and leaves the risk gap clean to analyze; the $W = W_N$ counterpart is reported as a Sec.~\ref{subsec:ablation} ablation.
 
 
 \subsection{Extension to Autoregressive Generation}
@@ -290,23 +286,23 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 \label{eq:ar_risk}
 \mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{\tau=1}^{|y|} \ell\!\big(\phi_M(c, y_{<\tau}) \cdot H_M,\; y_\tau\big) \right].
 \end{equation}
-Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and collected into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ (with $N$ the total number of target tokens across the calibration set); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$, unifying point-wise classification (MMLU, ARC), language modeling (WikiText, FineWeb-Edu), short-horizon QA (SQuAD, TriviaQA), and multi-step reasoning (GSM8K) under a single bound. The full corollary is in Appendix~\ref{app:ar_extension}.
+Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and collected into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ (with $N$ the total number of target tokens across the calibration set); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$, unifying point-wise classification, language modeling, short-horizon QA, and multi-step reasoning under a single bound. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
 \subsection{From Diagnostic to Training: Shape Regularization}
 \label{subsec:shape_reg}
 
-Under LoRA fine-tuning with a frozen head, the head term of Theorem~\ref{thm:unified_bound} drops out and the risk gap between the base model $\theta_0$ and a checkpoint $\theta_t$ reduces to
+LoRA fine-tuning drives the backbone shape away from its base: $\Omega(Z_0, Z_t)$ drops as training proceeds, and---because the head is frozen---the full risk gap between base $\theta_0$ and checkpoint $\theta_t$ reduces to backbone drift alone,
 \begin{equation}
 \label{eq:lora_bound}
 |\mathcal{R}_0 - \mathcal{R}_t| \;\le\; K_{\mathrm{feat}}\sqrt{(\rho_0-\rho_t)^2 + 2\rho_0\rho_t(1-\Omega)}.
 \end{equation}
-Because $1-\Omega$ enters linearly under the square root and is differentiable in $Z_t$ (property (iii) of Sec.~\ref{subsec:interpretation}), we augment the fine-tuning objective with a PRISM-guided penalty:
+Pinning shape should therefore stabilize target-task learning and suppress catastrophic forgetting on downstream tasks at once. Since $1 - \Omega$ is differentiable in $Z_t$, we augment the fine-tuning objective with a shape-preserving penalty:
 \begin{equation}
 \label{eq:shape_reg}
 L_{\mathrm{total}} \;=\; \underbrace{L_{\mathrm{CE}}\bigl(\theta_t;\,\mathcal{D}_{\mathrm{FT}}\bigr)}_{\text{task loss}} \;+\; \lambda\,\bigl(1 - \Omega\!\bigl(Z_0^{\text{ref}},\, Z_t^{\text{ref}}\bigr)\bigr),
 \end{equation}
-where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices on a fixed reference set (training-side schedule and overhead in Sec.~\ref{subsec:exp_setup}). The same geometric signal that \emph{diagnoses} backbone drift thereby \emph{prevents} it---an active constraint against catastrophic forgetting whose empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
+where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices on a fixed reference set (training-side schedule and overhead in Sec.~\ref{subsec:exp_setup}); empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
 
 
 \section{Applications Across the LLM Post-Training Lifecycle}
