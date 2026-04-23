@@ -92,7 +92,7 @@ Using the Lipschitz property with $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x) W_N$:
 
 To connect this expectation to the Procrustes decomposition, we apply Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$):
 \begin{equation}
-\label{eq:delta_bound}
+\label{eq:delta_lipschitz}
 \delta \le K_{\mathrm{feat}} \cdot \sqrt{\mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W_N\|_2^2\big]} = K_{\mathrm{feat}} \cdot \sqrt{\frac{1}{n}\|Z_T - Z_P W_N\|_F^2}.
 \end{equation}
 
@@ -168,7 +168,7 @@ Adding and subtracting $2\rho_T\rho_P$ completes the square:
 This is the $W = W_N$ generalization of Proposition~\ref{prop:exact_decomposition}; setting $W = I$ in the same expansion (no SVD needed) recovers the main-text identity with $\Omega$ in place of $\Omega_N$. \qed
 
 \paragraph{Assembling the Feature Bound.}
-Combining Eq.~(\ref{eq:delta_bound}) with the decomposition above:
+Combining Eq.~(\ref{eq:delta_lipschitz}) with the decomposition above:
 \begin{equation}
 \label{eq:delta_final}
 \delta \le K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N)}.
