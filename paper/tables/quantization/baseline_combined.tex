@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{\textbf{Component-wise ablation under both alignment conventions.} Top block: operational $W{=}I$ form (used throughout the main text). Bottom block: Procrustes-optimal $W{=}W^*$ form. Same per-cell Spearman protocol throughout. Within each block, rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $|r_s|$ = better variant ranking; bold = best in column \emph{within its block}. The $W{=}W^*$ block ranks modestly better on the full bound, as expected since $W^*$ minimizes the alignment residual; the main text adopts $W{=}I$ for autograd compatibility and for the head-term simplification $H_T = H_P$ that holds in our frozen-\texttt{lm\_head} regimes.}
+\label{tab:baseline_combined}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccc}
+\toprule
+Metric & Mean $|r_s|$ & Llama & Ministral & Qwen3 & DeepSeek & Wins / 20 \\
+ & \scriptsize (20 cells) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) &  \\
+\midrule
+\makebox[2.1em][l]{$\Omega_I$}{\scriptsize (shape only; baseline)} & .768 & .825 & .758 & .783 & .707 & 5 \\
+\makebox[2.1em][l]{$\delta_I$}{\scriptsize (+ scale; no head)} & \textbf{.822} & \textbf{.881} & \textbf{.762} & \textbf{.855} & \textbf{.791} & \textbf{10} \\
+\makebox[2.1em][l]{$\mathcal{B}_I$}{\scriptsize (+ head; PRISM, $W{=}I$)} & .786 & .828 & .753 & .813 & .749 & 9 \\
+\midrule
+\makebox[2.1em][l]{$\Omega_W$}{\scriptsize (shape only; baseline)} & .786 & .839 & \textbf{.811} & .773 & .726 & 6 \\
+\makebox[2.1em][l]{$\delta_W$}{\scriptsize (+ scale; no head)} & .828 & .898 & .758 & .847 & \textbf{.809} & 7 \\
+\makebox[2.1em][l]{$\mathcal{B}_W$}{\scriptsize (+ head; PRISM, $W{=}W^*$)} & \textbf{.857} & \textbf{.927} & .801 & \textbf{.896} & .802 & \textbf{17} \\
+\bottomrule
+\end{tabular}
+\end{table}

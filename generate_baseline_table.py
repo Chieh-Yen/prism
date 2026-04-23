@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """
-Generate paper/tables/quantization/baseline.tex: a baseline-comparison table
-that measures the variant-ranking power of three geometric metrics against
-the empirical cross-entropy risk gap |MdR|, across the 4-model x 5-benchmark
-PTQ grid (20 cells).
+Generate two component-wise ablation tables that measure the variant-ranking
+power of three geometric metrics against the empirical cross-entropy risk
+gap |MdR|, across the 4-model x 5-benchmark PTQ grid (20 cells):
 
-Metrics compared (rows of the table) — all in the W=I operational family, so
-the ablation isolates *component-by-component* contribution under the
-paper's consistent alignment convention (no W* confound):
+  - paper/tables/quantization/baseline.tex   (main text, W=I operational form)
+  - paper/tables/quantization/baseline_w.tex (appendix, W=W* Procrustes-optimal)
 
-  1. Omega_I     - trace-form Procrustes similarity (shape only)
-  2. delta_I     - feature alignment error: shape + scale term (no head)
-                   = K_feat * sqrt( (Delta rho)^2 + 2 rho_T rho_P (1-Omega_I) )
-  3. Bound_I     - full PRISM bound: shape + scale + covariance-weighted head
-                   -- the paper's main proposed metric
+Both tables share the same row structure (shape -> + scale -> + head) and
+the same per-cell Spearman protocol; they differ only in the alignment
+convention used inside each metric (identity vs Procrustes-optimal).
 
 Reported per metric:
 
@@ -45,7 +41,9 @@ from pathlib import Path
 # ======================================================================
 ROOT = Path(__file__).resolve().parent
 CSV_PATH = ROOT / "exp_result" / "quantization" / "quantization_merged_slim.csv"
-OUT_PATH = ROOT / "paper" / "tables" / "quantization" / "baseline.tex"
+OUT_PATH_I = ROOT / "paper" / "tables" / "quantization" / "baseline.tex"
+OUT_PATH_W = ROOT / "paper" / "tables" / "quantization" / "baseline_w.tex"
+OUT_PATH_COMBINED = ROOT / "paper" / "tables" / "quantization" / "baseline_combined.tex"
 
 ROW_MODELS = [
     "meta-llama/Meta-Llama-3.1-8B",
@@ -68,10 +66,31 @@ YCOL = "|MdR|"
 # All metrics use W=I operational alignment; rows form a progressive
 # ablation ladder under a consistent alignment convention:
 #   shape only -> + scale (=> feature term) -> + head (=> full bound).
-METRICS = [
-    (r"$\Omega_I$ \; {\scriptsize (shape only)}",                "Omega_I", "omega_i"),
-    (r"$\delta_I$ \; {\scriptsize (+ scale; no head)}",          "delta_I", "delta_i"),
-    (r"$\mathcal{B}_I$ \; {\scriptsize (+ head; PRISM, ours)}",  "Bound_I", "bound_i"),
+# Symbol column is left-aligned in a fixed-width \makebox so that the
+# qualifiers in {\scriptsize (...)} start at the same horizontal position
+# across rows (otherwise $\Omega$, $\delta$, $\mathcal{B}$ have different
+# widths and the parens misalign visually).
+_SYM_W = "2.1em"  # wide enough for $\mathcal{B}_W$, the widest symbol
+
+
+def _label(symbol_tex, qualifier):
+    return rf"\makebox[{_SYM_W}][l]{{${symbol_tex}$}}{{\scriptsize {qualifier}}}"
+
+
+METRICS_I = [
+    (_label(r"\Omega_I",       r"(shape only; baseline)"),     "Omega_I", "omega_i"),
+    (_label(r"\delta_I",       r"(+ scale; no head)"),         "delta_I", "delta_i"),
+    (_label(r"\mathcal{B}_I",  r"(+ head; PRISM, $W{=}I$)"),   "Bound_I", "bound_i"),
+]
+
+# Same ablation ladder, but each metric uses the Procrustes-optimal alignment
+# W=W^* (i.e., \|Z_T - Z_P W^*\|_F^2 minimization in the feature term, and
+# W^* H_T - H_P inside the covariance-weighted head term). Used for the
+# appendix counterpart table.
+METRICS_W = [
+    (_label(r"\Omega_W",       r"(shape only; baseline)"),     "Omega_W", "omega_w"),
+    (_label(r"\delta_W",       r"(+ scale; no head)"),         "delta_W", "delta_w"),
+    (_label(r"\mathcal{B}_W",  r"(+ head; PRISM, $W{=}W^*$)"), "Bound_W", "bound_w"),
 ]
 
 
@@ -114,7 +133,9 @@ def spearman(x, y):
 # Data loading
 # ======================================================================
 def load_data():
-    needed = {col for _, col, _ in METRICS} | {YCOL}
+    needed = ({col for _, col, _ in METRICS_I}
+              | {col for _, col, _ in METRICS_W}
+              | {YCOL})
     with CSV_PATH.open(newline="") as f:
         rows = list(csv.DictReader(f))
     out = []
@@ -172,38 +193,32 @@ def _fmt(x, bold=False):
 
 
 # ======================================================================
-# Main
+# Per-table emission (parametrized over the metrics list and output path)
 # ======================================================================
-def main():
-    rows = load_data()
-
-    # Compute per-cell |r_s| for every metric.
-    all_signed = {}
+def _compute_stats(rows, metrics):
+    """Return (stats, best_cols, n_cells_with_data) for the given metrics list."""
     all_abs = {}
-    for label, col, mid in METRICS:
-        signed, absval = compute_per_cell_spearman(rows, col)
-        all_signed[mid] = signed
+    for _, col, mid in metrics:
+        _, absval = compute_per_cell_spearman(rows, col)
         all_abs[mid] = absval
 
     # Per-cell winner: metric with largest |r_s| in each (model, dataset) cell.
-    winners = {mid: 0 for _, _, mid in METRICS}
+    winners = {mid: 0 for _, _, mid in metrics}
     n_cells_with_data = 0
     for m in ROW_MODELS:
         for d in COL_DATASETS:
-            per_metric = {mid: all_abs[mid][m][d] for _, _, mid in METRICS}
+            per_metric = {mid: all_abs[mid][m][d] for _, _, mid in metrics}
             finite = {k: v for k, v in per_metric.items() if not math.isnan(v)}
             if not finite:
                 continue
             n_cells_with_data += 1
             best = max(finite.values())
-            # Count ties as multi-winners.
             for k, v in finite.items():
                 if abs(v - best) < 1e-9:
                     winners[k] += 1
 
-    # Aggregate stats per metric.
     stats = {}
-    for _, _, mid in METRICS:
+    for _, _, mid in metrics:
         all_vals = _gather(all_abs[mid])
         stats[mid] = {
             "mean": statistics.mean(all_vals) if all_vals else float("nan"),
@@ -216,9 +231,7 @@ def main():
             "winners": winners[mid],
         }
 
-    # ----------------------------------------------------------------
-    # Find per-column winners for bold-facing
-    # ----------------------------------------------------------------
+    # Per-column winners for bold-facing.
     best_cols = {}
     col_keys = (["mean"]
                 + [f"model_{m}" for m in ROW_MODELS]
@@ -235,37 +248,29 @@ def main():
         raise KeyError(key)
 
     for k in col_keys:
-        vals = {mid: _colval(mid, k) for _, _, mid in METRICS}
-        finite = {mid: v for mid, v in vals.items() if v is not None and not math.isnan(v)}
+        vals = {mid: _colval(mid, k) for _, _, mid in metrics}
+        finite = {mid: v for mid, v in vals.items()
+                  if v is not None and not math.isnan(v)}
         if finite:
             best_val = max(finite.values())
-            best_cols[k] = {mid for mid, v in finite.items() if abs(v - best_val) < 1e-9}
+            best_cols[k] = {mid for mid, v in finite.items()
+                            if abs(v - best_val) < 1e-9}
         else:
             best_cols[k] = set()
 
-    # ----------------------------------------------------------------
-    # Emit LaTeX
-    # ----------------------------------------------------------------
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    return stats, best_cols, n_cells_with_data
 
+
+def _emit_latex(metrics, stats, best_cols, n_cells_with_data,
+                out_path, label, caption):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     lines = []
     lines.append(r"\begin{table}[t]")
     lines.append(r"\centering")
-    lines.append(
-        r"\caption{\textbf{Component-wise ablation of the PRISM bound.} "
-        r"Per-cell Spearman rank correlation $|r_s|$ with the empirical "
-        rf"cross-entropy risk gap $|\Delta\mathcal{{R}}|$ across the $4{{\times}}5$ "
-        rf"PTQ grid ({n_cells_with_data} cells; larger $|r_s|$ = better variant "
-        r"ranking). Rows add bound components cumulatively: shape, then "
-        r"$+$ scale, then $+$ head. Per-lineage columns average $|r_s|$ over "
-        r"the 5 benchmarks of that lineage. ``Wins'' counts cells where a "
-        r"metric's $|r_s|$ is the largest (ties counted for each tied "
-        r"metric); bold = best in column.}"
-    )
-    lines.append(r"\label{tab:baseline}")
+    lines.append(r"\caption{" + caption + "}")
+    lines.append(rf"\label{{{label}}}")
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
-    # Column spec: Metric | Mean | Llama | Ministral | Qwen3 | DeepSeek | Wins
     lines.append(r"\begin{tabular}{lcccccc}")
     lines.append(r"\toprule")
     header_cells = (
@@ -281,9 +286,9 @@ def main():
                  + [""])
     lines.append(" & ".join(subheader) + r" \\")
     lines.append(r"\midrule")
-    for label, _, mid in METRICS:
+    for label_text, _, mid in metrics:
         s = stats[mid]
-        row = [label]
+        row = [label_text]
         row.append(_fmt(s["mean"], bold=(mid in best_cols["mean"])))
         for m in ROW_MODELS:
             key = f"model_{m}"
@@ -296,33 +301,165 @@ def main():
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
     lines.append(r"\end{table}")
+    out_path.write_text("\n".join(lines) + "\n")
 
-    OUT_PATH.write_text("\n".join(lines) + "\n")
 
-    # ----------------------------------------------------------------
-    # Human-readable summary on stdout
-    # ----------------------------------------------------------------
-    print(f"Wrote {OUT_PATH}")
+def _print_summary(metrics, stats, n_cells_with_data, out_path, alignment_tag):
+    print(f"Wrote {out_path}")
     print()
-    print(f"Summary (|r_s| on {n_cells_with_data} cells):")
+    print(f"Summary [{alignment_tag}] (|r_s| on {n_cells_with_data} cells):")
     print("=" * 96)
     hdr = f"{'Metric':<14}  {'Mean':>6}  " + "  ".join(
         f"{ROW_DISPLAY[m]:>10}" for m in ROW_MODELS) + f"  {'Wins':>5}"
     print(hdr)
     print("-" * 96)
-    plain_map = {
-        "omega_i":  "Omega_I",
-        "omega_w":  "Omega_W",
-        "delta_i":  "delta_I",
-        "bound_i":  "Bound_I (ours)",
-    }
-    for _, _, mid in METRICS:
+    for _, col, mid in metrics:
         s = stats[mid]
-        row = f"{plain_map[mid]:<14}  {s['mean']:>6.3f}  "
+        row = f"{col:<14}  {s['mean']:>6.3f}  "
         row += "  ".join(f"{s['per_model_mean'][m]:>10.3f}" for m in ROW_MODELS)
         row += f"  {s['winners']:>5}"
         print(row)
     print("=" * 96)
+    print()
+
+
+def generate_table(rows, metrics, out_path, label, caption, alignment_tag):
+    stats, best_cols, n_cells = _compute_stats(rows, metrics)
+    _emit_latex(metrics, stats, best_cols, n_cells, out_path, label, caption)
+    _print_summary(metrics, stats, n_cells, out_path, alignment_tag)
+    return stats, best_cols, n_cells
+
+
+def _emit_combined_latex(groups, out_path, label, caption):
+    """groups: list of (metrics, stats, best_cols, n_cells) tuples.
+
+    Produces one tabular with a single header followed by each group's rows
+    separated by \\midrule. Bold-facing is per-group (each group's stats and
+    best_cols are independent), so each block highlights its own column-best
+    rather than being dominated by the other block.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    # Use the first group's n_cells in the header (groups should match by design).
+    n_cells_header = groups[0][3]
+
+    lines = []
+    lines.append(r"\begin{table}[t]")
+    lines.append(r"\centering")
+    lines.append(r"\caption{" + caption + "}")
+    lines.append(rf"\label{{{label}}}")
+    lines.append(r"\small")
+    lines.append(r"\setlength{\tabcolsep}{4pt}")
+    lines.append(r"\begin{tabular}{lcccccc}")
+    lines.append(r"\toprule")
+    header_cells = (
+        [r"Metric"]
+        + [r"Mean $|r_s|$"]
+        + [ROW_DISPLAY[m] for m in ROW_MODELS]
+        + [rf"Wins / {n_cells_header}"]
+    )
+    lines.append(" & ".join(header_cells) + r" \\")
+    subheader = ([""]
+                 + [rf"\scriptsize ({n_cells_header} cells)"]
+                 + [r"\scriptsize (5 benchmarks)"] * len(ROW_MODELS)
+                 + [""])
+    lines.append(" & ".join(subheader) + r" \\")
+
+    for gi, (metrics, stats, best_cols, _) in enumerate(groups):
+        lines.append(r"\midrule")
+        for label_text, _, mid in metrics:
+            s = stats[mid]
+            row = [label_text]
+            row.append(_fmt(s["mean"], bold=(mid in best_cols["mean"])))
+            for m in ROW_MODELS:
+                key = f"model_{m}"
+                row.append(_fmt(s["per_model_mean"][m],
+                                bold=(mid in best_cols[key])))
+            wins_val = s["winners"]
+            wins_str = (rf"\textbf{{{wins_val}}}"
+                        if mid in best_cols["winners"]
+                        else f"{wins_val}")
+            row.append(wins_str)
+            lines.append(" & ".join(row) + r" \\")
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\end{table}")
+    out_path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote {out_path}")
+
+
+# ======================================================================
+# Captions (kept inline so they live next to the metric definitions above)
+# ======================================================================
+CAPTION_I = (
+    r"\textbf{Component-wise ablation of the PRISM bound (operational $W{=}I$ form).} "
+    r"Per-cell Spearman rank correlation $|r_s|$ with the empirical "
+    r"cross-entropy risk gap $|\Delta\mathcal{R}|$ across the $4{\times}5$ "
+    r"PTQ grid (larger $|r_s|$ = better variant ranking). Rows add bound "
+    r"components cumulatively: shape, then $+$ scale, then $+$ head. "
+    r"Per-lineage columns average $|r_s|$ over the 5 benchmarks of that "
+    r"lineage. ``Wins'' counts cells where a metric's $|r_s|$ is the largest "
+    r"(ties counted for each tied metric); bold = best in column. The "
+    r"Procrustes-optimal $W{=}W^*$ counterpart is in "
+    r"Appendix~Table~\ref{tab:baseline_w}."
+)
+
+CAPTION_W = (
+    r"\textbf{Component-wise ablation under Procrustes-optimal alignment "
+    r"($W{=}W^*$).} Counterpart of Table~\ref{tab:baseline}: same row "
+    r"structure (shape $\to +$ scale $\to +$ head) and same per-cell "
+    r"Spearman protocol, but every metric is evaluated under the optimal "
+    r"orthogonal alignment $W^*$ rather than identity. Larger $|r_s|$ = "
+    r"better variant ranking; bold = best in column. As expected, the "
+    r"Procrustes-optimal alignment yields modestly stronger ranking on the "
+    r"full bound; the operational $W{=}I$ form used in the main text "
+    r"(Table~\ref{tab:baseline}) trades this margin for autograd "
+    r"compatibility (no SVD per step) and for the head-term simplification "
+    r"$H_T = H_P$ that holds in the frozen-\texttt{lm\_head} regimes (LoRA, "
+    r"FP16-head PTQ) studied in Sec.~\ref{sec:experiments}."
+)
+
+CAPTION_COMBINED = (
+    r"\textbf{Component-wise ablation under both alignment conventions.} "
+    r"Top block: operational $W{=}I$ form (used throughout the main text). "
+    r"Bottom block: Procrustes-optimal $W{=}W^*$ form. Same per-cell "
+    r"Spearman protocol throughout. Within each block, rows add bound "
+    r"components cumulatively (shape $\to +$ scale $\to +$ head); larger "
+    r"$|r_s|$ = better variant ranking; bold = best in column \emph{within "
+    r"its block}. The $W{=}W^*$ block ranks modestly better on the full "
+    r"bound, as expected since $W^*$ minimizes the alignment residual; "
+    r"the main text adopts $W{=}I$ for autograd compatibility and for the "
+    r"head-term simplification $H_T = H_P$ that holds in our "
+    r"frozen-\texttt{lm\_head} regimes."
+)
+
+
+# ======================================================================
+# Main
+# ======================================================================
+def main():
+    rows = load_data()
+    stats_i, best_i, n_i = generate_table(
+        rows, METRICS_I, OUT_PATH_I,
+        label="tab:baseline",
+        caption=CAPTION_I,
+        alignment_tag="W=I",
+    )
+    stats_w, best_w, n_w = generate_table(
+        rows, METRICS_W, OUT_PATH_W,
+        label="tab:baseline_w",
+        caption=CAPTION_W,
+        alignment_tag="W=W*",
+    )
+    _emit_combined_latex(
+        groups=[
+            (METRICS_I, stats_i, best_i, n_i),
+            (METRICS_W, stats_w, best_w, n_w),
+        ],
+        out_path=OUT_PATH_COMBINED,
+        label="tab:baseline_combined",
+        caption=CAPTION_COMBINED,
+    )
 
 
 if __name__ == "__main__":
