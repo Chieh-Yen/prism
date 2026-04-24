@@ -203,14 +203,23 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
     transform_x = cfg.get("transform_x")
 
     nrow, ncol = len(ROW_TASKS), len(COL_BENCHMARKS)
+    # Absolute reserve at top for legend + column titles; matches the
+    # quantization-grid script so subplot aspect ratios stay consistent.
+    legend_reserve_inch = 1.1
+    # Extra horizontal space so the right-side colorbar doesn't steal width
+    # from the subplots (keeps per-subplot aspect close to quantization's).
+    colorbar_reserve_inch = 0.8
+    fig_height = nrow * 2.8 + legend_reserve_inch
+    fig_width = ncol * 3.6 + colorbar_reserve_inch
     fig, axes = plt.subplots(
         nrow, ncol,
-        figsize=(ncol * 3.6, nrow * 3.0 + 1.4),
+        figsize=(fig_width, fig_height),
         squeeze=False,
     )
+    top_frac = (fig_height - legend_reserve_inch) / fig_height
     plt.subplots_adjust(
         hspace=0.28, wspace=0.28,
-        top=0.88, bottom=0.10, left=0.08, right=0.95,
+        top=top_frac, bottom=0.10, left=0.08, right=0.95,
     )
 
     # Collect all steps across both tasks for a unified colormap
@@ -226,9 +235,9 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
     all_steps = sorted(all_steps)
     step_min, step_max = all_steps[0], all_steps[-1]
 
-    cmap = cm.cividis
+    cmap = cm.plasma
     norm = mcolors.Normalize(vmin=step_min, vmax=step_max)
-    MARKER_SIZE = 50
+    MARKER_SIZE = 75
 
     for ri, ft_task in enumerate(ROW_TASKS):
         data = json_cache[ft_task]
@@ -344,59 +353,56 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
                 ax.text(
                     0.96, 0.04, "\n".join(lines),
                     transform=ax.transAxes, ha="right", va="bottom",
-                    fontsize=12, fontstyle="italic",
+                    fontsize=17, fontstyle="italic",
                     linespacing=1.15,
                     bbox=dict(boxstyle="round,pad=0.2", fc="white",
                               alpha=0.85, ec="0.7", lw=0.5),
                 )
 
-            ax.tick_params(labelsize=9)
+            ax.tick_params(labelsize=12)
             ax.tick_params(axis="both", which="minor", length=0)
             ax.grid(True, which="major", ls=":", alpha=0.35)
 
             # Column title (top row)
             if ri == 0:
-                ax.set_title(COL_DISPLAY[bench], fontsize=16,
-                             fontweight="bold", pad=5)
+                ax.set_title(COL_DISPLAY[bench], fontsize=20,
+                             fontweight="bold", pad=7)
 
-            # Y label
+            # Y label: task name + $|ΔR|$ on left col only
             if ci == 0:
                 ax.set_ylabel(
                     ROW_DISPLAY[ft_task] + "\n$|\\Delta\\mathcal{R}|$",
-                    fontsize=12, fontweight="bold", labelpad=2,
+                    fontsize=16, fontweight="bold", labelpad=2,
                 )
-            else:
-                ax.set_ylabel("$|\\Delta\\mathcal{R}|$",
-                              fontsize=10, labelpad=2)
 
             # X label on bottom row
             if ri == nrow - 1:
-                ax.set_xlabel(cfg["xlabel"], fontsize=13, labelpad=2)
+                ax.set_xlabel(cfg["xlabel"], fontsize=17, labelpad=2)
 
     # ── Colorbar for step ─────────────────────────────────────────
     sm = cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=axes.ravel().tolist(), location="right",
                         shrink=0.75, pad=0.02, aspect=30)
-    cbar.set_label("Training Step", fontsize=12)
+    cbar.set_label("Training Step", fontsize=16)
     # Discrete ticks at every other actual step for readability
     tick_stride = max(1, len(all_steps) // 6)
     cbar_ticks = all_steps[::tick_stride]
     if all_steps[-1] not in cbar_ticks:
         cbar_ticks.append(all_steps[-1])
     cbar.set_ticks(cbar_ticks)
-    cbar.ax.tick_params(labelsize=9)
+    cbar.ax.tick_params(labelsize=12)
 
     # ── Legend ─────────────────────────────────────────────────────
     legend_entries = [
         (Line2D([0], [0], marker="*", color="w",
                 markerfacecolor=cmap(0.0), markeredgecolor="k",
-                markeredgewidth=0.5, markersize=10, linestyle="None"),
-         "Start"),
+                markeredgewidth=0.5, markersize=13, linestyle="None"),
+         f"Start (step {step_min})"),
         (Line2D([0], [0], marker="D", color="w",
                 markerfacecolor=cmap(1.0), markeredgecolor="k",
-                markeredgewidth=0.5, markersize=7, linestyle="None"),
-         "End"),
+                markeredgewidth=0.5, markersize=10, linestyle="None"),
+         f"End (step {step_max})"),
         (Line2D([0], [0], color="0.65", lw=1.0, alpha=0.6),
          "Trajectory"),
     ]
@@ -412,7 +418,7 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
     fig.legend(
         handles, labels,
         loc="upper center", bbox_to_anchor=(0.45, 0.99),
-        ncol=min(len(labels), 7), fontsize=10,
+        ncol=min(len(labels), 7), fontsize=14,
         frameon=True, fancybox=True,
         handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
     )
@@ -432,6 +438,7 @@ def main():
     args = sys.argv[1:]
 
     # Parse flags
+    model_dir = "llama"
     model_dir = "qwen"
     max_steps = 300
     corr_methods = None

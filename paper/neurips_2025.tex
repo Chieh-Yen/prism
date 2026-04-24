@@ -165,7 +165,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
     \item \textbf{A unified framework across PTQ and frozen-head LoRA, usable as both a diagnostic and a training objective.} The bound instantiates cleanly across both LLM post-training regimes, and its differentiable trace form $\Omega$ doubles as a training-time shape regularizer against catastrophic forgetting (Sec.~\ref{subsec:shape_reg}).
 
-    \item \textbf{Rank-consistent empirical validation with three-axis localization.} Across the cross-family Llama--Qwen pair (with Ministral and DeepSeek replications in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks variant degradation with mean Spearman $|r_s|{\approx}0.82$; its three axes localize distinct empirical regimes (shape distortion at Q2/Q3, head divergence at Qwen3 Q6\_K/Q8\_0, scale axis at BBQ-vs-TruthfulQA LoRA drift), and a mild shape regularizer reduces forgetting on every downstream benchmark.
+    \item \textbf{Rank-consistent empirical validation with three-axis localization.} Across the cross-family Llama--Qwen pair over five benchmarks, the bound ranks variant degradation with mean Spearman $|r_s|{\approx}0.82$; its three axes localize distinct empirical regimes (shape distortion at Q2/Q3, head divergence at Qwen3 Q6\_K/Q8\_0, scale axis at BBQ-vs-TruthfulQA LoRA drift), and a mild shape regularizer reduces forgetting on every downstream benchmark.
 \end{enumerate}
 %========================================================
 
