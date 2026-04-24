@@ -24,11 +24,11 @@ The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared 
 \label{app:risk_decomp}
 
 \paragraph{Setup.}
-Recall that the risk of model $M$ is $\mathcal{R}_M = \mathbb{E}_{(x,y)}[\ell(\phi_M(x) \cdot H_M, y)]$, where $\ell$ is the cross-entropy loss (Eq.~\ref{eq:ce_def}). The proof below uses the Procrustes-optimal $W_N$; for any other $W \in \mathcal{O}(d)$ the same chain of inequalities holds with $W$ in place of $W_N$ throughout (only Step~3's SVD step specializes to $W_N$). Given $W_N \in \mathcal{O}(d)$ that maps proxy features toward target features (i.e., $\phi_T(x) \approx \phi_P(x) W_N$), we introduce an intermediate \emph{hybrid risk}:
+Recall that the risk of model $M$ is $\mathcal{R}_M = \mathbb{E}_{(x,y)}[\ell(\phi_M(x) \cdot H_M, y)]$, where $\ell$ is the cross-entropy loss (Eq.~\ref{eq:ce_def}). For any orthogonal alignment $W \in \mathcal{O}(d)$, introduce the hybrid risk:
 \begin{equation}
-\mathcal{R}_{P \to T} := \mathbb{E}_{(x,y)}\!\Big[\ell\!\big(\phi_P(x)\, W_N \cdot H_T,\; y\big)\Big].
+\mathcal{R}_{P \to T} := \mathbb{E}_{(x,y)}\!\Big[\ell\!\big(\phi_P(x)\, W \cdot H_T,\; y\big)\Big].
 \end{equation}
-This hybrid term evaluates the \emph{target's head} $H_T$ on the \emph{proxy's aligned features} $\phi_P(x) W$, serving as a bridge between $\mathcal{R}_T$ and $\mathcal{R}_P$.
+This evaluates the target's head $H_T$ on proxy features aligned by $W$, serving as a bridge between $\mathcal{R}_T$ and $\mathcal{R}_P$. The proof below holds for any $W \in \mathcal{O}(d)$; the two specializations relevant to the paper are $W = I$ (operational, trace form $\Omega$, used throughout the main text) and $W = W_N := \arg\min_W \|Z_T - Z_P W\|_F^2$ (Procrustes-optimal, nuclear form $\Omega_N$, Sec.~\ref{subsec:ablation} ablation).
 
 \paragraph{Decomposition.}
 By the triangle inequality on absolute values:
@@ -36,7 +36,7 @@ By the triangle inequality on absolute values:
 \label{eq:app_triangle}
 |\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{\big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big|}_{\text{Feature Alignment Error } \delta} \;+\; \underbrace{\big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big|}_{\text{Head Discrepancy } \gamma}.
 \end{equation}
-The first term $\delta$ measures how much the \emph{features} differ (through the same head $H_T$); the second term $\gamma$ measures how much the \emph{heads} differ (on the same aligned features). We bound each term separately in the following subsections.
+$\delta$ measures how features differ through the same head $H_T$; $\gamma$ measures how heads differ on the same aligned features.
 
 
 \subsection{Step 2: Bounding the Feature Alignment Error $\delta$}
@@ -68,7 +68,7 @@ Since $1 - \hat{p}_y = \sum_{j \neq y} \hat{p}_j$, we can rewrite:
 \begin{equation}
 \nabla_z \ell = -\Big(\sum_{j \neq y} \hat{p}_j\Big) h_{T,y} + \sum_{j \neq y} \hat{p}_j\, h_{T,j} = \sum_{j \neq y} \hat{p}_j\, (h_{T,j} - h_{T,y}).
 \end{equation}
-This reveals that the gradient is a \emph{convex combination} of the pairwise differences between incorrect-class embeddings and the correct-class embedding. Taking the norm:
+This reveals that the gradient is a \emph{non-negative linear combination} of pairwise differences between incorrect-class embeddings and the correct-class embedding, with weights $\hat{p}_j$ summing to $1 - \hat{p}_y \le 1$. Taking the norm:
 \begin{equation}
 \|\nabla_z \ell\|_2 \le \sum_{j \neq y} \hat{p}_j \|h_{T,j} - h_{T,y}\|_2 \le \max_{j \neq y} \|h_{T,j} - h_{T,y}\|_2 \cdot \underbrace{\sum_{j \neq y} \hat{p}_j}_{\le\, 1}.
 \end{equation}
@@ -88,98 +88,86 @@ g_T(z_2, y) - g_T(z_1, y) = \int_0^1 \nabla_z g_T\!\big(z_1 + t(z_2 - z_1),\, y\
 and Cauchy--Schwarz gives $|g_T(z_2, y) - g_T(z_1, y)| \le K_{\mathrm{feat}}\, \|z_2 - z_1\|_2$.
 
 \paragraph{Applying the Lipschitz Bound.}
-Using the Lipschitz property with $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x) W_N$:
+Using the Lipschitz property with $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x) W$:
 \begin{equation}
 \begin{aligned}
-\delta &= \big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big| = \Big|\mathbb{E}\big[g_T(\phi_T(x), y) - g_T(\phi_P(x) W_N, y)\big]\Big| \\
-&\le \mathbb{E}\Big[|g_T(\phi_T(x), y) - g_T(\phi_P(x) W_N, y)|\Big] \\
-&\le K_{\mathrm{feat}} \cdot \mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W_N\|_2\big].
+\delta &= \big|\mathcal{R}_T - \mathcal{R}_{P \to T}\big| = \Big|\mathbb{E}\big[g_T(\phi_T(x), y) - g_T(\phi_P(x) W, y)\big]\Big| \\
+&\le \mathbb{E}\Big[|g_T(\phi_T(x), y) - g_T(\phi_P(x) W, y)|\Big] \\
+&\le K_{\mathrm{feat}} \cdot \mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W\|_2\big].
 \end{aligned}
 \end{equation}
 
-To connect this expectation to the Procrustes decomposition, we apply Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$):
+Applying Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$) to connect this to the alignment residual:
 \begin{equation}
 \label{eq:delta_lipschitz}
-\delta \le K_{\mathrm{feat}} \cdot \sqrt{\mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W_N\|_2^2\big]} = K_{\mathrm{feat}} \cdot \sqrt{\frac{1}{n}\|Z_T - Z_P W_N\|_F^2}.
+\delta \le K_{\mathrm{feat}} \cdot \sqrt{\mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W\|_2^2\big]} = K_{\mathrm{feat}} \cdot \sqrt{\frac{1}{n}\|Z_T - Z_P W\|_F^2}.
 \end{equation}
 
 
 
-\subsection{Step 3: Exact Geometric Decomposition via Procrustes Analysis}
+\subsection{Step 3: Exact Geometric Decomposition}
 \label{app:procrustes}
 
-We now derive the closed-form solution for the Orthogonal Procrustes problem and prove Proposition~\ref{prop:exact_decomposition}.
+We derive the exact identity linking the alignment residual to scale and shape mismatches. The identity holds for every $W \in \mathcal{O}(d)$; we then specialize to the two cases relevant to this paper.
 
-\paragraph{The Optimization Problem.}
-We seek the orthogonal matrix $W_N$ that minimizes the alignment residual:
-\begin{equation}
-W_N = \arg\min_{W \in \mathcal{O}(d)} \|Z_T - Z_P W\|_F^2.
-\end{equation}
-
-\paragraph{Expansion.} Expanding the squared Frobenius norm:
+\paragraph{General Identity.}
+For any $W \in \mathcal{O}(d)$, expand the squared Frobenius norm:
 \begin{equation}
 \begin{aligned}
 \|Z_T - Z_P W\|_F^2 &= \operatorname{Tr}\!\big[(Z_T - Z_P W)^\top (Z_T - Z_P W)\big] \\
 &= \|Z_T\|_F^2 + \|Z_P W\|_F^2 - 2\operatorname{Tr}(Z_T^\top Z_P W).
 \end{aligned}
 \end{equation}
-Since $W$ is orthogonal, it preserves the Frobenius norm: $\|Z_P W\|_F^2 = \operatorname{Tr}(W^\top Z_P^\top Z_P W) = \operatorname{Tr}(Z_P^\top Z_P) = \|Z_P\|_F^2$, where we used the cyclic property of trace and $W^\top W = I_d$. Therefore:
+Since $W$ is orthogonal, $\|Z_P W\|_F^2 = \operatorname{Tr}(W^\top Z_P^\top Z_P W) = \operatorname{Tr}(Z_P^\top Z_P) = \|Z_P\|_F^2$ (cyclic trace + $W^\top W = I_d$). Therefore:
 \begin{equation}
 \label{eq:procrustes_expand}
 \|Z_T - Z_P W\|_F^2 = \|Z_T\|_F^2 + \|Z_P\|_F^2 - 2\operatorname{Tr}(Z_T^\top Z_P W).
 \end{equation}
-The first two terms are constants independent of $W$. Minimization thus reduces to:
+Recall $\rho_M = \|Z_M\|_F/\sqrt{n}$ (so $\|Z_M\|_F^2/n = \rho_M^2$) and $\Omega_W := \operatorname{Tr}(Z_T^\top Z_P W)/(\|Z_T\|_F\|Z_P\|_F)$ (main-text Eq.~\ref{eq:omega_def}). Dividing Eq.~(\ref{eq:procrustes_expand}) by $n$:
 \begin{equation}
-\label{eq:procrustes_max}
-W_N = \arg\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W).
-\end{equation}
-
-\paragraph{SVD Solution.}
-Let $Z_T^\top Z_P = U \Sigma V^\top$ be the singular value decomposition, where $U, V \in \mathbb{R}^{d \times d}$ are orthogonal and $\Sigma = \mathrm{diag}(\sigma_1, \ldots, \sigma_d)$ with $\sigma_i \ge 0$. Substituting:
-\begin{equation}
-\operatorname{Tr}(Z_T^\top Z_P W) = \operatorname{Tr}(U \Sigma V^\top W) = \operatorname{Tr}(\Sigma V^\top W U) = \operatorname{Tr}(\Sigma R),
-\end{equation}
-where $R = V^\top W U$. Since $W \in \mathcal{O}(d)$ and $U, V \in \mathcal{O}(d)$, we have $R \in \mathcal{O}(d)$. The problem becomes:
-\begin{equation}
-\max_{R \in \mathcal{O}(d)} \operatorname{Tr}(\Sigma R) = \max_{R \in \mathcal{O}(d)} \sum_{i=1}^{d} \sigma_i R_{ii}.
-\end{equation}
-Since $\sigma_i \ge 0$ and $|R_{ii}| \le 1$ for any orthogonal $R$, this is maximized when $R_{ii} = 1$ for all $i$, i.e., $R = I_d$, which yields $V^\top W_N U = I_d$ and thus:
-\begin{equation}
-\label{eq:W_optimal}
-W_N = V U^\top.
-\end{equation}
-The maximum value is:
-\begin{equation}
-\label{eq:max_trace}
-\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W) = \sum_{i=1}^{d} \sigma_i = \|Z_T^\top Z_P\|_*,
-\end{equation}
-where $\|\cdot\|_*$ denotes the nuclear norm.
-
-\paragraph{Substitution and Decomposition.}
-Substituting Eq.~(\ref{eq:max_trace}) into Eq.~(\ref{eq:procrustes_expand}) and dividing by $n$:
-\begin{equation}
-\min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = \frac{1}{n}\|Z_T\|_F^2 + \frac{1}{n}\|Z_P\|_F^2 - \frac{2}{n}\|Z_T^\top Z_P\|_*.
-\end{equation}
-Recalling $\rho_M = \frac{1}{\sqrt{n}}\|Z_M\|_F$ (so $\frac{1}{n}\|Z_M\|_F^2 = \rho_M^2$) and the definition of $\Omega_N$ (Eq.~\ref{eq:omega_nuclear}):
-\begin{equation}
-\frac{1}{n}\|Z_T^\top Z_P\|_* = \frac{\|Z_T^\top Z_P\|_*}{\|Z_T\|_F\|Z_P\|_F} \cdot \frac{\|Z_T\|_F\|Z_P\|_F}{n} = \Omega_N \cdot \rho_T \rho_P.
-\end{equation}
-Therefore:
-\begin{equation}
-\min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = \rho_T^2 + \rho_P^2 - 2\,\Omega_N\,\rho_T\rho_P.
+\frac{1}{n}\|Z_T - Z_P W\|_F^2 = \rho_T^2 + \rho_P^2 - 2\rho_T\rho_P\, \Omega_W.
 \end{equation}
 Adding and subtracting $2\rho_T\rho_P$ completes the square:
 \begin{equation}
-= (\rho_T^2 - 2\rho_T\rho_P + \rho_P^2) + 2\rho_T\rho_P - 2\,\Omega_N\,\rho_T\rho_P = \underbrace{(\rho_T - \rho_P)^2}_{\text{Scale Mismatch}} + \underbrace{2\rho_T\rho_P(1 - \Omega_N)}_{\text{Shape Mismatch}}.
+\label{eq:exact_decomposition_general}
+\frac{1}{n}\|Z_T - Z_P W\|_F^2 = \underbrace{(\rho_T - \rho_P)^2}_{\text{Scale Mismatch}} + \underbrace{2\rho_T\rho_P(1 - \Omega_W)}_{\text{Shape Mismatch}}.
 \end{equation}
-This is the $W = W_N$ specialization of Proposition~\ref{prop:exact_decomposition}; the general identity for any $W \in \mathcal{O}(d)$ follows from the same expansion with $\Omega_W$ in place of $\Omega_N$ (no SVD needed), and setting $W = I$ recovers the main-text trace form $\Omega$. \qed
+This is Proposition~\ref{prop:exact_decomposition} in its general form. \qed
+
+\paragraph{Specialization 1: $W = I$ (operational form, main text).}
+Setting $W = I$ gives the trace form $\Omega \equiv \Omega_{W=I} = \operatorname{Tr}(Z_T^\top Z_P)/(\|Z_T\|_F \|Z_P\|_F)$, and Eq.~(\ref{eq:exact_decomposition_general}) becomes
+\begin{equation}
+\frac{1}{n}\|Z_T - Z_P\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega),
+\end{equation}
+which is the form used throughout the main-text experiments and the regularizer of Sec.~\ref{subsec:shape_reg}.
+
+\paragraph{Specialization 2: $W = W_N$ (Procrustes-optimal, ablation).}
+The alignment that minimizes the residual is
+\begin{equation}
+W_N := \arg\min_{W \in \mathcal{O}(d)} \|Z_T - Z_P W\|_F^2 = \arg\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W),
+\end{equation}
+where the second equality follows from Eq.~(\ref{eq:procrustes_expand}) since the first two terms are $W$-independent. To solve, let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD with $U, V \in \mathcal{O}(d)$ and $\Sigma = \mathrm{diag}(\sigma_1, \ldots, \sigma_d)$, $\sigma_i \ge 0$. By cyclic trace:
+\begin{equation}
+\operatorname{Tr}(Z_T^\top Z_P W) = \operatorname{Tr}(\Sigma\, V^\top W U) = \operatorname{Tr}(\Sigma R), \quad R := V^\top W U \in \mathcal{O}(d).
+\end{equation}
+Since $\sigma_i \ge 0$ and $|R_{ii}| \le 1$ for any orthogonal $R$, $\operatorname{Tr}(\Sigma R) = \sum_i \sigma_i R_{ii}$ is maximized at $R = I_d$, giving:
+\begin{equation}
+\label{eq:W_optimal}
+W_N = V U^\top, \qquad \max_{W} \operatorname{Tr}(Z_T^\top Z_P W) = \sum_i \sigma_i = \|Z_T^\top Z_P\|_*.
+\end{equation}
+Therefore $\Omega_{W_N} = \Omega_N := \|Z_T^\top Z_P\|_*/(\|Z_T\|_F\|Z_P\|_F)$ (nuclear form, Appendix~\ref{app:tightness} Eq.~\ref{eq:omega_nuclear}), and Eq.~(\ref{eq:exact_decomposition_general}) at $W = W_N$ becomes
+\begin{equation}
+\min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N),
+\end{equation}
+the form underlying the Sec.~\ref{subsec:ablation} ablation.
 
 \paragraph{Assembling the Feature Bound.}
-Combining Eq.~(\ref{eq:delta_lipschitz}) with the decomposition above:
+Combining Eq.~(\ref{eq:delta_lipschitz}) with the general decomposition Eq.~(\ref{eq:exact_decomposition_general}):
 \begin{equation}
 \label{eq:delta_final}
-\delta \le K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N)}.
+\delta \le K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_W)}.
 \end{equation}
+At $W = I$, replace $\Omega_W$ with $\Omega$; at $W = W_N$, with $\Omega_N$.
 
 
 
@@ -187,9 +175,9 @@ Combining Eq.~(\ref{eq:delta_lipschitz}) with the decomposition above:
 \label{app:head_bound}
 
 \paragraph{Lipschitz Property with Respect to Logits.}
-The head discrepancy measures how much the predictions differ when two different ``effective heads'' ($W_N H_T$ vs.\ $H_P$) operate on the same proxy features. Let $z = \phi_P(x)$ denote the (unaligned) proxy feature. Then:
+The head discrepancy measures how much predictions differ when two different ``effective heads'' ($W H_T$ vs.\ $H_P$) operate on the same proxy features. Let $z = \phi_P(x)$ denote the (unaligned) proxy feature. Then:
 \begin{equation}
-\gamma = \big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big| = \Big|\mathbb{E}\!\big[\ell(z \cdot W_N H_T, y) - \ell(z \cdot H_P, y)\big]\Big|.
+\gamma = \big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big| = \Big|\mathbb{E}\!\big[\ell(z \cdot W H_T, y) - \ell(z \cdot H_P, y)\big]\Big|.
 \end{equation}
 To bound this, we use the Lipschitz property of cross-entropy with respect to \emph{logits}. The gradient of $\ell$ with respect to $v$ is $\nabla_v \ell = \hat{p} - e_y$, with norm:
 \begin{equation}
@@ -198,10 +186,10 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$, yielding the Lipschitz inequality $|\ell(v_1, y) - \ell(v_2, y)| \le K_{\mathrm{pred}}\, \|v_1 - v_2\|_2$ on logits.
 
 \paragraph{Deriving the Second-Moment Projection.}
-Define the head misalignment matrix $\Delta H = W_N H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W_N H_T - H_P)$, and:
+Define the head misalignment matrix $\Delta H := W H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W H_T - H_P)$, and:
 \begin{equation}
 \begin{aligned}
-\gamma &\le \mathbb{E}\!\big[|\ell(z \cdot W_N H_T, y) - \ell(z \cdot H_P, y)|\big] \\
+\gamma &\le \mathbb{E}\!\big[|\ell(z \cdot W H_T, y) - \ell(z \cdot H_P, y)|\big] \\
 &\le K_{\mathrm{pred}} \cdot \mathbb{E}_z\!\big[\|z \cdot \Delta H\|_2\big].
 \end{aligned}
 \end{equation}
@@ -220,22 +208,24 @@ Expanding the squared norm using the trace operator:
 Taking the square root:
 \begin{equation}
 \label{eq:gamma_final}
-\gamma \le K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W_N H_T - H_P)\|_F.
+\gamma \le K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W H_T - H_P)\|_F.
 \end{equation}
 
-\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is strictly tighter than the spectral bound $\gamma \le K_{\mathrm{pred}} \|W_N H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which assumes worst-case alignment between features and head error.
+\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is strictly tighter than the spectral bound $\gamma \le K_{\mathrm{pred}} \|W H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which assumes worst-case alignment between features and head error.
 
 
 \subsection{Step 5: Assembling the Unified Bound}
 \label{app:assembly}
 
-Combining the risk decomposition (Eq.~\ref{eq:app_triangle}), the feature bound (Eq.~\ref{eq:delta_final}), and the head bound (Eq.~\ref{eq:gamma_final}):
+For any $W \in \mathcal{O}(d)$, combining the risk decomposition (Eq.~\ref{eq:app_triangle}), the feature bound (Eq.~\ref{eq:delta_final}), and the head bound (Eq.~\ref{eq:gamma_final}):
 \begin{equation}
-\begin{aligned}
-|\mathcal{R}_T - \mathcal{R}_P| &\le \delta + \gamma \\
-&\le K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N)} + K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W_N H_T - H_P)\|_F.
-\end{aligned}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \delta + \gamma \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_W)} \;+\; K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W H_T - H_P)\|_F.
 \end{equation}
+This is Theorem~\ref{thm:unified_bound} in its general form. The two specializations used in the paper:
+\begin{itemize}
+    \item \textbf{$W = I$ (operational, main text):} $\Omega_W = \Omega$ (trace form) and $W H_T - H_P = H_T - H_P$, giving the bound used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}.
+    \item \textbf{$W = W_N$ (Procrustes-optimal, ablation):} $\Omega_W = \Omega_N$ (nuclear form, achieves the tightest feature-side specialization), giving the bound underlying the Sec.~\ref{subsec:ablation} ablation.
+\end{itemize}
 This completes the proof of Theorem~\ref{thm:unified_bound}. \qed
 
 
