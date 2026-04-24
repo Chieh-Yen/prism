@@ -200,12 +200,16 @@ def _render_body_rows(model_short, ft_task, include_target=INCLUDE_TARGET_TASK):
 
 
 def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
+    # Scale target set below \textwidth so the resize factor matches
+    # gen_latex_table.py's main tables (which are naturally wider because
+    # they include a Family column); this keeps font sizes visually aligned
+    # instead of letting \resizebox stretch the narrower table more.
     L = []
     L.append(r"\begin{table}[t]")
     L.append(r"\centering")
     L.append(r"\caption{" + caption + r"}")
     L.append(r"\label{" + label + r"}")
-    L.append(r"\resizebox{\textwidth}{!}{%")
+    L.append(r"\resizebox{0.85\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
     L.append(r"Dataset & $\lambda$ & " + header_cols + r" \\")

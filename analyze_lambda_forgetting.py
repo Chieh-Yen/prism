@@ -399,17 +399,22 @@ def plot_grouped(table, out_dir: Path):
         for suffix, targets_in_group in groups:
             nrow = len(targets_in_group)
             ncol = 6
+            # Absolute reserve at top for legend + column titles so the
+            # legend doesn't collide with the header text on smaller grids.
+            legend_reserve_inch = 1.8
+            fig_height = nrow * 4.6 + legend_reserve_inch
             fig, axes = plt.subplots(
                 nrow, ncol,
-                figsize=(ncol * 6.0, nrow * 4.6 + 2.0),
+                figsize=(ncol * 6.0, fig_height),
                 squeeze=False,
             )
+            top_frac = (fig_height - legend_reserve_inch) / fig_height
             # Tight layout: y-labels only on first col, so wspace can be small.
             # Keep enough hspace so bottom row's tick labels don't collide with
             # the upper row's x-axis.
             plt.subplots_adjust(
                 hspace=0.28, wspace=0.22,
-                top=0.87, bottom=0.14, left=0.07, right=0.985,
+                top=top_frac, bottom=0.14, left=0.07, right=0.985,
             )
 
             seen_lams = []
@@ -437,7 +442,7 @@ def plot_grouped(table, out_dir: Path):
                         ax.plot(steps, vals,
                                 color=style["color"], marker=style["marker"],
                                 linestyle=style["ls"],
-                                markersize=15, markeredgecolor="k",
+                                markersize=16, markeredgecolor="k",
                                 markeredgewidth=1.1,
                                 lw=3.6, alpha=0.88, zorder=3 + li,
                                 clip_on=False)
@@ -446,7 +451,7 @@ def plot_grouped(table, out_dir: Path):
                             seen_lams.append(lam)
 
                     ax.set_xlim(0, x_max)
-                    ax.tick_params(labelsize=19)
+                    ax.tick_params(labelsize=24)
                     ax.tick_params(axis="both", which="minor", length=0)
                     ax.grid(True, which="major", ls=":", alpha=0.35)
 
@@ -454,26 +459,26 @@ def plot_grouped(table, out_dir: Path):
                     # (target task differs), so label it generically.
                     if ri == 0:
                         col_title = "Fine-tune Dataset" if ci == 0 else TASK_DISPLAY[ev]
-                        ax.set_title(col_title, fontsize=30,
-                                     fontweight="bold", pad=12)
+                        ax.set_title(col_title, fontsize=38,
+                                     fontweight="bold", pad=15)
 
                     # Y label only on leftmost column
                     if ci == 0:
                         ax.set_ylabel(
                             ROW_DISPLAY[target] + "\n$\\Delta\\mathcal{R}$",
-                            fontsize=24, fontweight="bold", labelpad=6,
+                            fontsize=30, fontweight="bold", labelpad=8,
                         )
                         ax.yaxis.set_label_coords(-0.26, 0.5)
 
                     # X label on bottom row
                     if ri == nrow - 1:
-                        ax.set_xlabel("Training Step", fontsize=24, labelpad=6)
+                        ax.set_xlabel("Training Step", fontsize=30, labelpad=8)
 
                     if not plotted:
                         ax.text(0.5, 0.5, "no data",
                                 ha="center", va="center",
                                 transform=ax.transAxes, color="0.6",
-                                fontsize=20)
+                                fontsize=25)
 
             # ── Legend (top center, no suptitle) ──────────────────────
             legend_entries = []
@@ -485,7 +490,7 @@ def plot_grouped(table, out_dir: Path):
                     Line2D([0], [0], marker=style["marker"], color=style["color"],
                            linestyle=style["ls"],
                            markerfacecolor=style["color"], markeredgecolor="k",
-                           markeredgewidth=1.1, markersize=19, lw=3.8),
+                           markeredgewidth=1.1, markersize=20, lw=3.8),
                     f"$\\lambda={lam}$",
                 ))
             legend_entries.append((
@@ -496,7 +501,7 @@ def plot_grouped(table, out_dir: Path):
             fig.legend(
                 handles, labels,
                 loc="upper center", bbox_to_anchor=(0.52, 0.998),
-                ncol=min(len(labels), 7), fontsize=23,
+                ncol=min(len(labels), 7), fontsize=29,
                 frameon=True, fancybox=True,
                 handletextpad=0.6, columnspacing=1.8, borderpad=0.6,
             )
