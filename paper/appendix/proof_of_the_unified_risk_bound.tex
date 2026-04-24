@@ -24,7 +24,7 @@ The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared 
 \label{app:risk_decomp}
 
 \paragraph{Setup.}
-Recall that the risk of model $M$ is $\mathcal{R}_M = \mathbb{E}_{(x,y)}[\ell(\phi_M(x) \cdot H_M, y)]$, where $\ell$ is the cross-entropy loss (Eq.~\ref{eq:ce_def}). Given the optimal orthogonal alignment $W_N \in \mathcal{O}(d)$ that maps proxy features toward target features (i.e., $\phi_T(x) \approx \phi_P(x) W_N$), we introduce an intermediate \emph{hybrid risk}:
+Recall that the risk of model $M$ is $\mathcal{R}_M = \mathbb{E}_{(x,y)}[\ell(\phi_M(x) \cdot H_M, y)]$, where $\ell$ is the cross-entropy loss (Eq.~\ref{eq:ce_def}). The proof below uses the Procrustes-optimal $W_N$; for any other $W \in \mathcal{O}(d)$ the same chain of inequalities holds with $W$ in place of $W_N$ throughout (only Step~3's SVD step specializes to $W_N$). Given $W_N \in \mathcal{O}(d)$ that maps proxy features toward target features (i.e., $\phi_T(x) \approx \phi_P(x) W_N$), we introduce an intermediate \emph{hybrid risk}:
 \begin{equation}
 \mathcal{R}_{P \to T} := \mathbb{E}_{(x,y)}\!\Big[\ell\!\big(\phi_P(x)\, W_N \cdot H_T,\; y\big)\Big].
 \end{equation}
@@ -79,6 +79,13 @@ K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2.
 \end{equation}
 
 \paragraph{Remark.} This bound depends on the \emph{relative distances} between token embeddings, not their absolute magnitudes. A uniform shift $H_T \to H_T + c\mathbf{1}^\top$ does not change $K_{\mathrm{feat}}$. A naive Cauchy--Schwarz bound gives $K_{\mathrm{feat}}^{\mathrm{naive}} = \sqrt{2}\|H_T\|_2$, which is substantially looser.
+
+\paragraph{From Gradient Bound to Lipschitz Inequality.}
+Since $g_T(\cdot, y)$ is continuously differentiable, the gradient bound $\|\nabla_z g_T(z, y)\|_2 \le K_{\mathrm{feat}}$ implies the Lipschitz inequality stated above by the mean value theorem: for any $z_1, z_2$,
+\begin{equation*}
+g_T(z_2, y) - g_T(z_1, y) = \int_0^1 \nabla_z g_T\!\big(z_1 + t(z_2 - z_1),\, y\big)^\top (z_2 - z_1)\, dt,
+\end{equation*}
+and Cauchy--Schwarz gives $|g_T(z_2, y) - g_T(z_1, y)| \le K_{\mathrm{feat}}\, \|z_2 - z_1\|_2$.
 
 \paragraph{Applying the Lipschitz Bound.}
 Using the Lipschitz property with $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x) W_N$:
@@ -165,7 +172,7 @@ Adding and subtracting $2\rho_T\rho_P$ completes the square:
 \begin{equation}
 = (\rho_T^2 - 2\rho_T\rho_P + \rho_P^2) + 2\rho_T\rho_P - 2\,\Omega_N\,\rho_T\rho_P = \underbrace{(\rho_T - \rho_P)^2}_{\text{Scale Mismatch}} + \underbrace{2\rho_T\rho_P(1 - \Omega_N)}_{\text{Shape Mismatch}}.
 \end{equation}
-This is the $W = W_N$ generalization of Proposition~\ref{prop:exact_decomposition}; setting $W = I$ in the same expansion (no SVD needed) recovers the main-text identity with $\Omega$ in place of $\Omega_N$. \qed
+This is the $W = W_N$ specialization of Proposition~\ref{prop:exact_decomposition}; the general identity for any $W \in \mathcal{O}(d)$ follows from the same expansion with $\Omega_W$ in place of $\Omega_N$ (no SVD needed), and setting $W = I$ recovers the main-text trace form $\Omega$. \qed
 
 \paragraph{Assembling the Feature Bound.}
 Combining Eq.~(\ref{eq:delta_lipschitz}) with the decomposition above:
@@ -188,7 +195,7 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 \begin{equation}
 \|\nabla_v \ell\|_2 = \|\hat{p} - e_y\|_2.
 \end{equation}
-Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$.
+Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$, yielding the Lipschitz inequality $|\ell(v_1, y) - \ell(v_2, y)| \le K_{\mathrm{pred}}\, \|v_1 - v_2\|_2$ on logits.
 
 \paragraph{Deriving the Second-Moment Projection.}
 Define the head misalignment matrix $\Delta H = W_N H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W_N H_T - H_P)$, and:
