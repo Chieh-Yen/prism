@@ -364,15 +364,12 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
                 ax.set_title(COL_DISPLAY[ds], fontsize=20,
                              fontweight="bold", pad=7)
 
-            # ── Y label: model name on left col, $|ΔR|$ on all ───
+            # ── Y label: model name + $|ΔR|$ on left col only ────
             if ci == 0:
                 ax.set_ylabel(
                     ROW_DISPLAY[model] + "\n$|\\Delta\\mathcal{R}|$",
                     fontsize=16, fontweight="bold", labelpad=2,
                 )
-            else:
-                ax.set_ylabel("$|\\Delta\\mathcal{R}|$",
-                              fontsize=14, labelpad=2)
 
             # ── X label on all bottom row subplots ────────────────
             if ri == nrow - 1:

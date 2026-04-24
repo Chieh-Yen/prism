@@ -1,8 +1,20 @@
 % Full per-model quantization tables for the appendix.
 % This file is meant to be \input-ed by the main paper, not compiled standalone.
 
-\section{Feature-Only Scatter and Per-Model Quantization Tables}
+\section{Quantization Replication, Feature-Only Scatter, and Per-Model Tables}
 \label{app:quant_tables}
+
+\subsection{Replication on Ministral and DeepSeek}
+\label{app:replication_mistral_deepseek}
+
+Figure~\ref{fig:quant_grid_bound_extra} replicates the main quantization scatter (Fig.~\ref{fig:quant_grid_bound}) on the two additional 8B lineages---Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B---kept out of the main text for symmetry with the LoRA experiments (Sec.~\ref{subsec:exp_setup}). The bound tracks $|\Delta\mathcal{R}|$ on these two lineages with patterns consistent with the Llama--Qwen main analysis, supporting the cross-lineage generality of the PRISM framework. Per-variant numerical decompositions for all four lineages are in Appendix~\ref{app:per_model_tables}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/quantization/prism_grid_bound_mistral_deepseek.pdf}
+    \caption{\textbf{PTQ replication on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B.} Counterpart of main-text Fig.~\ref{fig:quant_grid_bound} (Llama-3.1-8B and Qwen3-8B), with identical axes, PTQ family colour coding, and benchmark set. Rows: Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B. Columns: ARC, MMLU, SQuAD, TriviaQA, GSM8K. Per-subplot Spearman $r_s$ is annotated in each panel.}
+    \label{fig:quant_grid_bound_extra}
+\end{figure}
 
 \subsection{Feature-Only Scatter}
 \label{app:feature_only}
