@@ -199,40 +199,21 @@ def _render_body_rows(model_short, ft_task, include_target=INCLUDE_TARGET_TASK):
     return L
 
 
-def _wrap_longtable(body_rows, caption, label, col_spec, header_cols):
-    """Multi-page longtable with repeating header + continuation markers.
-
-    Uses \\small + tight \\tabcolsep instead of \\resizebox (which longtable
-    does not support).
-    """
-    ncols = col_spec.count("r") + col_spec.count("l")
+def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
     L = []
-    L.append(r"\begingroup")
-    L.append(r"\small")
-    L.append(r"\setlength{\tabcolsep}{4pt}")
-    L.append(r"\renewcommand{\arraystretch}{1.05}")
-    L.append(r"\setlength{\LTcapwidth}{\textwidth}")
-    L.append(r"\begin{longtable}{" + col_spec + "}")
-    L.append(r"\caption{" + caption + r"}\label{" + label + r"}\\")
+    L.append(r"\begin{table}[t]")
+    L.append(r"\centering")
+    L.append(r"\caption{" + caption + r"}")
+    L.append(r"\label{" + label + r"}")
+    L.append(r"\resizebox{\textwidth}{!}{%")
+    L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
     L.append(r"Dataset & $\lambda$ & " + header_cols + r" \\")
     L.append(r"\midrule")
-    L.append(r"\endfirsthead")
-    L.append(r"\multicolumn{" + str(ncols) + r"}{l}"
-             r"{\small\itshape (continued from previous page)}\\")
-    L.append(r"\toprule")
-    L.append(r"Dataset & $\lambda$ & " + header_cols + r" \\")
-    L.append(r"\midrule")
-    L.append(r"\endhead")
-    L.append(r"\midrule")
-    L.append(r"\multicolumn{" + str(ncols) + r"}{r}"
-             r"{\small\itshape continued on next page}\\")
-    L.append(r"\endfoot")
-    L.append(r"\bottomrule")
-    L.append(r"\endlastfoot")
     L.extend(body_rows)
-    L.append(r"\end{longtable}")
-    L.append(r"\endgroup")
+    L.append(r"\bottomrule")
+    L.append(r"\end{tabular}}")
+    L.append(r"\end{table}")
     return "\n".join(L)
 
 
@@ -258,7 +239,7 @@ def build_table(model_cfg, ft_cfg, include_target=INCLUDE_TARGET_TASK):
         r"are in bold."
     )
     label = f"tab:trace_norm_{short_model}_{short_ft}"
-    return _wrap_longtable(body_rows, caption, label, col_spec, header_cols)
+    return _wrap_regular_table(body_rows, caption, label, col_spec, header_cols)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -308,13 +289,12 @@ def main():
         r"\usepackage[utf8]{inputenc}" "\n"
         r"\usepackage[T1]{fontenc}" "\n"
         r"\usepackage{booktabs,amsmath,amssymb,graphicx}" "\n"
-        r"\usepackage{longtable}" "\n"
         r"\usepackage[table]{xcolor}" "\n"
         r"\usepackage[margin=1.5cm,landscape]{geometry}" "\n"
         r"\pagestyle{empty}" "\n"
         r"\begin{document}" "\n"
     )
-    body = "\n\n\\clearpage\n\n".join(f"\\input{{{stem}}}" for stem in stems)
+    body = "\n\n".join(f"\\input{{{stem}}}" for stem in stems)
     preview_path = OUT_DIR / "preview_trace_norm.tex"
     preview_path.write_text(preamble + body + "\n" + r"\end{document}" + "\n")
     print(f"Saved → {preview_path}")
