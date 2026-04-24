@@ -12,12 +12,12 @@
 \section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
 \label{app:detailed_proofs}
 
-We provide the complete proof of Theorem~\ref{thm:unified_bound}, which the main text states for general $W \in \mathcal{O}(d)$ (trace family $\Omega_W$, Eq.~\ref{eq:omega_def}). The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, the alignment-residual decomposition (whose Procrustes-optimal specialization $W = W_N$ yields the nuclear form $\Omega_N$ via SVD), second-moment-adjusted head bound, and final assembly. The operational $W = I$ specialization (used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}) and the $W = W_N$ specialization (used in the Sec.~\ref{subsec:ablation} ablation) follow as corollaries of the same proof.
+We provide the complete proof of Theorem~\ref{thm:unified_bound}, which the main text states for general $W \in \mathcal{O}(d)$ (trace family $\Omega_W$, Eq.~\ref{eq:omega_def}). The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, the alignment-residual decomposition (whose Procrustes-optimal specialization $W = W_N$ yields the nuclear form $\Omega_N$ via SVD), second-moment-adjusted head bound, and final assembly. The identity-alignment specialization $W = I$ (used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}) and the $W = W_N$ specialization (used in the Sec.~\ref{subsec:ablation} ablation) follow as corollaries of the same proof.
 
 \subsection{Relation to Classical Procrustes Shape Metrics}
 \label{app:shape_metrics_relation}
 
-The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega_N)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Sections~\ref{subsec:quantization} and~\ref{subsec:forgetting} show that the two arms of this split have qualitatively different operational meanings and dominate the risk gap under different LLM lifecycle regimes.
+The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega_N)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Sections~\ref{subsec:quantization} and~\ref{subsec:forgetting} show that the two arms of this split have qualitatively different practical meanings and dominate the risk gap under different LLM lifecycle regimes.
 
 
 \subsection{Step 1: Risk Decomposition via Triangle Inequality}
@@ -28,7 +28,7 @@ Recall that the risk of model $M$ is $\mathcal{R}_M = \mathbb{E}_{(x,y)}[\ell(\p
 \begin{equation}
 \mathcal{R}_{P \to T} := \mathbb{E}_{(x,y)}\!\Big[\ell\!\big(\phi_P(x)\, W \cdot H_T,\; y\big)\Big].
 \end{equation}
-This evaluates the target's head $H_T$ on proxy features aligned by $W$, serving as a bridge between $\mathcal{R}_T$ and $\mathcal{R}_P$. The proof below holds for any $W \in \mathcal{O}(d)$; the two specializations relevant to the paper are $W = I$ (operational, trace form $\Omega$, used throughout the main text) and $W = W_N := \arg\min_W \|Z_T - Z_P W\|_F^2$ (Procrustes-optimal, nuclear form $\Omega_N$, Sec.~\ref{subsec:ablation} ablation).
+This evaluates the target's head $H_T$ on proxy features aligned by $W$, serving as a bridge between $\mathcal{R}_T$ and $\mathcal{R}_P$. The proof below holds for any $W \in \mathcal{O}(d)$; the two specializations relevant to the paper are $W = I$ (identity alignment, trace form $\Omega$, used throughout the main text) and $W = W_N := \arg\min_W \|Z_T - Z_P W\|_F^2$ (Procrustes-optimal, nuclear form $\Omega_N$, Sec.~\ref{subsec:ablation} ablation).
 
 \paragraph{Decomposition.}
 By the triangle inequality on absolute values:
@@ -134,7 +134,7 @@ Adding and subtracting $2\rho_T\rho_P$ completes the square:
 \end{equation}
 This is Proposition~\ref{prop:exact_decomposition} in its general form. \qed
 
-\paragraph{Specialization 1: $W = I$ (operational form, main text).}
+\paragraph{Specialization 1: $W = I$ (identity alignment, main text).}
 Setting $W = I$ gives the trace form $\Omega \equiv \Omega_{W=I} = \operatorname{Tr}(Z_T^\top Z_P)/(\|Z_T\|_F \|Z_P\|_F)$, and Eq.~(\ref{eq:exact_decomposition_general}) becomes
 \begin{equation}
 \frac{1}{n}\|Z_T - Z_P\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega),
@@ -223,7 +223,7 @@ For any $W \in \mathcal{O}(d)$, combining the risk decomposition (Eq.~\ref{eq:ap
 \end{equation}
 This is Theorem~\ref{thm:unified_bound} in its general form. The two specializations used in the paper:
 \begin{itemize}
-    \item \textbf{$W = I$ (operational, main text):} $\Omega_W = \Omega$ (trace form) and $W H_T - H_P = H_T - H_P$, giving the bound used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}.
+    \item \textbf{$W = I$ (identity alignment, main text):} $\Omega_W = \Omega$ (trace form) and $W H_T - H_P = H_T - H_P$, giving the bound used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}.
     \item \textbf{$W = W_N$ (Procrustes-optimal, ablation):} $\Omega_W = \Omega_N$ (nuclear form, achieves the tightest feature-side specialization), giving the bound underlying the Sec.~\ref{subsec:ablation} ablation.
 \end{itemize}
 This completes the proof of Theorem~\ref{thm:unified_bound}. \qed

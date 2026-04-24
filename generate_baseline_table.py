@@ -4,7 +4,7 @@ Generate two component-wise ablation tables that measure the variant-ranking
 power of three geometric metrics against the empirical cross-entropy risk
 gap |MdR|, across the 4-model x 5-benchmark PTQ grid (20 cells):
 
-  - paper/tables/quantization/baseline.tex   (main text, W=I operational form)
+  - paper/tables/quantization/baseline.tex   (main text, W=I identity-alignment form)
   - paper/tables/quantization/baseline_w.tex (appendix, W=W_N Procrustes-optimal)
 
 Both tables share the same row structure (shape -> + scale -> + head) and
@@ -63,7 +63,7 @@ ROW_DISPLAY = {
 YCOL = "|MdR|"
 
 # (display label, csv column, short id for internal use)
-# All metrics use W=I operational alignment; rows form a progressive
+# All metrics use W=I identity alignment; rows form a progressive
 # ablation ladder under a consistent alignment convention:
 #   shape only -> + scale (=> feature term) -> + head (=> full bound).
 # Symbol column is left-aligned in a fixed-width \makebox so that the
@@ -398,7 +398,7 @@ def _emit_combined_latex(groups, out_path, label, caption):
 # Captions (kept inline so they live next to the metric definitions above)
 # ======================================================================
 CAPTION_I = (
-    r"\textbf{Component-wise ablation of the PRISM bound (operational $W{=}I$ form).} "
+    r"\textbf{Component-wise ablation of the PRISM bound (identity-alignment form, $W{=}I$).} "
     r"Per-cell Spearman rank correlation $|r_s|$ with the empirical "
     r"cross-entropy risk gap $|\Delta\mathcal{R}|$ across the $4{\times}5$ "
     r"PTQ grid (larger $|r_s|$ = better variant ranking). Rows add bound "
@@ -418,7 +418,7 @@ CAPTION_W = (
     r"orthogonal alignment $W_N$ rather than identity. Larger $|r_s|$ = "
     r"better variant ranking; bold = best in column. As expected, the "
     r"Procrustes-optimal alignment yields modestly stronger ranking on the "
-    r"full bound; the operational $W{=}I$ form used in the main text "
+    r"full bound; the identity-alignment form ($W{=}I$) used in the main text "
     r"(Table~\ref{tab:baseline}) trades this margin for autograd "
     r"compatibility (no SVD per step) and for the head-term simplification "
     r"$H_T = H_P$ that holds in the frozen-\texttt{lm\_head} regimes (LoRA, "
@@ -427,14 +427,14 @@ CAPTION_W = (
 
 CAPTION_COMBINED = (
     r"\textbf{Component-wise ablation under both alignment conventions.} "
-    r"Top block: operational $W{=}I$ form (used throughout the main text). "
+    r"Top block: identity-alignment form ($W{=}I$, used throughout the main text). "
     r"Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell "
     r"Spearman protocol throughout. Within each block, rows add bound "
     r"components cumulatively (shape $\to +$ scale $\to +$ head); larger "
     r"$|r_s|$ = better variant ranking; bold = best in column \emph{within "
     r"its block}. The $W{=}W_N$ block ranks modestly better on the full "
     r"bound, as expected since $W_N$ minimizes the alignment residual; "
-    r"the main text adopts $W{=}I$ for autograd compatibility and for the "
+    r"the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the "
     r"head-term simplification $H_T = H_P$ that holds in our "
     r"frozen-\texttt{lm\_head} regimes."
 )
