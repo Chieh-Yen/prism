@@ -450,9 +450,11 @@ def plot_grouped(table, out_dir: Path):
                     ax.tick_params(axis="both", which="minor", length=0)
                     ax.grid(True, which="major", ls=":", alpha=0.35)
 
-                    # Column title (top row only)
+                    # Column title (top row only). First column varies by row
+                    # (target task differs), so label it generically.
                     if ri == 0:
-                        ax.set_title(TASK_DISPLAY[ev], fontsize=30,
+                        col_title = "Fine-tune Dataset" if ci == 0 else TASK_DISPLAY[ev]
+                        ax.set_title(col_title, fontsize=30,
                                      fontweight="bold", pad=12)
 
                     # Y label only on leftmost column
