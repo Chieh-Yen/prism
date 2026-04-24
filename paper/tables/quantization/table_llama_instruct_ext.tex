@@ -1,12 +1,24 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{Llama-3.1-8B-Instruct} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:llama_instruct_decomposition_ext}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\LTcapwidth}{\textwidth}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{Llama-3.1-8B-Instruct} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:llama_instruct_decomposition_ext}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 ARC & -- & FP16 & 145.60 & 145.61 & 0.9995 & 4.7460 & \cellcolor{cyan!12} $0$ & 12.3411 & 0.0001 \\
 {\small ($\mathbf{r_s{=}0.57}$)} & GGUF & Q8\_0 & 145.60 & 145.61 & 0.9970 & 11.2201 & 4.0600 & 34.9174 & 0.0107 \\
  &  & Q6\_K & 145.60 & 145.68 & 0.9934 & 16.7180 & 12.6488 & 61.3598 & 0.0144 \\
@@ -66,6 +78,5 @@ FineWeb-Edu & -- & FP16 & 109.04 & 109.10 & 1.0000 & 0.0592 & \cellcolor{cyan!12
  &  & NF4 & 109.04 & 108.97 & 1.0000 & 0.0694 & \cellcolor{cyan!12} $0$ & 0.1804 & 0.0423 \\
  &  & FP4 & 109.04 & 108.97 & 1.0000 & 0.0680 & \cellcolor{cyan!12} $0$ & 0.1769 & 0.0854 \\
  & GPTQ & GPTQ-4bit & 109.04 & 108.99 & 1.0000 & 0.0529 & \cellcolor{cyan!12} $0$ & 0.1375 & 0.0466 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup

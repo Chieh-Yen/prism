@@ -1,12 +1,24 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{Qwen3-8B-Instruct} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:qwen_instruct_decomposition_ext}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\LTcapwidth}{\textwidth}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{Qwen3-8B-Instruct} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:qwen_instruct_decomposition_ext}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 ARC & -- & FP16 & 165.05 & 164.96 & 1.0000 & 0.0883 & \cellcolor{cyan!12} $0$ & 0.3012 & 0.0025 \\
 {\small ($\mathbf{r_s{=}0.73}$)} & GGUF & Q8\_0 & 165.05 & 165.00 & 0.9998 & 2.9624 & 8.8392 & 22.6013 & 0.0052 \\
  &  & Q6\_K & 165.05 & 165.43 & 0.9984 & 9.4418 & 28.4395 & 72.4126 & 0.0299 \\
@@ -56,6 +68,5 @@ FineWeb-Edu & -- & FP16 & 136.78 & 136.83 & 1.0000 & 0.0427 & \cellcolor{cyan!12
  &  & NF4 & 136.78 & 139.04 & 1.0000 & 2.2581 & \cellcolor{cyan!12} $0$ & 7.6992 & 0.0307 \\
  &  & FP4 & 136.78 & 143.35 & 1.0000 & 6.5636 & \cellcolor{cyan!12} $0$ & 22.3796 & 0.0684 \\
  & GPTQ & GPTQ-8bit & 136.78 & 136.72 & 1.0000 & 0.0652 & \cellcolor{cyan!12} $0$ & 0.2225 & 0.0004 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup

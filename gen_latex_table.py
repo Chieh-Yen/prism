@@ -61,7 +61,7 @@ MODELS = [
 TASK_GROUPS = [
     {"name": "main", "layout": "table",
      "datasets": ["mmlu", "triviaqa"]},
-    {"name": "ext",  "layout": "table",
+    {"name": "ext",  "layout": "longtable",
      "datasets": ["arc", "squad", "gsm8k", "wikitext", "fineweb_edu"]},
     {"name": "all",  "layout": "longtable",
      "datasets": ["arc", "mmlu", "squad", "triviaqa", "gsm8k",

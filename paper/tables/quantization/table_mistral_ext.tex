@@ -1,12 +1,24 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:mistral_decomposition_ext}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\LTcapwidth}{\textwidth}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:mistral_decomposition_ext}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 ARC & -- & FP16 & 191.14 & 191.11 & 0.9999 & 2.6886 & \cellcolor{cyan!12} $0$ & 2.6480 & 0.0006 \\
 {\small ($\mathbf{r_s{=}0.76}$)} & GGUF & Q8\_0 & 191.14 & 191.06 & 0.9996 & 5.3670 & 2.9300 & 9.4295 & 0.0011 \\
  &  & Q6\_K & 191.14 & 191.08 & 0.9981 & 11.7814 & 9.1076 & 24.4836 & 0.0047 \\
@@ -61,6 +73,5 @@ FineWeb-Edu & -- & FP16 & 147.77 & 147.98 & 1.0000 & 0.2143 & \cellcolor{cyan!12
  & BnB & INT8 & 147.77 & 147.78 & 1.0000 & 0.0074 & \cellcolor{cyan!12} $0$ & 0.0073 & 0.0030 \\
  &  & NF4 & 147.77 & 147.62 & 1.0000 & 0.1542 & \cellcolor{cyan!12} $0$ & 0.1519 & 0.0288 \\
  &  & FP4 & 147.77 & 147.69 & 1.0000 & 0.0834 & \cellcolor{cyan!12} $0$ & 0.0822 & 0.0513 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup

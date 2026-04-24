@@ -161,7 +161,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
-    \item \textbf{A closed-form CE risk bound with three diagnostic axes, from an exact scale--shape decomposition.} The Orthogonal Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; combined with a covariance-weighted head term and a simplex-polarized Lipschitz constant, this yields a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ (Theorem~\ref{thm:unified_bound}).
+    \item \textbf{A closed-form CE risk bound with three diagnostic axes, from an exact scale--shape decomposition.} We prove that the Procrustes feature-alignment residual admits an exact algebraic split into a scale arm $(\Delta\rho)^2$ and a shape arm $2\rho_T\rho_P(1{-}\Omega)$. Combined with a covariance-weighted head-discrepancy term, this yields a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ (Theorem~\ref{thm:unified_bound}). All three components admit closed-form estimators and are computed jointly from a single forward pass per model.
 
     \item \textbf{A unified framework across PTQ and frozen-head LoRA, usable as both a diagnostic and a training objective.} The bound instantiates cleanly across both LLM post-training regimes, and its differentiable trace form $\Omega$ doubles as a training-time shape regularizer against catastrophic forgetting (Sec.~\ref{subsec:shape_reg}).
 

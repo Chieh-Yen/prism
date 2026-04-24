@@ -1,12 +1,24 @@
-\begin{table}[t]
-\centering
-\caption{Geometric decomposition for \textbf{Llama-3.1-8B} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
-\label{tab:llama_decomposition_ext}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{ll l rrrrrrr}
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\LTcapwidth}{\textwidth}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{Llama-3.1-8B} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:llama_decomposition_ext}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
 ARC & -- & FP16 & 137.58 & 137.63 & 0.9998 & 2.4488 & \cellcolor{cyan!12} $0$ & 6.4005 & 0.0006 \\
 {\small ($\mathbf{r_s{=}0.92}$)} & GGUF & Q8\_0 & 137.58 & 137.68 & 0.9992 & 5.4060 & 3.8397 & 19.5600 & 0.0042 \\
  &  & Q6\_K & 137.58 & 138.13 & 0.9955 & 13.0869 & 12.0511 & 51.2485 & 0.0001 \\
@@ -66,6 +78,5 @@ FineWeb-Edu & -- & FP16 & 109.80 & 109.85 & 1.0000 & 0.0575 & \cellcolor{cyan!12
  &  & NF4 & 109.80 & 109.72 & 1.0000 & 0.0805 & \cellcolor{cyan!12} $0$ & 0.2103 & 0.0551 \\
  &  & FP4 & 109.80 & 109.75 & 1.0000 & 0.0421 & \cellcolor{cyan!12} $0$ & 0.1099 & 0.1034 \\
  & GPTQ & GPTQ-4bit & 109.80 & 109.73 & 1.0000 & 0.0616 & \cellcolor{cyan!12} $0$ & 0.1610 & 0.0600 \\
-\bottomrule
-\end{tabular}}
-\end{table}
+\end{longtable}
+\endgroup
