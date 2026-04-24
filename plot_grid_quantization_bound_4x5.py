@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-4×5 grid: rows=models, cols=benchmarks.
-Each subplot: scatter of x-metric vs |MdR|, colored by quantization family.
+Grid scatter of x-metric vs |MdR|; rows = models, cols = benchmarks.
+Default grid is 2×5 (llama + qwen over the 5 benchmarks); the model set
+is selectable via --models.
 
 Two modes:
   - "bound":   x = Bound_I, with y=x line + safe zone (theoretical validity)
@@ -16,8 +17,10 @@ Usage:
   python plot_grid_4x5.py --corr pearson_log          # r_p on log(x), log(y)
   python plot_grid_4x5.py --corr pearson_both         # r_p AND r_p^log stacked
   python plot_grid_4x5.py --corr spearman,pearson_log # pick a subset
+  python plot_grid_4x5.py --models llama,qwen,mistral,deepseek  # 4-model grid
 
-Default --corr: spearman,pearson,pearson_log,pearson_both
+Default --corr:   spearman,pearson,pearson_log,pearson_both
+Default --models: llama,qwen
 
 Output files:
   spearman     → prism_grid_{bound|feature}.pdf
@@ -49,20 +52,23 @@ ROOT = Path(__file__).resolve().parent
 CSV_PATH = ROOT / "exp_result" / "quantization" / "quantization_merged_slim.csv"
 FIG_DIR = ROOT / "paper" / "figures" / "quantization"
 
-ROW_MODELS = [
-    "meta-llama/Meta-Llama-3.1-8B",
-    "mistralai/Ministral-3-8B-Base-2512",
-    "Qwen/Qwen3-8B-Base",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-]
-COL_DATASETS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
-
-ROW_DISPLAY = {
-    "meta-llama/Meta-Llama-3.1-8B": "Llama-3.1-8B",
-    "mistralai/Ministral-3-8B-Base-2512": "Ministral-3-8B",
-    "Qwen/Qwen3-8B-Base": "Qwen3-8B-Base",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": "DeepSeek-R1-8B",
+# short_id -> (target_model path in CSV, display label)
+MODEL_CATALOG = {
+    "llama":    ("meta-llama/Meta-Llama-3.1-8B",             "Llama-3.1-8B"),
+    "mistral":  ("mistralai/Ministral-3-8B-Base-2512",       "Ministral-3-8B"),
+    "qwen":     ("Qwen/Qwen3-8B-Base",                       "Qwen3-8B-Base"),
+    "deepseek": ("deepseek-ai/DeepSeek-R1-Distill-Llama-8B", "DeepSeek-R1-8B"),
 }
+# Default selection when --models is not passed. Override at CLI.
+DEFAULT_MODELS = ["llama", "qwen"]
+
+# Populated from DEFAULT_MODELS here and overwritten in main() once the CLI
+# is parsed; plot_grid() reads these module-level globals at call time.
+ROW_MODELS = [MODEL_CATALOG[m][0] for m in DEFAULT_MODELS]
+ROW_DISPLAY = {MODEL_CATALOG[m][0]: MODEL_CATALOG[m][1] for m in DEFAULT_MODELS}
+# Short ids (in CLI order) — used for output filename suffix.
+MODEL_IDS = list(DEFAULT_MODELS)
+COL_DATASETS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
 COL_DISPLAY = {
     "arc": "ARC", "mmlu": "MMLU", "squad": "SQuAD",
     "triviaqa": "TriviaQA", "gsm8k": "GSM8K",
@@ -80,7 +86,7 @@ MODE_CONFIG = {
         "xlim": (2e-2, 3e3),
         "ylim": (3e-6, 3e0),
         "safe_zone": True,
-        "outfile": "prism_grid_bound{suffix}.pdf",
+        "outfile": "prism_grid_bound_{models}{suffix}.pdf",
     },
     "feature": {
         "xcol": "delta_I",
@@ -88,7 +94,7 @@ MODE_CONFIG = {
         "xlim": (2e-3, 5e2),
         "ylim": (3e-6, 3e0),
         "safe_zone": False,
-        "outfile": "prism_grid_feature{suffix}.pdf",
+        "outfile": "prism_grid_feature_{models}{suffix}.pdf",
     },
 }
 
@@ -248,14 +254,20 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
     rows = load_data()
 
     nrow, ncol = len(ROW_MODELS), len(COL_DATASETS)
+    # Reserve an absolute vertical band at the top for the legend + column
+    # titles so small grids (e.g., 2 rows) don't have the legend collide
+    # with the header text.
+    legend_reserve_inch = 1.1
+    fig_height = nrow * 2.8 + legend_reserve_inch
     fig, axes = plt.subplots(
         nrow, ncol,
-        figsize=(ncol * 3.6, nrow * 2.8 + 1.2),
+        figsize=(ncol * 3.6, fig_height),
         squeeze=False,
     )
+    top_frac = (fig_height - legend_reserve_inch) / fig_height
     plt.subplots_adjust(
         hspace=0.22, wspace=0.24,
-        top=0.91, bottom=0.08, left=0.07, right=0.97,
+        top=top_frac, bottom=0.08, left=0.07, right=0.97,
     )
 
     seen_methods = set()
@@ -337,34 +349,34 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
                 ax.text(
                     0.96, 0.04, "\n".join(lines),
                     transform=ax.transAxes, ha="right", va="bottom",
-                    fontsize=13, fontstyle="italic",
+                    fontsize=17, fontstyle="italic",
                     linespacing=1.15,
                     bbox=dict(boxstyle="round,pad=0.2", fc="white",
                               alpha=0.85, ec="0.7", lw=0.5),
                 )
 
-            ax.tick_params(labelsize=9)
+            ax.tick_params(labelsize=12)
             ax.tick_params(axis="both", which="minor", length=0)
             ax.grid(True, which="major", ls=":", alpha=0.35)
 
             # ── Column title (top row) ────────────────────────────
             if ri == 0:
-                ax.set_title(COL_DISPLAY[ds], fontsize=16,
-                             fontweight="bold", pad=5)
+                ax.set_title(COL_DISPLAY[ds], fontsize=20,
+                             fontweight="bold", pad=7)
 
             # ── Y label: model name on left col, $|ΔR|$ on all ───
             if ci == 0:
                 ax.set_ylabel(
                     ROW_DISPLAY[model] + "\n$|\\Delta\\mathcal{R}|$",
-                    fontsize=12, fontweight="bold", labelpad=2,
+                    fontsize=16, fontweight="bold", labelpad=2,
                 )
             else:
                 ax.set_ylabel("$|\\Delta\\mathcal{R}|$",
-                              fontsize=10, labelpad=2)
+                              fontsize=14, labelpad=2)
 
             # ── X label on all bottom row subplots ────────────────
             if ri == nrow - 1:
-                ax.set_xlabel(cfg["xlabel"], fontsize=13, labelpad=2)
+                ax.set_xlabel(cfg["xlabel"], fontsize=17, labelpad=2)
 
     # ── Legend ─────────────────────────────────────────────────────
     legend_entries = []
@@ -375,7 +387,7 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
         handle = Line2D(
             [0], [0], marker=style["marker"], color="w",
             markerfacecolor=style["color"], markeredgecolor="k",
-            markeredgewidth=0.5, markersize=8, linestyle="None",
+            markeredgewidth=0.5, markersize=11, linestyle="None",
         )
         legend_entries.append((handle, method))
 
@@ -394,13 +406,16 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
         fig.legend(
             handles, labels,
             loc="upper center", bbox_to_anchor=(0.52, 0.99),
-            ncol=min(len(labels), 14), fontsize=11,
+            ncol=min(len(labels), 14), fontsize=14,
             frameon=True, fancybox=True,
             handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
         )
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
-    outpath = FIG_DIR / cfg["outfile"].format(suffix=corr_cfg["suffix"])
+    outpath = FIG_DIR / cfg["outfile"].format(
+        suffix=corr_cfg["suffix"],
+        models="_".join(MODEL_IDS),
+    )
     fig.savefig(str(outpath), format="pdf", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved → {outpath}")
@@ -413,11 +428,15 @@ def main():
     args = sys.argv[1:]
 
     corr_methods = None
+    model_ids = None
     filtered = []
     i = 0
     while i < len(args):
         if args[i] == "--corr" and i + 1 < len(args):
             corr_methods = [c.strip() for c in args[i + 1].split(",")]
+            i += 2
+        elif args[i] == "--models" and i + 1 < len(args):
+            model_ids = [m.strip() for m in args[i + 1].split(",") if m.strip()]
             i += 2
         else:
             filtered.append(args[i])
@@ -429,7 +448,8 @@ def main():
         modes = [a for a in filtered if a in MODE_CONFIG]
         if not modes:
             print(f"Usage: {sys.argv[0]} [bound|feature] "
-                  f"[--corr spearman,pearson,pearson_log]")
+                  f"[--corr spearman,pearson,pearson_log] "
+                  f"[--models llama,qwen,...]")
             sys.exit(1)
 
     if corr_methods is None:
@@ -438,6 +458,21 @@ def main():
         if c not in CORR_CONFIG:
             print(f"Unknown --corr value: {c} (expected: {list(CORR_CONFIG)})")
             sys.exit(1)
+
+    if model_ids is None:
+        model_ids = list(DEFAULT_MODELS)
+    unknown = [m for m in model_ids if m not in MODEL_CATALOG]
+    if unknown:
+        print(f"Unknown --models value(s): {unknown} "
+              f"(expected: {list(MODEL_CATALOG)})")
+        sys.exit(1)
+    # Mutate in-place so plot_grid() and helpers pick up the CLI-selected set.
+    ROW_MODELS[:] = [MODEL_CATALOG[m][0] for m in model_ids]
+    ROW_DISPLAY.clear()
+    ROW_DISPLAY.update(
+        {MODEL_CATALOG[m][0]: MODEL_CATALOG[m][1] for m in model_ids}
+    )
+    MODEL_IDS[:] = model_ids
 
     for m in modes:
         for c in corr_methods:

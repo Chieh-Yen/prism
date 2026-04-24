@@ -2,7 +2,8 @@
 """
 Generate two component-wise ablation tables that measure the variant-ranking
 power of three geometric metrics against the empirical cross-entropy risk
-gap |MdR|, across the 4-model x 5-benchmark PTQ grid (20 cells):
+gap |MdR|, across an (N-model x 5-benchmark) PTQ grid. The model set is
+selectable via --models; the default is the 2-model set (llama + qwen):
 
   - paper/tables/quantization/baseline.tex   (main text, W=I identity-alignment form)
   - paper/tables/quantization/baseline_w.tex (appendix, W=W_N Procrustes-optimal)
@@ -28,9 +29,11 @@ is negative; the PRISM bound has the opposite sign. We report |r_s| so that
 larger is uniformly better and the three metrics are magnitude-comparable.
 
 Usage:
-  python generate_baseline_table.py
+  python generate_baseline_table.py                                # default: llama + qwen
+  python generate_baseline_table.py --models llama qwen mistral deepseek
 """
 
+import argparse
 import csv
 import math
 import statistics
@@ -45,20 +48,21 @@ OUT_PATH_I = ROOT / "paper" / "tables" / "quantization" / "baseline.tex"
 OUT_PATH_W = ROOT / "paper" / "tables" / "quantization" / "baseline_w.tex"
 OUT_PATH_COMBINED = ROOT / "paper" / "tables" / "quantization" / "baseline_combined.tex"
 
-ROW_MODELS = [
-    "meta-llama/Meta-Llama-3.1-8B",
-    "mistralai/Ministral-3-8B-Base-2512",
-    "Qwen/Qwen3-8B-Base",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-]
-COL_DATASETS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
-
-ROW_DISPLAY = {
-    "meta-llama/Meta-Llama-3.1-8B": "Llama",
-    "mistralai/Ministral-3-8B-Base-2512": "Ministral",
-    "Qwen/Qwen3-8B-Base": "Qwen3",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": "DeepSeek",
+# short_id -> (target_model path in CSV, display label)
+MODEL_CATALOG = {
+    "llama":    ("meta-llama/Meta-Llama-3.1-8B",             "Llama"),
+    "mistral":  ("mistralai/Ministral-3-8B-Base-2512",       "Ministral"),
+    "qwen":     ("Qwen/Qwen3-8B-Base",                       "Qwen3"),
+    "deepseek": ("deepseek-ai/DeepSeek-R1-Distill-Llama-8B", "DeepSeek"),
 }
+# Default selection when --models is not passed. Override at CLI.
+DEFAULT_MODELS = ["llama", "qwen"]
+
+# Populated from DEFAULT_MODELS here and overwritten in main() once CLI is
+# parsed; downstream helpers read these module-level globals at call time.
+ROW_MODELS = [MODEL_CATALOG[m][0] for m in DEFAULT_MODELS]
+ROW_DISPLAY = {MODEL_CATALOG[m][0]: MODEL_CATALOG[m][1] for m in DEFAULT_MODELS}
+COL_DATASETS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
 
 YCOL = "|MdR|"
 
@@ -397,18 +401,21 @@ def _emit_combined_latex(groups, out_path, label, caption):
 # ======================================================================
 # Captions (kept inline so they live next to the metric definitions above)
 # ======================================================================
-CAPTION_I = (
-    r"\textbf{Component-wise ablation of the PRISM bound (identity-alignment form, $W{=}I$).} "
-    r"Per-cell Spearman rank correlation $|r_s|$ with the empirical "
-    r"cross-entropy risk gap $|\Delta\mathcal{R}|$ across the $4{\times}5$ "
-    r"PTQ grid (larger $|r_s|$ = better variant ranking). Rows add bound "
-    r"components cumulatively: shape, then $+$ scale, then $+$ head. "
-    r"Per-lineage columns average $|r_s|$ over the 5 benchmarks of that "
-    r"lineage. ``Wins'' counts cells where a metric's $|r_s|$ is the largest "
-    r"(ties counted for each tied metric); bold = best in column. The "
-    r"Procrustes-optimal $W{=}W_N$ counterpart is in "
-    r"Appendix~Table~\ref{tab:baseline_w}."
-)
+def _caption_i():
+    grid = rf"${len(ROW_MODELS)}{{\times}}{len(COL_DATASETS)}$"
+    return (
+        r"\textbf{Component-wise ablation of the PRISM bound (identity-alignment form, $W{=}I$).} "
+        r"Per-cell Spearman rank correlation $|r_s|$ with the empirical "
+        r"cross-entropy risk gap $|\Delta\mathcal{R}|$ across the " + grid + r" "
+        r"PTQ grid (larger $|r_s|$ = better variant ranking). Rows add bound "
+        r"components cumulatively: shape, then $+$ scale, then $+$ head. "
+        r"Per-lineage columns average $|r_s|$ over the "
+        rf"{len(COL_DATASETS)} benchmarks of that "
+        r"lineage. ``Wins'' counts cells where a metric's $|r_s|$ is the largest "
+        r"(ties counted for each tied metric); bold = best in column. The "
+        r"Procrustes-optimal $W{=}W_N$ counterpart is in "
+        r"Appendix~Table~\ref{tab:baseline_w}."
+    )
 
 CAPTION_W = (
     r"\textbf{Component-wise ablation under Procrustes-optimal alignment "
@@ -443,12 +450,37 @@ CAPTION_COMBINED = (
 # ======================================================================
 # Main
 # ======================================================================
+def _parse_args():
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        choices=list(MODEL_CATALOG.keys()),
+        default=list(DEFAULT_MODELS),
+        metavar="ID",
+        help=(f"Model short-ids to include (default: "
+              f"{' '.join(DEFAULT_MODELS)}). "
+              f"Available: {', '.join(MODEL_CATALOG)}."),
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = _parse_args()
+    # Mutate in-place so every helper that reads these globals picks up the
+    # CLI-selected model set on its next access.
+    ROW_MODELS[:] = [MODEL_CATALOG[m][0] for m in args.models]
+    ROW_DISPLAY.clear()
+    ROW_DISPLAY.update(
+        {MODEL_CATALOG[m][0]: MODEL_CATALOG[m][1] for m in args.models}
+    )
+
     rows = load_data()
     stats_i, best_i, n_i = generate_table(
         rows, METRICS_I, OUT_PATH_I,
         label="tab:baseline",
-        caption=CAPTION_I,
+        caption=_caption_i(),
         alignment_tag="W=I",
     )
     stats_w, best_w, n_w = generate_table(
