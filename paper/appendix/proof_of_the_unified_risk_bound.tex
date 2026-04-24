@@ -43,7 +43,7 @@ $\delta$ measures how features differ through the same head $H_T$; $\gamma$ meas
 \label{app:kfeat}
 
 \paragraph{Lipschitz Property of Cross-Entropy with Respect to Features.}
-We bound $\delta$ by showing that the cross-entropy loss is Lipschitz continuous in the feature vector $z$. Define the composition $g_T(z, y) := \ell(z \cdot H_T, y)$. Our goal is to find the tightest constant $K_{\mathrm{feat}}$ such that:
+We bound $\delta$ by showing that the cross-entropy loss is Lipschitz continuous in the feature vector $z$. Define the end-to-end composition $g_T(z, y) := \ell(z \cdot H_T, y)$, treating the classification head $H_T$ and the cross-entropy loss as a single map from features to scalar loss. We bound $g_T$ via direct gradient analysis rather than the Lipschitz composition rule (loss-Lipschitz $\sqrt{2}$ times head operator norm $\|H_T\|_2$): the composition rule is agnostic to the softmax output and gives the spectral constant $\sqrt{2}\|H_T\|_2$ (Remark below), whereas the gradient $\nabla_z g_T = H_T(\hat{p} - e_y)$ exposes the predicted distribution $\hat{p}$ and lets us derive a constant set by pairwise token-embedding distances instead. Our goal is to find the tightest constant $K_{\mathrm{feat}}$ such that:
 \begin{equation}
 |g_T(z_1, y) - g_T(z_2, y)| \le K_{\mathrm{feat}} \|z_1 - z_2\|_2, \quad \forall z_1, z_2, y.
 \end{equation}
@@ -142,11 +142,11 @@ Setting $W = I$ gives the trace form $\Omega \equiv \Omega_{W=I} = \operatorname
 which is the form used throughout the main-text experiments and the regularizer of Sec.~\ref{subsec:shape_reg}.
 
 \paragraph{Specialization 2: $W = W_N$ (Procrustes-optimal, ablation).}
-The alignment that minimizes the residual is
+The alignment that minimizes the residual is the classical orthogonal Procrustes problem~\cite{schonemann1966generalized, gower2004procrustes}:
 \begin{equation}
 W_N := \arg\min_{W \in \mathcal{O}(d)} \|Z_T - Z_P W\|_F^2 = \arg\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W),
 \end{equation}
-where the second equality follows from Eq.~(\ref{eq:procrustes_expand}) since the first two terms are $W$-independent. To solve, let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD with $U, V \in \mathcal{O}(d)$ and $\Sigma = \mathrm{diag}(\sigma_1, \ldots, \sigma_d)$, $\sigma_i \ge 0$. By cyclic trace:
+where the second equality follows from Eq.~(\ref{eq:procrustes_expand}) since the first two terms are $W$-independent. Its closed-form SVD solution is well known; we restate it here for completeness. Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD with $U, V \in \mathcal{O}(d)$ and $\Sigma = \mathrm{diag}(\sigma_1, \ldots, \sigma_d)$, $\sigma_i \ge 0$. By cyclic trace:
 \begin{equation}
 \operatorname{Tr}(Z_T^\top Z_P W) = \operatorname{Tr}(\Sigma\, V^\top W U) = \operatorname{Tr}(\Sigma R), \quad R := V^\top W U \in \mathcal{O}(d).
 \end{equation}
@@ -159,7 +159,7 @@ Therefore $\Omega_{W_N} = \Omega_N := \|Z_T^\top Z_P\|_*/(\|Z_T\|_F\|Z_P\|_F)$ (
 \begin{equation}
 \min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N),
 \end{equation}
-the form underlying the Sec.~\ref{subsec:ablation} ablation.
+the form underlying the Sec.~\ref{subsec:ablation} ablation. Note that $W_N$ minimizes only the feature alignment residual $\delta(W)$, not the full bound $\delta(W) + \gamma(W)$, since the head term also depends on $W$ via $W H_T - H_P$. Appendix~\ref{app:joint_opt} treats the joint optimization in full and shows that $W_N$ remains the operative choice in the frozen-head LoRA and FP16-head PTQ regimes studied here, where $\gamma$ either vanishes or is $W$-independent.
 
 \paragraph{Assembling the Feature Bound.}
 Combining Eq.~(\ref{eq:delta_lipschitz}) with the general decomposition Eq.~(\ref{eq:exact_decomposition_general}):
