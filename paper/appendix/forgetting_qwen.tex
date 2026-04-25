@@ -4,7 +4,7 @@
 \section{Qwen3-8B Forgetting and Shape-Regularization Replications}
 \label{app:qwen_forgetting}
 
-This appendix reports the Qwen3-8B replications of Sec.~\ref{subsec:forget_exp} and Sec.~\ref{subsec:shape_reg_exp} along with the remaining trace-norm decomposition tables (Llama BBQ and both Qwen fine-tuning tasks). Qwen3-8B differs from Llama-3.1-8B in depth (36 vs.\ 32 layers), vocabulary size ($151{,}936$ vs.\ $128{,}256$), tokenizer family (byte-level BPE vs.\ BPE), and pre-training corpus (multilingual, $\sim$36T tokens vs.\ English-dominant, $\sim$15T tokens); reproducing the main-text patterns under these shifts provides cross-lineage evidence for the claims of Secs.~\ref{subsec:forget_exp}--\ref{subsec:shape_reg_exp}.
+This appendix reports the Qwen3-8B replications of Sec.~\ref{subsec:forget_exp} and Sec.~\ref{subsec:shape_reg_exp} along with the remaining trace-norm decomposition tables (Llama BBQ and both Qwen fine-tuning tasks). Qwen3-8B differs from Llama-3.1-8B in depth (36 vs.\ 32 layers), vocabulary size ($151{,}936$ vs.\ $128{,}256$), tokenizer family (byte-level BPE vs.\ BPE), and pre-training corpus (multilingual, $\sim$36T tokens vs.\ English-dominant, $\sim$15T tokens); reproducing the main-text patterns under these shifts provides cross-family evidence for the claims of Secs.~\ref{subsec:forget_exp}--\ref{subsec:shape_reg_exp}.
 
 \subsection{Forgetting: Bound Tracks Cross-Task Drift on Qwen3-8B}
 \label{app:qwen_forget_grid}
@@ -12,7 +12,7 @@ This appendix reports the Qwen3-8B replications of Sec.~\ref{subsec:forget_exp} 
 \begin{figure}[h]
     \centering
     \includegraphics[width=1.0\linewidth]{figures/forgetting/forgetting_grid_bound_qwen.pdf}
-    \caption{\textbf{Qwen3-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the PRISM bound $\mathcal{B}$ (x-axis, log) against the empirical forgetting $|\Delta\mathcal{R}|$ (y-axis, log) on a held-out benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: held-out evaluation benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Because LoRA keeps the \texttt{lm\_head} frozen, the head-discrepancy term $\gamma$ vanishes and the bound is governed entirely by backbone scale ($\Delta\rho$) and shape ($1-\Omega$) drift, as predicted by Sec.~\ref{subsec:forgetting}. Spearman $r_s$ per subplot is annotated in each panel. This replicates Fig.~\ref{fig:forget_grid_llama} on a different lineage, whose pre-training corpus, depth, vocabulary size, and tokenizer family all differ from Llama-3.1-8B.}
+    \caption{\textbf{Qwen3-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the PRISM bound $\mathcal{B}$ (x-axis, log) against the empirical forgetting $|\Delta\mathcal{R}|$ (y-axis, log) on a held-out benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: held-out evaluation benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Because LoRA keeps the \texttt{lm\_head} frozen, the head-discrepancy term $\gamma$ vanishes and the bound is governed entirely by backbone scale ($\Delta\rho$) and shape ($1-\Omega$) drift, as predicted by Sec.~\ref{subsec:forgetting}. Spearman $r_s$ per subplot is annotated in each panel. This replicates Fig.~\ref{fig:forget_grid_llama} on a different family, whose pre-training corpus, depth, vocabulary size, and tokenizer family all differ from Llama-3.1-8B.}
     \label{fig:forget_grid_qwen}
 \end{figure}
 
@@ -24,7 +24,7 @@ Figure~\ref{fig:forget_grid_qwen} reproduces the two structural observations of 
 \begin{figure}[h]
     \centering
     \includegraphics[width=1.0\linewidth]{figures/forgetting/combined_qwen_truthfulqa_bbq.pdf}
-    \caption{\textbf{PRISM-guided shape regularization on Qwen3-8B (replication of Fig.~\ref{fig:shape_reg_combined_llama}).} LoRA fine-tuning on TruthfulQA (top row) and BBQ (bottom row) with the auxiliary penalty $\lambda(1-\Omega(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ at $\lambda \in \{0.0, 0.1, 0.5\}$ and analysis step $300$. The uniform downstream-forgetting reduction and the monotone trade-off between target-task fit and downstream damage seen on Llama hold on Qwen3-8B as well, confirming that the shape regularizer of Sec.~\ref{subsec:shape_reg} is not lineage-specific.}
+    \caption{\textbf{PRISM-guided shape regularization on Qwen3-8B (replication of Fig.~\ref{fig:shape_reg_combined_llama}).} LoRA fine-tuning on TruthfulQA (top row) and BBQ (bottom row) with the auxiliary penalty $\lambda(1-\Omega(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ at $\lambda \in \{0.0, 0.1, 0.5\}$ and analysis step $300$. The uniform downstream-forgetting reduction and the monotone trade-off between target-task fit and downstream damage seen on Llama hold on Qwen3-8B as well, confirming that the shape regularizer of Sec.~\ref{subsec:shape_reg} is not family-specific.}
     \label{fig:shape_reg_combined_qwen}
 \end{figure}
 
