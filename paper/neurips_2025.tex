@@ -193,7 +193,7 @@ Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate lo
 \section{A Geometric Framework for Proxy Performance Estimation}
 \label{sec:geometric_foundation}
 
-We derive a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ between a target model and a proxy, grounded entirely in their feature geometry. We first state the setup, then prove an exact decomposition of the bound into three diagnostic axes (scale, shape, head), explain the identity-alignment form ($\Omega$ at $W{=}I$) used throughout our experiments, extend the bound to autoregressive generation, and finally lift it into a training-time regularizer.
+This section derives the \textbf{PRISM} (\textbf{P}roxy \textbf{R}isk \textbf{I}nference via \textbf{S}tructural \textbf{M}apping) bound. From two structural properties of LLMs---a linear \texttt{lm\_head} on top of a non-linear backbone, and the Linear Representation Hypothesis---we obtain a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ that decomposes into three diagnostic axes: scale, shape, and head. We first state the setup (Sec.~\ref{subsec:problem_setup}), then derive the bound (Secs.~\ref{subsec:unified_bound}--\ref{subsec:interpretation}), extend it to autoregressive generation (Sec.~\ref{subsec:ar_extension}), and lift it into a training-time regularizer (Sec.~\ref{subsec:shape_reg}).
 
 \subsection{Setup}
 \label{subsec:problem_setup}
