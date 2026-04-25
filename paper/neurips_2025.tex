@@ -145,6 +145,9 @@ A natural shortcut is to borrow a representational similarity metric: SVCCA~\cit
 These scores, however, do not pin down downstream behavior~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity}, and a single number still flags drift without identifying an axis for diagnosis.
 What is missing is a geometric quantity that lifts into a functional risk bound while keeping its causal decomposition intact.
 
+\paragraph{Three obstacles to a usable risk bound.}
+Constructing such a bound on the deployed model's cross-entropy risk faces three concrete obstacles. (i)~No prior representational similarity---CKA, SVCCA, or generalized shape metrics---has been lifted to a bound on the deployed model's own risk; the established probe-based route~\cite{harvey2024what} evaluates a freshly-trained linear classifier, a different object than the model's own head. (ii)~Cross-entropy is Lipschitz in features, but the naive Lipschitz constant scales with the head's full spectral norm and is too loose to be informative over an LLM vocabulary of size $V \sim 10^5$. (iii)~Post-training quantization and parameter-efficient fine-tuning are studied by separate communities, with no shared geometric framework that bounds the same risk gap in both regimes.
+
 \paragraph{What makes LLM geometry analytically tractable.}
 Transformer LLMs factor cleanly into a non-linear backbone and a single linear prediction head (\texttt{lm\_head}), with no intermediate non-linear projection between features and vocabulary logits.
 The Linear Representation Hypothesis~\cite{moschella2022relative, park2023linear} further asserts that same-lineage variants learn feature manifolds related by a near-isometric linear map.
