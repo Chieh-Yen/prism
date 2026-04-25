@@ -261,9 +261,17 @@ class ShapeRegularizedTrainer(Trainer):
         Ω_I = tr(Z_T^T Z_P) / (‖Z_T‖_F · ‖Z_P‖_F)
 
     Every ``reg_every_k`` micro-steps, a forward pass is run on a fixed
-    reference set to extract Z_P, and the shape loss 1 − Ω_I is added
-    to the standard CE loss.  Z_T (base model features) is pre-computed
-    and frozen.
+    reference set to extract Z_P, and the shape loss 1 − Ω_I is backprop'd
+    into the current parameter gradient buffer.  Z_T (base model features)
+    is pre-computed and frozen.
+
+    CE and shape losses have **separate backward paths** (see ``training_step``):
+    CE goes through parent ``Trainer``'s normal flow and is divided by
+    ``gradient_accumulation_steps`` before backward, so the per-micro-batch
+    CE gradient averages correctly.  Shape loss is backprop'd once per
+    optimizer step with **no** grad-accumulation division, so the gradient
+    contribution is exactly ``self._lambda`` × ∂(1-Ω_I)/∂θ — the nominal λ
+    matches the effective signal.
     """
 
     def __init__(
@@ -291,34 +299,38 @@ class ShapeRegularizedTrainer(Trainer):
 
     # ------------------------------------------------------------------
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        """Pure CE loss.  Shape regularizer lives in ``training_step`` so it
+        can bypass HF's gradient-accumulation division (see class docstring)."""
         outputs = model(**inputs)
         ce_loss = outputs.loss
+        if return_outputs:
+            return ce_loss, outputs
+        return ce_loss
 
-        # Shape regularizer is a training-time signal only: skip entirely
-        # during eval so that (a) eval_loss stays pure CE, (b) shape_loss /
-        # omega_ref logs reflect training-side values only, and (c) we don't
-        # waste forward passes on ref_dataloader under torch.no_grad().
-        if not model.training:
-            if return_outputs:
-                return ce_loss, outputs
-            return ce_loss
+    # ------------------------------------------------------------------
+    def training_step(self, model, inputs, *args, **kwargs):
+        """Run parent's CE training step, then add a separately-scaled
+        shape-loss backward once per optimizer step.
 
-        do_reg = self._lambda > 0 and self._micro % self._reg_k == 0
-        self._micro += 1
+        Parent's ``training_step`` does CE forward + backward with the
+        standard ``loss /= gradient_accumulation_steps`` division.  We then
+        compute the shape loss and call ``accelerator.backward`` directly
+        on ``λ · (1 − Ω_I)`` — no grad-accum division — so the shape
+        gradient is accumulated into the same buffer as the averaged CE
+        gradient at its nominal weight.
+        """
+        loss_tensor = super().training_step(model, inputs, *args, **kwargs)
 
-        if do_reg:
-            shape_loss, omega_val = self._compute_shape_loss(model)
-            total_loss = ce_loss + self._lambda * shape_loss
-
+        if self._lambda > 0 and (self._micro % self._reg_k == 0):
+            with self.compute_loss_context_manager():
+                shape_loss, omega_val = self._compute_shape_loss(model)
+            self.accelerator.backward(self._lambda * shape_loss)
             self._shape_sum += shape_loss.item()
             self._omega_sum += omega_val
             self._count += 1
-        else:
-            total_loss = ce_loss
+        self._micro += 1
 
-        if return_outputs:
-            return total_loss, outputs
-        return total_loss
+        return loss_tensor
 
     # ------------------------------------------------------------------
     def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
