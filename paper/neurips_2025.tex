@@ -300,15 +300,13 @@ where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices
 
 The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) instantiates in two LLM lifecycle settings---post-training quantization and frozen-head LoRA fine-tuning---which differ in which term of the bound dominates the risk gap.
 
-\subsection{Quantization Quality Estimation}
+\paragraph{Quantization quality estimation.}
 \label{subsec:quantization}
+Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. PTQ perturbs each weight independently \emph{without applying any basis transformation}, so $W{=}I$ is the natural alignment and the proxy's features stay comparable to the target's coordinate-by-coordinate. When the protocol keeps \texttt{lm\_head} in FP16 (GPTQ, BitsAndBytes), the head term $\gamma$ vanishes and the bound reduces to the feature side $(\Delta\rho)^2$ and $1{-}\Omega$; GGUF k-quant tiers that also quantize the output embedding contribute a non-negligible $\gamma$.
 
-We designate the BF16 base model as target $T$ and the quantized variant as proxy $P$. PTQ introduces element-wise numerical noise that preserves the coordinate basis, so the bound's feature side dominates via $(\Delta\rho)^2$ and $1-\Omega$. The head-divergence term vanishes for protocols that keep \texttt{lm\_head} intact (GPTQ, BitsAndBytes); GGUF k-quant tiers that also quantize the output embedding contribute a non-negligible head term.
-
-\subsection{Geometric Monitoring of Catastrophic Forgetting}
+\paragraph{Geometric monitoring of catastrophic forgetting.}
 \label{subsec:forgetting}
-
-We designate the frozen base model as target $T = \theta_0$ and the fine-tuned checkpoint as proxy $P = \theta_t$, both evaluated on downstream benchmarks distinct from the fine-tuning task so that the risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ captures catastrophic forgetting. Under standard LoRA~\cite{hu2022lora} the \texttt{lm\_head} stays frozen, so the head-divergence term vanishes and forgetting is governed entirely by backbone geometric drift $(\Delta\rho, 1-\Omega)$; the shape regularizer of Sec.~\ref{subsec:shape_reg} directly penalizes the shape term $1-\Omega$.
+Target $T{=}\theta_0$ is the frozen base model and proxy $P{=}\theta_t$ is the fine-tuned checkpoint, both evaluated on downstream benchmarks \emph{distinct} from the fine-tuning task so that $|\mathcal{R}_T - \mathcal{R}_P|$ captures catastrophic forgetting. Under standard LoRA~\cite{hu2022lora} the \texttt{lm\_head} stays frozen, so $\gamma$ vanishes and forgetting is governed entirely by \emph{backbone geometric drift} $(\Delta\rho, 1{-}\Omega)$; the shape regularizer of Sec.~\ref{subsec:shape_reg} directly penalizes the shape term $1{-}\Omega$.
 
 
 %=========================================================================
@@ -321,19 +319,19 @@ We organize the experiments around three claims tied to the three contributions:
 \label{subsec:exp_setup}
 
 \paragraph{Models.}
-We focus the main analysis on the cross-family pair Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3} (differing in pre-training corpus, depth, vocabulary, and tokenizer family), unifying scope across both quantization and LoRA forgetting/regularization. PTQ replications on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B---and on the instruction-tuned counterparts of Llama, Ministral, and Qwen---are in Appendix~\ref{app:per_model_tables}; the Qwen LoRA replication is in Appendix~\ref{app:qwen_forgetting}.
+The main analysis uses the cross-family pair Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3}---differing in pre-training corpus, depth, vocabulary, and tokenizer family---for both quantization and LoRA experiments. PTQ replications on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B and on the instruction-tuned counterparts of Llama, Ministral, and Qwen are in Appendix~\ref{app:per_model_tables}; the Qwen LoRA replication is in Appendix~\ref{app:qwen_forgetting}.
 
 \paragraph{Quantization Protocols.}
-Three PTQ families across bit-widths 2--8: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K} through \texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4)---spanning basic rounding to calibration-based compensation.
+Three PTQ families across bit-widths 2--8, spanning basic rounding to calibration-based compensation: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K}--\texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4).
 
 \paragraph{Fine-Tuning Tasks.}
-LoRA fine-tuning uses two complementary tasks chosen to elicit distinct forgetting profiles: \textbf{TruthfulQA} (truthfulness QA, stresses factual grounding) and \textbf{BBQ} (Bias Benchmark for QA, stresses social-context reasoning). The two perturb different behaviors, so downstream forgetting on general-knowledge benchmarks (ARC, MMLU, SQuAD, TriviaQA, GSM8K) tests cross-task generality rather than within-domain consistency.
+LoRA fine-tunes on \textbf{TruthfulQA} (factual grounding) and \textbf{BBQ} (Bias Benchmark for QA, social-context reasoning)---two tasks chosen to elicit different drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on the five standard knowledge and reasoning benchmarks below, all disjoint from either fine-tuning task.
 
 \paragraph{Benchmarks and Scoring.}
-Following Eq.~(\ref{eq:ar_risk}), benchmarks span multiple-choice (MMLU, ARC), short-horizon QA (TriviaQA, SQuAD), multi-step reasoning (GSM8K), and language modeling (WikiText, FineWeb-Edu, Appendix~\ref{app:per_model_tables}). All risks are computed teacher-forced: prompt $c$ and targets $y$ are concatenated and scored in a single forward pass, matching every benchmark by construction (MC by gold-label likelihood, perplexity by definition, QA over the gold span, reasoning over the gold chain-of-thought)---producing deterministic per-sample residuals on the same scale as the LoRA fine-tuning objective. PRISM is a variant-ranking signal complementary to generation-based evaluation, not a substitute.
+Following Eq.~(\ref{eq:ar_risk}), five benchmarks: \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K} (multi-step reasoning); language modeling (WikiText, FineWeb-Edu) is in Appendix~\ref{app:per_model_tables}. All risks are computed teacher-forced---prompt $c$ and targets $y$ scored in a single forward pass over the gold span---matching each benchmark's scoring rule by construction and producing deterministic per-sample residuals on the same scale as the LoRA fine-tuning objective. PRISM is a variant-ranking signal complementary to generation-based evaluation, not a substitute.
 
 \paragraph{Calibration and Hyperparameters.}
-PRISM quantities and risk gaps are computed on fixed held-out subsets shared across all variants of a base ($N{=}512$ items per benchmark for PTQ, $N{=}256$ for LoRA forgetting; TruthfulQA/BBQ on full test sets). The same $N$-item subset is evaluated by every variant, so subset-selection variance enters every $|\Delta\mathcal{R}|$ and bound estimate identically; the variant orderings span 1--2 orders of magnitude in $|\Delta\mathcal{R}|$ (e.g., Q2\_K vs.\ Q8\_0; Table~\ref{tab:llama_decomposition_main}), a regime where rank preservation is robust at moderate $N$. For shape regularization (Sec.~\ref{subsec:action}) we sweep $\lambda \in \{0.0, 0.1, 0.5\}$; the reference set is a fixed held-out batch of $32$ sequences from the base model's pre-training distribution (disjoint from $\mathcal{D}_{\mathrm{FT}}$). $Z_t^{\text{ref}}$ is recomputed every $k{=}8$ micro-steps; checkpoints every $25$ steps, analysis at step $300$.
+PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared across all variants of a base ($N{=}512$ per benchmark for PTQ, $N{=}256$ for LoRA forgetting; TruthfulQA and BBQ use their full test sets). Because every variant sees the same subset, selection variance enters $|\Delta\mathcal{R}|$ and the bound identically and cannot affect their ranking; the orderings themselves span 1--2 orders of magnitude in $|\Delta\mathcal{R}|$ (e.g., Q2\_K vs.\ Q8\_0). For shape regularization (Sec.~\ref{subsec:action}) we sweep $\lambda \in \{0.0, 0.1, 0.5\}$; $\Omega$ is computed on a fixed batch of $32$ sequences from the pre-training distribution (disjoint from $\mathcal{D}_{\mathrm{FT}}$), refreshed every $k{=}8$ micro-steps. Checkpoints every $25$ steps, analysis at step $300$.
 
 
 \subsection{Predictiveness: The Bound Tracks the Risk Gap}
