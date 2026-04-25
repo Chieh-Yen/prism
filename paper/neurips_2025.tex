@@ -190,7 +190,7 @@ Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate lo
 
 \input{figures/prism_geometric_decomposition.tex}
 
-\section{A Geometric Framework for Proxy Performance Estimation}
+\section{A Geometric Bound on the Cross-Entropy Risk Gap}
 \label{sec:geometric_foundation}
 
 This section derives the \textbf{PRISM} (\textbf{P}roxy \textbf{R}isk \textbf{I}nference via \textbf{S}tructural \textbf{M}apping) bound. From two structural properties of LLMs---a linear \texttt{lm\_head} on top of a non-linear backbone, and the Linear Representation Hypothesis---we obtain a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ that decomposes into three diagnostic axes: scale, shape, and head. We first state the setup (Sec.~\ref{subsec:problem_setup}), then derive the bound (Secs.~\ref{subsec:unified_bound}--\ref{subsec:interpretation}), extend it to autoregressive generation (Sec.~\ref{subsec:ar_extension}), and lift it into a training-time regularizer (Sec.~\ref{subsec:shape_reg}).
@@ -299,7 +299,7 @@ L_{\mathrm{total}} \;=\; \underbrace{L_{\mathrm{CE}}\bigl(\theta_t;\,\mathcal{D}
 where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices on a fixed reference set (training schedule and overhead in Sec.~\ref{subsec:exp_setup}); empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
 
 
-\section{Applications Across the LLM Post-Training Lifecycle}
+\section{Applications: Post-Training Quantization and LoRA Forgetting}
 \label{sec:applications}
 
 The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}) applies to two LLM lifecycle settings---post-training quantization and frozen-head LoRA fine-tuning---which differ in which term of the bound dominates the risk gap.
@@ -368,7 +368,7 @@ Table~\ref{tab:llama_decomposition_main} reports the per-variant decomposition f
 The same predictiveness extends to fine-tuning-induced drift (Fig.~\ref{fig:forget_grid_llama}): as LoRA fine-tuning proceeds on TruthfulQA or BBQ, the bound computed on \emph{downstream} benchmarks tracks the empirical cross-entropy drift step-by-step, with mean Spearman $|r_s|{=}0.835$ aggregated over both fine-tuning tasks and the five downstream benchmarks---comparable to the $0.82$ obtained on the PTQ grid (Fig.~\ref{fig:quant_grid_bound}). Because the head is frozen, $\gamma{=}0$ and $\mathcal{B}$ reduces to backbone scale and shape drift. Crucially, the correlation holds \emph{benchmark-by-benchmark}---each of ARC, MMLU, SQuAD, TriviaQA, GSM8K (including GSM8K, whose distribution differs substantially from the fine-tuning data)---consistent with backbone geometry being the locus of the forgetting signal across distinct evaluation families. The Qwen3-8B replication (Appendix~\ref{app:qwen_forgetting}) reproduces both patterns. Together, the PTQ and LoRA results show that a single closed-form bound transfers across two qualitatively different sources of model variation.
 
 
-\subsection{Decomposability: Three Axes Localize Three Failure Modes}
+\subsection{Decomposability: Three Axes, Three Failure Modes}
 \label{subsec:decompose}
 
 A scalar correlation alone would already match prior work on representational similarity. The decomposition contributes the next layer: the dominant axis of Theorem~\ref{thm:unified_bound} reads off directly from the per-variant numbers and corresponds to a distinct empirical failure mode. Three settings recur in our experiments.
@@ -404,7 +404,7 @@ The decomposition of Sec.~\ref{subsec:decompose} suggests an immediate intervent
 Three patterns emerge from Fig.~\ref{fig:shape_reg_combined_llama}: (i)~\emph{the reduction is uniform across benchmarks}---ARC, MMLU, SQuAD, TriviaQA, GSM8K all move in the same direction under the same $\lambda$, suggesting the regularizer acts on a benchmark-agnostic backbone property rather than overfitting any single evaluation; (ii)~\emph{the trade-off is monotone and controllable}---increasing $\lambda$ strengthens downstream preservation predictably, the behavior a bound-motivated regularizer should exhibit; (iii)~\emph{even the smallest setting $\lambda{=}0.1$ already eliminates a substantial fraction of forgetting}, indicating that a weak geometric prior is enough to curb backbone drift. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
 
 
-\subsection{Ablation: Component-Wise Contribution to Variant Ranking}
+\subsection{Ablation: Component-Wise Contributions}
 \label{subsec:ablation}
 
 \input{tables/quantization/baseline_combined}
