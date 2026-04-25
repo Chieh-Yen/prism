@@ -166,7 +166,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
-    \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes, from an exact scale--shape decomposition.} The Procrustes feature-alignment residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; combined with a covariance-weighted head-discrepancy term, this yields a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ (Theorem~\ref{thm:unified_bound}).
+    \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes, from an exact scale--shape decomposition.} The Procrustes feature-alignment residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; combined with a covariance-weighted head-discrepancy term, this yields a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}).
 
     \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} The bound is computed from features and head weights alone, and applies cleanly across both PTQ and frozen-head LoRA; via the differentiable trace form $\Omega$, it directly becomes a training-time shape regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
 
@@ -257,7 +257,7 @@ For any $W \in \mathcal{O}(d)$,
 \subsection{Three Diagnostic Axes}
 \label{subsec:interpretation}
 
-Theorem~\ref{thm:unified_bound} decomposes the risk gap along three \emph{independently measurable} axes, each attached to a distinct failure mode of the proxy.
+Theorem~\ref{thm:unified_bound} (illustrated in Fig.~\ref{fig:prism_concept}) decomposes the risk gap along three \emph{independently measurable} axes, each attached to a distinct failure mode of the proxy.
 
 \paragraph{Scale mismatch $\Delta\rho$.}
 Divergence in activation magnitude directly amplifies the feature error. Aggressive bit-width reduction clips activation outliers~\cite{dettmers2022gpt3, xiao2023smoothquant}, shrinking $\rho_P < \rho_T$; the scale axis isolates this \emph{scale collapse}.
@@ -302,7 +302,7 @@ where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices
 \section{Applications Across the LLM Post-Training Lifecycle}
 \label{sec:applications}
 
-The Unified Risk Bound (Theorem~\ref{thm:unified_bound}) applies to two LLM lifecycle settings---post-training quantization and frozen-head LoRA fine-tuning---which differ in which term of the bound dominates the risk gap.
+The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}) applies to two LLM lifecycle settings---post-training quantization and frozen-head LoRA fine-tuning---which differ in which term of the bound dominates the risk gap.
 
 \paragraph{Quantization quality estimation.}
 \label{subsec:quantization}
