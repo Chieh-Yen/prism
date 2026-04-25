@@ -22,13 +22,17 @@
 #   CUDA_GPU=0          GPU index (default: 0)
 #   MODELS="llama qwen" Which models (default: both)
 #   TASKS="truthfulqa bbq social_iqa no_robots lima arc mmlu squad triviaqa gsm8k"
-#   SHAPE_REG=1         Enable shape regularizer (default: off)
+#   SHAPE_REG=1         Enable PRISM shape regularizer 1−Ω_I (default: off)
 #   LAMBDA_SHAPE=0.1    Shape reg weight (default: 0.1)
+#   REPLAY_REG=1        Enable replay-CE baseline (default: off, mutually
+#                       exclusive with SHAPE_REG)
+#   LAMBDA_REPLAY=0.1   Replay reg weight (default: 0.1)
 #
 # Examples:
 #   bash run_forgetting_multitask.sh
 #   SHAPE_REG=1 bash run_forgetting_multitask.sh
 #   SHAPE_REG=1 LAMBDA_SHAPE=1.0 TASKS="arc" bash run_forgetting_multitask.sh
+#   REPLAY_REG=1 LAMBDA_REPLAY=0.1 bash run_forgetting_multitask.sh   # baseline run
 # ============================================================
 set -euo pipefail
 
@@ -50,18 +54,38 @@ MODELS="${MODELS:-llama qwen}"
 TASKS="${TASKS:-truthfulqa bbq social_iqa no_robots lima arc mmlu squad triviaqa gsm8k}"
 TASKS="${TASKS:-no_robots lima truthfulqa bbq social_iqa squad triviaqa gsm8k arc mmlu}"
 
-# ── Shape regularizer ─────────────────────────────────────────────────────
+# ── Regularizer selection (mutually exclusive) ───────────────────────────
+# Set at most one of:
+#   SHAPE_REG=1   + LAMBDA_SHAPE=...   → 1−Ω_I shape regularizer (PRISM)
+#   REPLAY_REG=1  + LAMBDA_REPLAY=...  → CE on the same 32 ref samples (baseline)
 SHAPE_REG="${SHAPE_REG:-0}"
 LAMBDA_SHAPE="${LAMBDA_SHAPE:-0.1}"
+REPLAY_REG="${REPLAY_REG:-0}"
+LAMBDA_REPLAY="${LAMBDA_REPLAY:-0.1}"
 
-SHAPE_ARGS=""
+if [ "$SHAPE_REG" = "1" ] && [ "$REPLAY_REG" = "1" ]; then
+    echo "ERROR: SHAPE_REG and REPLAY_REG are mutually exclusive — set only one." >&2
+    exit 2
+fi
+
+REG_ARGS=""
 if [ "$SHAPE_REG" = "1" ]; then
-    SHAPE_ARGS="--lambda_shape $LAMBDA_SHAPE --reg_every_k 8 --reg_samples 32"
+    REG_ARGS="--lambda_shape $LAMBDA_SHAPE --reg_every_k 8 --reg_samples 32"
+elif [ "$REPLAY_REG" = "1" ]; then
+    REG_ARGS="--lambda_replay $LAMBDA_REPLAY --reg_every_k 8 --reg_samples 32"
+fi
+
+# Optional: cap training to MAX_STEPS (else use task-specific defaults
+# from train_forgetting_multitask.py, e.g. 700 for truthfulqa/bbq).
+if [ -n "${MAX_STEPS:-}" ]; then
+    REG_ARGS="$REG_ARGS --max_steps $MAX_STEPS"
 fi
 
 CKPT_ROOT="./checkpoints/forgetting_multitask"
 if [ "$SHAPE_REG" = "1" ]; then
     CKPT_ROOT="./checkpoints/forgetting_multitask_shape_lam${LAMBDA_SHAPE}"
+elif [ "$REPLAY_REG" = "1" ]; then
+    CKPT_ROOT="./checkpoints/forgetting_multitask_replay_lam${LAMBDA_REPLAY}"
 fi
 LOG="screen_forgetting_multitask.log"
 ALT_LOG="screen.forgetting.log"
@@ -78,9 +102,11 @@ log "  Tasks  : $TASKS"
 log "  GPU    : $GPUID"
 log "  Alloc  : PYTORCH_CUDA_ALLOC_CONF=$PYTORCH_CUDA_ALLOC_CONF"
 if [ "$SHAPE_REG" = "1" ]; then
-log "  Shape  : ON  (λ=$LAMBDA_SHAPE)"
+log "  Reg    : SHAPE   (λ=$LAMBDA_SHAPE)"
+elif [ "$REPLAY_REG" = "1" ]; then
+log "  Reg    : REPLAY  (λ=$LAMBDA_REPLAY)"
 else
-log "  Shape  : OFF"
+log "  Reg    : OFF"
 fi
 log "============================================================"
 
@@ -105,7 +131,7 @@ for MODEL_KEY in $MODELS; do
             --task "$TASK" \
             --output_dir "$OUT_DIR" \
             --lr 1e-5 \
-            $SHAPE_ARGS \
+            $REG_ARGS \
             2>&1 | tee -a "$LOG" "$ALT_LOG"
 
         log "─── model=$MODEL_KEY  task=$TASK  done ───"

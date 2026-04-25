@@ -277,7 +277,7 @@ class ShapeRegularizedTrainer(Trainer):
     def __init__(
         self,
         *args,
-        Z_T_ref: Tensor,
+        Z_T_ref: Optional[Tensor] = None,   # required for shape; unused by ReplayCETrainer
         ref_dataloader,
         lambda_shape: float = 0.1,
         reg_every_k: int = 8,
@@ -285,7 +285,7 @@ class ShapeRegularizedTrainer(Trainer):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.Z_T_ref = Z_T_ref          # (n_tokens, d) CPU float32 detached
+        self.Z_T_ref = Z_T_ref          # (n_tokens, d) CPU float32 detached, or None
         self._ref_dl = ref_dataloader
         self._lambda = lambda_shape
         self._reg_k = reg_every_k
@@ -383,6 +383,60 @@ class ShapeRegularizedTrainer(Trainer):
             self._omega_sum = 0.0
             self._count = 0
         super().log(logs, *args, **kwargs)
+
+
+# ── Replay-CE Trainer (data-replay baseline) ──────────────────────────────
+
+class ReplayCETrainer(ShapeRegularizedTrainer):
+    """Data-replay baseline: L = L_CE + λ · CE_ref.
+
+    Same scheduling and backward path as ``ShapeRegularizedTrainer`` (every
+    optimizer step, separate backward outside grad-accum division), but the
+    regularizer is the next-token cross-entropy on a fixed reference set
+    rather than 1 − Ω_I. This is the apples-to-apples baseline for the
+    PRISM shape-regularizer claim: same 32 reference instances, same compute,
+    only the loss form differs.
+
+    Z_T_ref is unused (CE only depends on the current-model output).
+    Prompt tokens are masked from the CE target (set to -100) so the loss
+    measures response-token reconstruction, matching how the fine-tuning CE
+    is computed by ``AnswerOnlyDataCollator``.
+    """
+
+    def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
+        """Override: mean next-token CE on the reference set (response tokens only)."""
+        total = torch.zeros((), device=self._device_str)
+        n_batches = 0
+        for batch in self._ref_dl:
+            b = {k: v.to(self._device_str) for k, v in batch.items()}
+            prompt_lens = b.pop("prompt_length", None)
+            labels = b["input_ids"].clone()
+            if prompt_lens is not None:
+                # Mask prompt tokens so CE measures response-token loss only.
+                for i, plen in enumerate(prompt_lens):
+                    labels[i, :int(plen)] = -100
+            attn = b.get("attention_mask")
+            if attn is not None:
+                labels = labels.masked_fill(attn == 0, -100)
+            b["labels"] = labels
+            out = model(**b)
+            total = total + out.loss
+            n_batches += 1
+        replay_ce = total / max(n_batches, 1)
+        # Second return slot is repurposed for logging (no Ω here).
+        return replay_ce, replay_ce.item()
+
+    # ------------------------------------------------------------------
+    def log(self, logs: Dict[str, float], *args, **kwargs) -> None:
+        """Rename log keys: ``shape_loss``/``omega_ref`` → ``replay_ce``."""
+        if self._count > 0:
+            logs["replay_ce"] = round(self._shape_sum / self._count, 6)
+            self._shape_sum = 0.0
+            self._omega_sum = 0.0
+            self._count = 0
+        # Skip ShapeRegularizedTrainer.log to avoid duplicate key injection;
+        # call grandparent (HF Trainer) directly.
+        Trainer.log(self, logs, *args, **kwargs)
 
 
 # ── Task-specific dataset configuration ───────────────────────────────────
@@ -985,17 +1039,25 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--prism_eval_batch_size", type=int, default=4,
                    help="Batch size for PRISM feature extraction")
 
-    # Shape regularization (W=I trace form)
+    # Shape regularization (W=I trace form). Mutually exclusive with replay.
     p.add_argument("--lambda_shape", type=float, default=0.0,
-                   help="Weight for shape regularizer 1-Ω_I (0 = disabled)")
+                   help="Weight for shape regularizer 1-Ω_I (0 = disabled). "
+                        "Mutually exclusive with --lambda_replay.")
+    p.add_argument("--lambda_replay", type=float, default=0.0,
+                   help="Weight for data-replay CE regularizer on the reference "
+                        "set (0 = disabled). Apples-to-apples baseline for "
+                        "--lambda_shape: same 32 instances, same scheduling, "
+                        "only the loss form (CE vs 1-Ω_I) differs. "
+                        "Mutually exclusive with --lambda_shape.")
     p.add_argument("--reg_every_k", type=int, default=8,
-                   help="Compute shape regularizer every K micro-steps (default: match grad_accum)")
+                   help="Compute regularizer (shape or replay) every K "
+                        "micro-steps (default: match grad_accum)")
     p.add_argument("--reg_samples", type=int, default=32,
-                   help="Number of reference samples for shape regularizer")
+                   help="Number of reference samples for the regularizer")
     p.add_argument("--reg_batch_size", type=int, default=8,
                    help="Batch size for reference forward pass")
     p.add_argument("--reg_max_length", type=int, default=512,
-                   help="Max sequence length for shape-reg reference forward pass. "
+                   help="Max sequence length for the reference forward pass. "
                         "Kept separate from --max_length so long-form tasks (e.g. "
                         "no_robots with max_length=1024) don't OOM the grad-retained "
                         "hidden-state concat inside _compute_shape_loss.")
@@ -1200,6 +1262,13 @@ def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
 
 def main() -> None:
     args = parse_args()
+
+    # ── Mutual exclusion: shape reg and replay reg cannot both be on ──
+    if args.lambda_shape > 0 and args.lambda_replay > 0:
+        print("ERROR: --lambda_shape and --lambda_replay are mutually exclusive; "
+              "set at most one to a positive value.", file=sys.stderr)
+        sys.exit(2)
+
     task_cfg = TASK_CONFIGS[args.task]
 
     # ── Resolve defaults ─────────────────────────────────────────────
@@ -1257,8 +1326,13 @@ def main() -> None:
         "train_loss_mode": "answer_only",
         "seed": args.seed,
         "lambda_shape": args.lambda_shape,
-        "reg_every_k": args.reg_every_k if args.lambda_shape > 0 else None,
-        "reg_samples": args.reg_samples if args.lambda_shape > 0 else None,
+        "lambda_replay": args.lambda_replay,
+        "reg_every_k": (args.reg_every_k
+                        if (args.lambda_shape > 0 or args.lambda_replay > 0)
+                        else None),
+        "reg_samples": (args.reg_samples
+                        if (args.lambda_shape > 0 or args.lambda_replay > 0)
+                        else None),
     }
 
     print(f"{'=' * 78}")
@@ -1306,13 +1380,14 @@ def main() -> None:
     experiment_config["K_pred"] = K_theory["K_pred"]
     experiment_config["K_feat_naive"] = K_theory.get("K_feat_naive")
 
-    # ── Pre-compute reference features for shape regularizer ────────
+    # ── Pre-compute reference data + (for shape only) Z_T_ref ────────
+    # Both regularizers share the same fixed reference set; only the shape
+    # regularizer needs Z_T (base-model features) pre-extracted, since the
+    # replay baseline uses the current model's CE on the same inputs.
     Z_T_ref = None
     ref_dataloader = None
-    if args.lambda_shape > 0:
-        reg_meta = get_task_metadata(args.task)
-        z_mode_ref = reg_meta["z_mode"]
-
+    use_reg = args.lambda_shape > 0 or args.lambda_replay > 0
+    if use_reg:
         ref_dataloader = load_task_data(
             args.task, split="test",
             num_samples=args.reg_samples,
@@ -1321,6 +1396,10 @@ def main() -> None:
             max_length=min(args.max_length, args.reg_max_length),
             seed=args.seed + 1000,
         )
+
+    if args.lambda_shape > 0:
+        reg_meta = get_task_metadata(args.task)
+        z_mode_ref = reg_meta["z_mode"]
 
         print(f"\nPre-computing Z_T_ref for shape regularizer ...")
         print(f"  task={args.task}, n={args.reg_samples}, z_mode={z_mode_ref}")
@@ -1431,6 +1510,17 @@ def main() -> None:
             Z_T_ref=Z_T_ref,
             ref_dataloader=ref_dataloader,
             lambda_shape=args.lambda_shape,
+            reg_every_k=args.reg_every_k,
+            device_str=tensor_device,
+        )
+    elif args.lambda_replay > 0:
+        print(f"\n  Replay-CE regularizer: λ={args.lambda_replay}, "
+              f"every_k={args.reg_every_k}, samples={args.reg_samples}")
+        trainer = ReplayCETrainer(
+            **trainer_kwargs,
+            Z_T_ref=None,                        # unused by replay baseline
+            ref_dataloader=ref_dataloader,
+            lambda_shape=args.lambda_replay,     # parent's slot for the weight
             reg_every_k=args.reg_every_k,
             device_str=tensor_device,
         )
