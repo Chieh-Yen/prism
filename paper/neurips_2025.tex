@@ -143,7 +143,7 @@ Evaluation gives only an aggregate accuracy score per benchmark, so a degraded v
 %\paragraph{Similarity scores without risk, without mechanism.}
 A natural shortcut is to borrow a representational similarity metric: SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and related Frobenius-norm metrics each reduce two activation matrices to a single alignment score.
 These scores, however, do not pin down downstream behavior~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity}, and a single number still flags drift without identifying an axis for diagnosis.
-What is missing is a geometric quantity that lifts into a functional risk bound while keeping its causal decomposition intact.
+What is missing is a geometric quantity that lifts into a functional risk bound while keeping its structural decomposition intact.
 
 %\paragraph{Three obstacles to a usable risk bound.}
 Constructing such a bound on the deployed model's cross-entropy risk faces three concrete obstacles. (i)~No prior representational similarity---CKA, SVCCA, or generalized shape metrics---has been lifted to a bound on the deployed model's own risk; the established probe-based route~\cite{harvey2024what} evaluates a freshly-trained linear classifier, a different object than the model's own head. (ii)~Cross-entropy is Lipschitz in features, but the naive Lipschitz constant scales with the head's full spectral norm and is too loose to be informative over an LLM vocabulary of size $V \sim 10^5$. (iii)~Post-training quantization and parameter-efficient fine-tuning are studied by separate communities, with no shared geometric framework that bounds the same risk gap in both settings.
@@ -155,9 +155,9 @@ The Linear Representation Hypothesis~\cite{moschella2022relative, park2023linear
 Together, these properties let us lift the Procrustes feature-alignment residual into an \emph{exact} closed-form upper bound on the cross-entropy risk gap.
 
 %\paragraph{PRISM: a bound with three actionable axes.}
-We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}), a principled, axis-level diagnostic for LLM variants.
+We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}), a geometry-grounded, axis-level diagnostic for LLM variants.
 An exact decomposition of the Procrustes residual splits the feature error into a \emph{scale mismatch} $\Delta\rho$ (activation-magnitude collapse) and a \emph{shape mismatch} $1-\Omega$ (feature-manifold distortion); a covariance-weighted head-discrepancy term closes the bound.
-Each axis is independently measurable from a single forward pass, so a PRISM failure is not merely a flag but a \emph{direction}: scale-dominated failures localize the loss to outlier-channel corruption, shape-dominated to distorted feature geometry between tokens, and head-dominated to perturbation of the prediction head while the backbone is preserved.
+Each axis is independently measurable from a single forward pass, so a PRISM failure is not merely a flag but a \emph{direction}: scale-dominated failures localize the loss to outlier-channel corruption, shape-dominated to distorted feature geometry between tokens, and head-dominated to head perturbation with the backbone intact.
 
 %\paragraph{From diagnostic to training signal.}
 The same quantity that diagnoses a variant's drift can also prevent it.
