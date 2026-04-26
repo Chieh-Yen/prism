@@ -170,7 +170,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
     \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} The bound is computed from features and head weights alone, and applies cleanly across both PTQ and frozen-head LoRA; via the differentiable trace form $\Omega$, it directly becomes a training-time shape regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
 
-    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} Across the cross-family Llama--Qwen pair (with Ministral and DeepSeek replications in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks variants with mean Spearman $|r_s|{\approx}0.82$ on PTQ and $0.835$ on LoRA forgetting; its three axes localize distinct empirical settings (shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift), and a mild shape regularizer reduces forgetting across downstream benchmarks.
+    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} Across the cross-family Llama--Qwen pair (with Ministral and DeepSeek replications in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks variants with mean Spearman $|r_s|{\approx}0.82$ on PTQ and $0.835$ on LoRA forgetting; its three axes localize distinct failure modes (shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift), and a mild shape regularizer reduces forgetting across downstream benchmarks.
 \end{enumerate}
 %========================================================
 
@@ -213,7 +213,7 @@ Following the \emph{Linear Representation Hypothesis}~\cite{moschella2022relativ
 \subsection{The Unified Risk Bound}
 \label{subsec:unified_bound}
 
-To bound $|\mathcal{R}_T - \mathcal{R}_P|$ we introduce a hybrid risk $\mathcal{R}_{P \to T} := \mathbb{E}[\ell(\phi_P(x)\,W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features. The triangle inequality splits the gap into a \emph{feature error} $\delta := |\mathcal{R}_T - \mathcal{R}_{P\to T}|$ and a \emph{head error} $\gamma := |\mathcal{R}_{P\to T} - \mathcal{R}_P|$; each admits a closed-form bound whose full derivation is in Appendix~\ref{app:detailed_proofs}.
+To bound $|\mathcal{R}_T - \mathcal{R}_P|$ we introduce a hybrid risk $\mathcal{R}_{P \to T} := \mathbb{E}[\ell(\phi_P(x)\,W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features. The triangle inequality $|\mathcal{R}_T - \mathcal{R}_P| \le |\mathcal{R}_T - \mathcal{R}_{P\to T}| + |\mathcal{R}_{P\to T} - \mathcal{R}_P|$ splits the gap into two components, each upper-bounded by a closed-form geometric quantity: a \emph{feature alignment error} $\delta$ and a \emph{head discrepancy} $\gamma$ (full derivations in Appendix~\ref{app:detailed_proofs}).
 
 \paragraph{Feature error $\delta$.}
 The cross-entropy loss is Lipschitz in the feature vector with constant $K_{\mathrm{feat}}$, derived via a simplex polarization argument in Appendix~\ref{app:kfeat}. The alignment residual $\|Z_T - Z_P W\|_F^2 / n$ admits an exact identity for every orthogonal $W$:
@@ -236,21 +236,23 @@ where $\Omega_W$ is the \emph{trace Procrustes similarity}:
 \end{equation}
 \end{proposition}
 
-Combined with the Lipschitz bound (Appendix~\ref{app:detailed_proofs}):
+Combined with the Lipschitz bound (Appendix~\ref{app:detailed_proofs}), we define
 \begin{equation}
 \label{eq:delta_bound}
-\delta \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T \rho_P (1 - \Omega_W)}.
+\delta \;:=\; K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T \rho_P (1 - \Omega_W)}, \qquad |\mathcal{R}_T - \mathcal{R}_{P\to T}| \le \delta.
 \end{equation}
 
 \paragraph{Head error $\gamma$.}
-Let $\Delta H := W H_T - H_P$ for the alignment $W$; then $\gamma \le K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}\Delta H\|_F$ with $K_{\mathrm{pred}} \le \sqrt{2}$ (Appendix~\ref{app:head_bound}). The covariance weighting $\Sigma_P^{1/2}$ ensures that only head misalignment within the \emph{active subspace} of the data contributes.
+Let $\Delta H := W H_T - H_P$ for the alignment $W$; we define $\gamma := K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}\Delta H\|_F$ with $K_{\mathrm{pred}} \le \sqrt{2}$ (Appendix~\ref{app:head_bound}), so that $|\mathcal{R}_{P\to T} - \mathcal{R}_P| \le \gamma$. The covariance weighting $\Sigma_P^{1/2}$ ensures that only head misalignment within the \emph{active subspace} of the data contributes.
 
 \begin{theorem}[Unified Risk Bound]
 \label{thm:unified_bound}
 For any $W \in \mathcal{O}(d)$,
 \begin{equation}
-|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big(1 - \Omega_W\big) }}_{\text{\rm Geometric Alignment Error}} \;+\; \underbrace{K_{\mathrm{pred}} \,\| \Sigma_P^{1/2} (W H_T - H_P) \|_F}_{\text{\rm Second-Moment-Weighted Head Error}}.
+\label{eq:unified_bound}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \mathcal{B} \;:=\; \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big(1 - \Omega_W\big) }}_{\delta:\ \text{\rm feature alignment error}} \;+\; \underbrace{K_{\mathrm{pred}} \,\| \Sigma_P^{1/2} (W H_T - H_P) \|_F}_{\gamma:\ \text{\rm head discrepancy}}.
 \end{equation}
+We refer to $\mathcal{B} = \delta + \gamma$ as the \emph{PRISM bound}; it is the diagnostic quantity used throughout Sec.~\ref{sec:experiments}.
 \end{theorem}
 
 
@@ -280,7 +282,7 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 \label{eq:ar_risk}
 \mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{\tau=1}^{|y|} \ell\!\big(\phi_M(c, y_{<\tau}) \cdot H_M,\; y_\tau\big) \right].
 \end{equation}
-Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and collected into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ (with $N$ the total number of target tokens across the calibration set); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$, unifying point-wise classification, language modeling, short-horizon QA, and multi-step reasoning under a single bound. The full corollary is in Appendix~\ref{app:ar_extension}.
+Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and collected into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$, where $N$ is the total number of target tokens stacked across the calibration set (replacing the per-input count $n$ of Sec.~\ref{subsec:problem_setup} in the AR setting); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$, unifying point-wise classification, language modeling, short-horizon QA, and multi-step reasoning under a single bound. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
 \subsection{From Diagnostic to Training: Shape Regularization}
@@ -317,7 +319,7 @@ Target $T{=}\theta_0$ is the frozen base model and proxy $P{=}\theta_t$ is the f
 \section{Experiments}
 \label{sec:experiments}
 
-We organize the experiments around three claims tied to the three contributions: \emph{Predictiveness}---the bound tracks $|\Delta\mathcal{R}|$ in rank order across both PTQ and LoRA variants (Sec.~\ref{subsec:predict}); \emph{Decomposability}---its three axes localize three qualitatively distinct empirical failure modes (Sec.~\ref{subsec:decompose}); and \emph{Actionability}---the differentiable shape arm doubles as a training-time regularizer that suppresses catastrophic forgetting (Sec.~\ref{subsec:action}). Sec.~\ref{subsec:ablation} closes with a component-wise ablation. Throughout, rank consistency is measured by Spearman $|r_s|$ between the bound and the empirical cross-entropy risk gap.
+We organize the experiments around three claims: \emph{Predictiveness}---the bound tracks $|\Delta\mathcal{R}|$ in rank order across both PTQ and LoRA variants (Sec.~\ref{subsec:predict}); \emph{Decomposability}---its three axes localize three qualitatively distinct empirical failure modes (Sec.~\ref{subsec:decompose}); and \emph{Actionability}---the differentiable shape arm doubles as a training-time regularizer that suppresses catastrophic forgetting (Sec.~\ref{subsec:action}). Sec.~\ref{subsec:ablation} closes with a component-wise ablation. Throughout, rank consistency is measured by Spearman $|r_s|$ between the bound and the empirical cross-entropy risk gap.
 
 \subsection{Experimental Setup}
 \label{subsec:exp_setup}
@@ -335,7 +337,7 @@ LoRA fine-tunes on \textbf{TruthfulQA} (factual grounding) and \textbf{BBQ} (Bia
 Following Eq.~(\ref{eq:ar_risk}), five benchmarks: \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K} (multi-step reasoning); language modeling (WikiText, FineWeb-Edu) is in Appendix~\ref{app:per_model_tables}. All risks are computed teacher-forced---prompt $c$ and targets $y$ scored in a single forward pass over the gold span---matching each benchmark's scoring rule by construction and producing deterministic per-sample residuals on the same scale as the LoRA fine-tuning objective. PRISM is a variant-ranking signal complementary to generation-based evaluation, not a substitute.
 
 \paragraph{Calibration and Hyperparameters.}
-PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared across all variants of a base ($N{=}512$ per benchmark for PTQ, $N{=}256$ for LoRA forgetting; TruthfulQA and BBQ use their full test sets). Selection variance enters $|\Delta\mathcal{R}|$ and the bound identically across variants, so it cannot affect ranking; the orderings span 1--2 orders of magnitude in $|\Delta\mathcal{R}|$ (e.g., Q2\_K vs.\ Q8\_0). For shape regularization (Sec.~\ref{subsec:action}) we sweep $\lambda \in \{0.0, 0.1, 0.5\}$; $\Omega$ is computed on a fixed batch of $32$ sequences from the pre-training distribution (disjoint from $\mathcal{D}_{\mathrm{FT}}$), refreshed every $k{=}8$ micro-steps. Checkpoints every $25$ steps, analysis at step $300$.
+PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared across all variants of a base ($512$ samples per benchmark for PTQ, $256$ for LoRA forgetting; TruthfulQA and BBQ use their full test sets). Selection variance enters $|\Delta\mathcal{R}|$ and the bound identically across variants, so it cannot affect ranking; the orderings span 1--2 orders of magnitude in $|\Delta\mathcal{R}|$ (e.g., Q2\_K vs.\ Q8\_0). For shape regularization (Sec.~\ref{subsec:action}) we sweep $\lambda \in \{0.0, 0.1, 0.5\}$; $\Omega$ is computed on a fixed batch of $32$ sequences from the pre-training distribution (disjoint from $\mathcal{D}_{\mathrm{FT}}$), refreshed every $k{=}8$ micro-steps. Checkpoints every $25$ steps, analysis at step $300$.
 
 
 \subsection{Predictiveness: The Bound Tracks the Risk Gap}
@@ -371,7 +373,7 @@ The same predictiveness extends to fine-tuning-induced drift (Fig.~\ref{fig:forg
 \subsection{Decomposability: Three Axes, Three Failure Modes}
 \label{subsec:decompose}
 
-A scalar correlation alone would already match prior work on representational similarity. The decomposition contributes the next layer: the dominant axis of Theorem~\ref{thm:unified_bound} reads off directly from the per-variant numbers and corresponds to a distinct empirical failure mode. Three settings recur in our experiments.
+A scalar correlation alone would already match prior work on representational similarity. The decomposition contributes the next layer: the dominant axis of Theorem~\ref{thm:unified_bound} reads off directly from the per-variant numbers and corresponds to a distinct empirical failure mode. Three such failure modes recur in our experiments.
 
 \paragraph{Shape distortion (low-bit PTQ).}
 At Q2 and Q3 across all four families tested (Appendix~\ref{app:per_model_tables} for Ministral and DeepSeek), the shape term $2\rho_T\rho_P(1{-}\Omega)$ outweighs the scale term $(\Delta\rho)^2$ by two to three orders of magnitude (e.g., Llama-Q2\_K on MMLU: $24$ vs.\ $\sim$$9{,}000$; Ministral-Q2\_K on MMLU: $\sim$$9$ vs.\ $\sim$$11{,}000$)---consistent with low-bit PTQ corrupting the relational structure of the feature manifold rather than its global scale. Scale drift is measurable across the PTQ grid but does not cleanly dominate any single variant; the most scale-affected case is Qwen3-Base Q2\_K on GSM8K (Table~\ref{tab:qwen_decomposition_all}, Appendix~\ref{app:per_model_tables}), where $\rho_P$ rises from $267$ to $313$ alongside shape drift.
@@ -418,7 +420,7 @@ Under the Procrustes-optimal alignment $W{=}W_N$ (bottom block), the cumulative 
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-We presented PRISM, a geometric framework with three contributions. \textbf{Theory}: the Orthogonal Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; combined with a covariance-weighted head term, this yields a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes (Theorem~\ref{thm:unified_bound}). \textbf{Framework}: the bound is computed from features and head weights alone, and applies across both PTQ and frozen-head LoRA; via the differentiable trace form $\Omega$, it doubles as a training-time regularizer against catastrophic forgetting. \textbf{Empirical}: rank-consistent across both settings (mean Spearman $|r_s|{\approx}0.82$ on PTQ, $0.835$ on LoRA forgetting), the three axes localize distinct empirical settings---shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift---and the shape regularizer reduces forgetting across downstream benchmarks.
+We presented PRISM, a geometric framework with three contributions. \textbf{Theory}: the Orthogonal Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; combined with a covariance-weighted head term, this yields a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes (Theorem~\ref{thm:unified_bound}). \textbf{Framework}: the bound is computed from features and head weights alone, and applies across both PTQ and frozen-head LoRA; via the differentiable trace form $\Omega$, it doubles as a training-time regularizer against catastrophic forgetting. \textbf{Empirical}: rank-consistent across both settings (mean Spearman $|r_s|{\approx}0.82$ on PTQ, $0.835$ on LoRA forgetting), the three axes localize distinct failure modes---shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift---and the shape regularizer reduces forgetting across downstream benchmarks.
 
 \paragraph{Scope and limitations.}
 PRISM is a \emph{relative} metric: it scores how a variant differs from a reference base via the cross-entropy risk gap, not the variant's absolute task quality---the strong rank correlation reported in Sec.~\ref{subsec:predict} supports variant comparison but does not predict $|\Delta\mathcal{R}|$ itself. The shape regularizer of Sec.~\ref{subsec:action} provides one direct training-time intervention against the shape axis; protocol-level mitigations for the scale and head axes (per-channel outlier smoothing, Hessian-aware reconstruction, FP16-\texttt{lm\_head} retention) are a focused empirical follow-up the diagnostic enables.
