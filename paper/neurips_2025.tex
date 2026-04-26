@@ -162,7 +162,7 @@ Each axis is independently measurable from a single forward pass, so a PRISM fai
 %\paragraph{From diagnostic to training signal.}
 The same quantity that diagnoses a variant's drift can also prevent it.
 Under frozen-head LoRA the head term vanishes and the risk gap is governed by backbone shape drift, which $\Omega$ captures differentiably.
-Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts the bound from a post-hoc diagnostic into an active constraint against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}): even a weak weight suffices to reduce downstream forgetting across every benchmark we study.
+Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts the bound from a post-hoc diagnostic into an active constraint against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}): even a weak weight suffices to reduce downstream forgetting across benchmarks.
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
