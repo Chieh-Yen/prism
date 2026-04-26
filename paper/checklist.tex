@@ -94,8 +94,8 @@
 
 \item {\bf Experiment statistical significance}
     \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Aggregate Spearman correlations are reported with $\pm$ SEM across $n{=}10$ cells in Section~\ref{subsec:predict} (PTQ: $|r_s|=0.820 \pm 0.0471$; LoRA: $|r_s|=0.831 \pm 0.0722$). Per-cell $|r_s|$ values are annotated in Fig.~\ref{fig:quant_grid_bound} and Fig.~\ref{fig:forget_grid_llama}. Within-cell variability is absent because teacher-forced cross-entropy scoring on fixed held-out subsets is deterministic.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
