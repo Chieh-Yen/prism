@@ -170,7 +170,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
     \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} The bound is computed from features and head weights alone, and applies cleanly across both PTQ and frozen-head LoRA; via the differentiable trace form $\Omega$, it directly becomes a training-time shape regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
 
-    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} Across the cross-family Llama--Qwen pair (with Ministral and DeepSeek replications in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks variants with mean Spearman $|r_s|{\approx}0.82$ on PTQ and $0.835$ on LoRA forgetting; its three axes localize distinct failure modes (shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift), and a mild shape regularizer reduces forgetting across downstream benchmarks.
+    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} Across the cross-family Llama--Qwen pair (with Ministral and DeepSeek replications in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks variants with mean Spearman $|r_s|{\approx}0.82$ on PTQ and $0.835$ on LoRA forgetting (\emph{predictiveness}); its three axes localize distinct failure modes (shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift; \emph{decomposability}); and a mild shape regularizer reduces forgetting across downstream benchmarks (\emph{actionability}).
 \end{enumerate}
 %========================================================
 
@@ -319,7 +319,7 @@ Target $T{=}\theta_0$ is the frozen base model and proxy $P{=}\theta_t$ is the f
 \section{Experiments}
 \label{sec:experiments}
 
-We organize the experiments around three claims: \emph{Predictiveness}---the bound tracks $|\Delta\mathcal{R}|$ in rank order across both PTQ and LoRA variants (Sec.~\ref{subsec:predict}); \emph{Decomposability}---its three axes localize three qualitatively distinct empirical failure modes (Sec.~\ref{subsec:decompose}); and \emph{Actionability}---the differentiable shape arm doubles as a training-time regularizer that suppresses catastrophic forgetting (Sec.~\ref{subsec:action}). Sec.~\ref{subsec:ablation} closes with a component-wise ablation. Throughout, rank consistency is measured by Spearman $|r_s|$ between the bound and the empirical cross-entropy risk gap.
+We organize the experiments around three claims: \textbf{Predictiveness}---the bound tracks $|\Delta\mathcal{R}|$ in rank order across both PTQ and LoRA variants (Sec.~\ref{subsec:predict}); \textbf{Decomposability}---its three axes localize three qualitatively distinct empirical failure modes (Sec.~\ref{subsec:decompose}); and \textbf{Actionability}---the differentiable shape arm doubles as a training-time regularizer that suppresses catastrophic forgetting (Sec.~\ref{subsec:action}). Sec.~\ref{subsec:ablation} closes with a component-wise ablation. Throughout, rank consistency is measured by Spearman $|r_s|$ between the bound and the empirical cross-entropy risk gap.
 
 \subsection{Experimental Setup}
 \label{subsec:exp_setup}
