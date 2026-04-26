@@ -35,6 +35,9 @@ We report the full geometric decomposition (Eq.~\ref{eq:exact_equality}) for eac
 
 The base-model tables cover the four 8B families: Llama-3.1-8B extended benchmarks (WikiText, FineWeb-Edu) in Table~\ref{tab:llama_decomposition_ext}, Ministral-3-8B in Table~\ref{tab:mistral_decomposition_all}, Qwen3-8B in Table~\ref{tab:qwen_decomposition_all} (also referenced in Sec.~\ref{subsec:decompose}), and DeepSeek-R1-Distill-Llama-8B in Table~\ref{tab:deepseek_decomposition_all}. The instruction-tuned counterparts of Llama, Ministral, and Qwen are reported in Tables~\ref{tab:llama_instruct_decomposition_all}, \ref{tab:mistral_instruct_decomposition_all}, and~\ref{tab:qwen_instruct_decomposition_all} respectively, and reproduce the same patterns as their base counterparts.
 
+\paragraph{Per-benchmark variability in correlation strength.}
+Among MC/QA/reasoning benchmarks the bound consistently achieves $|r_s|\in[0.79, 0.95]$ across all evaluated families. Language-modeling benchmarks show more variability: FineWeb-Edu retains $|r_s|\approx 0.92$ while WikiText is weaker ($|r_s|\approx 0.54$). The contrast suggests the WikiText weakness is dataset-specific---likely the dense per-token averaging interacting with WikiText's specific text distribution---rather than a structural limitation of LM evaluation, since FineWeb-Edu (also LM scoring) tracks the bound as well as the MC/QA benchmarks.
+
 \input{tables/quantization/table_llama_ext}
 
 %\clearpage
