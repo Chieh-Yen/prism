@@ -138,7 +138,7 @@ Because $\Omega$ is differentiable, the shape term doubles as a training-time re
 %\paragraph{The diagnostic gap in the post-training LLM lifecycle.}
 As large language models move from research prototypes to production deployments, a new engineering bottleneck emerges after pre-training.
 A single base checkpoint now yields many post-training variants---quantized (GPTQ~\cite{frantar2022gptq}, GGUF, BitsAndBytes~\cite{dettmers2022gpt3}), LoRA-adapted~\cite{hu2022lora}, or distilled under different deployment configurations---each requiring comparison before deployment~\cite{grattafiori2024llama, qwen2025qwen3}.
-Evaluation gives only an aggregate accuracy score per benchmark, so a degraded variant is flagged but its cause is not: practitioners resort to blind trial-and-error rather than targeted correction. What is needed is a diagnostic that identifies which part of the variant has changed from its base---turning trial-and-error into targeted correction.
+Evaluation gives only an aggregate accuracy score per benchmark, so a degraded variant is flagged but its cause is not: practitioners resort to blind trial-and-error rather than targeted correction. What is needed is a diagnostic that identifies which part of the variant has changed from its base.
 
 %\paragraph{Similarity scores without risk, without mechanism.}
 A natural shortcut is to borrow a representational similarity metric: SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and related Frobenius-norm metrics each reduce two activation matrices to a single alignment score.
@@ -147,9 +147,10 @@ Such a diagnostic requires a geometric quantity that lifts into a functional ris
 
 %\paragraph{Three obstacles to a usable risk bound.}
 Constructing such a bound on the deployed model's cross-entropy risk faces three concrete obstacles. (i)~No prior representational similarity---CKA, SVCCA, or generalized shape metrics---has been lifted to bound the deployed model's CE risk; the established probe-based route~\cite{harvey2024what} evaluates a freshly-trained linear classifier instead of the model's own head. (ii)~Cross-entropy is Lipschitz in features, but the naive Lipschitz constant scales with the head's full spectral norm and is too loose to be informative over an LLM vocabulary of size $V \sim 10^5$. (iii)~Post-training quantization and parameter-efficient fine-tuning are studied by separate communities, with no shared geometric framework that bounds the same risk gap in both settings.
+Yet LLM structure itself supplies the leverage to address each.
 
 %\paragraph{What makes LLM geometry analytically tractable.}
-Two structural properties of LLMs nonetheless make the lift tractable.
+Two structural properties of LLMs make the lift tractable.
 Transformer LLMs factor cleanly into a non-linear backbone and a single linear prediction head (\texttt{lm\_head}), with no intermediate non-linear projection between features and vocabulary logits.
 The Linear Representation Hypothesis~\cite{moschella2022relative, park2023linear} further asserts that same-family variants learn feature manifolds related by a near-isometric linear map.
 Together, these properties let us lift the Procrustes feature-alignment residual into an \emph{exact} closed-form upper bound on the cross-entropy risk gap.
