@@ -309,7 +309,7 @@ The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_con
 
 \paragraph{Quantization quality estimation.}
 \label{subsec:quantization}
-Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. PTQ perturbs each weight independently \emph{without applying any basis transformation}, so $W{=}I$ is the natural alignment and the proxy's features stay comparable to the target's coordinate-by-coordinate. When the protocol keeps \texttt{lm\_head} in FP16 (GPTQ, BitsAndBytes), the head term $\gamma$ vanishes and the bound reduces to the feature side $(\Delta\rho)^2$ and $1{-}\Omega$; GGUF k-quant tiers that also quantize the output embedding contribute a non-negligible $\gamma$.
+Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. PTQ perturbs each weight independently \emph{without applying any basis transformation}, so $W{=}I$ is the natural alignment. When the protocol keeps \texttt{lm\_head} in FP16 (GPTQ, BitsAndBytes), the head term $\gamma$ vanishes and the bound reduces to the feature side $(\Delta\rho)^2$ and $1{-}\Omega$; GGUF k-quant tiers also quantize the head, retaining $\gamma > 0$.
 
 \paragraph{Geometric monitoring of catastrophic forgetting.}
 \label{subsec:forgetting}
