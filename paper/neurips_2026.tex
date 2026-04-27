@@ -194,12 +194,12 @@ Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate lo
 \section{A Geometric Bound on the Cross-Entropy Risk Gap}
 \label{sec:geometric_foundation}
 
-This section derives the \textbf{PRISM} (\textbf{P}roxy \textbf{R}isk \textbf{I}nference via \textbf{S}tructural \textbf{M}apping) bound. From two structural properties of LLMs---a linear \texttt{lm\_head} on top of a non-linear backbone, and the Linear Representation Hypothesis---we obtain a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ that decomposes into three diagnostic axes: scale, shape, and head. We first state the setup (Sec.~\ref{subsec:problem_setup}), then derive the bound (Secs.~\ref{subsec:unified_bound}--\ref{subsec:interpretation}), extend it to autoregressive generation (Sec.~\ref{subsec:ar_extension}), and lift it into a training-time regularizer (Sec.~\ref{subsec:shape_reg}).
+This section derives the \textbf{PRISM} (\textbf{P}roxy \textbf{R}isk \textbf{I}nference via \textbf{S}tructural \textbf{M}apping) bound. From two structural properties of LLMs---a linear \texttt{lm\_head} on top of a non-linear backbone, and the Linear Representation Hypothesis---we obtain a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ that decomposes into three diagnostic axes: scale, shape, and head.
 
 \subsection{Setup}
 \label{subsec:problem_setup}
 
-We consider a \emph{Target model} $T$ (e.g., a full-precision base) and a \emph{Proxy model} $P$ (e.g., a quantized or fine-tuned variant) with shared hidden dimension $d$. Each model factors into a Transformer backbone $\phi_M: \mathcal{X} \to \mathbb{R}^d$ followed by a linear prediction head $H_M \in \mathbb{R}^{d \times V}$ (the \texttt{lm\_head} projecting onto a vocabulary of size $V$):
+We consider a \emph{Target model} $T$ (e.g., a full-precision base) and a \emph{Proxy model} $P$ (e.g., a quantized or fine-tuned variant) with shared hidden dimension $d$. Each model factors into a Transformer backbone $\phi_M: \mathcal{X} \to \mathbb{R}^d$ followed by a linear prediction head $H_M \in \mathbb{R}^{d \times V}$ (the \texttt{lm\_head}, vocabulary size $V$):
 \begin{equation}
 f_M(x) = \mathrm{softmax}\!\big(\phi_M(x) \cdot H_M\big), \qquad M \in \{T, P\}.
 \end{equation}
@@ -253,7 +253,7 @@ For any $W \in \mathcal{O}(d)$,
 \label{eq:unified_bound}
 |\mathcal{R}_T - \mathcal{R}_P| \;\le\; \mathcal{B} \;:=\; \underbrace{K_{\mathrm{feat}} \sqrt{ (\rho_T - \rho_P)^2 + 2\rho_T \rho_P \big(1 - \Omega_W\big) }}_{\delta:\ \text{\rm feature alignment error}} \;+\; \underbrace{K_{\mathrm{pred}} \,\| \Sigma_P^{1/2} (W H_T - H_P) \|_F}_{\gamma:\ \text{\rm head discrepancy}}.
 \end{equation}
-We refer to $\mathcal{B} = \delta + \gamma$ as the \emph{PRISM bound}; it is the diagnostic quantity used throughout Sec.~\ref{sec:experiments}.
+We refer to $\mathcal{B} = \delta + \gamma$ as the \emph{PRISM bound}.
 \end{theorem}
 
 
@@ -272,7 +272,7 @@ The shape term captures the distortion of the feature manifold up to rotation. A
 The head term quantifies how differently the two prediction heads interpret features, weighted by $\Sigma_P$ so that only directions where the data has support can contribute.
 
 \paragraph{PRISM admits a family of Procrustes similarities.}
-The family $\{\Omega_W\}$ of Prop.~\ref{prop:exact_decomposition} includes the trace form $\Omega_{W=I}$ and the nuclear form $\Omega_N := \Omega_{W=W_N}$ (Appendix~\ref{app:tightness}); a related Frobenius similarity $\Omega_F$, tied to CKA, is discussed there as an external comparison. The main text commits to $\Omega := \Omega_{W=I}$ because the frozen-head settings studied here---LoRA and FP16-head PTQ---keep $H_T = H_P$ in most configurations, so the head term simplifies at $W = I$ and leaves the risk gap tractable; the $W = W_N$ counterpart is reported as a Sec.~\ref{subsec:ablation} ablation.
+The family $\{\Omega_W\}$ of Prop.~\ref{prop:exact_decomposition} includes the trace form $\Omega_{W=I}$ and the nuclear form $\Omega_N := \Omega_{W=W_N}$ (Appendix~\ref{app:tightness}). The main text uses $\Omega := \Omega_{W=I}$: in LoRA and FP16-head PTQ (GPTQ, BnB) the head is preserved, so $H_T = H_P$ and the head term vanishes at $W = I$; GGUF k-quant tiers also quantize the head, retaining $\gamma > 0$. The $W_N$ counterpart appears as an ablation in Sec.~\ref{subsec:ablation}.
 
 
 \subsection{Extension to Autoregressive Generation}
@@ -283,7 +283,7 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 \label{eq:ar_risk}
 \mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{\tau=1}^{|y|} \ell\!\big(\phi_M(c, y_{<\tau}) \cdot H_M,\; y_\tau\big) \right].
 \end{equation}
-Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and collected into a matrix $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$, where $N$ is the total number of target tokens stacked across the calibration set (replacing the per-input count $n$ of Sec.~\ref{subsec:problem_setup} in the AR setting); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$, unifying point-wise classification, language modeling, short-horizon QA, and multi-step reasoning under a single bound. The full corollary is in Appendix~\ref{app:ar_extension}.
+Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and stacked across $N$ target tokens into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$, so Theorem~\ref{thm:unified_bound} applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
 \subsection{From Diagnostic to Training: Shape Regularization}
