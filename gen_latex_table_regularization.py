@@ -296,47 +296,40 @@ def _wrap_table(body_rows, caption, label, second_col_header):
 # ═══════════════════════════════════════════════════════════════════
 # Compact mode (transposed: rows = Ω, |ΔR|; cols = benchmark × config + Mean)
 # ═══════════════════════════════════════════════════════════════════
-def _short_method_label(method: str, lam: str = "") -> str:
-    """2-letter abbrev for sub-headers in the compact table.
-    λ=0.0 of any method is the no-regularization baseline (the gradient
-    contribution vanishes), so we always label it ``NR``."""
+def _config_subheader(method: str, lam: str) -> str:
+    """Sub-header label: method name only (λ values appear in caption).
+    λ=0.0 of any method is the no-regularization baseline."""
     try:
         if float(lam) == 0.0:
-            return "NR"
+            return "no reg"
     except (TypeError, ValueError):
         pass
-    return {"baseline": "NR", "replay": "RP", "trace": "TR"}.get(method, method[:2].upper())
+    return method  # "replay" or "trace"
 
 
-def _fmt_compact_cell(val, omega_val, bold: bool = False,
+def _fmt_compact_cell(val, bold: bool = False,
                       underline: bool = False) -> str:
-    """Format one cell with optional bold/underline + Ω-driven red shading.
-    Both the Ω cell itself and its sibling |ΔR| cell on the same column take
-    the shading; the colour level is determined by the Ω value passed in."""
+    """Format one cell. Best-in-block: bold + light-green shading.
+    Second-best: underline. Others: plain."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "--"
     s = f"{val:.4f}"
     if bold:
-        s = r"\textbf{" + s + "}"
-    elif underline:
-        s = r"\underline{" + s + "}"
-    if omega_val is not None:
-        if omega_val < OMEGA_DEEP:
-            return r"\cellcolor{red!35} " + s
-        if omega_val < OMEGA_LIGHT:
-            return r"\cellcolor{red!18} " + s
+        return r"\cellcolor{green!18} \textbf{" + s + "}"
+    if underline:
+        return r"\underline{" + s + "}"
     return s
 
 
 def build_compact_table(model_cfg, ft_cfg, configs, include_target):
-    """Transposed minimal table: rows = (Ω↑, |ΔR|↓); columns = (5 benchmarks +
-    Mean) × (n configs). Mean is unweighted arithmetic mean across the
-    benchmarks. Within each benchmark/Mean column group, bold/underline mark
-    1st / 2nd best per metric.
+    """Transposed minimal table: rows = (Ω↑, |ΔR|↓); columns = 5 benchmarks ×
+    n configs. Within each benchmark group, bold/underline mark 1st / 2nd best
+    per metric. The across-benchmark unweighted mean is reported in the
+    caption (not as a Mean column).
 
     Other PRISM components (ρ_T, ρ_P, δ, γ, B) are intentionally omitted: in
     frozen-\texttt{lm\_head} LoRA, γ ≡ 0 and ρ ≈ const, so δ and B track Ω;
-    the full decomposition is the appendix table.
+    the full decomposition is in the appendix table.
     """
     short_model = model_cfg["short"]
     short_ft = ft_cfg["short"]
@@ -351,7 +344,7 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
             ms[(ev, method, lam)] = metrics_at_step(
                 load_run(method, lam, short_model, short_ft), ev)
 
-    # ── Per-config means across the eval_tasks ───────────────────────
+    # ── Per-config means across the eval_tasks (used in caption) ─────
     means: dict = {}
     for method, lam, _ in configs:
         oms = [ms[(ev, method, lam)]["omega"] for ev in eval_tasks
@@ -368,19 +361,14 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
     # ── Build the two data rows column-by-column ─────────────────────
     om_cells = [r"$\Omega \uparrow$"]
     dr_cells = [r"$|\Delta\mathcal{R}|\downarrow$"]
-    columns = list(eval_tasks) + ["__MEAN__"]
 
-    for col in columns:
-        if col == "__MEAN__":
-            block_om = {(m, l): means[(m, l)]["omega"]      for m, l, _ in configs}
-            block_dr = {(m, l): means[(m, l)]["delta_risk"] for m, l, _ in configs}
-        else:
-            block_om = {(m, l): (ms[(col, m, l)]["omega"]
-                                 if ms[(col, m, l)] is not None else None)
-                        for m, l, _ in configs}
-            block_dr = {(m, l): (ms[(col, m, l)]["delta_risk"]
-                                 if ms[(col, m, l)] is not None else None)
-                        for m, l, _ in configs}
+    for col in eval_tasks:
+        block_om = {(m, l): (ms[(col, m, l)]["omega"]
+                             if ms[(col, m, l)] is not None else None)
+                    for m, l, _ in configs}
+        block_dr = {(m, l): (ms[(col, m, l)]["delta_risk"]
+                             if ms[(col, m, l)] is not None else None)
+                    for m, l, _ in configs}
 
         # Within-block ranking
         valid_om = [(k, v) for k, v in block_om.items() if v is not None]
@@ -396,23 +384,23 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
             ov = block_om[(method, lam)]
             drv = block_dr[(method, lam)]
             om_cells.append(_fmt_compact_cell(
-                ov, ov,
+                ov,
                 bold     = (method, lam) == best_om,
                 underline= (method, lam) == sec_om,
             ))
             dr_cells.append(_fmt_compact_cell(
-                drv, ov,
+                drv,
                 bold     = (method, lam) == best_dr,
                 underline= (method, lam) == sec_dr,
             ))
 
     # ── Headers ──────────────────────────────────────────────────────
     n_cfg   = len(configs)
-    n_groups = len(columns)
-    col_spec = "l " + " ".join(["c" * n_cfg] * n_groups)
+    n_groups = len(eval_tasks)
+    col_spec = "l " + " | ".join(["c" * n_cfg] * n_groups)
 
     group_names = [DS_DISPLAY.get(ev, ev).replace(" (self)", "")
-                   for ev in eval_tasks] + [r"\textbf{Mean}"]
+                   for ev in eval_tasks]
     group_headers = [
         f"\\multicolumn{{{n_cfg}}}{{c}}{{{name}}}" for name in group_names
     ]
@@ -422,21 +410,44 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
         cmidrules.append(f"\\cmidrule(lr){{{col_idx}-{col_idx + n_cfg - 1}}}")
         col_idx += n_cfg
 
-    sub_headers = [_short_method_label(m, l) for m, l, _ in configs] * n_groups
+    sub_headers = [_config_subheader(m, l) for m, l, _ in configs] * n_groups
 
-    # ── Caption + assembly ───────────────────────────────────────────
-    config_summary = "; ".join(
-        f"{_short_method_label(m, l)} = {label}" for m, l, label in configs
+    # ── Mean clause for caption (best per metric bolded) ─────────────
+    valid_om_means = [(k, means[k]["omega"]) for k in means
+                      if means[k]["omega"] is not None]
+    valid_dr_means = [(k, means[k]["delta_risk"]) for k in means
+                      if means[k]["delta_risk"] is not None]
+    best_om_mean = max(valid_om_means, key=lambda x: x[1])[0] if valid_om_means else None
+    best_dr_mean = min(valid_dr_means, key=lambda x: x[1])[0] if valid_dr_means else None
+
+    om_strs, dr_strs = [], []
+    for method, lam, _ in configs:
+        om = means[(method, lam)]["omega"]
+        dr = means[(method, lam)]["delta_risk"]
+        om_str = f"{om:.3f}" if om is not None else "--"
+        dr_str = f"{dr:.3f}" if dr is not None else "--"
+        if (method, lam) == best_om_mean:
+            om_str = r"\textbf{" + om_str + "}"
+        if (method, lam) == best_dr_mean:
+            dr_str = r"\textbf{" + dr_str + "}"
+        om_strs.append(om_str)
+        dr_strs.append(dr_str)
+
+    config_list = " / ".join(label for _, _, label in configs)
+    mean_clause = (
+        r"Across-benchmark unweighted means for [" + config_list + r"]: "
+        r"$\Omega$ = " + " / ".join(om_strs) + r"; "
+        r"$|\Delta\mathcal{R}|$ = " + " / ".join(dr_strs) + r"."
     )
+
     caption = (
-        r"Compact regularization comparison for \textbf{" + model_cfg["display"]
+        r"Regularization comparison for \textbf{" + model_cfg["display"]
         + r"} fine-tuned on \textbf{" + ft_cfg["display"] + r"} "
         r"(identity alignment $W{=}I$; metrics at step " + str(ALIGN_STEP) + r"). "
         r"Rows: $\Omega$ (higher = more shape preserved) and $|\Delta\mathcal{R}|$ "
-        r"(lower = less forgetting). Columns: 5 downstream benchmarks plus "
-        r"the unweighted across-benchmark Mean. Configs: "
-        + config_summary + r". Bold / underline: 1st / 2nd-best per column "
-        r"group. Red shading: $\Omega < 0.95$ (light) or $< 0.80$ (deep). "
+        r"(lower = less forgetting). \colorbox{green!18}{\textbf{Bold + green}} / "
+        r"underline: 1st / 2nd-best per benchmark group. "
+        + mean_clause + r" "
         r"In this frozen-\texttt{lm\_head} LoRA setting $\gamma \equiv 0$ and "
         r"$\rho_T \approx \rho_P$, so $\delta$ and $\mathcal{B}$ track $\Omega$; "
         r"the full decomposition is in Appendix Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq}."
@@ -468,7 +479,7 @@ def run_compact_mode(args):
 
     print(f"=== compact mode | configs ===")
     for method, lam, label in configs:
-        print(f"  {method:6s} λ={lam:5s} → {_short_method_label(method, lam)}: {label}")
+        print(f"  {method:6s} λ={lam:5s} → {_config_subheader(method, lam)}: {label}")
 
     stems: list[str] = []
     for model_cfg in MODELS:
