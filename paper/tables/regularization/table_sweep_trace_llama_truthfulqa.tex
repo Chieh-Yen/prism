@@ -1,0 +1,41 @@
+\begin{table}[t]
+\centering
+\caption{Trace-norm shape regularizer ($\lambda \cdot (1 - \Omega_I)$) decomposition for \textbf{Llama-3.1-8B} fine-tuned on \textbf{TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.01, 0.05, 0.1, 0.5, 1.0\}$. Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
+\label{tab:reg_sweep_trace_llama_truthfulqa}
+\resizebox{0.95\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+Dataset & $\lambda$ & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+ARC & $\lambda{=}0.01$ & 137.55 & 137.34 & \cellcolor{red!18} 0.9177 & \cellcolor{red!18} 55.7623 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 145.7483 & \cellcolor{red!18} 0.0225 \\
+ & $\lambda{=}0.05$ & 137.55 & 137.14 & \cellcolor{red!18} 0.9179 & \cellcolor{red!18} 55.6589 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 145.4779 & \cellcolor{red!18} 0.0179 \\
+ & $\lambda{=}0.1$ & 137.55 & 136.90 & \cellcolor{red!18} \textbf{0.9220} & \cellcolor{red!18} 54.2195 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 141.7159 & \cellcolor{red!18} \textbf{0.0123} \\
+ & $\lambda{=}0.5$ & 137.55 & 137.45 & \cellcolor{red!18} 0.9264 & \cellcolor{red!18} 52.7624 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 137.9073 & \cellcolor{red!18} 0.0210 \\
+ & $\lambda{=}1.0$ & 137.55 & 137.32 & \cellcolor{red!18} 0.9319 & \cellcolor{red!18} 50.7123 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 132.5490 & \cellcolor{red!18} 0.0199 \\
+\midrule
+MMLU & $\lambda{=}0.01$ & 138.91 & 138.99 & \cellcolor{red!18} 0.9443 & \cellcolor{red!18} 46.3969 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 121.2695 & \cellcolor{red!18} 0.1073 \\
+ & $\lambda{=}0.05$ & 138.91 & 138.88 & \cellcolor{red!18} 0.9447 & \cellcolor{red!18} 46.2078 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 120.7753 & \cellcolor{red!18} 0.1105 \\
+ & $\lambda{=}0.1$ & 138.91 & 138.71 & \cellcolor{red!18} \textbf{0.9469} & \cellcolor{red!18} 45.2527 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 118.2789 & \cellcolor{red!18} \textbf{0.1053} \\
+ & $\lambda{=}0.5$ & 138.91 & 139.19 & 0.9514 & 43.3573 & \cellcolor{cyan!12} $0$ & 113.3247 & 0.1103 \\
+ & $\lambda{=}1.0$ & 138.91 & 139.09 & 0.9542 & 42.0802 & \cellcolor{cyan!12} $0$ & 109.9868 & 0.1116 \\
+\midrule
+SQuAD & $\lambda{=}0.01$ & 138.20 & 139.64 & \cellcolor{red!18} 0.9334 & \cellcolor{red!18} 50.7137 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 132.5524 & \cellcolor{red!18} 1.2174 \\
+ & $\lambda{=}0.05$ & 138.20 & 139.50 & \cellcolor{red!18} 0.9363 & \cellcolor{red!18} 49.5879 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 129.6100 & \cellcolor{red!18} 1.2030 \\
+ & $\lambda{=}0.1$ & 138.20 & 139.46 & \cellcolor{red!18} 0.9371 & \cellcolor{red!18} 49.2733 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 128.7877 & \cellcolor{red!18} 1.1843 \\
+ & $\lambda{=}0.5$ & 138.20 & 139.28 & \cellcolor{red!18} 0.9425 & \cellcolor{red!18} 47.0506 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 122.9780 & \cellcolor{red!18} 1.1329 \\
+ & $\lambda{=}1.0$ & 138.20 & 139.04 & \cellcolor{red!18} \textbf{0.9478} & \cellcolor{red!18} 44.7896 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 117.0684 & \cellcolor{red!18} \textbf{1.0543} \\
+\midrule
+TriviaQA & $\lambda{=}0.01$ & 140.93 & 146.23 & \cellcolor{red!35} 0.7747 & \cellcolor{red!35} 96.5217 & \cellcolor{cyan!12} $0$ & \cellcolor{red!35} 252.2829 & \cellcolor{red!35} 2.5204 \\
+ & $\lambda{=}0.05$ & 140.93 & 146.05 & \cellcolor{red!35} 0.7826 & \cellcolor{red!35} 94.7324 & \cellcolor{cyan!12} $0$ & \cellcolor{red!35} 247.6061 & \cellcolor{red!35} 2.4207 \\
+ & $\lambda{=}0.1$ & 140.93 & 146.09 & \cellcolor{red!35} 0.7837 & \cellcolor{red!35} 94.5200 & \cellcolor{cyan!12} $0$ & \cellcolor{red!35} 247.0508 & \cellcolor{red!35} 2.3739 \\
+ & $\lambda{=}0.5$ & 140.93 & 145.59 & \cellcolor{red!18} 0.8008 & \cellcolor{red!18} 90.5284 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 236.6178 & \cellcolor{red!18} 2.3033 \\
+ & $\lambda{=}1.0$ & 140.93 & 145.10 & \cellcolor{red!18} \textbf{0.8210} & \cellcolor{red!18} 85.6513 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 223.8704 & \cellcolor{red!18} \textbf{2.1242} \\
+\midrule
+GSM8K & $\lambda{=}0.01$ & 137.15 & 138.06 & 0.9942 & 14.8823 & \cellcolor{cyan!12} $0$ & 38.8986 & 0.1345 \\
+ & $\lambda{=}0.05$ & 137.15 & 137.91 & 0.9959 & 12.4348 & \cellcolor{cyan!12} $0$ & 32.5013 & 0.1266 \\
+ & $\lambda{=}0.1$ & 137.15 & 137.92 & 0.9965 & 11.5972 & \cellcolor{cyan!12} $0$ & 30.3122 & 0.1259 \\
+ & $\lambda{=}0.5$ & 137.15 & 137.80 & 1.0000 & 0.6511 & \cellcolor{cyan!12} $0$ & 1.7017 & 0.1114 \\
+ & $\lambda{=}1.0$ & 137.15 & 137.65 & \textbf{1.0000} & 0.5047 & \cellcolor{cyan!12} $0$ & 1.3192 & \textbf{0.0966} \\
+\bottomrule
+\end{tabular}}
+\end{table}

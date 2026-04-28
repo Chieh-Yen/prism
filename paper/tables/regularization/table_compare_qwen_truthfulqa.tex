@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Regularization comparison for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark block lists metrics at step 300 for: no reg, replay ($\lambda{=}0.01$), trace ($\lambda{=}1.0$). Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per block.}
+\label{tab:reg_compare_qwen_truthfulqa}
+\resizebox{0.95\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+Dataset & Config & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+ARC & no reg & 332.98 & 327.46 & \underline{0.9963} & 28.9320 & \cellcolor{cyan!12} $0$ & 100.0550 & \textbf{0.1612} \\
+ & replay ($\lambda{=}0.01$) & 332.98 & 327.21 & 0.9959 & 30.5052 & \cellcolor{cyan!12} $0$ & 105.4953 & 0.1725 \\
+ & trace ($\lambda{=}1.0$) & 332.98 & 327.29 & \textbf{0.9965} & 28.1038 & \cellcolor{cyan!12} $0$ & 97.1908 & \underline{0.1708} \\
+\midrule
+MMLU & no reg & 333.53 & 328.76 & \underline{0.9984} & 19.4910 & \cellcolor{cyan!12} $0$ & 67.4051 & \textbf{0.1092} \\
+ & replay ($\lambda{=}0.01$) & 333.53 & 328.53 & 0.9981 & 20.7513 & \cellcolor{cyan!12} $0$ & 71.7638 & \underline{0.1125} \\
+ & trace ($\lambda{=}1.0$) & 333.53 & 328.70 & \textbf{0.9985} & 18.6584 & \cellcolor{cyan!12} $0$ & 64.5258 & 0.1158 \\
+\midrule
+SQuAD & no reg & 297.68 & 292.04 & \underline{0.9930} & 35.2996 & \cellcolor{cyan!12} $0$ & 122.0758 & \textbf{0.8757} \\
+ & replay ($\lambda{=}0.01$) & 297.68 & 292.31 & 0.9926 & 36.2141 & \cellcolor{cyan!12} $0$ & 125.2384 & 0.9437 \\
+ & trace ($\lambda{=}1.0$) & 297.68 & 293.13 & \textbf{0.9932} & 34.7864 & \cellcolor{cyan!12} $0$ & 120.3011 & \underline{0.9025} \\
+\midrule
+TriviaQA & no reg & 240.42 & 224.70 & \underline{0.9667} & 62.0058 & \cellcolor{cyan!12} $0$ & 214.4331 & \textbf{0.1552} \\
+ & replay ($\lambda{=}0.01$) & 240.42 & 223.97 & 0.9647 & 63.8282 & \cellcolor{cyan!12} $0$ & 220.7355 & 0.1767 \\
+ & trace ($\lambda{=}1.0$) & 240.42 & 225.12 & \textbf{0.9674} & 61.3375 & \cellcolor{cyan!12} $0$ & 212.1221 & \underline{0.1575} \\
+\midrule
+GSM8K & no reg & 269.06 & 271.54 & \textbf{1.0000} & 2.4728 & \cellcolor{cyan!12} $0$ & 8.5518 & 0.0118 \\
+ & replay ($\lambda{=}0.01$) & 269.06 & 272.36 & \underline{1.0000} & 3.2925 & \cellcolor{cyan!12} $0$ & 11.3864 & \underline{0.0060} \\
+ & trace ($\lambda{=}1.0$) & 269.06 & 272.50 & 1.0000 & 3.4362 & \cellcolor{cyan!12} $0$ & 11.8835 & \textbf{0.0023} \\
+\bottomrule
+\end{tabular}}
+\end{table}
