@@ -374,7 +374,7 @@ def plot_combined(table, plot_configs, out_dir: Path):
 
     for model in MODELS:
         nrow, ncol = len(TARGETS), 6
-        legend_reserve_inch = 1.8
+        legend_reserve_inch = 2.1
         fig_height = nrow * 4.6 + legend_reserve_inch
         fig, axes = plt.subplots(nrow, ncol,
                                  figsize=(ncol * 6.0, fig_height),
@@ -448,7 +448,7 @@ def plot_combined(table, plot_configs, out_dir: Path):
         handles, labels = zip(*legend_entries)
         fig.legend(handles, labels, loc="upper center",
                    bbox_to_anchor=(0.52, 0.998),
-                   ncol=min(len(labels), 7), fontsize=29,
+                   ncol=min(len(labels), 7), fontsize=34,
                    frameon=True, fancybox=True,
                    handletextpad=0.6, columnspacing=1.8, borderpad=0.6)
 

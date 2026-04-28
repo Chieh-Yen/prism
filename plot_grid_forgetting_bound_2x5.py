@@ -203,8 +203,8 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
     transform_x = cfg.get("transform_x")
 
     nrow, ncol = len(ROW_TASKS), len(COL_BENCHMARKS)
-    # Absolute reserve at top for legend + column titles; matches the
-    # quantization-grid script so subplot aspect ratios stay consistent.
+    # Absolute reserve at top for legend + column titles. Larger legend
+    # font (18) needs more reserve.
     legend_reserve_inch = 1.1
     # Extra horizontal space so the right-side colorbar doesn't steal width
     # from the subplots (keeps per-subplot aspect close to quantization's).
@@ -417,8 +417,8 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
     handles, labels = zip(*legend_entries)
     fig.legend(
         handles, labels,
-        loc="upper center", bbox_to_anchor=(0.45, 0.99),
-        ncol=min(len(labels), 7), fontsize=14,
+        loc="upper center", bbox_to_anchor=(0.45, 0.995),
+        ncol=min(len(labels), 7), fontsize=18,
         frameon=True, fancybox=True,
         handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
     )

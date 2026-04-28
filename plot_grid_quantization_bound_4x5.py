@@ -254,10 +254,10 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
     rows = load_data()
 
     nrow, ncol = len(ROW_MODELS), len(COL_DATASETS)
-    # Reserve an absolute vertical band at the top for the legend + column
-    # titles so small grids (e.g., 2 rows) don't have the legend collide
-    # with the header text.
-    legend_reserve_inch = 1.1
+    # Reserve an absolute vertical band at the top for the (split) legend
+    # + column titles. Two legend rows (GGUF tiers / other methods) at
+    # fontsize 18 each take ~0.5"; total ~1.0" + buffer for column titles.
+    legend_reserve_inch = 1.8
     fig_height = nrow * 2.8 + legend_reserve_inch
     fig, axes = plt.subplots(
         nrow, ncol,
@@ -375,8 +375,13 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
             if ri == nrow - 1:
                 ax.set_xlabel(cfg["xlabel"], fontsize=17, labelpad=2)
 
-    # ── Legend ─────────────────────────────────────────────────────
-    legend_entries = []
+    # ── Legend (split into two rows) ───────────────────────────────
+    # Row 1: GGUF tiers (Q8_0…Q2_K)
+    # Row 2: BnB / GPTQ / FP16 + reference lines (y=x, Safe zone)
+    GGUF_TIERS = {"Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"}
+    LEGEND_FONTSIZE = 18
+
+    gguf_entries, other_entries = [], []
     for method in LEGEND_ORDER:
         if method not in seen_methods:
             continue
@@ -384,28 +389,48 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
         handle = Line2D(
             [0], [0], marker=style["marker"], color="w",
             markerfacecolor=style["color"], markeredgecolor="k",
-            markeredgewidth=0.5, markersize=11, linestyle="None",
+            markeredgewidth=0.5, markersize=14, linestyle="None",
         )
-        legend_entries.append((handle, method))
+        if method in GGUF_TIERS:
+            gguf_entries.append((handle, method))
+        else:
+            other_entries.append((handle, method))
 
     if cfg["safe_zone"]:
-        legend_entries.append((
-            Line2D([0], [0], color="#d62728", ls="--", lw=1.5, alpha=0.6),
+        other_entries.append((
+            Line2D([0], [0], color="#d62728", ls="--", lw=1.8, alpha=0.6),
             "$|\\Delta\\mathcal{R}|=\\mathcal{B}$",
         ))
-        legend_entries.append((
+        other_entries.append((
             Patch(facecolor="#2ca02c", alpha=0.15, edgecolor="none"),
             "Safe zone",
         ))
 
-    if legend_entries:
-        handles, labels = zip(*legend_entries)
+    # Position legends in absolute inches from the top so the gap stays
+    # constant regardless of fig_height (avoids overlap when nrow is small).
+    # Each legend at fontsize=18 occupies ~0.55" of vertical space.
+    top_inch = 0.25     # top legend's top edge sits 0.35" from fig top
+    gap_inch = 0.50     # vertical distance between the two legend tops
+    top_y = (fig_height - top_inch) / fig_height
+    bot_y = (fig_height - top_inch - gap_inch) / fig_height
+
+    if gguf_entries:
+        g_handles, g_labels = zip(*gguf_entries)
         fig.legend(
-            handles, labels,
-            loc="upper center", bbox_to_anchor=(0.52, 0.99),
-            ncol=min(len(labels), 14), fontsize=14,
+            g_handles, g_labels,
+            loc="upper center", bbox_to_anchor=(0.52, top_y),
+            ncol=len(g_labels), fontsize=LEGEND_FONTSIZE,
             frameon=True, fancybox=True,
-            handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
+            handletextpad=0.3, columnspacing=1.0, borderpad=0.35,
+        )
+    if other_entries:
+        o_handles, o_labels = zip(*other_entries)
+        fig.legend(
+            o_handles, o_labels,
+            loc="upper center", bbox_to_anchor=(0.52, bot_y),
+            ncol=len(o_labels), fontsize=LEGEND_FONTSIZE,
+            frameon=True, fancybox=True,
+            handletextpad=0.3, columnspacing=1.0, borderpad=0.35,
         )
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)

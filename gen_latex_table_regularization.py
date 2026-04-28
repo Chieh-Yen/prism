@@ -294,7 +294,205 @@ def _wrap_table(body_rows, caption, label, second_col_header):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Compare mode
+# Compact mode (transposed: rows = Ω, |ΔR|; cols = benchmark × config + Mean)
+# ═══════════════════════════════════════════════════════════════════
+def _short_method_label(method: str, lam: str = "") -> str:
+    """2-letter abbrev for sub-headers in the compact table.
+    λ=0.0 of any method is the no-regularization baseline (the gradient
+    contribution vanishes), so we always label it ``NR``."""
+    try:
+        if float(lam) == 0.0:
+            return "NR"
+    except (TypeError, ValueError):
+        pass
+    return {"baseline": "NR", "replay": "RP", "trace": "TR"}.get(method, method[:2].upper())
+
+
+def _fmt_compact_cell(val, omega_val, bold: bool = False,
+                      underline: bool = False) -> str:
+    """Format one cell with optional bold/underline + Ω-driven red shading.
+    Both the Ω cell itself and its sibling |ΔR| cell on the same column take
+    the shading; the colour level is determined by the Ω value passed in."""
+    if val is None or (isinstance(val, float) and math.isnan(val)):
+        return "--"
+    s = f"{val:.4f}"
+    if bold:
+        s = r"\textbf{" + s + "}"
+    elif underline:
+        s = r"\underline{" + s + "}"
+    if omega_val is not None:
+        if omega_val < OMEGA_DEEP:
+            return r"\cellcolor{red!35} " + s
+        if omega_val < OMEGA_LIGHT:
+            return r"\cellcolor{red!18} " + s
+    return s
+
+
+def build_compact_table(model_cfg, ft_cfg, configs, include_target):
+    """Transposed minimal table: rows = (Ω↑, |ΔR|↓); columns = (5 benchmarks +
+    Mean) × (n configs). Mean is unweighted arithmetic mean across the
+    benchmarks. Within each benchmark/Mean column group, bold/underline mark
+    1st / 2nd best per metric.
+
+    Other PRISM components (ρ_T, ρ_P, δ, γ, B) are intentionally omitted: in
+    frozen-\texttt{lm\_head} LoRA, γ ≡ 0 and ρ ≈ const, so δ and B track Ω;
+    the full decomposition is the appendix table.
+    """
+    short_model = model_cfg["short"]
+    short_ft = ft_cfg["short"]
+
+    downstream = [d for d in DOWNSTREAM if d != short_ft]
+    eval_tasks = ([short_ft] + downstream) if include_target else downstream
+
+    # ── Pull metrics for every (eval_task, config) cell ──────────────
+    ms: dict = {}
+    for ev in eval_tasks:
+        for method, lam, _ in configs:
+            ms[(ev, method, lam)] = metrics_at_step(
+                load_run(method, lam, short_model, short_ft), ev)
+
+    # ── Per-config means across the eval_tasks ───────────────────────
+    means: dict = {}
+    for method, lam, _ in configs:
+        oms = [ms[(ev, method, lam)]["omega"] for ev in eval_tasks
+               if ms[(ev, method, lam)] is not None
+               and ms[(ev, method, lam)].get("omega") is not None]
+        drs = [ms[(ev, method, lam)]["delta_risk"] for ev in eval_tasks
+               if ms[(ev, method, lam)] is not None
+               and ms[(ev, method, lam)].get("delta_risk") is not None]
+        means[(method, lam)] = {
+            "omega":      sum(oms) / len(oms) if oms else None,
+            "delta_risk": sum(drs) / len(drs) if drs else None,
+        }
+
+    # ── Build the two data rows column-by-column ─────────────────────
+    om_cells = [r"$\Omega \uparrow$"]
+    dr_cells = [r"$|\Delta\mathcal{R}|\downarrow$"]
+    columns = list(eval_tasks) + ["__MEAN__"]
+
+    for col in columns:
+        if col == "__MEAN__":
+            block_om = {(m, l): means[(m, l)]["omega"]      for m, l, _ in configs}
+            block_dr = {(m, l): means[(m, l)]["delta_risk"] for m, l, _ in configs}
+        else:
+            block_om = {(m, l): (ms[(col, m, l)]["omega"]
+                                 if ms[(col, m, l)] is not None else None)
+                        for m, l, _ in configs}
+            block_dr = {(m, l): (ms[(col, m, l)]["delta_risk"]
+                                 if ms[(col, m, l)] is not None else None)
+                        for m, l, _ in configs}
+
+        # Within-block ranking
+        valid_om = [(k, v) for k, v in block_om.items() if v is not None]
+        valid_dr = [(k, v) for k, v in block_dr.items() if v is not None]
+        om_sorted = sorted(valid_om, key=lambda x: -x[1])
+        dr_sorted = sorted(valid_dr, key=lambda x: x[1])
+        best_om = om_sorted[0][0] if om_sorted else None
+        sec_om  = om_sorted[1][0] if len(om_sorted) >= 2 else None
+        best_dr = dr_sorted[0][0] if dr_sorted else None
+        sec_dr  = dr_sorted[1][0] if len(dr_sorted) >= 2 else None
+
+        for method, lam, _ in configs:
+            ov = block_om[(method, lam)]
+            drv = block_dr[(method, lam)]
+            om_cells.append(_fmt_compact_cell(
+                ov, ov,
+                bold     = (method, lam) == best_om,
+                underline= (method, lam) == sec_om,
+            ))
+            dr_cells.append(_fmt_compact_cell(
+                drv, ov,
+                bold     = (method, lam) == best_dr,
+                underline= (method, lam) == sec_dr,
+            ))
+
+    # ── Headers ──────────────────────────────────────────────────────
+    n_cfg   = len(configs)
+    n_groups = len(columns)
+    col_spec = "l " + " ".join(["c" * n_cfg] * n_groups)
+
+    group_names = [DS_DISPLAY.get(ev, ev).replace(" (self)", "")
+                   for ev in eval_tasks] + [r"\textbf{Mean}"]
+    group_headers = [
+        f"\\multicolumn{{{n_cfg}}}{{c}}{{{name}}}" for name in group_names
+    ]
+    cmidrules = []
+    col_idx = 2
+    for _ in range(n_groups):
+        cmidrules.append(f"\\cmidrule(lr){{{col_idx}-{col_idx + n_cfg - 1}}}")
+        col_idx += n_cfg
+
+    sub_headers = [_short_method_label(m, l) for m, l, _ in configs] * n_groups
+
+    # ── Caption + assembly ───────────────────────────────────────────
+    config_summary = "; ".join(
+        f"{_short_method_label(m, l)} = {label}" for m, l, label in configs
+    )
+    caption = (
+        r"Compact regularization comparison for \textbf{" + model_cfg["display"]
+        + r"} fine-tuned on \textbf{" + ft_cfg["display"] + r"} "
+        r"(identity alignment $W{=}I$; metrics at step " + str(ALIGN_STEP) + r"). "
+        r"Rows: $\Omega$ (higher = more shape preserved) and $|\Delta\mathcal{R}|$ "
+        r"(lower = less forgetting). Columns: 5 downstream benchmarks plus "
+        r"the unweighted across-benchmark Mean. Configs: "
+        + config_summary + r". Bold / underline: 1st / 2nd-best per column "
+        r"group. Red shading: $\Omega < 0.95$ (light) or $< 0.80$ (deep). "
+        r"In this frozen-\texttt{lm\_head} LoRA setting $\gamma \equiv 0$ and "
+        r"$\rho_T \approx \rho_P$, so $\delta$ and $\mathcal{B}$ track $\Omega$; "
+        r"the full decomposition is in Appendix Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq}."
+    )
+
+    L = []
+    L.append(r"\begin{table}[t]")
+    L.append(r"\centering")
+    L.append(r"\caption{" + caption + r"}")
+    L.append(r"\label{tab:reg_compact_" + short_model + "_" + short_ft + "}")
+    L.append(r"\resizebox{\textwidth}{!}{%")
+    L.append(r"\begin{tabular}{" + col_spec + "}")
+    L.append(r"\toprule")
+    L.append(" & " + " & ".join(group_headers) + r" \\")
+    L.append(" ".join(cmidrules))
+    L.append(" & " + " & ".join(sub_headers) + r" \\")
+    L.append(r"\midrule")
+    L.append(" & ".join(om_cells) + r" \\")
+    L.append(" & ".join(dr_cells) + r" \\")
+    L.append(r"\bottomrule")
+    L.append(r"\end{tabular}}")
+    L.append(r"\end{table}")
+    return "\n".join(L)
+
+
+def run_compact_mode(args):
+    configs = parse_configs(args.config) if args.config else DEFAULT_COMPARE_CONFIGS
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    print(f"=== compact mode | configs ===")
+    for method, lam, label in configs:
+        print(f"  {method:6s} λ={lam:5s} → {_short_method_label(method, lam)}: {label}")
+
+    stems: list[str] = []
+    for model_cfg in MODELS:
+        for ft_cfg in FT_TASKS:
+            any_run = any(load_run(m, l, model_cfg["short"], ft_cfg["short"])
+                          is not None for m, l, _ in configs)
+            if not any_run:
+                print(f"  [skip] {model_cfg['short']}/{ft_cfg['short']} "
+                      f"(no runs found)")
+                continue
+            tex = build_compact_table(model_cfg, ft_cfg, configs,
+                                      args.include_target)
+            stem = f"table_compact_{model_cfg['short']}_{ft_cfg['short']}"
+            out = OUT_DIR / f"{stem}.tex"
+            out.write_text(tex)
+            print(f"  saved {out.relative_to(ROOT)}")
+            stems.append(stem)
+
+    if stems:
+        _write_preview(stems, OUT_DIR / "preview_compact.tex")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Compare mode (full 7-column decomposition; appendix)
 # ═══════════════════════════════════════════════════════════════════
 def build_compare_table(model_cfg, ft_cfg, configs, include_target):
     body_rows = _render_body(configs, model_cfg["short"], ft_cfg["short"],
@@ -438,10 +636,12 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=["compare", "sweep"],
-                        default="compare",
-                        help="compare: side-by-side methods at specific λ "
-                             "(default). sweep: full λ sweep per method.")
+    parser.add_argument("--mode", choices=["compact", "compare", "sweep"],
+                        default="compact",
+                        help="compact: 2-row transposed Ω/|ΔR| with per-config "
+                             "Mean column (default; main-text). "
+                             "compare: full 7-column decomposition (appendix). "
+                             "sweep: full λ sweep per method.")
     parser.add_argument("--config", action="append", metavar="METHOD:LAM:LABEL",
                         help="(compare mode) Add a config row. Repeatable. "
                              "Default: baseline + replay 0.01 + trace 1.0.")
@@ -458,7 +658,9 @@ def main():
     parser.set_defaults(include_target=INCLUDE_TARGET_TASK)
     args = parser.parse_args()
 
-    if args.mode == "compare":
+    if args.mode == "compact":
+        run_compact_mode(args)
+    elif args.mode == "compare":
         run_compare_mode(args)
     else:
         run_sweep_mode(args)
