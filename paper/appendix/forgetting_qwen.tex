@@ -27,19 +27,19 @@ A small subset of subplots in Fig.~\ref{fig:forget_grid_qwen}---most notably Qwe
 \begin{figure}[h]
     \centering
     \includegraphics[width=1.0\linewidth]{figures/forgetting/combined_qwen_truthfulqa_bbq.pdf}
-    \caption{\textbf{PRISM-guided shape regularization on Qwen3-8B (replication of Fig.~\ref{fig:shape_reg_combined_llama}).} LoRA fine-tuning on TruthfulQA (top row) and BBQ (bottom row) with the auxiliary penalty $\lambda(1-\Omega(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ at $\lambda \in \{0.0, 0.1, 0.5\}$ and analysis step $300$. The uniform downstream-forgetting reduction and the monotone trade-off between target-task fit and downstream damage seen on Llama hold on Qwen3-8B as well, confirming that the shape regularizer of Sec.~\ref{subsec:shape_reg} is not family-specific.}
+    \caption{\textbf{Shape regularization vs.\ replay-CE on Qwen3-8B (replication of Fig.~\ref{fig:shape_reg_combined_llama}).} Same three configurations as Llama: \emph{no reg}, \emph{replay} ($\lambda{=}0.01$), and \emph{trace} ($\lambda{=}1.0$). Qwen3-8B's baseline forgetting is already small (mean $|\Delta\mathcal{R}|<0.27$ on both fine-tuning tasks vs.\ Llama's $0.84$ on TruthfulQA), leaving little room for improvement; the trace-vs-replay gap narrows accordingly but the qualitative mechanism (trace lifts $\Omega$, replay does not) holds. Per-config decompositions: Tables~\ref{tab:reg_compare_qwen_truthfulqa} and~\ref{tab:reg_compare_qwen_bbq}.}
     \label{fig:shape_reg_combined_qwen}
 \end{figure}
 
-Figure~\ref{fig:shape_reg_combined_qwen} reproduces the main-text Llama result (Fig.~\ref{fig:shape_reg_combined_llama}) on Qwen3-8B: $\lambda \in \{0.0, 0.1, 0.5\}$ produces the same monotone reduction in downstream $|\Delta\mathcal{R}|$ across all five benchmarks for both TruthfulQA and BBQ fine-tuning, confirming the regularizer's effect is family-agnostic. Per-variant numerical decompositions are in Tables~\ref{tab:trace_norm_qwen_truthfulqa} and~\ref{tab:trace_norm_qwen_bbq} below.
+Figure~\ref{fig:shape_reg_combined_qwen} reproduces the main-text Llama comparison (Fig.~\ref{fig:shape_reg_combined_llama}) on Qwen3-8B. Because Qwen3-8B's baseline forgetting is already small, both methods stay near baseline level; the qualitative pattern (trace contracts $\Omega$, replay does not) holds. Per-config decompositions are in Tables~\ref{tab:reg_compare_qwen_truthfulqa} and~\ref{tab:reg_compare_qwen_bbq} below.
 
 \subsection{Additional Trace-Norm Decomposition Tables}
 \label{app:trace_norm_tables}
 
-Tables~\ref{tab:trace_norm_llama_bbq}--\ref{tab:trace_norm_qwen_bbq} give the full per-$(\text{model}, \text{fine-tuning task})$ decomposition at step $300$ for $\lambda \in \{0.0, 0.1, 0.5\}$. The main text (Table~\ref{tab:trace_norm_llama_truthfulqa}) showed the Llama-TruthfulQA combination; this appendix completes the $2\times 2$ grid.
+Tables~\ref{tab:reg_compare_llama_bbq}--\ref{tab:reg_compare_qwen_bbq} give the full per-$(\text{model}, \text{fine-tuning task})$ decomposition at step $300$ for the three configurations (no reg, replay $\lambda{=}0.01$, trace $\lambda{=}1.0$). The main text (Table~\ref{tab:reg_compare_llama_truthfulqa}) showed the Llama-TruthfulQA combination; this appendix completes the $2\times 2$ grid.
 
-\input{tables/regularization/table_trace_norm_llama_bbq}
+\input{tables/regularization/table_compare_llama_bbq}
 
-\input{tables/regularization/table_trace_norm_qwen_truthfulqa}
+\input{tables/regularization/table_compare_qwen_truthfulqa}
 
-\input{tables/regularization/table_trace_norm_qwen_bbq}
+\input{tables/regularization/table_compare_qwen_bbq}
