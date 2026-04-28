@@ -36,7 +36,9 @@ Figure~\ref{fig:shape_reg_combined_qwen} reproduces the main-text Llama comparis
 \subsection{Additional Trace-Norm Decomposition Tables}
 \label{app:trace_norm_tables}
 
-Tables~\ref{tab:reg_compare_llama_bbq}--\ref{tab:reg_compare_qwen_bbq} give the full per-$(\text{model}, \text{fine-tuning task})$ decomposition at step $300$ for the three configurations (no reg, replay $\lambda{=}0.01$, trace $\lambda{=}1.0$). The main text (Table~\ref{tab:reg_compare_llama_truthfulqa}) showed the Llama-TruthfulQA combination; this appendix completes the $2\times 2$ grid.
+Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq} give the full per-$(\text{model}, \text{fine-tuning task})$ decomposition at step $300$ for the three configurations (no reg, replay $\lambda{=}0.01$, trace $\lambda{=}1.0$); the main-text Table~\ref{tab:reg_compact_llama_truthfulqa} compresses the Llama-TruthfulQA combination to $\Omega$ and $|\Delta\mathcal{R}|$ only.
+
+\input{tables/regularization/table_compare_llama_truthfulqa}
 
 \input{tables/regularization/table_compare_llama_bbq}
 
