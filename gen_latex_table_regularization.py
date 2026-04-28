@@ -173,7 +173,8 @@ def metrics_at_step(run: dict, eval_task: str, step: int = ALIGN_STEP):
 # ═══════════════════════════════════════════════════════════════════
 # Cell formatting
 # ═══════════════════════════════════════════════════════════════════
-def fmt_cell(col_key: str, val, gamma_zero: bool, omega_level, bold: bool = False):
+def fmt_cell(col_key: str, val, gamma_zero: bool, omega_level,
+             bold: bool = False, underline: bool = False):
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "--"
     if col_key == "gamma" and gamma_zero:
@@ -184,6 +185,8 @@ def fmt_cell(col_key: str, val, gamma_zero: bool, omega_level, bold: bool = Fals
         num = f"{val:.4f}"
     if bold:
         num = r"\textbf{" + num + "}"
+    elif underline:
+        num = r"\underline{" + num + "}"
     if col_key in RED_COLS and omega_level:
         color = "red!35" if omega_level == "deep" else "red!18"
         return r"\cellcolor{" + color + "} " + num
@@ -216,15 +219,26 @@ def _render_body(rows_per_block, model_short, ft_task, include_target):
         ms = {(method, lam): metrics_at_step(
                   load_run(method, lam, model_short, ft_task), ev)
               for method, lam, _ in rows_per_block}
-        best_key, best_dr = None, math.inf
-        for k, m in ms.items():
-            if m is None:
-                continue
-            dr = m.get("delta_risk")
-            if dr is None or (isinstance(dr, float) and math.isnan(dr)):
-                continue
-            if dr < best_dr:
-                best_dr, best_key = dr, k
+
+        # Symmetric ranking: per block, mark 1st (bold) and 2nd (underline)
+        # for both |ΔR| (smallest first) and Ω (largest first), selected
+        # independently. Bold and underline are mutually exclusive on a cell.
+        dr_sorted = sorted(
+            ((k, m["delta_risk"]) for k, m in ms.items()
+             if m is not None and m.get("delta_risk") is not None
+             and not (isinstance(m["delta_risk"], float)
+                      and math.isnan(m["delta_risk"]))),
+            key=lambda x: x[1])
+        om_sorted = sorted(
+            ((k, m["omega"]) for k, m in ms.items()
+             if m is not None and m.get("omega") is not None
+             and not (isinstance(m["omega"], float)
+                      and math.isnan(m["omega"]))),
+            key=lambda x: -x[1])
+        best_dr_key   = dr_sorted[0][0] if len(dr_sorted) >= 1 else None
+        second_dr_key = dr_sorted[1][0] if len(dr_sorted) >= 2 else None
+        best_om_key   = om_sorted[0][0] if len(om_sorted) >= 1 else None
+        second_om_key = om_sorted[1][0] if len(om_sorted) >= 2 else None
 
         for ri, (method, lam, label) in enumerate(rows_per_block):
             m = ms[(method, lam)]
@@ -238,12 +252,22 @@ def _render_body(rows_per_block, model_short, ft_task, include_target):
             ov = m.get("omega")
             lvl = omega_level(ov)
             gz = (m.get("gamma") is not None and abs(m.get("gamma")) < 1e-9)
-            is_best = ((method, lam) == best_key)
 
             cells = []
             for ck, _ in COLUMNS:
-                bold = is_best and ck in ("omega", "delta_risk")
-                cells.append(fmt_cell(ck, m.get(ck), gz, lvl, bold=bold))
+                bold = underline = False
+                if ck == "delta_risk":
+                    if (method, lam) == best_dr_key:
+                        bold = True
+                    elif (method, lam) == second_dr_key:
+                        underline = True
+                elif ck == "omega":
+                    if (method, lam) == best_om_key:
+                        bold = True
+                    elif (method, lam) == second_om_key:
+                        underline = True
+                cells.append(fmt_cell(ck, m.get(ck), gz, lvl,
+                                      bold=bold, underline=underline))
             vals_str = " & ".join(cells)
             L.append(f"{ds_cell} & {label} & {vals_str} " + r"\\")
     return L
@@ -282,9 +306,7 @@ def build_compare_table(model_cfg, ft_cfg, configs, include_target):
         r"alignment ($W{=}I$). Rows group by evaluation benchmark; each "
         r"benchmark block lists metrics at step " + str(ALIGN_STEP)
         + r" for: " + config_summary + r". "
-        r"Within each block the row with the smallest $|\Delta\mathcal{R}|$ "
-        r"is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ "
-        r"are in bold."
+        r"Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per block."
     )
     label = f"tab:reg_compare_{model_cfg['short']}_{ft_cfg['short']}"
     return _wrap_table(body_rows, caption, label, "Config")
@@ -347,9 +369,8 @@ def build_sweep_table(method, lams, model_cfg, ft_cfg, include_target):
         + ft_cfg["display"] + r"} under identity alignment ($W{=}I$). "
         r"Rows group by evaluation benchmark; each benchmark lists metrics "
         r"at step " + str(ALIGN_STEP) + r" for $\lambda \in \{"
-        + lam_str + r"\}$. Within each benchmark the row with the smallest "
-        r"$|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the "
-        r"corresponding $\Omega$ are in bold."
+        + lam_str + r"\}$. "
+        r"Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per benchmark."
     )
     label = f"tab:reg_sweep_{method}_{model_cfg['short']}_{ft_cfg['short']}"
     return _wrap_table(body_rows, caption, label, r"$\lambda$")
