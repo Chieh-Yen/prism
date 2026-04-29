@@ -426,7 +426,7 @@ We presented PRISM, a geometric framework with three contributions. \textbf{Theo
 \paragraph{Scope and limitations.}
 PRISM is a \emph{relative} metric: it bounds the cross-entropy risk gap to a reference base, not the variant's absolute task quality. The bound is calibrated for ranking; tight estimation of $|\Delta\mathcal{R}|$ is a separate question. The shape regularizer of Sec.~\ref{subsec:action} provides one direct training-time intervention against the shape axis; protocol-level mitigations for the scale and head axes (per-channel outlier smoothing, Hessian-aware reconstruction, FP16-\texttt{lm\_head} retention) are a focused empirical follow-up the diagnostic enables.
 
-\paragraph{Future Work.} Three directions, detailed in Appendix~\ref{app:future_work}: \textbf{beyond LoRA forgetting} (shape regularizer for SFT/distillation), \textbf{diagnostic applications} (OOD detection, hyperparameter transfer, drift monitoring), and \textbf{beyond LLMs} (ViT, contrastive image encoders).
+\paragraph{Future Work.} Three directions, detailed in Appendix~\ref{app:future_work}: \textbf{beyond LoRA forgetting} (analyze and regularize SFT/distillation drift), \textbf{diagnostic applications} (OOD detection, hyperparameter transfer, drift monitoring), and \textbf{beyond LLMs} (ViT, contrastive image encoders).
 
 \renewcommand{\bibname}{References}
 \bibliographystyle{plainnat}
