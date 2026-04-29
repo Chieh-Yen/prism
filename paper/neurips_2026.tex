@@ -426,12 +426,7 @@ We presented PRISM, a geometric framework with three contributions. \textbf{Theo
 \paragraph{Scope and limitations.}
 PRISM is a \emph{relative} metric: it bounds the cross-entropy risk gap to a reference base, not the variant's absolute task quality. The bound is calibrated for ranking; tight estimation of $|\Delta\mathcal{R}|$ is a separate question. The shape regularizer of Sec.~\ref{subsec:action} provides one direct training-time intervention against the shape axis; protocol-level mitigations for the scale and head axes (per-channel outlier smoothing, Hessian-aware reconstruction, FP16-\texttt{lm\_head} retention) are a focused empirical follow-up the diagnostic enables.
 
-\paragraph{Future Work.}
-\begin{itemize}[leftmargin=*,nosep,topsep=2pt]
-    \item \textbf{Beyond LoRA forgetting.} Extending the PRISM shape regularizer to full SFT and distillation---where backbone drift is substantially larger---would test the limits of shape anchoring as an active intervention.
-    \item \textbf{Diagnostic applications.} The single-forward-pass computation of $\mathcal{B}$ enables three deployment uses: \emph{per-sample OOD detection} via scale and shape residuals on individual inputs; \emph{cross-scale hyperparameter transfer} between a small proxy and its scaled target to predict tuning robustness; and \emph{production drift monitoring} on live traffic.
-    \item \textbf{Beyond LLMs.} Vision Transformers and contrastive image encoders share LLMs' backbone-then-linear-head structure, with final-layer LayerNorm (and strict L2 normalization in CLIP/SigLIP) enforcing tight feature scales---making the PRISM scale axis naturally small. Natural targets include ViT quantization, vision-encoder distillation, and cross-modal alignment (consistent with the Platonic Representation Hypothesis~\cite{huh2024platonic}).
-\end{itemize}
+\paragraph{Future Work.} Three directions, detailed in Appendix~\ref{app:future_work}: \textbf{beyond LoRA forgetting} (shape regularizer for SFT/distillation), \textbf{diagnostic applications} (OOD detection, hyperparameter transfer, drift monitoring), and \textbf{beyond LLMs} (ViT, contrastive image encoders).
 
 \renewcommand{\bibname}{References}
 \bibliographystyle{plainnat}
@@ -447,6 +442,7 @@ PRISM is a \emph{relative} metric: it bounds the cross-entropy risk gap to a ref
 \input{appendix/model_quantization}
 \input{appendix/quantization_exp}
 \input{appendix/forgetting_qwen}
+\input{appendix/future_work}
 
 \newpage
 \input{checklist.tex}
