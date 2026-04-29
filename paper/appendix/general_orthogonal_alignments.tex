@@ -1,0 +1,94 @@
+
+\section{Extension to General Orthogonal Alignments}
+\label{app:general_W}
+
+The main text (Theorem~\ref{thm:unified_bound}) states the bound at the identity alignment $W = I$ (trace form $\Omega$, Eq.~\ref{eq:omega_def}). Here we present the general formulation where $W$ is an arbitrary orthogonal matrix, recover both the $W = I$ specialization and the Procrustes-optimal $W = W_N$ specialization (nuclear form $\Omega_N$, used in the Sec.~\ref{subsec:ablation} ablation), and discuss the joint optimization over feature and head terms. The two specializations encode different priorities: $W_N$ minimizes the feature alignment residual but generally inflates the head term, while $W = I$ keeps the head term at its minimum (vanishing exactly under frozen \texttt{lm\_head}) and is autograd-compatible without SVD, properties that the LLM settings studied here---PTQ with FP16 head and frozen-head LoRA---require.
+
+\subsection{The General Bound for Arbitrary $W$}
+\label{app:general_bound}
+
+The exact geometric decomposition (Proposition~\ref{prop:exact_decomposition}) generalizes to any $W \in \mathcal{O}(d)$. Expanding the squared Frobenius norm and using the orthogonality of $W$:
+\begin{equation}
+\frac{1}{n} \| Z_T - Z_P W \|_F^2
+\;=\;
+(\rho_T - \rho_P)^2
+\;+\;
+2 \rho_T \rho_P \big( 1 - \Omega_W \big),
+\end{equation}
+where $\Omega_W(Z_T, Z_P)$ is the \emph{alignment-dependent similarity}:
+\begin{equation}
+\label{eq:omega_W_def}
+\Omega_W(Z_T, Z_P) \;:=\; \frac{\operatorname{Tr}(Z_T^\top Z_P\, W)}{\|Z_T\|_F \, \|Z_P\|_F}.
+\end{equation}
+This yields a family of risk bounds parameterized by $W$:
+\begin{equation}
+|\mathcal{R}_T - \mathcal{R}_P| \;\le\; \underbrace{K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_W)}}_{\delta(W)} + \underbrace{K_{\mathrm{pred}} \|\Sigma_P^{1/2}(W H_T - H_P)\|_F}_{\gamma(W)}.
+\end{equation}
+The Procrustes solution $W_N$ minimizes $\delta(W)$ alone, yielding $\Omega_{W_N} = \Omega_N$ (the nuclear-norm similarity, Eq.~\ref{eq:omega_nuclear}). However, $W_N$ enters the head term $\gamma(W_N)$, which can be inflated when the rotation is applied to a nearly preserved head ($H_T \approx H_P$). This creates a fundamental trade-off: $W_N$ gives the tightest feature bound but may worsen the head bound, while $W = I$ preserves head coherence at the cost of a slightly looser feature bound.
+
+\subsection{The Trace Specialization ($W = I$)}
+\label{app:trace_specialization}
+
+Setting $W = I$, the alignment-dependent similarity reduces to the main-text \emph{trace similarity} $\Omega$ (Eq.~\ref{eq:omega_def}):
+\begin{equation}
+\label{eq:omega_tr}
+\Omega \;=\; \Omega_{W=I} \;=\; \frac{\operatorname{Tr}(Z_T^\top Z_P)}{\|Z_T\|_F\,\|Z_P\|_F}.
+\end{equation}
+
+\paragraph{Ordering of Similarities.}
+Since the Procrustes solution maximizes $\operatorname{Tr}(Z_T^\top Z_P W)$ over $\mathcal{O}(d)$:
+\begin{equation}
+\operatorname{Tr}(Z_T^\top Z_P) \;\le\; \|Z_T^\top Z_P\|_*,
+\end{equation}
+which gives $\Omega \le \Omega_N$. Equality holds if and only if $W_N = I$, i.e., $Z_T^\top Z_P$ is symmetric positive semidefinite.
+
+\paragraph{When does $\Omega = \Omega_N$?}
+Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD. Then $\Omega = \Omega_N$ iff $VU^\top = I$, i.e., $U = V$, which holds when $Z_T^\top Z_P$ is symmetric. In post-training quantization with mild noise, $Z_F^\top Z_Q \approx Z_F^\top Z_F$ is approximately SPSD, so $\Omega \approx \Omega_N$. As quantization becomes more aggressive, asymmetric perturbations cause $\Omega$ to fall below $\Omega_N$, and this gap reflects genuine asymmetric distortion that a rotation-invariant metric would mask.
+
+\paragraph{Full Bound under $W = I$.}
+The identity alignment yields the main-text Theorem~\ref{thm:unified_bound}:
+\begin{equation}
+\label{eq:bound_identity}
+|\mathcal{R}_T - \mathcal{R}_P|
+\;\le\;
+K_{\mathrm{feat}} \sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega)}
+\;+\;
+K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(H_T - H_P)\|_F.
+\end{equation}
+The head term $\|H_T - H_P\|$ carries no rotational contamination and vanishes whenever the prediction head is preserved (FP16 head under PTQ, frozen head under LoRA).
+
+\paragraph{Relation to CKA.}
+Both the trace form $\Omega$ and the Frobenius similarity $\Omega_F$ (Appendix~\ref{app:tightness}) are bounded above by the nuclear $\Omega_N$ (since $\operatorname{Tr}(M) \le \|M\|_*$ and $\|M\|_F \le \|M\|_*$), but $\Omega$ and $\Omega_F$ do not have a fixed ordering relative to each other. Linear CKA avoids explicit rotational alignment like $\Omega$, but uses the Frobenius norm rather than the trace, and lacks a direct interpretation as an alignment residual.
+
+
+\subsection{Joint Optimization on the Stiefel Manifold}
+\label{app:joint_opt}
+
+The tightest bound over all orthogonal alignments requires solving:
+\begin{equation}
+\label{eq:joint_obj}
+W_{\mathrm{opt}} = \arg\min_{W \in \mathcal{O}(d)}
+\Big[
+\underbrace{K_{\mathrm{feat}} \sqrt{\tfrac{1}{n}\|Z_T - Z_P W\|_F^2}}_{\delta(W)}
+\;+\;
+\underbrace{K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(W H_T - H_P)\|_F}_{\gamma(W)}
+\Big].
+\end{equation}
+Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admits the closed-form $W_N = VU^\top$), the addition of $\gamma(W)$ introduces a quadratic dependence on $W$ through the head term, related to the \emph{Weighted Orthogonal Procrustes Problem} (WOPP)~\cite{gower2004procrustes}.
+
+\paragraph{Why No Closed-Form Solution Exists.}
+The feature term $\delta(W)$ is concave in $\operatorname{Tr}(Z_T^\top Z_P W)$, while $\gamma(W)$ is convex in $W$. Their sum is neither convex nor concave on $\mathcal{O}(d)$, precluding a simple variational characterization.
+
+\paragraph{Special Case: Isotropic Features.}
+If $\Sigma_P \approx \lambda I$, the head term becomes independent of $W$ and the joint objective reduces to a standard Procrustes problem. However, the isotropic assumption is unrealistic for LLM representations, which exhibit well-documented anisotropy~\cite{ethayarajh2019contextual}.
+
+\paragraph{Numerical Solution.}
+For the general case, $W_{\mathrm{opt}}$ can be approximated via Riemannian gradient descent on the Stiefel manifold, but this entangles scale, shape, and head components, destroying the clean physical interpretation.
+
+\paragraph{Practical Irrelevance for This Paper's Regimes.}
+In the two primary settings:
+\begin{itemize}
+    \item \textbf{Quantization ($H_T \approx H_P$):} The head term is negligible, so $W_{\mathrm{opt}} \approx W_N$ and the Procrustes-optimal solution suffices.
+    \item \textbf{LoRA ($H_T = H_P$):} The head term vanishes for any $W$, so the joint problem reduces to standard Procrustes.
+\end{itemize}
+The Riemannian formulation becomes relevant only when comparing models with \emph{both} rotated features and divergent heads (e.g., full-parameter SFT). We leave this setting to future work.
