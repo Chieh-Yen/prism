@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Replay-CE baseline ($\lambda \cdot \mathrm{CE}_{\mathrm{ref}}$) decomposition for \textbf{Llama-3.1-8B} fine-tuned on \textbf{BBQ} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.001, 0.01, 0.1\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
+\label{tab:reg_replay_llama_bbq}
+\resizebox{0.9\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+Dataset & $\lambda$ & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+ARC & $\lambda{=}0.001$ & 137.55 & 135.24 & \cellcolor{red!18} 0.8774 & \cellcolor{red!18} 67.5755 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 176.6248 & \cellcolor{red!18} 0.1802 \\
+ & $\lambda{=}0.01$ & 137.55 & 135.25 & \cellcolor{red!18} \textbf{0.8802} & \cellcolor{red!18} 66.8112 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 174.6273 & \cellcolor{red!18} \textbf{0.1799} \\
+ & $\lambda{=}0.1$ & 137.55 & 138.04 & \cellcolor{red!18} 0.8404 & \cellcolor{red!18} 77.8641 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 203.5167 & \cellcolor{red!18} 0.1946 \\
+\midrule
+MMLU & $\lambda{=}0.001$ & 138.91 & 136.58 & \cellcolor{red!18} \textbf{0.8736} & \cellcolor{red!18} 69.2792 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 181.0779 & \cellcolor{red!18} \textbf{0.5799} \\
+ & $\lambda{=}0.01$ & 138.91 & 136.63 & \cellcolor{red!18} 0.8766 & \cellcolor{red!18} 68.4832 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 178.9974 & \cellcolor{red!18} 0.6061 \\
+ & $\lambda{=}0.1$ & 138.91 & 139.34 & \cellcolor{red!18} 0.8403 & \cellcolor{red!18} 78.6232 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 205.5008 & \cellcolor{red!18} 0.5986 \\
+\midrule
+SQuAD & $\lambda{=}0.001$ & 138.20 & 139.18 & \cellcolor{red!18} 0.9332 & \cellcolor{red!18} 50.7012 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 132.5198 & \cellcolor{red!18} 0.2531 \\
+ & $\lambda{=}0.01$ & 138.20 & 139.16 & \cellcolor{red!18} 0.9366 & \cellcolor{red!18} 49.3859 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 129.0819 & \cellcolor{red!18} 0.2127 \\
+ & $\lambda{=}0.1$ & 138.20 & 139.41 & \cellcolor{red!18} \textbf{0.9255} & \cellcolor{red!18} 53.6103 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 140.1234 & \cellcolor{red!18} \textbf{0.0021} \\
+\midrule
+TriviaQA & $\lambda{=}0.001$ & 140.93 & 141.63 & \textbf{0.9774} & 30.0738 & \cellcolor{cyan!12} $0$ & 78.6050 & \textbf{0.1498} \\
+ & $\lambda{=}0.01$ & 140.93 & 141.60 & 0.9784 & 29.3409 & \cellcolor{cyan!12} $0$ & 76.6896 & 0.1506 \\
+ & $\lambda{=}0.1$ & 140.93 & 141.67 & 0.9705 & 34.3067 & \cellcolor{cyan!12} $0$ & 89.6688 & 0.2897 \\
+\midrule
+GSM8K & $\lambda{=}0.001$ & 137.15 & 137.43 & 1.0000 & 0.2808 & \cellcolor{cyan!12} $0$ & 0.7339 & 0.0639 \\
+ & $\lambda{=}0.01$ & 137.15 & 137.41 & \textbf{1.0000} & 0.2638 & \cellcolor{cyan!12} $0$ & 0.6895 & \textbf{0.0581} \\
+ & $\lambda{=}0.1$ & 137.15 & 137.45 & 1.0000 & 0.3036 & \cellcolor{cyan!12} $0$ & 0.7935 & 0.0727 \\
+\bottomrule
+\end{tabular}}
+\end{table}

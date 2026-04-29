@@ -1,0 +1,36 @@
+\begin{table}[t]
+\centering
+\caption{Shape regularizer ($\lambda \cdot (1 - \Omega_I)$) decomposition for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{BBQ} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.01, 0.05, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
+\label{tab:reg_shape_qwen_bbq}
+\resizebox{0.9\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+Dataset & $\lambda$ & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+ARC & $\lambda{=}0.01$ & 332.98 & 324.20 & 0.9967 & 28.2175 & \cellcolor{cyan!12} $0$ & 97.5839 & 0.3002 \\
+ & $\lambda{=}0.05$ & 332.98 & 324.57 & \textbf{0.9975} & 24.5768 & \cellcolor{cyan!12} $0$ & 84.9935 & \textbf{0.2989} \\
+ & $\lambda{=}0.1$ & 332.98 & 324.93 & 0.9978 & 23.0343 & \cellcolor{cyan!12} $0$ & 79.6591 & 0.3002 \\
+ & $\lambda{=}0.5$ & 332.98 & 326.02 & 0.9985 & 19.4323 & \cellcolor{cyan!12} $0$ & 67.2021 & 0.3055 \\
+\midrule
+MMLU & $\lambda{=}0.01$ & 333.53 & 328.24 & 0.9987 & 17.9648 & \cellcolor{cyan!12} $0$ & 62.1274 & 0.0949 \\
+ & $\lambda{=}0.05$ & 333.53 & 328.51 & 0.9989 & 16.2105 & \cellcolor{cyan!12} $0$ & 56.0604 & 0.0869 \\
+ & $\lambda{=}0.1$ & 333.53 & 328.48 & \textbf{0.9990} & 15.8809 & \cellcolor{cyan!12} $0$ & 54.9207 & \textbf{0.0868} \\
+ & $\lambda{=}0.5$ & 333.53 & 329.34 & 0.9991 & 14.6514 & \cellcolor{cyan!12} $0$ & 50.6687 & 0.1005 \\
+\midrule
+SQuAD & $\lambda{=}0.01$ & 297.68 & 285.72 & 0.9981 & 21.4616 & \cellcolor{cyan!12} $0$ & 74.2203 & 0.1329 \\
+ & $\lambda{=}0.05$ & 297.68 & 286.04 & \textbf{0.9984} & 20.0160 & \cellcolor{cyan!12} $0$ & 69.2207 & \textbf{0.1321} \\
+ & $\lambda{=}0.1$ & 297.68 & 286.34 & 0.9986 & 19.1423 & \cellcolor{cyan!12} $0$ & 66.1993 & 0.1328 \\
+ & $\lambda{=}0.5$ & 297.68 & 287.01 & 0.9989 & 17.1390 & \cellcolor{cyan!12} $0$ & 59.2716 & 0.1331 \\
+\midrule
+TriviaQA & $\lambda{=}0.01$ & 240.42 & 235.30 & 0.9989 & 12.2103 & \cellcolor{cyan!12} $0$ & 42.2265 & 0.0089 \\
+ & $\lambda{=}0.05$ & 240.42 & 235.32 & \textbf{0.9990} & 11.7120 & \cellcolor{cyan!12} $0$ & 40.5035 & \textbf{0.0088} \\
+ & $\lambda{=}0.1$ & 240.42 & 235.56 & 0.9991 & 10.9622 & \cellcolor{cyan!12} $0$ & 37.9104 & 0.0159 \\
+ & $\lambda{=}0.5$ & 240.42 & 235.51 & 0.9992 & 10.5148 & \cellcolor{cyan!12} $0$ & 36.3630 & 0.0133 \\
+\midrule
+GSM8K & $\lambda{=}0.01$ & 269.06 & 260.58 & 1.0000 & 8.4837 & \cellcolor{cyan!12} $0$ & 29.3390 & 0.0288 \\
+ & $\lambda{=}0.05$ & 269.06 & 260.90 & 1.0000 & 8.1629 & \cellcolor{cyan!12} $0$ & 28.2295 & 0.0273 \\
+ & $\lambda{=}0.1$ & 269.06 & 261.22 & \textbf{1.0000} & 7.8431 & \cellcolor{cyan!12} $0$ & 27.1237 & \textbf{0.0256} \\
+ & $\lambda{=}0.5$ & 269.06 & 262.15 & 1.0000 & 6.9092 & \cellcolor{cyan!12} $0$ & 23.8939 & 0.0270 \\
+\bottomrule
+\end{tabular}}
+\end{table}

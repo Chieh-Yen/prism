@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:mistral_decomposition_main_bound}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 191.06 & 191.04 & 0.9999 & 2.7396 & \cellcolor{cyan!12} $0$ & 2.6983 & 0.0033 \\
+{\small ($\mathbf{r_s{=}0.87}$)} & GGUF & Q8\_0 & 191.06 & 191.04 & 0.9996 & 5.2595 & 2.9475 & 9.3485 & 0.0056 \\
+ &  & Q6\_K & 191.06 & 191.13 & 0.9983 & 11.0202 & 9.1283 & 23.7632 & 0.0022 \\
+ &  & Q5\_K\_M & 191.06 & 191.55 & 0.9954 & 18.4222 & 9.1356 & 31.0637 & 0.0280 \\
+ &  & Q4\_K\_M & 191.06 & 191.12 & 0.9867 & 31.2214 & 9.1089 & 43.6318 & 0.0187 \\
+ &  & Q3\_K\_M & 191.06 & 190.43 & 0.9555 & 56.8884 & 9.0784 & 68.8680 & 0.0374 \\
+ &  & Q2\_K & 191.06 & 193.99 & \cellcolor{red!18} 0.8483 & \cellcolor{red!18} 106.0716 & 9.2112 & \cellcolor{red!18} 117.4963 & \cellcolor{red!18} 0.5035 \\
+ & BnB & INT8 & 191.06 & 191.21 & 0.9956 & 17.9674 & \cellcolor{cyan!12} $0$ & 17.6961 & 0.0156 \\
+ &  & NF4 & 191.06 & 190.92 & 0.9691 & 47.4992 & \cellcolor{cyan!12} $0$ & 46.7819 & 0.0910 \\
+ &  & FP4 & 191.06 & 191.57 & 0.9503 & 60.3029 & \cellcolor{cyan!12} $0$ & 59.3922 & 0.0558 \\
+\bottomrule
+\end{tabular}}
+\end{table}

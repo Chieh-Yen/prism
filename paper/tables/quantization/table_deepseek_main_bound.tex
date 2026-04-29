@@ -1,0 +1,23 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{DeepSeek-R1-Distill-Llama-8B} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:deepseek_decomposition_main_bound}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 130.42 & 130.30 & 0.9998 & 2.4328 & \cellcolor{cyan!12} $0$ & 6.3231 & 0.0029 \\
+{\small ($\mathbf{r_s{=}0.78}$)} & GGUF & Q8\_0 & 130.42 & 130.04 & 0.9986 & 6.8825 & 3.6188 & 23.0059 & 0.0038 \\
+ &  & Q6\_K & 130.42 & 130.50 & 0.9956 & 12.2018 & 11.3344 & 47.7428 & 0.0205 \\
+ &  & Q5\_K\_M & 130.42 & 130.31 & 0.9925 & 16.0152 & 11.3250 & 57.6408 & 0.0273 \\
+ &  & Q4\_K\_M & 130.42 & 130.73 & 0.9802 & 25.9705 & 11.3685 & 83.5772 & 0.0121 \\
+ &  & Q3\_K\_M & 130.42 & 133.80 & \cellcolor{red!18} 0.9452 & \cellcolor{red!18} 43.8480 & 11.6260 & \cellcolor{red!18} 130.4067 & \cellcolor{red!18} 0.1651 \\
+ &  & Q2\_K & 130.42 & 134.51 & \cellcolor{red!18} 0.8355 & \cellcolor{red!18} 76.0838 & 11.6000 & \cellcolor{red!18} 214.1535 & \cellcolor{red!18} 0.4977 \\
+ & BnB & INT8 & 130.42 & 131.30 & 0.9871 & 21.0565 & \cellcolor{cyan!12} $0$ & 54.7277 & 0.0277 \\
+ &  & NF4 & 130.42 & 133.20 & \cellcolor{red!18} 0.9490 & \cellcolor{red!18} 42.1937 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 109.6652 & \cellcolor{red!18} 0.1732 \\
+ &  & FP4 & 130.42 & 135.19 & \cellcolor{red!18} 0.8903 & \cellcolor{red!18} 62.3800 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 162.1313 & \cellcolor{red!18} 0.2850 \\
+ & GPTQ & GPTQ-4bit & 130.42 & 132.77 & \cellcolor{red!18} 0.9407 & \cellcolor{red!18} 45.3769 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 117.9387 & \cellcolor{red!18} 0.0075 \\
+\bottomrule
+\end{tabular}}
+\end{table}

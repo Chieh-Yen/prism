@@ -22,7 +22,7 @@ Models covered (bases used in the quantization grid plots):
 Highlights:
   - Omega < 0.95 / 0.80 → two-level red on (Omega, delta, Bound, |MdR|)
   - gamma structurally zero (BnB / GPTQ / FP16) → sky-blue $0$
-  - r_s(delta, |MdR|) per benchmark printed under the dataset label
+  - r_s(B, |MdR|) per benchmark printed under the dataset label
 """
 
 import csv
@@ -60,11 +60,9 @@ MODELS = [
 
 TASK_GROUPS = [
     {"name": "main", "layout": "table",
-     "datasets": ["mmlu", "triviaqa"]},
+     "datasets": ["mmlu"]},
     {"name": "ext",  "layout": "longtable",
-     "datasets": ["arc", "squad", "gsm8k", "wikitext", "fineweb_edu"]},
-    {"name": "all",  "layout": "longtable",
-     "datasets": ["arc", "mmlu", "squad", "triviaqa", "gsm8k",
+     "datasets": ["arc", "triviaqa", "squad", "gsm8k",
                   "wikitext", "fineweb_edu"]},
 ]
 
@@ -114,7 +112,7 @@ COLUMNS = [
     ("Omega_I", r"$\Omega$"),
     ("delta_I", r"$\delta$"),
     ("gamma_I", r"$\gamma$"),
-    ("Bound_I", r"$\mathcal{B}$"),
+    ("Bound_I", r"PRISM $\mathcal{B}$"),
     ("|MdR|",   r"$|\Delta\mathcal{R}|$"),
 ]
 
@@ -199,16 +197,17 @@ def _collect(model_cfg, datasets, rows):
         if m in valid_methods:
             data[(r["dataset"], m)].append(r)
 
+    # NB: Spearman intentionally does NOT apply EXCLUDE_PROXY -- the exclusion
+    # is a body-display dedup (one canonical GPTQ-4bit row), but the rank
+    # correlation should consume all raw proxies so it matches the figure.
     rho_per_ds = {}
     for ds in datasets:
         xs, ys = [], []
         for r in rows:
             if r["target_model"] != target_model or r["dataset"] != ds:
                 continue
-            if r.get("proxy_model", "") in exclude:
-                continue
             try:
-                x, y = float(r["delta_I"]), float(r["|MdR|"])
+                x, y = float(r["Bound_I"]), float(r["|MdR|"])
                 if not math.isnan(x) and not math.isnan(y):
                     xs.append(x)
                     ys.append(y)
@@ -368,9 +367,9 @@ def build_table(model_cfg, group_cfg, rows):
         r"Geometric decomposition for \textbf{" + display + r"} under identity "
         r"alignment ($W{=}I$) --- " + group_name + r" task group. "
         r"Each benchmark section reports Spearman's "
-        r"$r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants."
+        r"$r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants."
     )
-    label = f"tab:{short}_decomposition_{group_name}"
+    label = f"tab:{short}_decomposition_{group_name}_bound"
 
     if layout == "longtable":
         return _wrap_longtable(body_rows, caption, label, col_spec, header_cols)
@@ -390,7 +389,7 @@ def main():
     for model_cfg in MODELS:
         for group_cfg in TASK_GROUPS:
             table = build_table(model_cfg, group_cfg, rows)
-            stem = f"table_{model_cfg['short']}_{group_cfg['name']}"
+            stem = f"table_{model_cfg['short']}_{group_cfg['name']}_bound"
             out_path = OUT_DIR / f"{stem}.tex"
             out_path.write_text(table)
             print(f"Saved → {out_path}")

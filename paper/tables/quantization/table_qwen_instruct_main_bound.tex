@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Qwen3-8B-Instruct} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:qwen_instruct_decomposition_main_bound}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 159.12 & 159.07 & 1.0000 & 0.0476 & \cellcolor{cyan!12} $0$ & 0.1622 & 0.0045 \\
+{\small ($\mathbf{r_s{=}0.68}$)} & GGUF & Q8\_0 & 159.12 & 159.35 & 0.9997 & 3.5975 & 8.5121 & 24.3041 & 0.0013 \\
+ &  & Q6\_K & 159.12 & 160.10 & 0.9979 & 10.4631 & 27.4813 & 74.5398 & 0.0219 \\
+ &  & Q5\_K\_M & 159.12 & 159.94 & 0.9952 & 15.5966 & 27.4944 & 92.0616 & 0.0075 \\
+ &  & Q4\_K\_M & 159.12 & 157.23 & 0.9888 & 23.7090 & 27.0322 & 119.0684 & 0.0812 \\
+ & BnB & INT8 & 159.12 & 161.47 & 0.9927 & 19.5555 & \cellcolor{cyan!12} $0$ & 66.6772 & 0.0537 \\
+ &  & NF4 & 159.12 & 161.29 & 0.9773 & 34.1801 & \cellcolor{cyan!12} $0$ & 116.5416 & 0.0214 \\
+ &  & FP4 & 159.12 & 161.12 & \cellcolor{red!18} 0.9465 & \cellcolor{red!18} 52.4286 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 178.7626 & \cellcolor{red!18} 0.0455 \\
+ & GPTQ & GPTQ-8bit & 159.12 & 158.63 & 0.9998 & 3.5519 & \cellcolor{cyan!12} $0$ & 12.1107 & 0.0027 \\
+\bottomrule
+\end{tabular}}
+\end{table}

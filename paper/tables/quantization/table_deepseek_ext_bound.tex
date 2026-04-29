@@ -1,0 +1,94 @@
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\LTcapwidth}{\textwidth}
+\begin{longtable}{ll l rrrrrrr}
+\caption{Geometric decomposition for \textbf{DeepSeek-R1-Distill-Llama-8B} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:deepseek_decomposition_ext_bound}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endfirsthead
+\multicolumn{10}{l}{\small\itshape (continued from previous page)}\\
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+\endhead
+\midrule
+\multicolumn{10}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+ARC & -- & FP16 & 129.06 & 129.02 & 0.9998 & 2.3568 & \cellcolor{cyan!12} $0$ & 6.1255 & 0.0029 \\
+{\small ($\mathbf{r_s{=}0.90}$)} & GGUF & Q8\_0 & 129.06 & 128.80 & 0.9988 & 6.2897 & 3.5672 & 21.3925 & 0.0044 \\
+ &  & Q6\_K & 129.06 & 129.14 & 0.9959 & 11.6577 & 11.1787 & 46.1087 & 0.0045 \\
+ &  & Q5\_K\_M & 129.06 & 128.92 & 0.9924 & 15.9382 & 11.1661 & 57.2161 & 0.0167 \\
+ &  & Q4\_K\_M & 129.06 & 130.23 & 0.9789 & 26.6440 & 11.3039 & 85.2364 & 0.0569 \\
+ &  & Q3\_K\_M & 129.06 & 133.12 & \cellcolor{red!18} 0.9431 & \cellcolor{red!18} 44.3871 & 11.5452 & \cellcolor{red!18} 131.6935 & \cellcolor{red!18} 0.1086 \\
+ &  & Q2\_K & 129.06 & 134.02 & \cellcolor{red!18} 0.8228 & \cellcolor{red!18} 78.4551 & 11.5442 & \cellcolor{red!18} 220.2377 & \cellcolor{red!18} 0.3327 \\
+ & BnB & INT8 & 129.06 & 129.36 & 0.9861 & 21.5708 & \cellcolor{cyan!12} $0$ & 56.0644 & 0.0007 \\
+ &  & NF4 & 129.06 & 132.28 & \cellcolor{red!18} 0.9445 & \cellcolor{red!18} 43.6391 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 113.4221 & \cellcolor{red!18} 0.1337 \\
+ &  & FP4 & 129.06 & 135.34 & \cellcolor{red!18} 0.8825 & \cellcolor{red!18} 64.3843 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 167.3408 & \cellcolor{red!18} 0.2866 \\
+ & GPTQ & GPTQ-4bit & 129.06 & 132.05 & \cellcolor{red!18} 0.9360 & \cellcolor{red!18} 46.7936 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 121.6208 & \cellcolor{red!18} 0.0407 \\
+\midrule
+TriviaQA & -- & FP16 & 143.70 & 143.66 & 0.9999 & 1.5028 & \cellcolor{cyan!12} $0$ & 3.9060 & 0.0008 \\
+{\small ($\mathbf{r_s{=}0.96}$)} & GGUF & Q8\_0 & 143.70 & 143.69 & 0.9991 & 6.0960 & 4.0109 & 21.5163 & 0.0069 \\
+ &  & Q6\_K & 143.70 & 143.67 & 0.9953 & 13.8623 & 12.4300 & 53.6079 & 0.0073 \\
+ &  & Q5\_K\_M & 143.70 & 143.78 & 0.9909 & 19.4203 & 12.4401 & 68.0682 & 0.0379 \\
+ &  & Q4\_K\_M & 143.70 & 143.71 & 0.9724 & 33.7936 & 12.4329 & 105.4155 & 0.1682 \\
+ &  & Q3\_K\_M & 143.70 & 144.10 & \cellcolor{red!18} 0.9186 & \cellcolor{red!18} 58.0673 & 12.4635 & \cellcolor{red!18} 168.5481 & \cellcolor{red!18} 0.3294 \\
+ &  & Q2\_K & 143.70 & 144.13 & \cellcolor{red!35} 0.7515 & \cellcolor{red!35} 101.4677 & 12.4675 & \cellcolor{red!35} 281.3554 & \cellcolor{red!35} 1.0967 \\
+ & BnB & INT8 & 143.70 & 143.85 & 0.9799 & 28.8222 & \cellcolor{cyan!12} $0$ & 74.9114 & 0.1057 \\
+ &  & NF4 & 143.70 & 143.85 & \cellcolor{red!18} 0.9351 & \cellcolor{red!18} 51.8082 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 134.6541 & \cellcolor{red!18} 0.0959 \\
+ &  & FP4 & 143.70 & 144.30 & \cellcolor{red!18} 0.8696 & \cellcolor{red!18} 73.5483 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 191.1589 & \cellcolor{red!18} 0.6411 \\
+ & GPTQ & GPTQ-4bit & 143.70 & 144.14 & \cellcolor{red!18} 0.9032 & \cellcolor{red!18} 63.3118 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 164.5533 & \cellcolor{red!18} 0.4587 \\
+\midrule
+SQuAD & -- & FP16 & 133.98 & 133.95 & 1.0000 & 0.0269 & \cellcolor{cyan!12} $0$ & 0.0699 & 0.0015 \\
+{\small ($\mathbf{r_s{=}0.65}$)} & GGUF & Q8\_0 & 133.98 & 133.97 & 0.9976 & 9.3232 & 3.6869 & 29.4460 & 0.0162 \\
+ &  & Q6\_K & 133.98 & 133.75 & 0.9935 & 15.2218 & 11.6331 & 56.0145 & 0.0584 \\
+ &  & Q5\_K\_M & 133.98 & 133.78 & 0.9896 & 19.3140 & 11.6363 & 66.6551 & 0.0677 \\
+ &  & Q4\_K\_M & 133.98 & 133.72 & 0.9743 & 30.3447 & 11.6278 & 95.3129 & 0.1332 \\
+ &  & Q3\_K\_M & 133.98 & 134.76 & \cellcolor{red!18} 0.9376 & \cellcolor{red!18} 47.4720 & 11.7025 & \cellcolor{red!18} 139.9340 & \cellcolor{red!18} 0.1084 \\
+ &  & Q2\_K & 133.98 & 135.89 & \cellcolor{red!18} 0.8134 & \cellcolor{red!18} 82.4513 & 11.7798 & \cellcolor{red!18} 230.9575 & \cellcolor{red!18} 0.0205 \\
+ & BnB & INT8 & 133.98 & 134.24 & 0.9829 & 24.8297 & \cellcolor{cyan!12} $0$ & 64.5345 & 0.0152 \\
+ &  & NF4 & 133.98 & 134.33 & \cellcolor{red!18} 0.9430 & \cellcolor{red!18} 45.2788 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 117.6838 & \cellcolor{red!18} 0.2994 \\
+ &  & FP4 & 133.98 & 135.37 & \cellcolor{red!18} 0.8972 & \cellcolor{red!18} 61.0943 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 158.7895 & \cellcolor{red!18} 0.2282 \\
+ & GPTQ & GPTQ-4bit & 133.98 & 137.60 & \cellcolor{red!18} 0.9206 & \cellcolor{red!18} 54.2122 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 140.9024 & \cellcolor{red!18} 0.4021 \\
+\midrule
+GSM8K & -- & FP16 & 120.55 & 120.52 & 1.0000 & 0.0306 & \cellcolor{cyan!12} $0$ & 0.0797 & 0.0017 \\
+{\small ($\mathbf{r_s{=}0.45}$)} & GGUF & Q8\_0 & 120.55 & 120.49 & 1.0000 & 0.0580 & 3.3627 & 4.9062 & 0.0055 \\
+ &  & Q6\_K & 120.55 & 120.32 & 1.0000 & 0.2255 & 10.6604 & 15.6622 & 0.0056 \\
+ &  & Q5\_K\_M & 120.55 & 120.22 & 1.0000 & 0.3270 & 10.6504 & 15.9119 & 0.0077 \\
+ &  & Q4\_K\_M & 120.55 & 120.29 & 1.0000 & 0.2623 & 10.6584 & 15.7552 & 0.0040 \\
+ &  & Q3\_K\_M & 120.55 & 121.18 & 1.0000 & 0.6352 & 10.7633 & 16.8727 & 0.0316 \\
+ &  & Q2\_K & 120.55 & 122.39 & \cellcolor{red!18} 0.8963 & \cellcolor{red!18} 55.3507 & 10.8879 & \cellcolor{red!18} 159.2594 & \cellcolor{red!18} 0.0087 \\
+ & BnB & INT8 & 120.55 & 120.83 & 1.0000 & 0.2819 & \cellcolor{cyan!12} $0$ & 0.7327 & 0.0081 \\
+ &  & NF4 & 120.55 & 120.67 & 1.0000 & 0.1197 & \cellcolor{cyan!12} $0$ & 0.3110 & 0.0086 \\
+ &  & FP4 & 120.55 & 122.26 & 0.9697 & 29.9164 & \cellcolor{cyan!12} $0$ & 77.7554 & 0.0210 \\
+ & GPTQ & GPTQ-4bit & 120.55 & 123.64 & 1.0000 & 3.0919 & \cellcolor{cyan!12} $0$ & 8.0360 & 0.0323 \\
+\midrule
+WikiText & -- & FP16 & 136.21 & 136.21 & 1.0000 & 0.0001 & \cellcolor{cyan!12} $0$ & 0.0002 & 0.0037 \\
+{\small ($\mathbf{r_s{=}0.97}$)} & GGUF & Q8\_0 & 136.21 & 136.20 & 1.0000 & 0.0128 & 3.8276 & 5.4464 & 0.0084 \\
+ &  & Q6\_K & 136.21 & 136.05 & 1.0000 & 0.1625 & 11.9638 & 17.3416 & 0.0094 \\
+ &  & Q5\_K\_M & 136.21 & 136.10 & 1.0000 & 0.1106 & 11.9684 & 17.2134 & 0.0195 \\
+ &  & Q4\_K\_M & 136.21 & 136.02 & 1.0000 & 0.1934 & 11.9602 & 17.4168 & 0.0560 \\
+ &  & Q3\_K\_M & 136.21 & 136.25 & 0.9751 & 30.4290 & 11.9755 & 96.0237 & 0.1211 \\
+ &  & Q2\_K & 136.21 & 135.16 & \cellcolor{red!18} 0.8358 & \cellcolor{red!18} 77.7726 & 11.8830 & \cellcolor{red!18} 218.9432 & \cellcolor{red!18} 0.3534 \\
+ & BnB & INT8 & 136.21 & 136.32 & 1.0000 & 0.1055 & \cellcolor{cyan!12} $0$ & 0.2741 & 0.0059 \\
+ &  & NF4 & 136.21 & 136.00 & 0.9805 & 26.8622 & \cellcolor{cyan!12} $0$ & 69.8174 & 0.1505 \\
+ &  & FP4 & 136.21 & 136.52 & \cellcolor{red!18} 0.9325 & \cellcolor{red!18} 50.1154 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 130.2545 & \cellcolor{red!18} 0.2247 \\
+ & GPTQ & GPTQ-4bit & 136.21 & 137.84 & 0.9528 & 42.1538 & \cellcolor{cyan!12} $0$ & 109.5617 & 0.2886 \\
+\midrule
+FineWeb-Edu & -- & FP16 & 106.92 & 106.96 & 1.0000 & 0.0423 & \cellcolor{cyan!12} $0$ & 0.1101 & 0.0004 \\
+{\small ($\mathbf{r_s{=}0.24}$)} & GGUF & Q8\_0 & 106.92 & 106.94 & 1.0000 & 0.0270 & 3.8381 & 5.4980 & 0.0027 \\
+ &  & Q6\_K & 106.92 & 106.83 & 1.0000 & 0.0817 & 11.9556 & 17.1201 & 0.0002 \\
+ &  & Q5\_K\_M & 106.92 & 106.83 & 1.0000 & 0.0834 & 11.9553 & 17.1242 & 0.0011 \\
+ &  & Q4\_K\_M & 106.92 & 106.66 & 1.0000 & 0.2530 & 11.9317 & 17.5315 & 0.0115 \\
+ &  & Q3\_K\_M & 106.92 & 106.80 & 1.0000 & 0.1138 & 11.9474 & 17.1920 & 0.0562 \\
+ &  & Q2\_K & 106.92 & 105.93 & 1.0000 & 0.9888 & 11.8310 & 19.3016 & 0.2031 \\
+ & BnB & INT8 & 106.92 & 106.93 & 1.0000 & 0.0108 & \cellcolor{cyan!12} $0$ & 0.0279 & 0.0078 \\
+ &  & NF4 & 106.92 & 106.76 & 1.0000 & 0.1584 & \cellcolor{cyan!12} $0$ & 0.4116 & 0.0474 \\
+ &  & FP4 & 106.92 & 107.02 & 1.0000 & 0.1084 & \cellcolor{cyan!12} $0$ & 0.2816 & 0.0837 \\
+ & GPTQ & GPTQ-4bit & 106.92 & 107.55 & 1.0000 & 0.6367 & \cellcolor{cyan!12} $0$ & 1.6547 & 0.1425 \\
+\end{longtable}
+\endgroup

@@ -1,0 +1,23 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Llama-3.1-8B-Instruct} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:llama_instruct_decomposition_main_bound}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 144.62 & 144.62 & 0.9997 & 3.4830 & \cellcolor{cyan!12} $0$ & 9.0568 & 0.0006 \\
+{\small ($\mathbf{r_s{=}0.71}$)} & GGUF & Q8\_0 & 144.62 & 144.53 & 0.9954 & 13.8093 & 4.0153 & 41.5868 & 0.0225 \\
+ &  & Q6\_K & 144.62 & 144.62 & 0.9923 & 17.9276 & 12.4803 & 64.2670 & 0.0147 \\
+ &  & Q5\_K\_M & 144.62 & 144.62 & 0.9851 & 25.0044 & 12.4869 & 82.6780 & 0.0134 \\
+ &  & Q4\_K\_M & 144.62 & 143.11 & \cellcolor{red!18} 0.9401 & \cellcolor{red!18} 49.8141 & 12.2952 & \cellcolor{red!18} 146.9196 & \cellcolor{red!18} 0.1047 \\
+ &  & Q3\_K\_M & 144.62 & 141.90 & \cellcolor{red!18} 0.8548 & \cellcolor{red!18} 77.2496 & 12.1988 & \cellcolor{red!18} 218.1237 & \cellcolor{red!18} 0.0306 \\
+ &  & Q2\_K & 144.62 & 144.24 & \cellcolor{red!35} 0.7331 & \cellcolor{red!35} 105.5181 & 12.4545 & \cellcolor{red!35} 291.9918 & \cellcolor{red!35} 0.6372 \\
+ & BnB & INT8 & 144.62 & 144.44 & 0.9771 & 30.9202 & \cellcolor{cyan!12} $0$ & 80.4019 & 0.0423 \\
+ &  & NF4 & 144.62 & 145.41 & \cellcolor{red!18} 0.9155 & \cellcolor{red!18} 59.6282 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 155.0510 & \cellcolor{red!18} 0.1038 \\
+ &  & FP4 & 144.62 & 144.77 & \cellcolor{red!18} 0.8618 & \cellcolor{red!18} 76.0598 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 197.7782 & \cellcolor{red!18} 0.0551 \\
+ & GPTQ & GPTQ-4bit & 144.62 & 143.76 & \cellcolor{red!18} 0.8708 & \cellcolor{red!18} 73.3123 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 190.6339 & \cellcolor{red!18} 0.0867 \\
+\bottomrule
+\end{tabular}}
+\end{table}

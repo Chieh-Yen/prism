@@ -3,7 +3,7 @@
 \label{app:future_work}
 
 \begin{itemize}[leftmargin=*]
-    \item \textbf{Beyond LoRA forgetting.} Extending the PRISM shape regularizer to full SFT and distillation---where backbone drift is substantially larger---would test the limits of shape anchoring as an active intervention.
+    \item \textbf{Beyond LoRA forgetting.} PRISM's diagnostic and regularization roles (Sec.~\ref{subsec:action}) extend naturally to broader fine-tuning---full SFT, distillation, continual learning---where backbone drift is substantially larger. The shape regularizer constrains drift; $\Omega$ and $\Delta\rho$ together monitor it per step in ways validation loss does not.
     \item \textbf{Diagnostic applications.} The single-forward-pass computation of $\mathcal{B}$ enables three deployment uses: \emph{per-sample OOD detection} via scale and shape residuals on individual inputs; \emph{cross-scale hyperparameter transfer} between a small proxy and its scaled target to predict tuning robustness; and \emph{production drift monitoring} on live traffic.
     \item \textbf{Beyond LLMs.} Vision Transformers and contrastive image encoders share LLMs' backbone-then-linear-head structure, with final-layer LayerNorm (and strict L2 normalization in CLIP/SigLIP) enforcing tight feature scales---making the PRISM scale axis naturally small. Natural targets include ViT quantization, vision-encoder distillation, and cross-modal alignment (consistent with the Platonic Representation Hypothesis~\cite{huh2024platonic}).
 \end{itemize}

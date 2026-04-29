@@ -113,7 +113,7 @@ COLUMNS = [
     ("omega",        r"$\Omega$"),
     ("delta",        r"$\delta$"),
     ("gamma",        r"$\gamma$"),
-    ("bound_total",  r"$\mathcal{B}$"),
+    ("bound_total",  r"PRISM $\mathcal{B}$"),
     ("delta_risk",   r"$|\Delta\mathcal{R}|$"),
 ]
 
