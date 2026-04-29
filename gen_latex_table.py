@@ -9,9 +9,10 @@ Output files land in ./paper/tables/ and are named by model + task group:
   paper/tables/table_{model_short}_{task_group}.tex
 
 Task groups:
-  main  = mmlu, triviaqa, gsm8k          (reasoning / QA / math, paper body)
-  ext   = arc, squad, fineweb_edu,       (additional eval: MC, extractive,
-           wikitext                        perplexity-style)
+  main  = mmlu                            (paper body, Sec.~5.2 Table 1)
+  ext   = arc, triviaqa, squad, gsm8k,   (appendix: extended eval set
+           wikitext, fineweb_edu           excluding mmlu)
+  all   = mmlu + ext                      (appendix: full eval set incl. mmlu)
 
 Models covered (bases used in the quantization grid plots):
   llama    = meta-llama/Meta-Llama-3.1-8B
