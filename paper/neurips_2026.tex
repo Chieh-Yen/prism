@@ -305,15 +305,15 @@ where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices
 \section{Applications: Post-Training Quantization and LoRA Forgetting}
 \label{sec:applications}
 
-The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}) applies to two LLM lifecycle settings---post-training quantization and frozen-head LoRA fine-tuning---which differ in which term of the bound dominates the risk gap.
+The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}) applies to two LLM lifecycle settings: post-training quantization (may engage all three axes) and frozen-head LoRA fine-tuning (backbone drift alone).
 
 \paragraph{Quantization quality estimation.}
 \label{subsec:quantization}
-Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. PTQ perturbs each weight independently \emph{without applying any basis transformation}, so $W{=}I$ is the natural alignment. When the protocol keeps \texttt{lm\_head} in FP16 (GPTQ, BitsAndBytes), the head term $\gamma$ vanishes and the bound reduces to the feature side $(\Delta\rho)^2$ and $1{-}\Omega$; GGUF k-quant tiers also quantize the head, retaining $\gamma > 0$.
+Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. PTQ perturbs weights without applying any basis transformation, so $W{=}I$ is the natural alignment; the head term $\gamma$ enters when the protocol also quantizes \texttt{lm\_head} (GGUF k-quant) and vanishes otherwise (GPTQ, BnB).
 
 \paragraph{Geometric monitoring of catastrophic forgetting.}
 \label{subsec:forgetting}
-Target $T{=}\theta_0$ is the frozen base model and proxy $P{=}\theta_t$ is the fine-tuned checkpoint, both evaluated on downstream benchmarks \emph{distinct} from the fine-tuning task so that $|\mathcal{R}_T - \mathcal{R}_P|$ captures catastrophic forgetting. Under standard LoRA~\cite{hu2022lora} the \texttt{lm\_head} stays frozen, so $\gamma$ vanishes and forgetting is governed entirely by \emph{backbone geometric drift} $(\Delta\rho, 1{-}\Omega)$; the shape regularizer of Sec.~\ref{subsec:shape_reg} directly penalizes the shape term $1{-}\Omega$.
+Target $T{=}\theta_0$ is the frozen base model and proxy $P{=}\theta_t$ a fine-tuned checkpoint, both evaluated on benchmarks \emph{distinct} from the fine-tuning task so that $|\mathcal{R}_T - \mathcal{R}_P|$ captures catastrophic forgetting. Standard LoRA~\cite{hu2022lora} keeps \texttt{lm\_head} frozen, so $\gamma{=}0$ and forgetting reduces to \emph{backbone geometric drift} $(\Delta\rho, 1{-}\Omega)$; the shape regularizer of Sec.~\ref{subsec:shape_reg} penalizes the shape term directly.
 
 
 %=========================================================================
