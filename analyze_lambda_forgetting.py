@@ -88,9 +88,9 @@ ALL_CONFIGS = [
 #   - λ ratio is 100× (2 orders of magnitude); we frame as "each method at
 #     its sweep-best" rather than as a fixed ratio.
 PLOT_CONFIGS = [
-    ("baseline",    "baseline", "0.0",  "no reg",          "#7f7f7f", "o"),
-    ("replay_0.01", "replay",   "0.01", "replay λ=0.01",   "#1f77b4", "s"),
-    ("trace_1.0",   "trace",    "1.0",  "trace λ=1.0",     "#d62728", "^"),
+    ("baseline",    "baseline", "0.0",  "no reg",                  "#7f7f7f", "o"),
+    ("replay_0.01", "replay",   "0.01", "replay λ=0.01 (baseline)", "#1f77b4", "s"),
+    ("trace_1.0",   "trace",    "1.0",  "trace λ=1.0 (ours)",       "#d62728", "^"),
 ]
 
 # Configs used in fast hypothesis checks / trade-off scatter

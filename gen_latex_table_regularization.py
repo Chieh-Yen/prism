@@ -96,8 +96,8 @@ ALIGN_STEP = 300
 #   - trace  λ=1.0   (lowest 4-cell mean |ΔR| in trace sweep; sweep max)
 DEFAULT_COMPARE_CONFIGS = [
     ("replay", "0.0",  r"no reg"),
-    ("replay", "0.01", r"replay ($\lambda{=}0.01$)"),
-    ("trace",  "1.0",  r"trace ($\lambda{=}1.0$)"),
+    ("replay", "0.01", r"replay $\lambda{=}0.01$ (baseline)"),
+    ("trace",  "1.0",  r"trace $\lambda{=}1.0$ (ours)"),
 ]
 
 INCLUDE_TARGET_TASK = False
@@ -313,7 +313,7 @@ def _fmt_compact_cell(val, bold: bool = False,
     Second-best: underline. Others: plain."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "--"
-    s = f"{val:.4f}"
+    s = f"{val:.3f}"
     if bold:
         return r"\cellcolor{green!18} \textbf{" + s + "}"
     if underline:
@@ -401,9 +401,15 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
 
     group_names = [DS_DISPLAY.get(ev, ev).replace(" (self)", "")
                    for ev in eval_tasks]
-    group_headers = [
-        f"\\multicolumn{{{n_cfg}}}{{c}}{{{name}}}" for name in group_names
-    ]
+    # Trailing `|` on all but the last group's multicolumn so the vertical
+    # rules in col_spec extend up through the dataset header row, visually
+    # grouping each benchmark's three configs.
+    group_headers = []
+    for i, name in enumerate(group_names):
+        align = "c|" if i < len(group_names) - 1 else "c"
+        group_headers.append(
+            f"\\multicolumn{{{n_cfg}}}{{{align}}}{{{name}}}"
+        )
     cmidrules = []
     col_idx = 2
     for _ in range(n_groups):
@@ -458,6 +464,9 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
     L.append(r"\centering")
     L.append(r"\caption{" + caption + r"}")
     L.append(r"\label{tab:reg_compact_" + short_model + "_" + short_ft + "}")
+    # Tighter column padding lets \resizebox stretch the table to a higher
+    # scale factor, enlarging the rendered font.
+    L.append(r"\setlength{\tabcolsep}{4pt}")
     L.append(r"\resizebox{\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
@@ -466,6 +475,7 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
     L.append(" & " + " & ".join(sub_headers) + r" \\")
     L.append(r"\midrule")
     L.append(" & ".join(om_cells) + r" \\")
+    L.append(r"\midrule")
     L.append(" & ".join(dr_cells) + r" \\")
     L.append(r"\bottomrule")
     L.append(r"\end{tabular}}")

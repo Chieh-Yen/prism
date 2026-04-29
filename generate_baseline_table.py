@@ -281,7 +281,10 @@ def _emit_latex(metrics, stats, best_cols, n_cells_with_data,
     lines.append(rf"\label{{{label}}}")
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
-    lines.append(r"\begin{tabular}{lcccccc}")
+    # Dynamic col_spec with vertical rules grouping: label | aggregate (Mean) |
+    # per-model | aggregate (Wins). Pipes give the reader visual partitions.
+    col_spec = "l | c | " + "c" * len(ROW_MODELS) + " | c"
+    lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
         [r"Metric"]
@@ -359,7 +362,10 @@ def _emit_combined_latex(groups, out_path, label, caption):
     lines.append(rf"\label{{{label}}}")
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
-    lines.append(r"\begin{tabular}{lcccccc}")
+    # Dynamic col_spec with vertical rules grouping: label | aggregate (Mean) |
+    # per-model | aggregate (Wins). Pipes give the reader visual partitions.
+    col_spec = "l | c | " + "c" * len(ROW_MODELS) + " | c"
+    lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
         [r"Metric"]

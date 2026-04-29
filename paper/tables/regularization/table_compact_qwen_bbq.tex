@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Regularization comparison for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{BBQ} (identity alignment $W{=}I$; metrics at step 300). Rows: $\Omega$ (higher = more shape preserved) and $|\Delta\mathcal{R}|$ (lower = less forgetting). \colorbox{green!18}{\textbf{Bold + green}} / underline: 1st / 2nd-best per benchmark group. Across-benchmark unweighted means for [no reg / replay $\lambda{=}0.01$ (baseline) / trace $\lambda{=}1.0$ (ours)]: $\Omega$ = 0.999 / 0.998 / \textbf{0.999}; $|\Delta\mathcal{R}|$ = 0.112 / \textbf{0.110} / 0.112. In this frozen-\texttt{lm\_head} LoRA setting $\gamma \equiv 0$ and $\rho_T \approx \rho_P$, so $\delta$ and $\mathcal{B}$ track $\Omega$; the full decomposition is in Appendix Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq}.}
+\label{tab:reg_compact_qwen_bbq}
+\setlength{\tabcolsep}{4pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l ccc | ccc | ccc | ccc | ccc}
+\toprule
+ & \multicolumn{3}{c|}{ARC} & \multicolumn{3}{c|}{MMLU} & \multicolumn{3}{c|}{SQuAD} & \multicolumn{3}{c|}{TriviaQA} & \multicolumn{3}{c}{GSM8K} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10} \cmidrule(lr){11-13} \cmidrule(lr){14-16}
+ & no reg & replay & trace & no reg & replay & trace & no reg & replay & trace & no reg & replay & trace & no reg & replay & trace \\
+\midrule
+$\Omega \uparrow$ & \underline{0.998} & 0.997 & \cellcolor{green!18} \textbf{0.999} & \underline{0.999} & 0.999 & \cellcolor{green!18} \textbf{0.999} & \underline{0.999} & 0.998 & \cellcolor{green!18} \textbf{0.999} & \underline{0.999} & 0.999 & \cellcolor{green!18} \textbf{0.999} & \cellcolor{green!18} \textbf{1.000} & \underline{1.000} & 1.000 \\
+\midrule
+$|\Delta\mathcal{R}|\downarrow$ & \cellcolor{green!18} \textbf{0.288} & \underline{0.297} & 0.301 & 0.116 & \cellcolor{green!18} \textbf{0.085} & \underline{0.095} & 0.135 & \cellcolor{green!18} \textbf{0.130} & \underline{0.134} & \cellcolor{green!18} \textbf{0.003} & 0.010 & \underline{0.006} & \cellcolor{green!18} \textbf{0.020} & 0.029 & \underline{0.025} \\
+\bottomrule
+\end{tabular}}
+\end{table}
