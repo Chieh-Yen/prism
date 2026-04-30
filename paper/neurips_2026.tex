@@ -165,20 +165,19 @@ Constructing such a bound faces three technical obstacles. (i)~No prior represen
 Yet LLM structure itself supplies the leverage to overcome all three.
 
 %\paragraph{What makes LLM geometry analytically tractable.}
-We identify a structural opportunity in modern LLMs that prior similarity work has not exploited.
+Our analysis pivots on two observations about modern LLMs:
+
 \textbf{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
+
 \textbf{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
-Our central insight: \emph{building on (i) and (ii)}, we derive a closed-form upper bound on the cross-entropy risk gap with three diagnostic axes (scale, shape, head); a simplex polarization argument tightens the feature-side Lipschitz constant $K_{\mathrm{feat}}$ to be informative at LLM vocabulary scale.
+
+Combining (i) and (ii), we propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}): a closed-form upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes.
 
 %\paragraph{PRISM: a bound with three actionable axes.}
-We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}), a geometry-grounded, axis-level diagnostic for LLM variants.
-PRISM bounds $|\mathcal{R}_T - \mathcal{R}_P|$ as a sum of three axis terms: a \emph{scale mismatch} $\Delta\rho$ (activation-magnitude collapse) and a \emph{shape mismatch} $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---plus a covariance-weighted head discrepancy.
-Each axis is independently measurable from a single forward pass, so a PRISM failure is not merely a flag but a \emph{direction}: a scale-dominated failure points to outlier-channel corruption, a shape-dominated failure to distorted token geometry, and a head-dominated failure to prediction-head perturbation.
+The three axes are scale mismatch $\Delta\rho$ (activation-magnitude collapse), shape mismatch $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---and a covariance-weighted head discrepancy $\gamma$. A simplex polarization argument keeps the feature-side Lipschitz constant $K_{\mathrm{feat}}$ informative at LLM vocabulary scale. So a PRISM failure is not merely a flag but a \emph{direction}: a scale-dominated failure points to outlier-channel corruption, a shape-dominated failure to distorted token geometry, and a head-dominated failure to prediction-head perturbation.
 
 %\paragraph{From diagnostic to training signal.}
-The same quantity that diagnoses a variant's drift can also prevent it.
-Under frozen-head LoRA the head term vanishes and the risk gap is governed by backbone shape drift, which $\Omega$ captures differentiably.
-Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts the bound from a post-hoc diagnostic into an active constraint against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}): even a weak weight suffices to reduce downstream forgetting across benchmarks.
+Beyond diagnosis, the shape arm doubles as a training signal: under frozen-head LoRA the head term vanishes and $\Omega$ captures backbone shape drift differentiably, so a weighted penalty on $1-\Omega$ converts the bound into an active regularizer against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}).
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
