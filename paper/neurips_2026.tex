@@ -97,7 +97,9 @@
 \setlength{\belowdisplayshortskip}{2pt plus 1pt}
 
 \newlength{\figpullup}
-\setlength{\figpullup}{-10pt}
+\setlength{\figpullup}{-18pt}
+
+\flushbottom
 
 \title{PRISM\hspace{0.05cm}\raisebox{-.15\height}{\includegraphics[scale=0.02]{figures/prism.png}}: Decomposing Geometric Drift \\
 for Risk Diagnosis in LLM Variants}
@@ -165,8 +167,8 @@ Yet LLM structure itself supplies the leverage to overcome all three.
 
 %\paragraph{What makes LLM geometry analytically tractable.}
 We identify a structural opportunity in modern LLMs that prior similarity work has not exploited.
-\emph{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
-\emph{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
+\textbf{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
+\textbf{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
 Our central insight: \emph{combining (i) and (ii)} lifts the Procrustes feature-alignment residual into an \emph{exact} closed-form upper bound on the cross-entropy risk gap, with the head's Lipschitz constant sharpened by a simplex polarization argument and the bound decomposed into three independently measurable diagnostic axes: scale, shape, and head.
 
 %\paragraph{PRISM: a bound with three actionable axes.}
@@ -399,7 +401,7 @@ At Q2 and Q3 across all four families tested (Appendix~\ref{app:per_model_tables
 A second setting appears when the protocol quantizes the output embedding. At Qwen3-Base Q6\_K on MMLU (Table~\ref{tab:qwen_decomposition_all_bound}, Appendix~\ref{app:per_model_tables}), backbone scale and shape are essentially perfect ($(\Delta\rho)^2{=}0.56$, $\Omega \approx 1$), so $\delta{=}0.75$, yet the quantized output embedding alone contributes $\gamma{=}60.16$---making $\gamma$ essentially the entire bound (Q8\_0 shows the same pattern: $\delta{=}0.15$, $\gamma{=}19.0$). Under BnB INT8 the same Qwen3-Base keeps $\gamma{\equiv}0$ by construction, leaving $\delta{=}13.2$ as the sole error source---a qualitatively different decomposition determined entirely by which protocol quantizes \texttt{lm\_head}. The decomposition makes this protocol-level switch read off directly, identifying not just the magnitude of degradation but its dominant channel.
 
 \paragraph{Scale-axis separability (LoRA cross-task contrast).}
-The forgetting experiments reveal a third setting hidden by scalar metrics. Under TruthfulQA fine-tuning (Fig.~\ref{fig:forget_grid_llama} top row) we observe large shape drift with modest scale change; under BBQ fine-tuning (bottom row) both axes move. The decomposition $(\Delta\rho, 1{-}\Omega)$ in Eq.~(\ref{eq:lora_bound}) thus exhibits the two arms as non-redundant channels: \emph{different source tasks induce qualitatively different drift geometries}, and the scale axis is empirically separable from shape---an observation a single-number similarity would mask.
+The forgetting experiments reveal a third setting hidden by scalar metrics. Under TruthfulQA fine-tuning (Fig.~\ref{fig:forget_grid_llama} top row) we observe large shape drift with modest scale change; under BBQ fine-tuning (bottom row) both axes move. The decomposition $(\Delta\rho, 1{-}\Omega)$ in Eq.~(\ref{eq:lora_bound}) thus exhibits the two arms as non-redundant channels: different source tasks induce \emph{qualitatively different drift geometries}, and the scale axis is empirically separable from shape---an observation a single-number similarity would mask.
 
 \paragraph{From diagnosis to remediation.}
 Each dominant axis suggests a different remediation---per-channel outlier smoothing~\cite{xiao2023smoothquant} for scale collapse, Hessian-aware reconstruction for shape distortion, and FP16-\texttt{lm\_head} retention for head divergence. The bound thus turns from a scalar score into an axis-level diagnostic with actionable structure. We turn the differentiable shape arm into a training-time regularizer in Sec.~\ref{subsec:action}.
@@ -421,7 +423,7 @@ Each dominant axis suggests a different remediation---per-channel outlier smooth
 
 The decomposition of Sec.~\ref{subsec:decompose} suggests an immediate intervention: shape drift dominates LoRA forgetting, and $1{-}\Omega$ is differentiable in $Z_t$. We add the trace-norm penalty $\lambda(1{-}\Omega(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ on a $32$-sample reference set $\mathcal{D}_{\mathrm{ref}}$. To isolate shape preservation from data re-fitting, we compare against a replay-CE baseline that uses the same $\mathcal{D}_{\mathrm{ref}}$ (cross-entropy on $\mathcal{D}_{\mathrm{ref}}$, swept over $\lambda$).
 
-Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare \emph{our} trace against the \emph{replay} baseline (each at its sweep $|\Delta\mathcal{R}|$-best), with no regularization as anchor reference on Llama-3.1-8B. Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ the contrast is qualitative: our trace lifts $\Omega$ from $0.93$ to $0.98$ while replay leaves $\Omega$ flat at $0.93$. Mechanism: replay reduces forgetting indirectly by re-fitting reference data, leaving $\Omega$ unchanged; trace contracts the shape arm of the bound at the source. Preserving shape geometry during training thus outperforms gradient replay at matched data budget, consistent with Sec.~\ref{subsec:decompose}'s identification of shape as the dominant LoRA-forgetting axis. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
+Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare our trace against the replay baseline (each at its sweep $|\Delta\mathcal{R}|$-best), with no regularization as anchor reference on Llama-3.1-8B. Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ the contrast is qualitative: our trace lifts $\Omega$ from $0.93$ to $0.98$ while replay leaves $\Omega$ flat at $0.93$. Mechanism: replay reduces forgetting indirectly by re-fitting reference data, leaving $\Omega$ unchanged; trace contracts the shape arm of the bound at the source. Preserving shape geometry during training thus outperforms gradient replay at matched data budget, consistent with Sec.~\ref{subsec:decompose}'s identification of shape as the dominant LoRA-forgetting axis. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
 
 
 \subsection{Ablation: Component-Wise Contributions}
