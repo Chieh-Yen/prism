@@ -282,21 +282,19 @@ def _emit_latex(metrics, stats, best_cols, n_cells_with_data,
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
     # Dynamic col_spec with vertical rules grouping: label | aggregate (Mean) |
-    # per-model | aggregate (Wins). Pipes give the reader visual partitions.
-    col_spec = "l | c | " + "c" * len(ROW_MODELS) + " | c"
+    # per-model. Pipes give the reader visual partitions.
+    col_spec = "l | c | " + "c" * len(ROW_MODELS)
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
         [r"Metric"]
         + [r"Mean $|r_s|$"]
         + [ROW_DISPLAY[m] for m in ROW_MODELS]
-        + [rf"Wins / {n_cells_with_data}"]
     )
     lines.append(" & ".join(header_cells) + r" \\")
     subheader = ([""]
                  + [rf"\scriptsize ({n_cells_with_data} cells)"]
-                 + [r"\scriptsize (5 benchmarks)"] * len(ROW_MODELS)
-                 + [""])
+                 + [r"\scriptsize (5 benchmarks)"] * len(ROW_MODELS))
     lines.append(" & ".join(subheader) + r" \\")
     lines.append(r"\midrule")
     for label_text, _, mid in metrics:
@@ -306,10 +304,6 @@ def _emit_latex(metrics, stats, best_cols, n_cells_with_data,
         for m in ROW_MODELS:
             key = f"model_{m}"
             row.append(_fmt(s["per_model_mean"][m], bold=(mid in best_cols[key])))
-        wins_val = s["winners"]
-        wins_str = (rf"\textbf{{{wins_val}}}" if mid in best_cols["winners"]
-                    else f"{wins_val}")
-        row.append(wins_str)
         lines.append(" & ".join(row) + r" \\")
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
@@ -362,22 +356,20 @@ def _emit_combined_latex(groups, out_path, label, caption):
     lines.append(rf"\label{{{label}}}")
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
-    # Dynamic col_spec with vertical rules grouping: label | aggregate (Mean) |
-    # per-model | aggregate (Wins). Pipes give the reader visual partitions.
-    col_spec = "l | c | " + "c" * len(ROW_MODELS) + " | c"
+    # Dynamic col_spec: label | per-model | aggregate (Mean).
+    # Pipes give the reader visual partitions.
+    col_spec = "l | " + "c" * len(ROW_MODELS) + " | c"
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
         [r"Metric"]
-        + [r"Mean $|r_s|$"]
         + [ROW_DISPLAY[m] for m in ROW_MODELS]
-        + [rf"Wins / {n_cells_header}"]
+        + [r"Mean $r_s$"]
     )
     lines.append(" & ".join(header_cells) + r" \\")
     subheader = ([""]
-                 + [rf"\scriptsize ({n_cells_header} cells)"]
                  + [r"\scriptsize (5 benchmarks)"] * len(ROW_MODELS)
-                 + [""])
+                 + [rf"\scriptsize ({n_cells_header} cells)"])
     lines.append(" & ".join(subheader) + r" \\")
 
     for gi, (metrics, stats, best_cols, _) in enumerate(groups):
@@ -385,16 +377,11 @@ def _emit_combined_latex(groups, out_path, label, caption):
         for label_text, _, mid in metrics:
             s = stats[mid]
             row = [label_text]
-            row.append(_fmt(s["mean"], bold=(mid in best_cols["mean"])))
             for m in ROW_MODELS:
                 key = f"model_{m}"
                 row.append(_fmt(s["per_model_mean"][m],
                                 bold=(mid in best_cols[key])))
-            wins_val = s["winners"]
-            wins_str = (rf"\textbf{{{wins_val}}}"
-                        if mid in best_cols["winners"]
-                        else f"{wins_val}")
-            row.append(wins_str)
+            row.append(_fmt(s["mean"], bold=(mid in best_cols["mean"])))
             lines.append(" & ".join(row) + r" \\")
 
     lines.append(r"\bottomrule")
@@ -417,8 +404,7 @@ def _caption_i():
         r"components cumulatively: shape, then $+$ scale, then $+$ head. "
         r"Per-lineage columns average $|r_s|$ over the "
         rf"{len(COL_DATASETS)} benchmarks of that "
-        r"lineage. ``Wins'' counts cells where a metric's $|r_s|$ is the largest "
-        r"(ties counted for each tied metric); bold = best in column. The "
+        r"lineage. Bold = best in column. The "
         r"Procrustes-optimal $W{=}W_N$ counterpart is in "
         r"Appendix~Table~\ref{tab:baseline_w}."
     )
@@ -444,7 +430,7 @@ CAPTION_COMBINED = (
     r"Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell "
     r"Spearman protocol throughout. Within each block, rows add bound "
     r"components cumulatively (shape $\to +$ scale $\to +$ head); larger "
-    r"$|r_s|$ = better variant ranking; bold = best in column \emph{within "
+    r"$r_s$ = better variant ranking; bold = best in column \emph{within "
     r"its block}. The $W{=}W_N$ block ranks modestly better on the full "
     r"bound, as expected since $W_N$ minimizes the alignment residual; "
     r"the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the "

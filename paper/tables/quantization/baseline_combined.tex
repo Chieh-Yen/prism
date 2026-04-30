@@ -1,21 +1,21 @@
 \begin{table}[t]
 \centering
-\caption{\textbf{Component-wise ablation under both alignment conventions.} Top block: $W{=}I$ (used in main text). Bottom block: Procrustes-optimal $W{=}W_N$. Same per-cell Spearman protocol throughout. Rows add bound components cumulatively (shape $\to +$ scale $\to +$ head) within each block; larger $|r_s|$ = better; bold = best in column \emph{within its block}. The $W{=}W_N$ block ranks modestly better on the full bound (it minimizes the alignment residual); the main text adopts $W{=}I$ for autograd compatibility and the head-term simplification $H_T{=}H_P$ under frozen \texttt{lm\_head}.}
+\caption{\textbf{Component-wise ablation under both alignment conventions.} Top block: identity-alignment form ($W{=}I$, used throughout the main text). Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell Spearman protocol throughout. Within each block, rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $r_s$ = better variant ranking; bold = best in column \emph{within its block}. The $W{=}W_N$ block ranks modestly better on the full bound, as expected since $W_N$ minimizes the alignment residual; the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the head-term simplification $H_T = H_P$ that holds in our frozen-\texttt{lm\_head} regimes.}
 \label{tab:baseline_combined}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{l | c | cc | c}
+\begin{tabular}{l | cc | c}
 \toprule
-Metric & Mean $|r_s|$ & Llama & Qwen3 & Wins / 10 \\
- & \scriptsize (10 cells) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) &  \\
+Metric & Llama & Qwen3 & Mean $r_s$ \\
+ & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) & \scriptsize (10 cells) \\
 \midrule
-\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape only; baseline)} & .804 & .825 & .783 & 2 \\
-\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; no head)} & \textbf{.868} & \textbf{.881} & \textbf{.855} & \textbf{5} \\
-\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; PRISM, $W{=}I$)} & .820 & .828 & .813 & 4 \\
+\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape only; baseline)} & .825 & .783 & .804 \\
+\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; no head)} & \textbf{.881} & \textbf{.855} & \textbf{.868} \\
+\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; PRISM, $W{=}I$)} & .828 & .813 & .820 \\
 \midrule
-\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape only; baseline)} & .806 & .839 & .773 & 4 \\
-\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; no head)} & .873 & .898 & .847 & 5 \\
-\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; PRISM, $W{=}W_N$)} & \textbf{.912} & \textbf{.927} & \textbf{.896} & \textbf{8} \\
+\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape only; baseline)} & .839 & .773 & .806 \\
+\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; no head)} & .898 & .847 & .873 \\
+\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; PRISM, $W{=}W_N$)} & \textbf{.927} & \textbf{.896} & \textbf{.912} \\
 \bottomrule
 \end{tabular}
 \end{table}

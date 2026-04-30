@@ -12,7 +12,7 @@
 \section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
 \label{app:detailed_proofs}
 
-We provide the complete proof of Theorem~\ref{thm:unified_bound}, which the main text states for general $W \in \mathcal{O}(d)$ (trace family $\Omega_W$, Eq.~\ref{eq:omega_def}). The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, the alignment-residual decomposition (whose Procrustes-optimal specialization $W = W_N$ yields the nuclear form $\Omega_N$ via SVD), second-moment-adjusted head bound, and final assembly. The identity-alignment specialization $W = I$ (used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}) and the $W = W_N$ specialization (used in the Sec.~\ref{subsec:ablation} ablation) follow as corollaries of the same proof.
+We provide the complete proof of Theorem~\ref{thm:unified_bound}, which the main text states for general $W \in \mathcal{O}(d)$ (trace family $\Omega_W$, Eq.~\ref{eq:omega_def}). The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, the alignment-residual decomposition (whose Procrustes-optimal specialization $W = W_N$ yields the nuclear form $\Omega_N$ via SVD), covariance-adjusted head bound, and final assembly. The identity-alignment specialization $W = I$ (used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}) and the $W = W_N$ specialization (used in the Sec.~\ref{subsec:ablation} ablation) follow as corollaries of the same proof.
 
 \subsection{Relation to Classical Procrustes Shape Metrics}
 \label{app:shape_metrics_relation}
@@ -185,7 +185,7 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 \end{equation}
 Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$, yielding the Lipschitz inequality $|\ell(v_1, y) - \ell(v_2, y)| \le K_{\mathrm{pred}}\, \|v_1 - v_2\|_2$ on logits.
 
-\paragraph{Deriving the Second-Moment Projection.}
+\paragraph{Deriving the Covariance Projection.}
 Define the head misalignment matrix $\Delta H := W H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W H_T - H_P)$, and:
 \begin{equation}
 \begin{aligned}
@@ -211,7 +211,7 @@ Taking the square root:
 \gamma \le K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W H_T - H_P)\|_F.
 \end{equation}
 
-\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is sharper than the loose spectral bound $\gamma \le K_{\mathrm{pred}} \|W H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which conservatively assumes worst-case alignment between features and head error. The covariance weighting $\Sigma_P^{1/2}$ instead aligns the bound with the data-active directions: head misalignment in directions the features rarely traverse contributes little, and disagreement on $\mathrm{null}(\Sigma_P)$ contributes nothing.
+\paragraph{Interpretation.} The covariance weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is sharper than the loose spectral bound $\gamma \le K_{\mathrm{pred}} \|W H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which conservatively assumes worst-case alignment between features and head error. The covariance weighting $\Sigma_P^{1/2}$ instead aligns the bound with the data-active directions: head misalignment in directions the features rarely traverse contributes little, and disagreement on $\mathrm{null}(\Sigma_P)$ contributes nothing.
 
 
 \subsection{Step 5: Assembling the Unified Bound}

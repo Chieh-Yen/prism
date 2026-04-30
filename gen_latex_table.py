@@ -60,12 +60,14 @@ MODELS = [
 ]
 
 TASK_GROUPS = [
-    {"name": "main", "layout": "table",
+    {"name": "main", "layout": "table", "caption_label": "MMLU",
      "datasets": ["mmlu"]},
     {"name": "ext",  "layout": "longtable",
+     "caption_label": "extended benchmarks (excl.\\ MMLU)",
      "datasets": ["arc", "triviaqa", "squad", "gsm8k",]},
     #              "wikitext", "fineweb_edu"]},
     {"name": "all",  "layout": "longtable",
+     "caption_label": "all benchmarks",
      "datasets": ["mmlu", "arc", "triviaqa", "squad", "gsm8k",]},
     #              "wikitext", "fineweb_edu"]},
 ]
@@ -370,6 +372,7 @@ def build_table(model_cfg, group_cfg, rows):
     group_name = group_cfg["name"]
     datasets = group_cfg["datasets"]
     layout = group_cfg.get("layout", "table")
+    caption_label = group_cfg.get("caption_label", group_name)
 
     data, rho_per_ds = _collect(model_cfg, datasets, rows)
     body_rows = _render_body_rows(data, rho_per_ds, datasets)
@@ -378,7 +381,7 @@ def build_table(model_cfg, group_cfg, rows):
     header_cols = " & ".join(h for _, h in COLUMNS)
     caption = (
         r"Geometric decomposition for \textbf{" + display + r"} under identity "
-        r"alignment ($W{=}I$) --- " + group_name + r" task group. "
+        r"alignment ($W{=}I$) on " + caption_label + r". "
         r"Each benchmark section reports Spearman's "
         r"$r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants."
     )

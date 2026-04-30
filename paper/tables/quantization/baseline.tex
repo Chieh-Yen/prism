@@ -1,17 +1,17 @@
 \begin{table}[t]
 \centering
-\caption{\textbf{Component-wise ablation of the PRISM bound (identity-alignment form, $W{=}I$).} Per-cell Spearman rank correlation $|r_s|$ with the empirical cross-entropy risk gap $|\Delta\mathcal{R}|$ across the $2{\times}5$ PTQ grid (larger $|r_s|$ = better variant ranking). Rows add bound components cumulatively: shape, then $+$ scale, then $+$ head. Per-lineage columns average $|r_s|$ over the 5 benchmarks of that lineage. ``Wins'' counts cells where a metric's $|r_s|$ is the largest (ties counted for each tied metric); bold = best in column. The Procrustes-optimal $W{=}W_N$ counterpart is in Appendix~Table~\ref{tab:baseline_w}.}
+\caption{\textbf{Component-wise ablation of the PRISM bound (identity-alignment form, $W{=}I$).} Per-cell Spearman rank correlation $|r_s|$ with the empirical cross-entropy risk gap $|\Delta\mathcal{R}|$ across the $2{\times}5$ PTQ grid (larger $|r_s|$ = better variant ranking). Rows add bound components cumulatively: shape, then $+$ scale, then $+$ head. Per-lineage columns average $|r_s|$ over the 5 benchmarks of that lineage. Bold = best in column. The Procrustes-optimal $W{=}W_N$ counterpart is in Appendix~Table~\ref{tab:baseline_w}.}
 \label{tab:baseline}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{l | c | cc | c}
+\begin{tabular}{l | c | cc}
 \toprule
-Metric & Mean $|r_s|$ & Llama & Qwen3 & Wins / 10 \\
- & \scriptsize (10 cells) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) &  \\
+Metric & Mean $|r_s|$ & Llama & Qwen3 \\
+ & \scriptsize (10 cells) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) \\
 \midrule
-\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape only; baseline)} & .804 & .825 & .783 & 2 \\
-\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; no head)} & \textbf{.868} & \textbf{.881} & \textbf{.855} & \textbf{5} \\
-\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; PRISM, $W{=}I$)} & .820 & .828 & .813 & 4 \\
+\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape only; baseline)} & .804 & .825 & .783 \\
+\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; no head)} & \textbf{.868} & \textbf{.881} & \textbf{.855} \\
+\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; PRISM, $W{=}I$)} & .820 & .828 & .813 \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -4,14 +4,14 @@
 \label{tab:baseline_w}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{l | c | cc | c}
+\begin{tabular}{l | c | cc}
 \toprule
-Metric & Mean $|r_s|$ & Llama & Qwen3 & Wins / 10 \\
- & \scriptsize (10 cells) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) &  \\
+Metric & Mean $|r_s|$ & Llama & Qwen3 \\
+ & \scriptsize (10 cells) & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) \\
 \midrule
-\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape only; baseline)} & .806 & .839 & .773 & 4 \\
-\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; no head)} & .873 & .898 & .847 & 5 \\
-\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; PRISM, $W{=}W_N$)} & \textbf{.912} & \textbf{.927} & \textbf{.896} & \textbf{8} \\
+\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape only; baseline)} & .806 & .839 & .773 \\
+\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; no head)} & .873 & .898 & .847 \\
+\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; PRISM, $W{=}W_N$)} & \textbf{.912} & \textbf{.927} & \textbf{.896} \\
 \bottomrule
 \end{tabular}
 \end{table}

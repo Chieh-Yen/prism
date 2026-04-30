@@ -217,14 +217,14 @@ Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate lo
 
 Let $T$ be a \emph{Target model} (e.g., a full-precision base) and $P$ a \emph{Proxy model} (e.g., a quantized or fine-tuned variant), sharing hidden dimension $d$. Each model factors into a Transformer backbone $\phi_M: \mathcal{X} \to \mathbb{R}^d$ followed by a linear prediction head $H_M \in \mathbb{R}^{d \times V}$ (the \texttt{lm\_head}, vocabulary size $V$):
 \begin{equation}
-f_M(x) = \mathrm{softmax}\!\big(\phi_M(x) \cdot H_M\big), \qquad M \in \{T, P\}.
+f_M(x) = \mathrm{softmax}\!\big(\phi_M(x) H_M\big), \qquad M \in \{T, P\}.
 \end{equation}
 The risk of $M$ under data distribution $\mathcal{D}$ is the cross-entropy expectation
 \begin{equation}
 \label{eq:ce_def}
-\mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j} e^{v_j}, \; v \in \mathbb{R}^V.
+\mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j=1}^{V} e^{v_j}, \; v \in \mathbb{R}^V.
 \end{equation}
-Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and the empirical isometry of same-family encoders~\cite{moschella2022relative}, we assume the two backbones lie in a common family: there exists an orthogonal $W \in \mathcal{O}(d)$ such that $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical second-moment matrix $\Sigma_P = Z_P^\top Z_P / n$, on which the PRISM bound (Theorem~\ref{thm:unified_bound}) is evaluated.
+Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and the empirical isometry of same-family encoders~\cite{moschella2022relative}, we assume the two backbones lie in a common family: there exists an orthogonal $W \in \mathcal{O}(d)$ such that $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical (uncentered) covariance matrix $\Sigma_P = Z_P^\top Z_P / n$, on which the PRISM bound (Theorem~\ref{thm:unified_bound}) is evaluated.
 
 
 \subsection{The Unified Risk Bound}
@@ -233,7 +233,7 @@ Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and 
 To bound $|\mathcal{R}_T - \mathcal{R}_P|$ we introduce a hybrid risk $\mathcal{R}_{P \to T} := \mathbb{E}[\ell(\phi_P(x)\,W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features. The triangle inequality $|\mathcal{R}_T - \mathcal{R}_P| \le |\mathcal{R}_T - \mathcal{R}_{P\to T}| + |\mathcal{R}_{P\to T} - \mathcal{R}_P|$ splits the gap into two components, each upper-bounded by a closed-form geometric quantity: a \emph{feature alignment error} $\delta$ and a \emph{head discrepancy} $\gamma$ (full derivations in Appendix~\ref{app:detailed_proofs}).
 
 \paragraph{Feature error $\delta$.}
-The cross-entropy loss is Lipschitz in features with constant $K_{\mathrm{feat}}$ (simplex polarization, Appendix~\ref{app:kfeat}). The alignment residual $\|Z_T - Z_P W\|_F^2 / n$ admits an exact identity for every orthogonal $W$:
+The cross-entropy loss is Lipschitz in features with constant $K_{\mathrm{feat}} = \max_{j,k}\|h_{T,j}-h_{T,k}\|_2$, where $h_{T,j}$ is the $j$-th column of $H_T$ (simplex polarization, Appendix~\ref{app:kfeat}). The alignment residual $\|Z_T - Z_P W\|_F^2 / n$ admits an exact identity for every orthogonal $W$:
 
 \begin{proposition}[Exact Scale--Shape Decomposition]
 \label{prop:exact_decomposition}
@@ -431,9 +431,9 @@ Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_tru
 
 \input{tables/quantization/baseline_combined}
 
-Table~\ref{tab:baseline_combined} measures the marginal ranking contribution of each PRISM bound component. Under $W{=}I$ (top block), the shape-only similarity $\Omega$ already achieves mean $r_s{=}0.80$: token-feature relational geometry alone carries most of the variant-ranking signal. Adding scale to form $\delta$ lifts the mean to $0.87$ ($+0.064$) and wins the plurality of cells---scale collapse is the single largest per-component contributor. Adding the head term to form $\mathcal{B}$ moves the aggregate to $0.82$: our suite mixes protocols where $\gamma{>}0$ (GGUF k-quant) with $\gamma{\equiv}0$ (GPTQ, BnB), and $\gamma$ adds variance to the pooled scatter. $\mathcal{B}$ remains our default---it is Theorem~\ref{thm:unified_bound}'s certified upper bound and the only valid metric whenever $\gamma{>}0$, and its per-family rank correlation is the most stable (Llama--Qwen Spearman gap $\approx 0.015$, vs.\ $0.026$, $0.042$ for $\delta$, $\Omega$).
+Table~\ref{tab:baseline_combined} measures the marginal ranking contribution of each PRISM bound component. Under $W{=}I$ (top block), the shape-only similarity $\Omega$ already achieves mean $r_s{=}0.80$: token-feature relational geometry alone carries most of the variant-ranking signal. Adding scale to form $\delta$ lifts the mean to $0.87$ ($+0.064$)---scale collapse is the single largest per-component contributor. Adding the head term to form $\mathcal{B}$ moves the aggregate to $0.82$: our suite mixes protocols where $\gamma{>}0$ (GGUF k-quant) with $\gamma{\equiv}0$ (GPTQ, BnB), and $\gamma$ adds variance to the pooled scatter. $\mathcal{B}$ remains our default---it is Theorem~\ref{thm:unified_bound}'s certified upper bound and the only valid metric whenever $\gamma{>}0$, and its per-family rank correlation is the most stable (Llama--Qwen Spearman gap $\approx 0.015$, vs.\ $0.026$, $0.042$ for $\delta$, $\Omega$).
 
-Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all rise monotonically and $\mathcal{B}_N$ achieves $r_s{=}0.91$ ($8/10$ cells), confirming the head term contributes most when the alignment absorbs the $H_T \to H_P$ rotation. The $W{=}I$ trace specialization trades $\sim$$0.09$ Spearman for autograd compatibility (no per-step SVD), frozen-\texttt{lm\_head} head-term simplification, and consistency with the Sec.~\ref{subsec:shape_reg} regularizer; $\mathcal{B}_N$ is a post-hoc reference when SVD cost is acceptable.
+Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all rise monotonically and $\mathcal{B}_N$ achieves $r_s{=}0.91$, confirming the head term contributes most when the alignment absorbs the $H_T \to H_P$ rotation. The $W{=}I$ trace specialization trades $\sim$$0.09$ Spearman for autograd compatibility (no per-step SVD), frozen-\texttt{lm\_head} head-term simplification, and consistency with the Sec.~\ref{subsec:shape_reg} regularizer; $\mathcal{B}_N$ is a post-hoc reference when SVD cost is acceptable.
 
 
 %=========================================================================
