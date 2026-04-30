@@ -7,25 +7,25 @@
 \toprule
 Dataset & Config & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule
-ARC & no reg & 332.98 & 325.46 & \underline{0.9976} & 23.8385 & \cellcolor{cyan!12} $0$ & 82.4401 & \textbf{0.2881} \\
- & replay $\lambda{=}0.01$ (baseline) & 332.98 & 324.38 & 0.9967 & 27.9372 & \cellcolor{cyan!12} $0$ & 96.6146 & \underline{0.2975} \\
- & trace $\lambda{=}1.0$ (ours) & 332.98 & 327.55 & \textbf{0.9987} & 17.5541 & \cellcolor{cyan!12} $0$ & 60.7069 & 0.3009 \\
+ARC & no reg & 332.98 & 325.46 & \underline{0.9976} & 82.4401 & \cellcolor{cyan!12} $0$ & 82.4401 & \textbf{0.2881} \\
+ & replay $\lambda{=}0.01$ (baseline) & 332.98 & 324.38 & 0.9967 & 96.6146 & \cellcolor{cyan!12} $0$ & 96.6146 & \underline{0.2975} \\
+ & trace $\lambda{=}1.0$ (ours) & 332.98 & 327.55 & \textbf{0.9987} & 60.7069 & \cellcolor{cyan!12} $0$ & 60.7069 & 0.3009 \\
 \midrule
-MMLU & no reg & 333.53 & 328.73 & \underline{0.9991} & 15.1373 & \cellcolor{cyan!12} $0$ & 52.3490 & 0.1159 \\
- & replay $\lambda{=}0.01$ (baseline) & 333.53 & 328.17 & 0.9987 & 17.9053 & \cellcolor{cyan!12} $0$ & 61.9216 & \textbf{0.0847} \\
- & trace $\lambda{=}1.0$ (ours) & 333.53 & 330.08 & \textbf{0.9992} & 13.5348 & \cellcolor{cyan!12} $0$ & 46.8071 & \underline{0.0954} \\
+MMLU & no reg & 333.53 & 328.73 & \underline{0.9991} & 52.3490 & \cellcolor{cyan!12} $0$ & 52.3490 & 0.1159 \\
+ & replay $\lambda{=}0.01$ (baseline) & 333.53 & 328.17 & 0.9987 & 61.9216 & \cellcolor{cyan!12} $0$ & 61.9216 & \textbf{0.0847} \\
+ & trace $\lambda{=}1.0$ (ours) & 333.53 & 330.08 & \textbf{0.9992} & 46.8071 & \cellcolor{cyan!12} $0$ & 46.8071 & \underline{0.0954} \\
 \midrule
-SQuAD & no reg & 297.68 & 286.65 & \underline{0.9985} & 19.4147 & \cellcolor{cyan!12} $0$ & 67.1415 & 0.1353 \\
- & replay $\lambda{=}0.01$ (baseline) & 297.68 & 285.88 & 0.9982 & 21.0960 & \cellcolor{cyan!12} $0$ & 72.9559 & \textbf{0.1296} \\
- & trace $\lambda{=}1.0$ (ours) & 297.68 & 287.67 & \textbf{0.9991} & 16.1768 & \cellcolor{cyan!12} $0$ & 55.9438 & \underline{0.1342} \\
+SQuAD & no reg & 297.68 & 286.65 & \underline{0.9985} & 67.1415 & \cellcolor{cyan!12} $0$ & 67.1415 & 0.1353 \\
+ & replay $\lambda{=}0.01$ (baseline) & 297.68 & 285.88 & 0.9982 & 72.9559 & \cellcolor{cyan!12} $0$ & 72.9559 & \textbf{0.1296} \\
+ & trace $\lambda{=}1.0$ (ours) & 297.68 & 287.67 & \textbf{0.9991} & 55.9438 & \cellcolor{cyan!12} $0$ & 55.9438 & \underline{0.1342} \\
 \midrule
-TriviaQA & no reg & 240.42 & 235.59 & \underline{0.9992} & 10.4431 & \cellcolor{cyan!12} $0$ & 36.1152 & \textbf{0.0035} \\
- & replay $\lambda{=}0.01$ (baseline) & 240.42 & 235.16 & 0.9989 & 12.3850 & \cellcolor{cyan!12} $0$ & 42.8307 & 0.0098 \\
- & trace $\lambda{=}1.0$ (ours) & 240.42 & 236.13 & \textbf{0.9994} & 9.5670 & \cellcolor{cyan!12} $0$ & 33.0855 & \underline{0.0055} \\
+TriviaQA & no reg & 240.42 & 235.59 & \underline{0.9992} & 36.1152 & \cellcolor{cyan!12} $0$ & 36.1152 & \textbf{0.0035} \\
+ & replay $\lambda{=}0.01$ (baseline) & 240.42 & 235.16 & 0.9989 & 42.8307 & \cellcolor{cyan!12} $0$ & 42.8307 & 0.0098 \\
+ & trace $\lambda{=}1.0$ (ours) & 240.42 & 236.13 & \textbf{0.9994} & 33.0855 & \cellcolor{cyan!12} $0$ & 33.0855 & \underline{0.0055} \\
 \midrule
-GSM8K & no reg & 269.06 & 261.82 & \textbf{1.0000} & 7.2431 & \cellcolor{cyan!12} $0$ & 25.0486 & \textbf{0.0196} \\
- & replay $\lambda{=}0.01$ (baseline) & 269.06 & 260.60 & \underline{1.0000} & 8.4636 & \cellcolor{cyan!12} $0$ & 29.2693 & 0.0288 \\
- & trace $\lambda{=}1.0$ (ours) & 269.06 & 262.96 & 1.0000 & 6.1034 & \cellcolor{cyan!12} $0$ & 21.1073 & \underline{0.0251} \\
+GSM8K & no reg & 269.06 & 261.82 & \textbf{1.0000} & 25.0486 & \cellcolor{cyan!12} $0$ & 25.0486 & \textbf{0.0196} \\
+ & replay $\lambda{=}0.01$ (baseline) & 269.06 & 260.60 & \underline{1.0000} & 29.2693 & \cellcolor{cyan!12} $0$ & 29.2693 & 0.0288 \\
+ & trace $\lambda{=}1.0$ (ours) & 269.06 & 262.96 & 1.0000 & 21.1073 & \cellcolor{cyan!12} $0$ & 21.1073 & \underline{0.0251} \\
 \bottomrule
 \end{tabular}}
 \end{table}

@@ -165,6 +165,15 @@ def metrics_at_step(run: dict, eval_task: str, step: int = ALIGN_STEP):
     for k in ("omega", "rho_T", "rho_P", "delta", "gamma",
               "bound_total", "loss_T", "loss_P", "delta_risk"):
         out[k] = t.get(k)
+    # Scale delta and gamma by Lipschitz constants so delta + gamma = bound
+    # in the displayed table. JSON stores delta, gamma as raw geometric
+    # residuals; bound_total = K_feat * delta + K_pred * gamma per record.
+    K_feat = t.get("K_feat")
+    K_pred = t.get("K_pred")
+    if out["delta"] is not None and K_feat is not None:
+        out["delta"] = out["delta"] * K_feat
+    if out["gamma"] is not None and K_pred is not None:
+        out["gamma"] = out["gamma"] * K_pred
     if out["delta_risk"] is not None:
         out["delta_risk"] = abs(out["delta_risk"])
     return out

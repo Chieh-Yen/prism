@@ -240,7 +240,16 @@ def _render_body_rows(data, rho_per_ds, datasets):
                 vals = []
                 for e in entries:
                     try:
-                        vals.append(float(e[col_key]))
+                        v = float(e[col_key])
+                        # Scale delta and gamma so that delta + gamma = Bound
+                        # in the displayed table (per-row scaling, then avg).
+                        # CSV stores delta_I, gamma_I as raw geometric residuals;
+                        # Bound_I = K_f * delta_I + K_p * gamma_I per row.
+                        if col_key == "delta_I":
+                            v *= float(e["K_f"])
+                        elif col_key == "gamma_I":
+                            v *= float(e["K_p"])
+                        vals.append(v)
                     except (TypeError, ValueError, KeyError):
                         pass
                 avg[col_key] = sum(vals) / len(vals) if vals else None

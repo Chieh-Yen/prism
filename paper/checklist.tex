@@ -66,8 +66,8 @@
 
 \item {\bf Open access to data and code}
     \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: All evaluated models (Llama-3.1-8B, Qwen3-8B, Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B) and benchmarks (MMLU, ARC, TriviaQA, SQuAD, GSM8K, TruthfulQA, BBQ) are publicly available; quantized variants use the published GGUF/GPTQ/BitsAndBytes checkpoints listed in Appendix~\ref{app:model_details}. Complete code for the PRISM bound computation and the LoRA training pipeline (including the trace-norm shape regularizer and the replay-CE baseline) will be released as supplementary material with reproduction instructions; calibration sample counts, hyperparameters, and analysis cadence are specified in Sec.~\ref{subsec:exp_setup}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that paper does not include experiments requiring code.
