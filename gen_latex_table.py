@@ -63,11 +63,11 @@ TASK_GROUPS = [
     {"name": "main", "layout": "table",
      "datasets": ["mmlu"]},
     {"name": "ext",  "layout": "longtable",
-     "datasets": ["arc", "triviaqa", "squad", "gsm8k",
-                  "wikitext", "fineweb_edu"]},
+     "datasets": ["arc", "triviaqa", "squad", "gsm8k",]},
+    #              "wikitext", "fineweb_edu"]},
     {"name": "all",  "layout": "longtable",
-     "datasets": ["mmlu", "arc", "triviaqa", "squad", "gsm8k",
-                  "wikitext", "fineweb_edu"]},
+     "datasets": ["mmlu", "arc", "triviaqa", "squad", "gsm8k",]},
+    #              "wikitext", "fineweb_edu"]},
 ]
 
 DS_DISPLAY = {
