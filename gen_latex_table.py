@@ -443,6 +443,9 @@ def build_summary_table(rows):
     L.append(r"\setlength{\tabcolsep}{5pt}")
     L.append(r"\begin{tabular}{l " + "c" * len(SUMMARY_BENCHMARKS) + "}")
     L.append(r"\toprule")
+    L.append(r" & \multicolumn{" + str(len(SUMMARY_BENCHMARKS)) +
+             r"}{c}{Empirical risk gap $|\Delta\mathcal{R}|$} \\")
+    L.append(r"\cmidrule(lr){2-" + str(len(SUMMARY_BENCHMARKS) + 1) + "}")
     L.append("Model & " + " & ".join(
         DS_DISPLAY[b] for b in SUMMARY_BENCHMARKS) + r" \\")
     L.append(r"\midrule")
@@ -457,10 +460,12 @@ def build_summary_table(rows):
 
     L.append(r"\midrule")
 
-    def _hl(ds, cell):
-        """Highlight GSM8K summary cells (red background) to flag the outlier."""
+    def _hl(ds, cell, bold=False):
+        """Highlight GSM8K summary cells (red background) to flag the outlier;
+        optionally bold the value to emphasize the dominant cause (small |dR|)."""
         if ds == "gsm8k":
-            return r"\cellcolor{red!18} " + cell
+            inner = r"\textbf{" + cell + "}" if bold else cell
+            return r"\cellcolor{red!18} " + inner
         return cell
 
     mean_dr = []
@@ -469,8 +474,9 @@ def build_summary_table(rows):
         vals = [v for v in vals if not math.isnan(v)]
         mean_dr.append(sum(vals) / len(vals) if vals else float("nan"))
     L.append(r"\textbf{Mean $|\Delta\mathcal{R}|$} & " + " & ".join(
-        _hl(ds, f"{v:.4f}" if not math.isnan(v) else "--")
+        _hl(ds, f"{v:.4f}" if not math.isnan(v) else "--", bold=True)
         for ds, v in zip(SUMMARY_BENCHMARKS, mean_dr)) + r" \\")
+    L.append(r"\midrule")
 
     mean_rs = []
     for ds in SUMMARY_BENCHMARKS:
