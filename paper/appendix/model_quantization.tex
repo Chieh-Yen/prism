@@ -80,6 +80,7 @@ All repositories are publicly hosted on HuggingFace and loaded via the standard 
 \caption{Pre-quantized GPTQ checkpoints per model.
 One repository per model, corresponding to the variant actually loaded in our experiments;
 ``---'' indicates no GPTQ checkpoint was evaluated for that model.
+GPTQ bit-width is 4-bit (the canonical setting reported in Sec.~\ref{subsec:exp_setup}) for all models except Qwen3-8B-Instruct, where the only public checkpoint we could load uses 8-bit.
 $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect clean quantization error.}
 \label{tab:gptq_awq}
 \small
@@ -95,8 +96,8 @@ $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect cl
 5  & Llama-3.1-8B-Inst.  & \texttt{ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit} \\
 6  & Ministral-3-Inst.   & --- \\
 7  & DeepSeek-R1-Distill & \texttt{jakiAJK/DeepSeek-R1-Distill-Llama-8B\_GPTQ-int4} \\
-8  & Qwen2.5-7B          & --- \\
-9  & Qwen2.5-7B-Inst.    & \texttt{Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4} \\
+% 8  & Qwen2.5-7B          & --- \\
+% 9  & Qwen2.5-7B-Inst.    & \texttt{Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4} \\
 % 10 & Mistral-7B-v0.3       & \texttt{iproskurina/Mistral-7B-v0.3-GPTQ-4bit-g128} \\
 % 11 & Mistral-7B-Inst.-v0.3 & \texttt{thesven/Mistral-7B-Instruct-v0.3-GPTQ} \\
 \bottomrule
@@ -130,8 +131,8 @@ or \emph{dash convention} (\texttt{Model-Q4\_K\_M.gguf}) used by Qwen, bartowski
 5  & Llama-3.1-8B-Inst.   & \texttt{bartowski/Meta-Llama-3.1-8B-Instruct-GGUF} & \texttt{...-Instruct-\{Q\}.gguf} \\
 6  & Ministral-3-Inst.    & \texttt{bartowski/mistralai\_Ministral-3-8B-Instruct-2512-GGUF} & \texttt{...-2512-\{Q\}.gguf} \\
 7  & DeepSeek-R1-Distill  & \texttt{bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF} & \texttt{...-Llama-8B-\{Q\}.gguf} \\
-8  & Qwen2.5-7B           & \texttt{QuantFactory/Qwen2.5-7B-GGUF}          & \texttt{Qwen2.5-7B.\{Q\}.gguf} \\
-9  & Qwen2.5-7B-Inst.     & \texttt{Qwen/Qwen2.5-7B-Instruct-GGUF}         & \texttt{...-Instruct-\{Q\}.gguf} \\
+% 8  & Qwen2.5-7B           & \texttt{QuantFactory/Qwen2.5-7B-GGUF}          & \texttt{Qwen2.5-7B.\{Q\}.gguf} \\
+% 9  & Qwen2.5-7B-Inst.     & \texttt{Qwen/Qwen2.5-7B-Instruct-GGUF}         & \texttt{...-Instruct-\{Q\}.gguf} \\
 % 10 & Mistral-7B-v0.3      & \texttt{mradermacher/Mistral-7B-v0.3-GGUF}     & \texttt{Mistral-7B-v0.3.\{Q\}.gguf} \\
 % 11 & Mistral-7B-Inst.-v0.3 & \texttt{bartowski/Mistral-7B-Instruct-v0.3-GGUF} & \texttt{...-v0.3-\{Q\}.gguf} \\
 \bottomrule
@@ -162,12 +163,12 @@ Table~\ref{tab:coverage} provides a per-model summary of quantization backend co
 5  & Llama-3.1-8B-Instruct       & \cmark & \cmark & \cmark \\
 6  & Ministral-3-8B-Instruct     & \cmark & \cmark & ---    \\
 7  & DeepSeek-R1-Distill-Llama   & \cmark & \cmark & \cmark \\
-8  & Qwen2.5-7B                  & \cmark & \cmark & ---    \\
-9  & Qwen2.5-7B-Instruct         & \cmark & \cmark & \cmark \\
+% 8  & Qwen2.5-7B                  & \cmark & \cmark & ---    \\
+% 9  & Qwen2.5-7B-Instruct         & \cmark & \cmark & \cmark \\
 % 10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark \\
 % 11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark \\
 \midrule
-   & \textbf{Total}              & 9/9    & 9/9    & 6/9    \\
+   & \textbf{Total}              & 7/7    & 7/7    & 5/7    \\
 \bottomrule
 \end{tabular}
 \end{table}

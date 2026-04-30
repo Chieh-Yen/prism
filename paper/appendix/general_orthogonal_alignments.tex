@@ -43,7 +43,7 @@ Since the Procrustes solution maximizes $\operatorname{Tr}(Z_T^\top Z_P W)$ over
 which gives $\Omega \le \Omega_N$. Equality holds if and only if $W_N = I$, i.e., $Z_T^\top Z_P$ is symmetric positive semidefinite.
 
 \paragraph{When does $\Omega = \Omega_N$?}
-Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD. Then $\Omega = \Omega_N$ iff $VU^\top = I$, i.e., $U = V$, which holds when $Z_T^\top Z_P$ is symmetric. In post-training quantization with mild noise, $Z_F^\top Z_Q \approx Z_F^\top Z_F$ is approximately SPSD, so $\Omega \approx \Omega_N$. As quantization becomes more aggressive, asymmetric perturbations cause $\Omega$ to fall below $\Omega_N$, and this gap reflects genuine asymmetric distortion that a rotation-invariant metric would mask.
+Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD. Then $\Omega = \Omega_N$ iff $VU^\top = I$, i.e., $U = V$, which holds when $Z_T^\top Z_P$ is symmetric positive semidefinite (SPSD). In post-training quantization with mild noise, $Z_T^\top Z_P \approx Z_T^\top Z_T$ is approximately SPSD, so $\Omega \approx \Omega_N$. As quantization becomes more aggressive, asymmetric perturbations cause $\Omega$ to fall below $\Omega_N$, and this gap reflects genuine asymmetric distortion that a rotation-invariant metric would mask.
 
 \paragraph{Full Bound under $W = I$.}
 The identity alignment yields the main-text Theorem~\ref{thm:unified_bound}:
