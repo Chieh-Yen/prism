@@ -138,10 +138,10 @@ for Risk Diagnosis in LLM Variants}
 \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 
 \begin{abstract}
-Comparing Large Language Model (LLM) variants---quantized checkpoints, fine-tuned snapshots, LoRA adaptations---faces a diagnostic gap. Aggregate benchmark accuracy flags degradation without explaining it, and existing representational similarity metrics (e.g., CKA) reduce geometric mismatch to a single aggregate score without linking to downstream performance.
-We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a framework that upper-bounds the cross-entropy risk gap between a target and proxy model. PRISM combines an \emph{exact closed-form decomposition} of the feature alignment residual---scale mismatch $\Delta\rho$ and shape mismatch $1-\Omega$---with a covariance-weighted head discrepancy.
-Across four 8B-scale LLM families and five benchmarks, the bound ranks variant degradation with strong Spearman correlation, and its three axes localize distinct empirical settings under post-training quantization and LoRA fine-tuning, turning a scalar similarity into an axis-level diagnostic.
-Because $\Omega$ is differentiable, the shape term doubles as a training-time regularizer against catastrophic forgetting---extending PRISM from a diagnostic tool into an active training signal.
+Comparing Large Language Model (LLM) variants---quantized checkpoints, LoRA adaptations, distilled snapshots---faces a diagnostic gap: aggregate accuracy flags degradation without explaining it, and representational similarity scores (e.g., CKA) collapse geometric mismatch to a single number that does not link to risk.
+We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that upper-bounds the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ in closed form, decomposed along three independently measurable axes: scale mismatch $\Delta\rho$, shape mismatch $1-\Omega$, and covariance-weighted head divergence $\gamma$.
+The bound applies uniformly to post-training quantization and frozen-head LoRA fine-tuning; because $\Omega$ is differentiable, the same geometry that diagnoses backbone drift also constrains it as a training-time regularizer against catastrophic forgetting.
+Across the cross-family Llama--Qwen pair and five benchmarks, the bound ranks variants with mean Spearman $|r_s|{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, and its axes localize distinct empirical settings---low-bit shape distortion, GGUF k-quant head divergence, cross-task LoRA scale-axis separability---turning a scalar similarity into an axis-level diagnostic that doubles as an active training signal.
 \end{abstract}
 
 \section{Introduction}
