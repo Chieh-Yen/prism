@@ -169,11 +169,11 @@ Yet LLM structure itself supplies the leverage to overcome all three.
 We identify a structural opportunity in modern LLMs that prior similarity work has not exploited.
 \textbf{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
 \textbf{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
-Our central insight: \emph{combining (i) and (ii)} lifts the Procrustes feature-alignment residual into an \emph{exact} closed-form upper bound on the cross-entropy risk gap, with the head's Lipschitz constant sharpened by a simplex polarization argument and the bound decomposed into three independently measurable diagnostic axes: scale, shape, and head.
+Our central insight: \emph{building on (i) and (ii)}, we derive a closed-form upper bound on the cross-entropy risk gap with three diagnostic axes (scale, shape, head); a simplex polarization argument tightens the head's Lipschitz constant to be informative at LLM vocabulary scale.
 
 %\paragraph{PRISM: a bound with three actionable axes.}
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}), a geometry-grounded, axis-level diagnostic for LLM variants.
-An exact decomposition of the Procrustes residual splits the feature error into a \emph{scale mismatch} $\Delta\rho$ (activation-magnitude collapse) and a \emph{shape mismatch} $1-\Omega$ (feature-manifold distortion); a covariance-weighted head-discrepancy term closes the bound.
+PRISM bounds $|\mathcal{R}_T - \mathcal{R}_P|$ as a sum of three axis terms: a \emph{scale mismatch} $\Delta\rho$ (activation-magnitude collapse) and a \emph{shape mismatch} $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---plus a covariance-weighted head discrepancy.
 Each axis is independently measurable from a single forward pass, so a PRISM failure is not merely a flag but a \emph{direction}: a scale-dominated failure points to outlier-channel corruption, a shape-dominated failure to distorted token geometry, and a head-dominated failure to prediction-head perturbation.
 
 %\paragraph{From diagnostic to training signal.}
@@ -183,7 +183,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
-    \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes.} The Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$; with a covariance-weighted head-discrepancy term, this gives a closed-form upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}).
+    \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes.} $|\mathcal{R}_T - \mathcal{R}_P|$ admits a closed-form upper bound as a sum of three axes: scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ (from an exact Procrustes residual decomposition), plus a covariance-weighted head-discrepancy term (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}).
 
     \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} Computed from features and head weights alone, the bound applies across both PTQ and frozen-head LoRA; the differentiable trace form $\Omega$ further turns it into a training-time regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
 
