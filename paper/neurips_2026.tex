@@ -187,7 +187,7 @@ Adding a weighted penalty on $1-\Omega$ to the fine-tuning objective converts th
 
     \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} Computed from features and head weights alone, the bound applies across both PTQ and frozen-head LoRA; the differentiable trace form $\Omega$ further turns it into a training-time regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
 
-    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} On the cross-family Llama--Qwen pair (Ministral and DeepSeek in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks PTQ variants ($r_s{\approx}0.82$) and LoRA checkpoints ($r_s{\approx}0.83$) consistently (\emph{predictiveness}); its axes separate failure modes---shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift (\emph{decomposability}); and a mild shape regularizer reduces forgetting across downstream benchmarks (\emph{actionability}).
+    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} On the cross-family Llama--Qwen pair (Ministral and DeepSeek in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks PTQ variants ($r_s{\approx}0.82$) and LoRA checkpoints ($r_s{\approx}0.83$) consistently (\emph{predictiveness}); its axes separate failure modes---shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift (\emph{decomposability}); and a shape regularizer outperforms a replay baseline at mitigating downstream forgetting (\emph{actionability}).
 \end{enumerate}
 %========================================================
 
@@ -224,7 +224,7 @@ The risk of $M$ under data distribution $\mathcal{D}$ is the cross-entropy expec
 \label{eq:ce_def}
 \mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j} e^{v_j}, \; v \in \mathbb{R}^V.
 \end{equation}
-Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and the empirical isometry of same-family encoders~\cite{moschella2022relative}, we assume the two backbones lie in a common family: there exists an orthogonal $W \in \mathcal{O}(d)$ such that $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical second-moment matrix $\Sigma_P = Z_P^\top Z_P / n$.
+Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and the empirical isometry of same-family encoders~\cite{moschella2022relative}, we assume the two backbones lie in a common family: there exists an orthogonal $W \in \mathcal{O}(d)$ such that $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical second-moment matrix $\Sigma_P = Z_P^\top Z_P / n$, on which the PRISM bound (Theorem~\ref{thm:unified_bound}) is evaluated.
 
 
 \subsection{The Unified Risk Bound}
@@ -299,7 +299,7 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 \label{eq:ar_risk}
 \mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{\tau=1}^{|y|} \ell\!\big(\phi_M(c, y_{<\tau}) \cdot H_M,\; y_\tau\big) \right].
 \end{equation}
-Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and stacked across $N$ target tokens into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$, so Theorem~\ref{thm:unified_bound} applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
+Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and stacked across $N$ target tokens into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ with per-sequence length normalization to match Eq.~(\ref{eq:ar_risk}); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
 \subsection{From Diagnostic to Training: Shape Regularization}
@@ -441,7 +441,7 @@ Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all ri
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-We presented PRISM, a geometric framework with three contributions. \textbf{Theory} (Thm.~\ref{thm:unified_bound}): the Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; with a covariance-weighted head term, these upper-bound $|\mathcal{R}_T{-}\mathcal{R}_P|$ along three independently measurable axes. \textbf{Framework}: the bound is computable from features and head weights alone, applies to PTQ and frozen-head LoRA, and---via the differentiable $\Omega$---doubles as a regularizer against catastrophic forgetting. \textbf{Empirical}: rank-consistent on both settings (mean Spearman $r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA forgetting), the three axes localize Q2/Q3 shape distortion, Qwen3 Q6\_K/Q8\_0 head divergence, and cross-task LoRA scale-axis separability; the shape regularizer reduces downstream forgetting.
+We presented PRISM, a geometric framework with three contributions. \textbf{Theory} (Thm.~\ref{thm:unified_bound}): the Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; with a covariance-weighted head term, these upper-bound $|\mathcal{R}_T{-}\mathcal{R}_P|$ along three independently measurable axes. \textbf{Framework}: the bound is computable from features and head weights alone, applies to PTQ and frozen-head LoRA, and---via the differentiable $\Omega$---doubles as a regularizer against catastrophic forgetting. \textbf{Empirical}: rank-consistent on both settings (mean Spearman $r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA forgetting), the three axes localize Q2/Q3 shape distortion, Qwen3 Q6\_K/Q8\_0 head divergence, and cross-task LoRA scale-axis separability; the shape regularizer outperforms a replay baseline at mitigating downstream forgetting.
 
 \paragraph{Scope and limitations.}
 PRISM is a \emph{relative} metric calibrated for ranking: it bounds the cross-entropy risk gap to a reference base, not absolute task quality, and tight estimation of $|\Delta\mathcal{R}|$ is a separate question. The shape regularizer of Sec.~\ref{subsec:action} addresses the shape axis directly via training; complementary protocol-level mitigations targeting each axis (per-channel outlier smoothing for scale, Hessian-aware reconstruction for shape, FP16-\texttt{lm\_head} retention for head) are a research follow-up the diagnostic enables.
