@@ -80,7 +80,7 @@ Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admit
 The feature term $\delta(W)$ is concave in $\operatorname{Tr}(Z_T^\top Z_P W)$, while $\gamma(W)$ is convex in $W$. Their sum is neither convex nor concave on $\mathcal{O}(d)$, precluding a simple variational characterization.
 
 \paragraph{Special Case: Isotropic Features.}
-If $\Sigma_P \approx \lambda I$, the head term becomes independent of $W$ and the joint objective reduces to a standard Procrustes problem. However, the isotropic assumption is unrealistic for LLM representations, which exhibit well-documented anisotropy~\cite{ethayarajh2019contextual}.
+If $\Sigma_P \approx \lambda I$, the head term simplifies to $K_{\mathrm{pred}}\sqrt{\lambda}\,\|W H_T - H_P\|_F$, which still depends on $W$ through the cross-term $\operatorname{Tr}(H_P^\top W H_T)$ when $\|W H_T - H_P\|_F^2$ is expanded. The joint objective then minimizes $K_{\mathrm{feat}}\sqrt{\|Z_T - Z_P W\|_F^2/n} + K_{\mathrm{pred}}\sqrt{\lambda}\|W H_T - H_P\|_F$, and each term individually admits a closed-form Procrustes minimizer; the sum does not. The isotropic assumption is, in any case, unrealistic for LLM representations, which exhibit well-documented anisotropy~\cite{ethayarajh2019contextual}.
 
 \paragraph{Numerical Solution.}
 For the general case, $W_{\mathrm{opt}}$ can be approximated via Riemannian gradient descent on the Stiefel manifold, but this entangles scale, shape, and head components, destroying the clean physical interpretation.
@@ -89,6 +89,6 @@ For the general case, $W_{\mathrm{opt}}$ can be approximated via Riemannian grad
 In the two primary settings:
 \begin{itemize}
     \item \textbf{Quantization ($H_T \approx H_P$):} The head term is negligible, so $W_{\mathrm{opt}} \approx W_N$ and the Procrustes-optimal solution suffices.
-    \item \textbf{LoRA ($H_T = H_P$):} The head term vanishes for any $W$, so the joint problem reduces to standard Procrustes.
+    \item \textbf{LoRA ($H_T = H_P$):} The head term becomes $K_{\mathrm{pred}}\|\Sigma_P^{1/2}(W - I) H_T\|_F$, which vanishes at $W = I$ (and not for arbitrary $W$). We adopt $W = I$ throughout the LoRA experiments and the shape regularizer of Sec.~\ref{subsec:shape_reg}: it gives the cleanest decomposition---$\gamma = 0$ from the head simplification, scale $(\rho_T-\rho_P)^2$ invariant of $W$ (observed but not actively regularized, since LoRA primarily perturbs shape rather than scale; Sec.~\ref{subsec:decompose}), and shape $1-\Omega$ as the differentiable target. The Procrustes-optimal $W_N \neq I$ would tighten the shape arm marginally ($\Omega_N \ge \Omega$) at the cost of inflating $\gamma$ and breaking the at-source shape contraction the regularizer relies on.
 \end{itemize}
 The Riemannian formulation becomes relevant only when comparing models with \emph{both} rotated features and divergent heads (e.g., full-parameter SFT). We leave this setting to future work.

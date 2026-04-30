@@ -68,16 +68,16 @@
 \draw[arrT] (inJ) |- (phiT.west);
 \draw[arrP] (inJ) |- (phiP.west);
 
-% Procrustes W*
+% Alignment W
 \draw[<->, line width=0.85pt, Acol, densely dashed]
     (ZP.north) -- node[midway, anchor=west, xshift=1pt,
-                       font=\tiny\bfseries, text=Acol] {$W^{*}$}
+                       font=\tiny\bfseries, text=Acol] {$W$}
     (ZT.south);
 
-% Procrustes W*
+% Alignment W
 \draw[<->, line width=0.85pt, Acol, densely dashed]
     (HT.south) -- node[midway, anchor=west, xshift=1pt,
-                       font=\tiny\bfseries, text=Acol] {$W^{*}$}
+                       font=\tiny\bfseries, text=Acol] {$W$}
     (HP.north);
 
 % Risk-gap brace (curly "}" grouping R_T and R_P, opening right toward equation)
@@ -90,7 +90,7 @@
 {$\begin{aligned}
 {\color{Acol}\Delta\mathcal{R}}&\;=\;{\color{Acol}|\mathcal{R}_T{-}\mathcal{R}_P|} \;\le\; \delta \;+\; \gamma \\[1pt]
 \delta &\;=\; K_{\mathrm{feat}}\,\sqrt{\,\smash[b]{\underbrace{(\Delta\rho)^{2}}_{\text{scale}} \;+\; \underbrace{2\rho_T\rho_P(1{-}\Omega)}_{\text{shape}}}\,} \\[13pt]
-\gamma &\;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(W^{*}H_T{-}H_P)}_{\Delta H}\bigr\|_F
+\gamma &\;=\; K_{\mathrm{pred}}\,\bigl\|\Sigma_P^{1/2}\underbrace{(WH_T{-}H_P)}_{\Delta H}\bigr\|_F
 \end{aligned}$};
 
 % ═══════════════════════════════════════════════════════════
@@ -143,7 +143,7 @@
 \node[Tcol, font=\tiny\bfseries, anchor=north]
     at ($(hC)+(-0.97,-0.36)$) {$Z_T$};
 \node[Pcol, font=\tiny\bfseries, anchor=north]
-    at ($(hC)+(1.00,-0.36)$) {$Z_PW^{*}$};
+    at ($(hC)+(1.00,-0.36)$) {$Z_PW$};
 
 % --- Head discrepancy ---
 \node[termbox, anchor=south west] (dbox) at (9.42, 0.02) {};
@@ -158,7 +158,7 @@
 \draw[->, line width=0.95pt, Tcol] (dC) -- ++(-0.48, 0.62);
 \draw[->, line width=0.95pt, Pcol] (dC) -- ++(0.66, 0.42);
 \node[Tcol, font=\tiny\bfseries, anchor=east]
-    at ($(dC)+(-0.50,0.62)$) {$W^{*}H_T$};
+    at ($(dC)+(-0.50,0.62)$) {$WH_T$};
 \node[Pcol, font=\tiny\bfseries, anchor=west]
     at ($(dC)+(0.68,0.42)$) {$H_P$};
 \draw[<->, line width=0.85pt, Acol, dashed]
@@ -167,7 +167,7 @@
     ($(dC)+(0.66,0.42)$);
 
 \end{tikzpicture}
-\caption{\textbf{PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal{R}_T{-}\mathcal{R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta$ and a head discrepancy $\gamma$ (Thm.~\ref{thm:unified_bound}). Under Procrustes alignment $W^{*}{=}\arg\min_{W\in\mathcal{O}(d)}\|Z_T{-}Z_PW\|_F$, $\delta$ decomposes exactly into \emph{scale mismatch} $(\Delta\rho)^{2}{=}(\rho_T{-}\rho_P)^{2}$ and \emph{shape mismatch} $2\rho_T\rho_P(1{-}\Omega)$ (Prop.~\ref{prop:exact_decomposition}); $\gamma$ measures $\Delta H{=}W^{*}H_T{-}H_P$ re-weighted by the proxy covariance $\Sigma_P$, vanishing when $H_T{=}H_P$ (frozen-head LoRA). Each axis localizes a distinct empirical regime: shape distortion at low-bit PTQ, output-embedding head divergence at GGUF Q6/Q8 tiers that quantize the \texttt{lm\_head} (Qwen3-Base Q6\_K on MMLU in Table~\ref{tab:qwen_decomposition_all_bound}: $\delta{=}0.75$ vs.\ $\gamma{=}60.16$; absent under BnB/GPTQ where $\gamma{\equiv}0$), and scale-axis separability under LoRA forgetting via the BBQ-vs-TruthfulQA drift contrast (Sec.~\ref{subsec:forget_exp}).}
+\caption{\textbf{PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal{R}_T{-}\mathcal{R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta$ and a head discrepancy $\gamma$ for any orthogonal alignment $W \in \mathcal{O}(d)$ (Thm.~\ref{thm:unified_bound}). The feature error $\delta$ decomposes exactly into \emph{scale mismatch} $(\Delta\rho)^{2}{=}(\rho_T{-}\rho_P)^{2}$ and \emph{shape mismatch} $2\rho_T\rho_P(1{-}\Omega_W)$ (Prop.~\ref{prop:exact_decomposition}); the head term $\gamma$ measures $\Delta H{=}WH_T{-}H_P$ re-weighted by the proxy covariance $\Sigma_P$. The main text adopts the identity alignment $W{=}I$ (trace form $\Omega := \Omega_{W=I}$), under which $\gamma$ vanishes whenever $H_T{=}H_P$ (frozen-head LoRA, FP16-head PTQ). Each axis localizes a distinct empirical regime: shape distortion at low-bit PTQ, output-embedding head divergence at GGUF Q6/Q8 tiers that quantize the \texttt{lm\_head} (Qwen3-Base Q6\_K on MMLU in Table~\ref{tab:qwen_decomposition_all_bound}: $\delta{=}0.75$ vs.\ $\gamma{=}60.16$; absent under BnB/GPTQ where $\gamma{\equiv}0$), and scale-axis separability under LoRA forgetting via the BBQ-vs-TruthfulQA drift contrast (Sec.~\ref{subsec:forget_exp}).}
 \label{fig:prism_concept}
 \end{figure}
 

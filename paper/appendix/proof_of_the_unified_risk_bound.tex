@@ -211,7 +211,7 @@ Taking the square root:
 \gamma \le K_{\mathrm{pred}} \cdot \|\Sigma_P^{1/2}(W H_T - H_P)\|_F.
 \end{equation}
 
-\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is strictly tighter than the spectral bound $\gamma \le K_{\mathrm{pred}} \|W H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which assumes worst-case alignment between features and head error.
+\paragraph{Interpretation.} The second-moment weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is sharper than the loose spectral bound $\gamma \le K_{\mathrm{pred}} \|W H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which conservatively assumes worst-case alignment between features and head error. The covariance weighting $\Sigma_P^{1/2}$ instead aligns the bound with the data-active directions: head misalignment in directions the features rarely traverse contributes little, and disagreement on $\mathrm{null}(\Sigma_P)$ contributes nothing.
 
 
 \subsection{Step 5: Assembling the Unified Bound}
