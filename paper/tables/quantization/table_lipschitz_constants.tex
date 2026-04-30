@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering
+\caption{Empirical Lipschitz constants of the PRISM bound (Theorem~\ref{thm:unified_bound}) for each evaluated model. $K_{\mathrm{pred}} = \sqrt{2}$ holds universally (Appendix~\ref{app:head_bound}, simplex polarization), independent of model. $K_{\mathrm{feat}}$ is empirical per model, depending on the spread of token embeddings in $H_T$; for the 8B-scale models studied here, $K_{\mathrm{feat}}$ ranges from $\approx 0.93$ (Mistral family) to $\approx 3.46$ (Qwen3-Base). Since $K_{\mathrm{feat}}$ is a constant per model, it scales the bound's magnitude but does not affect the within-model rank correlation that PRISM is calibrated to.}
+\label{tab:lipschitz_constants}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{l cc}
+\toprule
+Model & $K_{\mathrm{feat}}$ & $K_{\mathrm{pred}}$ \\
+\midrule
+Llama-3.1-8B & 2.61 & $\sqrt{2}$ \\
+Ministral-3-8B & 0.98 & $\sqrt{2}$ \\
+Qwen3-8B & 3.46 & $\sqrt{2}$ \\
+DeepSeek-R1-8B & 2.60 & $\sqrt{2}$ \\
+Llama-3.1-8B-Instruct & 2.60 & $\sqrt{2}$ \\
+Ministral-3-8B-Instruct & 0.93 & $\sqrt{2}$ \\
+Qwen3-8B-Instruct & 3.41 & $\sqrt{2}$ \\
+\bottomrule
+\end{tabular}
+\end{table}

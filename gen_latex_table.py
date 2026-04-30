@@ -502,6 +502,63 @@ def build_summary_table(rows):
     return "\n".join(L)
 
 
+def build_lipschitz_table(rows):
+    """Per-model Lipschitz constants K_feat (model-specific) and K_pred (= sqrt(2)
+    universally). Pulled from the BF16-vs-FP16 row of each model (K is constant
+    per model since it depends only on the head H_T's token-embedding spread)."""
+    per_model = {}
+    for model_cfg in MODELS:
+        target = model_cfg["path"]
+        for r in rows:
+            if r["target_model"] != target:
+                continue
+            try:
+                kf = float(r["K_f"])
+                kp = float(r["K_p"])
+                if not (math.isnan(kf) or math.isnan(kp)):
+                    per_model[model_cfg["short"]] = (kf, kp,
+                                                     model_cfg["display"])
+                    break
+            except (ValueError, KeyError):
+                continue
+
+    L = []
+    L.append(r"\begin{table}[t]")
+    L.append(r"\centering")
+    L.append(
+        r"\caption{Empirical Lipschitz constants of the PRISM bound "
+        r"(Theorem~\ref{thm:unified_bound}) for each evaluated model. "
+        r"$K_{\mathrm{pred}} = \sqrt{2}$ holds universally "
+        r"(Appendix~\ref{app:head_bound}, simplex polarization), independent "
+        r"of model. $K_{\mathrm{feat}}$ is empirical per model, depending on "
+        r"the spread of token embeddings in $H_T$; for the 8B-scale models "
+        r"studied here, $K_{\mathrm{feat}}$ ranges from $\approx 0.93$ "
+        r"(Mistral family) to $\approx 3.46$ (Qwen3-Base). Since "
+        r"$K_{\mathrm{feat}}$ is a constant per model, it scales the bound's "
+        r"magnitude but does not affect the within-model rank correlation "
+        r"that PRISM is calibrated to.}")
+    L.append(r"\label{tab:lipschitz_constants}")
+    L.append(r"\setlength{\tabcolsep}{8pt}")
+    L.append(r"\begin{tabular}{l cc}")
+    L.append(r"\toprule")
+    L.append(r"Model & $K_{\mathrm{feat}}$ & $K_{\mathrm{pred}}$ \\")
+    L.append(r"\midrule")
+
+    for model_cfg in MODELS:
+        short = model_cfg["short"]
+        if short not in per_model:
+            continue
+        kf, kp, disp = per_model[short]
+        kp_str = (r"$\sqrt{2}$" if abs(kp - math.sqrt(2)) < 1e-6
+                  else f"{kp:.3f}")
+        L.append(f"{_short_display(disp)} & {kf:.2f} & {kp_str} " + r"\\")
+
+    L.append(r"\bottomrule")
+    L.append(r"\end{tabular}")
+    L.append(r"\end{table}")
+    return "\n".join(L)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Main
 # ═══════════════════════════════════════════════════════════════════
@@ -527,6 +584,13 @@ def main():
     summary_path.write_text(summary_table)
     print(f"Saved → {summary_path}")
     stems.append(summary_stem)
+
+    lipschitz_table = build_lipschitz_table(rows)
+    lipschitz_stem = "table_lipschitz_constants"
+    lipschitz_path = OUT_DIR / f"{lipschitz_stem}.tex"
+    lipschitz_path.write_text(lipschitz_table)
+    print(f"Saved → {lipschitz_path}")
+    stems.append(lipschitz_stem)
 
     preamble = (
         r"\documentclass[11pt]{article}" "\n"
