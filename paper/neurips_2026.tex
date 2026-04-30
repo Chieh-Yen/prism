@@ -166,11 +166,8 @@ Yet LLM structure itself supplies the leverage to overcome all three.
 
 %\paragraph{What makes LLM geometry analytically tractable.}
 Our analysis pivots on two observations about modern LLMs:
-
 \textbf{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
-
 \textbf{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
-
 Combining (i) and (ii), we propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}): a closed-form upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes.
 
 %\paragraph{PRISM: a bound with three actionable axes.}
@@ -340,7 +337,7 @@ We organize the experiments around three claims: \textbf{Predictiveness}---the b
 \label{subsec:exp_setup}
 
 \paragraph{Models.}
-The main analysis uses the cross-family pair of base models Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3}---differing in pre-training corpus, depth, vocabulary, and tokenizer family. PTQ replications on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B and on the instruction-tuned counterparts of Llama, Ministral, and Qwen are in Appendix~\ref{app:per_model_tables}; the Qwen LoRA replication is in Appendix~\ref{app:qwen_forgetting}.
+The main analysis uses the cross-family pair Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3}; PTQ replications on Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B, and three instruction-tuned counterparts are in Appendix~\ref{app:per_model_tables}, with the Qwen LoRA replication in Appendix~\ref{app:qwen_forgetting}.
 
 \paragraph{Quantization Protocols.}
 Three PTQ families across bit-widths 2--8, spanning basic rounding to calibration-based compensation: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K}--\texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4).
@@ -384,7 +381,7 @@ Table~\ref{tab:llama_decomposition_main_bound} reports the per-variant decomposi
 \end{figure}
 
 \paragraph{LoRA forgetting.}
-The same predictiveness extends to fine-tuning-induced drift (Fig.~\ref{fig:forget_grid_llama}): as LoRA fine-tuning proceeds on TruthfulQA or BBQ, the bound computed on \emph{downstream} benchmarks tracks the empirical cross-entropy drift step-by-step, with mean Spearman $r_s=0.831 \pm 0.0722$ over the $2 \times 5$ downstream cells, comparable to the PTQ grid ($r_s=0.820 \pm 0.0471$, Fig.~\ref{fig:quant_grid_bound}). Because the head is frozen, $\gamma{=}0$ and $\mathcal{B}$ reduces to backbone scale and shape drift. Crucially, the correlation holds \emph{benchmark-by-benchmark}, consistent with backbone geometry being the locus of forgetting across evaluation families. The Qwen3-8B replication (Appendix~\ref{app:qwen_forgetting}) reproduces both patterns. Together, the PTQ and LoRA results show that a single closed-form bound transfers across two qualitatively different sources of model variation.
+The same predictiveness extends to fine-tuning-induced drift (Fig.~\ref{fig:forget_grid_llama}): as LoRA fine-tuning proceeds on TruthfulQA or BBQ, the bound computed on \emph{downstream} benchmarks tracks the empirical cross-entropy drift step-by-step, with mean Spearman $r_s=0.831 \pm 0.0722$ over the $2 \times 5$ downstream cells, comparable to the PTQ grid ($r_s=0.820 \pm 0.0471$, Fig.~\ref{fig:quant_grid_bound}). Because the head is frozen, $\gamma{=}0$ and $\mathcal{B}$ reduces to backbone scale and shape drift. Crucially, the correlation holds \emph{benchmark-by-benchmark}, consistent with backbone geometry being the locus of forgetting across evaluation families. The Qwen3-8B replication (Appendix~\ref{app:qwen_forgetting}) reproduces both patterns.
 
 
 \subsection{Decomposability: Three Axes, Three Failure Modes}
@@ -431,7 +428,7 @@ Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_tru
 
 Table~\ref{tab:baseline_combined} measures the marginal ranking contribution of each PRISM bound component. Under $W{=}I$ (top block), the shape-only similarity $\Omega$ already achieves mean $r_s{=}0.80$: token-feature relational geometry alone carries most of the variant-ranking signal. Adding scale to form $\delta$ lifts the mean to $0.87$ ($+0.064$)---scale collapse is the single largest per-component contributor. Adding the head term to form $\mathcal{B}$ moves the aggregate to $0.82$: our suite mixes protocols where $\gamma{>}0$ (GGUF k-quant) with $\gamma{\equiv}0$ (GPTQ, BnB), and $\gamma$ adds variance to the pooled scatter. $\mathcal{B}$ remains our default---it is Theorem~\ref{thm:unified_bound}'s certified upper bound and the only valid metric whenever $\gamma{>}0$, and its per-family rank correlation is the most stable (Llama--Qwen Spearman gap $\approx 0.015$, vs.\ $0.026$, $0.042$ for $\delta$, $\Omega$).
 
-Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all rise monotonically and $\mathcal{B}_N$ achieves $r_s{=}0.91$, confirming the head term contributes most when the alignment absorbs the $H_T \to H_P$ rotation. The $W{=}I$ trace specialization trades $\sim$$0.09$ Spearman for autograd compatibility (no per-step SVD), frozen-\texttt{lm\_head} head-term simplification, and consistency with the Sec.~\ref{subsec:shape_reg} regularizer; $\mathcal{B}_N$ is a post-hoc reference when SVD cost is acceptable.
+Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all rise monotonically and $\mathcal{B}_N$ achieves $r_s{=}0.91$, confirming the head term contributes most when the alignment absorbs the $H_T \to H_P$ rotation. The $W{=}I$ trace specialization trades $\sim$$0.09$ Spearman for autograd compatibility (no per-step SVD), frozen-\texttt{lm\_head} head-term simplification, and consistency with the Sec.~\ref{subsec:shape_reg} regularizer.
 
 
 %=========================================================================
