@@ -381,6 +381,113 @@ def build_table(model_cfg, group_cfg, rows):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Cross-model summary: |dR| and Spearman per (model, benchmark)
+# ═══════════════════════════════════════════════════════════════════
+SUMMARY_BENCHMARKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
+
+
+def _short_display(name: str) -> str:
+    """Shorten display names so the summary table fits textwidth."""
+    return (name.replace("-Base", "")
+                .replace("-Distill-Llama", "")
+                .replace("-2512", ""))
+
+
+def build_summary_table(rows):
+    """Per-(model x benchmark) mean |dR| and per-benchmark mean Spearman r_s.
+
+    Demonstrates the GSM8K outlier: its small |dR| (long teacher-forced answer
+    spans dilute per-token loss) yields low SNR, depressing rank correlation.
+
+    Layout
+        Columns: 5 benchmarks (ARC, MMLU, SQuAD, TriviaQA, GSM8K)
+        Rows:    7 model families
+                 + row mean of mean |dR| per benchmark
+                 + row mean of Spearman r_s per benchmark
+    """
+    cell_dr = {}     # (short, ds) -> mean |dR| over all quantizations
+    cell_rs = {}     # (short, ds) -> Spearman r_s(B, |dR|)
+
+    for model_cfg in MODELS:
+        target = model_cfg["path"]
+        for ds in SUMMARY_BENCHMARKS:
+            xs, ys, dr_vals = [], [], []
+            for r in rows:
+                if r["target_model"] != target or r["dataset"] != ds:
+                    continue
+                try:
+                    bnd = float(r["Bound_I"])
+                    dr = float(r["|MdR|"])
+                    if not (math.isnan(bnd) or math.isnan(dr)):
+                        xs.append(bnd)
+                        ys.append(dr)
+                        dr_vals.append(dr)
+                except (ValueError, KeyError):
+                    pass
+            cell_dr[(model_cfg["short"], ds)] = (
+                sum(dr_vals) / len(dr_vals) if dr_vals else float("nan"))
+            cell_rs[(model_cfg["short"], ds)] = spearman(xs, ys)
+
+    L = []
+    L.append(r"\begin{table}[t]")
+    L.append(r"\centering")
+    L.append(
+        r"\caption{Per-benchmark mean empirical risk gap "
+        r"$|\Delta\mathcal{R}|$ (averaged over all quantization variants per "
+        r"cell) and per-benchmark mean Spearman "
+        r"$r_s(\mathcal{B},|\Delta\mathcal{R}|)$ across seven 8B model "
+        r"families. GSM8K's small $|\Delta\mathcal{R}|$---driven by long "
+        r"teacher-forced answer spans diluting per-token loss---yields a low "
+        r"signal-to-noise ratio that depresses its rank correlation.}")
+    L.append(r"\label{tab:gsm8k_outlier}")
+    L.append(r"\setlength{\tabcolsep}{5pt}")
+    L.append(r"\begin{tabular}{l " + "c" * len(SUMMARY_BENCHMARKS) + "}")
+    L.append(r"\toprule")
+    L.append("Model & " + " & ".join(
+        DS_DISPLAY[b] for b in SUMMARY_BENCHMARKS) + r" \\")
+    L.append(r"\midrule")
+
+    for model_cfg in MODELS:
+        short, disp = model_cfg["short"], _short_display(model_cfg["display"])
+        cells = []
+        for ds in SUMMARY_BENCHMARKS:
+            v = cell_dr[(short, ds)]
+            cells.append(f"{v:.4f}" if not math.isnan(v) else "--")
+        L.append(disp + " & " + " & ".join(cells) + r" \\")
+
+    L.append(r"\midrule")
+
+    def _hl(ds, cell):
+        """Highlight GSM8K summary cells (red background) to flag the outlier."""
+        if ds == "gsm8k":
+            return r"\cellcolor{red!18} " + cell
+        return cell
+
+    mean_dr = []
+    for ds in SUMMARY_BENCHMARKS:
+        vals = [cell_dr[(m["short"], ds)] for m in MODELS]
+        vals = [v for v in vals if not math.isnan(v)]
+        mean_dr.append(sum(vals) / len(vals) if vals else float("nan"))
+    L.append(r"\textbf{Mean $|\Delta\mathcal{R}|$} & " + " & ".join(
+        _hl(ds, f"{v:.4f}" if not math.isnan(v) else "--")
+        for ds, v in zip(SUMMARY_BENCHMARKS, mean_dr)) + r" \\")
+
+    mean_rs = []
+    for ds in SUMMARY_BENCHMARKS:
+        vals = [cell_rs[(m["short"], ds)] for m in MODELS]
+        vals = [v for v in vals if not math.isnan(v)]
+        mean_rs.append(sum(vals) / len(vals) if vals else float("nan"))
+    L.append(r"\textbf{Mean $r_s$} & " + " & ".join(
+        _hl(ds, f"{v:.3f}" if not math.isnan(v) else "--")
+        for ds, v in zip(SUMMARY_BENCHMARKS, mean_rs)) + r" \\")
+
+    L.append(r"\bottomrule")
+    L.append(r"\end{tabular}")
+    L.append(r"\end{table}")
+    return "\n".join(L)
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Main
 # ═══════════════════════════════════════════════════════════════════
 def main():
@@ -398,6 +505,13 @@ def main():
             out_path.write_text(table)
             print(f"Saved → {out_path}")
             stems.append(stem)
+
+    summary_table = build_summary_table(rows)
+    summary_stem = "table_summary_gsm8k_outlier"
+    summary_path = OUT_DIR / f"{summary_stem}.tex"
+    summary_path.write_text(summary_table)
+    print(f"Saved → {summary_path}")
+    stems.append(summary_stem)
 
     preamble = (
         r"\documentclass[11pt]{article}" "\n"
