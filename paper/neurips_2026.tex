@@ -86,15 +86,18 @@
 \newtheorem{remark}{Remark}
 
 % Tighten vertical spacing for page-budget compliance
-\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
-\setlength{\intextsep}{8pt plus 2pt minus 2pt}
-\setlength{\floatsep}{8pt plus 2pt minus 2pt}
-\setlength{\abovecaptionskip}{4pt}
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{2pt}
 \setlength{\belowcaptionskip}{0pt}
 \setlength{\abovedisplayskip}{4pt plus 1pt minus 1pt}
 \setlength{\belowdisplayskip}{4pt plus 1pt minus 1pt}
 \setlength{\abovedisplayshortskip}{2pt plus 1pt}
 \setlength{\belowdisplayshortskip}{2pt plus 1pt}
+
+\newlength{\figpullup}
+\setlength{\figpullup}{-10pt}
 
 \title{PRISM\hspace{0.05cm}\raisebox{-.15\height}{\includegraphics[scale=0.02]{figures/prism.png}}: Decomposing Geometric Drift \\
 for Risk Diagnosis in LLM Variants}
@@ -358,6 +361,7 @@ PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared a
 \label{subsec:forget_exp}
 
 \begin{figure}[t]
+    \vspace*{\figpullup}
     \centering
     \includegraphics[width=0.98\linewidth]{figures/quantization/prism_grid_bound_llama_qwen.pdf}
     \caption{\textbf{The PRISM bound $\mathcal{B}$ tracks the empirical risk gap across two model families and five benchmarks.} Each subplot scatters the PRISM bound $\mathcal{B}$ (x-axis, log) against the empirical cross-entropy risk gap $|\Delta\mathcal{R}|$ (y-axis, log). Each point is one quantization variant; colors denote PTQ family (GGUF / GPTQ / BitsAndBytes). Rows: Llama-3.1-8B, Qwen3-8B. Columns: ARC, MMLU, SQuAD, TriviaQA, GSM8K. Per-subplot Spearman $r_s$ is annotated in each panel (mean $|r_s|{\approx}0.82$ across the 2{$\times$}5 grid; per-component breakdown in Sec.~\ref{subsec:ablation}); the red dashed $y{=}x$ line marks bound tightness, and the \textcolor{green!50!black}{green shaded region below it} is the safe zone where the bound provably holds. Replication on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B: Fig.~\ref{fig:quant_grid_bound_extra} (Appendix~\ref{app:quant_tables}).}
@@ -372,6 +376,7 @@ Fig.~\ref{fig:quant_grid_bound} demonstrates PTQ predictiveness: the PRISM bound
 Table~\ref{tab:llama_decomposition_main_bound} reports the per-variant decomposition for Llama-3.1-8B on MMLU; the remaining Llama benchmarks (TriviaQA, ARC, SQuAD, GSM8K), the Qwen3-8B counterpart, the feature-only ($\delta$) scatter, parallel language-modeling results, and Ministral/DeepSeek decompositions are in Appendices~\ref{app:feature_only}--\ref{app:per_model_tables}. As a concrete example: at the extreme Q2\_K TriviaQA case, $\rho_P$ exceeds $\rho_T$ only mildly ($\Delta\rho{\approx}1.3$), but $\Omega$ drops to $0.76$, driving the shape-mismatch arm to dominate the bound---a separation invisible to any scalar similarity metric.
 
 \begin{figure}[t]
+    \vspace*{\figpullup}
     \centering
     \includegraphics[width=1.0\linewidth]{figures/forgetting/forgetting_grid_bound_llama.pdf}
     \caption{\textbf{Llama-3.1-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the bound $\mathcal{B}$ (x-axis, log) against the empirical forgetting $|\Delta\mathcal{R}|$ (y-axis, log) on a downstream benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: downstream benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Under LoRA's frozen \texttt{lm\_head}, $\gamma{=}0$ so $\mathcal{B}$ reduces to backbone scale ($\Delta\rho$) and shape ($1{-}\Omega$) drift. Spearman $r_s$ per subplot is annotated in each panel. Qwen3-8B replication: Appendix~\ref{app:qwen_forgetting}.}
@@ -405,6 +410,7 @@ Each dominant axis suggests a different remediation---per-channel outlier smooth
 \label{subsec:shape_reg_exp}
 
 \begin{figure}[t]
+    \vspace*{\figpullup}
     \centering
     \includegraphics[width=1.0\linewidth]{figures/forgetting/combined_llama_truthfulqa_bbq.pdf}
     \caption{\textbf{Shape regularization vs.\ replay-CE on Llama-3.1-8B.} LoRA fine-tuning on TruthfulQA (top) and BBQ (bottom) under three configurations: \emph{no reg} (anchor), the \emph{replay} baseline, and \emph{our trace} (Eq.~\ref{eq:shape_reg}); the latter two share a $32$-sample reference set and are each method's sweep $|\Delta\mathcal{R}|$-best. Our trace cuts downstream $|\Delta\mathcal{R}|$ further than the replay baseline across benchmarks; per-benchmark $\Omega$ and $|\Delta\mathcal{R}|$ in Table~\ref{tab:reg_compact_llama_truthfulqa}. Qwen3-8B replication: Appendix~\ref{app:qwen_forgetting}.}
@@ -460,4 +466,5 @@ PRISM is a \emph{relative} metric calibrated for ranking: it bounds the cross-en
 \input{checklist.tex}
 
 \end{document}
+
 
