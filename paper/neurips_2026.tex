@@ -283,7 +283,7 @@ The shape term captures the distortion of the feature manifold up to rotation. A
 The head term quantifies how differently the two prediction heads interpret features, weighted by $\Sigma_P$ so that only directions where the data has support can contribute.
 
 \paragraph{PRISM admits a family of Procrustes similarities.}
-The family $\{\Omega_W\}$ of Prop.~\ref{prop:exact_decomposition} includes the trace form $\Omega := \Omega_{W=I}$ and the nuclear form $\Omega_N := \Omega_{W=W_N}$ (Appendix~\ref{app:tightness}; the latter as ablation in Sec.~\ref{subsec:ablation}). We default to $\Omega$ in the main text: at $W = I$, LoRA and FP16-head PTQ (GPTQ, BnB) preserve $H_T = H_P$ so the head term vanishes; GGUF k-quant retain $\gamma > 0$ by quantizing the head.
+The family $\{\Omega_W\}$ of Prop.~\ref{prop:exact_decomposition} includes the trace form $\Omega := \Omega_{W=I}$ and the nuclear form $\Omega_N := \Omega_{W=W_N}$ (Appendix~\ref{app:tightness}; the latter as ablation in Sec.~\ref{subsec:ablation}). We default to $\Omega$: $W_N$ minimizes only $\delta$, not the full $\delta{+}\gamma$ (Appendix~\ref{app:general_W}), whereas $W{=}I$ keeps $\gamma$ at its minimum---vanishing when $H_T{=}H_P$ (LoRA, FP16-head PTQ; GGUF k-quant keep $\gamma{>}0$)---and is autograd-compatible (no SVD), enabling the regularizer of Sec.~\ref{subsec:shape_reg}.
 
 
 \subsection{Extension to Autoregressive Generation}
