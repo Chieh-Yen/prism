@@ -415,13 +415,14 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
              "Safe zone"))
 
     handles, labels = zip(*legend_entries)
-    fig.legend(
+    leg = fig.legend(
         handles, labels,
         loc="upper center", bbox_to_anchor=(0.45, 0.995),
         ncol=min(len(labels), 7), fontsize=18,
-        frameon=True, fancybox=True,
+        frameon=True, fancybox=True, edgecolor="black",
         handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
     )
+    leg.get_frame().set_linewidth(0.8)
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     outpath = FIG_DIR / cfg["outfile"].format(

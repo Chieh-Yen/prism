@@ -383,7 +383,10 @@ def build_table(model_cfg, group_cfg, rows):
         r"Geometric decomposition for \textbf{" + display + r"} under identity "
         r"alignment ($W{=}I$) on " + caption_label + r". "
         r"Each benchmark section reports Spearman's "
-        r"$r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants."
+        r"$r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants. "
+        r"Shading: \colorbox{red!35}{$\Omega{<}0.80$} / "
+        r"\colorbox{red!18}{$\Omega{<}0.95$} on $(\Omega,\delta,\mathcal{B},|\Delta\mathcal{R}|)$; "
+        r"\colorbox{cyan!12}{$\gamma{=}0$} when the head is preserved ($H_T{=}H_P$)."
     )
     label = f"tab:{short}_decomposition_{group_name}_bound"
 

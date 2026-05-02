@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{Regularization comparison for \textbf{Llama-3.1-8B} fine-tuned on \textbf{TruthfulQA} (identity alignment $W{=}I$; metrics at step 300). Rows: $\Omega$ (higher = more shape preserved) and $|\Delta\mathcal{R}|$ (lower = less forgetting). \colorbox{green!18}{\textbf{Bold + green}} / underline: 1st / 2nd-best per benchmark group. Across-benchmark unweighted means for [no reg / replay $\lambda{=}0.01$ (baseline) / trace $\lambda{=}1.0$ (ours)]: $\Omega$ = 0.906 / 0.915 / \textbf{0.931}; $|\Delta\mathcal{R}|$ = 0.843 / 0.764 / \textbf{0.681}. In this frozen-\texttt{lm\_head} LoRA setting $\gamma \equiv 0$ and $\rho_T \approx \rho_P$, so $\delta$ and $\mathcal{B}$ track $\Omega$; the full decomposition is in Appendix Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq}.}
+\caption{Regularization comparison for \textbf{Llama-3.1-8B} fine-tuned on \textbf{TruthfulQA} (identity alignment $W{=}I$; metrics at step 300). Rows: $\Omega$ (higher = more shape preserved) and $|\Delta\mathcal{R}|$ (lower = less forgetting). \textbf{Bold} / \underline{underline}: 1st / 2nd-best per benchmark group. Across-benchmark unweighted means for [no reg / replay $\lambda{=}0.01$ (baseline) / trace $\lambda{=}1.0$ (ours)]: $\Omega$ = 0.906 / 0.915 / \textbf{0.931}; $|\Delta\mathcal{R}|$ = 0.843 / 0.764 / \textbf{0.681}. In this frozen-\texttt{lm\_head} LoRA setting $\gamma \equiv 0$ and $\rho_T \approx \rho_P$, so $\delta$ and $\mathcal{B}$ track $\Omega$; the full decomposition is in Appendix Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq}.}
 \label{tab:reg_compact_llama_truthfulqa}
 \setlength{\tabcolsep}{4pt}
 \resizebox{\textwidth}{!}{%
@@ -10,9 +10,9 @@
 \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10} \cmidrule(lr){11-13} \cmidrule(lr){14-16}
  & no reg & replay & trace & no reg & replay & trace & no reg & replay & trace & no reg & replay & trace & no reg & replay & trace \\
 \midrule
-$\Omega \uparrow$ & 0.916 & \underline{0.918} & \cellcolor{green!18} \textbf{0.932} & 0.943 & \underline{0.945} & \cellcolor{green!18} \textbf{0.954} & 0.923 & \underline{0.935} & \cellcolor{green!18} \textbf{0.948} & 0.759 & \underline{0.781} & \cellcolor{green!18} \textbf{0.821} & 0.991 & \underline{0.996} & \cellcolor{green!18} \textbf{1.000} \\
+$\Omega \uparrow$ & 0.916 & \underline{0.918} & \textbf{0.932} & 0.943 & \underline{0.945} & \textbf{0.954} & 0.923 & \underline{0.935} & \textbf{0.948} & 0.759 & \underline{0.781} & \textbf{0.821} & 0.991 & \underline{0.996} & \textbf{1.000} \\
 \midrule
-$|\Delta\mathcal{R}|\downarrow$ & 0.029 & \cellcolor{green!18} \textbf{0.011} & \underline{0.020} & 0.134 & \cellcolor{green!18} \textbf{0.103} & \underline{0.112} & 1.337 & \underline{1.191} & \cellcolor{green!18} \textbf{1.054} & 2.583 & \underline{2.388} & \cellcolor{green!18} \textbf{2.124} & 0.134 & \underline{0.126} & \cellcolor{green!18} \textbf{0.097} \\
+$|\Delta\mathcal{R}|\downarrow$ & 0.029 & \textbf{0.011} & \underline{0.020} & 0.134 & \textbf{0.103} & \underline{0.112} & 1.337 & \underline{1.191} & \textbf{1.054} & 2.583 & \underline{2.388} & \textbf{2.124} & 0.134 & \underline{0.126} & \textbf{0.097} \\
 \bottomrule
 \end{tabular}}
 \end{table}

@@ -195,11 +195,16 @@ def _gather(absval, model=None):
 # ======================================================================
 # Formatting
 # ======================================================================
-def _fmt(x, bold=False):
+def _fmt(x, rank=None):
+    """rank=1: bold; rank=2: underline; else plain."""
     if math.isnan(x):
         return "--"
     s = f"{x:.3f}".lstrip("0") if 0 <= x < 1 else f"{x:.3f}"
-    return rf"\textbf{{{s}}}" if bold else s
+    if rank == 1:
+        return r"\textbf{" + s + "}"
+    if rank == 2:
+        return r"\underline{" + s + "}"
+    return s
 
 
 # ======================================================================
@@ -241,8 +246,9 @@ def _compute_stats(rows, metrics):
             "winners": winners[mid],
         }
 
-    # Per-column winners for bold-facing.
+    # Per-column 1st / 2nd placement for bold + green / underline + green.
     best_cols = {}
+    second_cols = {}
     col_keys = (["mean"]
                 + [f"model_{m}" for m in ROW_MODELS]
                 + ["winners"])
@@ -265,14 +271,31 @@ def _compute_stats(rows, metrics):
             best_val = max(finite.values())
             best_cols[k] = {mid for mid, v in finite.items()
                             if abs(v - best_val) < 1e-9}
+            non_best = [v for mid, v in finite.items()
+                        if mid not in best_cols[k]]
+            if non_best:
+                second_val = max(non_best)
+                second_cols[k] = {mid for mid, v in finite.items()
+                                  if abs(v - second_val) < 1e-9
+                                  and mid not in best_cols[k]}
+            else:
+                second_cols[k] = set()
         else:
             best_cols[k] = set()
+            second_cols[k] = set()
 
-    return stats, best_cols, n_cells_with_data
+    return stats, best_cols, second_cols, n_cells_with_data
 
 
-def _emit_latex(metrics, stats, best_cols, n_cells_with_data,
+def _emit_latex(metrics, stats, best_cols, second_cols, n_cells_with_data,
                 out_path, label, caption):
+    def _rank(mid, key):
+        if mid in best_cols[key]:
+            return 1
+        if mid in second_cols[key]:
+            return 2
+        return None
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     lines = []
     lines.append(r"\begin{table}[t]")
@@ -300,10 +323,10 @@ def _emit_latex(metrics, stats, best_cols, n_cells_with_data,
     for label_text, _, mid in metrics:
         s = stats[mid]
         row = [label_text]
-        row.append(_fmt(s["mean"], bold=(mid in best_cols["mean"])))
+        row.append(_fmt(s["mean"], rank=_rank(mid, "mean")))
         for m in ROW_MODELS:
             key = f"model_{m}"
-            row.append(_fmt(s["per_model_mean"][m], bold=(mid in best_cols[key])))
+            row.append(_fmt(s["per_model_mean"][m], rank=_rank(mid, key)))
         lines.append(" & ".join(row) + r" \\")
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
@@ -331,23 +354,24 @@ def _print_summary(metrics, stats, n_cells_with_data, out_path, alignment_tag):
 
 
 def generate_table(rows, metrics, out_path, label, caption, alignment_tag):
-    stats, best_cols, n_cells = _compute_stats(rows, metrics)
-    _emit_latex(metrics, stats, best_cols, n_cells, out_path, label, caption)
+    stats, best_cols, second_cols, n_cells = _compute_stats(rows, metrics)
+    _emit_latex(metrics, stats, best_cols, second_cols, n_cells,
+                out_path, label, caption)
     _print_summary(metrics, stats, n_cells, out_path, alignment_tag)
-    return stats, best_cols, n_cells
+    return stats, best_cols, second_cols, n_cells
 
 
 def _emit_combined_latex(groups, out_path, label, caption):
-    """groups: list of (metrics, stats, best_cols, n_cells) tuples.
+    """groups: list of (metrics, stats, best_cols, second_cols, n_cells) tuples.
 
     Produces one tabular with a single header followed by each group's rows
-    separated by \\midrule. Bold-facing is per-group (each group's stats and
-    best_cols are independent), so each block highlights its own column-best
-    rather than being dominated by the other block.
+    separated by \\midrule. Ranking is per-group (each group's stats and
+    best/second_cols are independent), so each block highlights its own
+    column-best rather than being dominated by the other block.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # Use the first group's n_cells in the header (groups should match by design).
-    n_cells_header = groups[0][3]
+    n_cells_header = groups[0][4]
 
     lines = []
     lines.append(r"\begin{table}[t]")
@@ -372,16 +396,21 @@ def _emit_combined_latex(groups, out_path, label, caption):
                  + [rf"\scriptsize ({n_cells_header} cells)"])
     lines.append(" & ".join(subheader) + r" \\")
 
-    for gi, (metrics, stats, best_cols, _) in enumerate(groups):
+    for gi, (metrics, stats, best_cols, second_cols, _) in enumerate(groups):
+        def _rank(mid, key, bc=best_cols, sc=second_cols):
+            if mid in bc[key]:
+                return 1
+            if mid in sc[key]:
+                return 2
+            return None
         lines.append(r"\midrule")
         for label_text, _, mid in metrics:
             s = stats[mid]
             row = [label_text]
             for m in ROW_MODELS:
                 key = f"model_{m}"
-                row.append(_fmt(s["per_model_mean"][m],
-                                bold=(mid in best_cols[key])))
-            row.append(_fmt(s["mean"], bold=(mid in best_cols["mean"])))
+                row.append(_fmt(s["per_model_mean"][m], rank=_rank(mid, key)))
+            row.append(_fmt(s["mean"], rank=_rank(mid, "mean")))
             lines.append(" & ".join(row) + r" \\")
 
     lines.append(r"\bottomrule")
@@ -404,7 +433,7 @@ def _caption_i():
         r"components cumulatively: shape, then $+$ scale, then $+$ head. "
         r"Per-lineage columns average $|r_s|$ over the "
         rf"{len(COL_DATASETS)} benchmarks of that "
-        r"lineage. Bold = best in column. The "
+        r"lineage. \textbf{Bold} / \underline{underline}: 1st / 2nd-best in column. The "
         r"Procrustes-optimal $W{=}W_N$ counterpart is in "
         r"Appendix~Table~\ref{tab:baseline_w}."
     )
@@ -415,7 +444,7 @@ CAPTION_W = (
     r"structure (shape $\to +$ scale $\to +$ head) and same per-cell "
     r"Spearman protocol, but every metric is evaluated under the optimal "
     r"orthogonal alignment $W_N$ rather than identity. Larger $|r_s|$ = "
-    r"better variant ranking; bold = best in column. As expected, the "
+    r"better variant ranking; \textbf{bold} / \underline{underline}: 1st / 2nd-best in column. As expected, the "
     r"Procrustes-optimal alignment yields modestly stronger ranking on the "
     r"full bound; the identity-alignment form ($W{=}I$) used in the main text "
     r"(Table~\ref{tab:baseline}) trades this margin for autograd "
@@ -430,7 +459,7 @@ CAPTION_COMBINED = (
     r"Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell "
     r"Spearman protocol throughout. Within each block, rows add bound "
     r"components cumulatively (shape $\to +$ scale $\to +$ head); larger "
-    r"$r_s$ = better variant ranking; bold = best in column \emph{within "
+    r"$r_s$ = better variant ranking; \textbf{bold} / \underline{underline}: 1st / 2nd-best in column \emph{within "
     r"its block}. The $W{=}W_N$ block ranks modestly better on the full "
     r"bound, as expected since $W_N$ minimizes the alignment residual; "
     r"the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the "
@@ -469,13 +498,13 @@ def main():
     )
 
     rows = load_data()
-    stats_i, best_i, n_i = generate_table(
+    stats_i, best_i, second_i, n_i = generate_table(
         rows, METRICS_I, OUT_PATH_I,
         label="tab:baseline",
         caption=_caption_i(),
         alignment_tag="W=I",
     )
-    stats_w, best_w, n_w = generate_table(
+    stats_w, best_w, second_w, n_w = generate_table(
         rows, METRICS_W, OUT_PATH_W,
         label="tab:baseline_w",
         caption=CAPTION_W,
@@ -483,8 +512,8 @@ def main():
     )
     _emit_combined_latex(
         groups=[
-            (METRICS_I, stats_i, best_i, n_i),
-            (METRICS_W, stats_w, best_w, n_w),
+            (METRICS_I, stats_i, best_i, second_i, n_i),
+            (METRICS_W, stats_w, best_w, second_w, n_w),
         ],
         out_path=OUT_PATH_COMBINED,
         label="tab:baseline_combined",

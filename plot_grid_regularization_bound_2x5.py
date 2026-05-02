@@ -305,7 +305,7 @@ def plot_grid(mode, model, methods, max_steps=300, outfile_name=None):
                              fontweight="bold", pad=6)
             if ci == 0:
                 ax.set_ylabel(
-                    ROW_DISPLAY[ft_task] + r"\n$|\Delta\mathcal{R}|$",
+                    ROW_DISPLAY[ft_task] + "\n" + r"$|\Delta\mathcal{R}|$",
                     fontsize=13, fontweight="bold", labelpad=2,
                 )
             if ri == nrow - 1:
@@ -334,13 +334,14 @@ def plot_grid(mode, model, methods, max_steps=300, outfile_name=None):
              "Safe zone"))
 
     handles, labels = zip(*legend_entries)
-    fig.legend(
+    leg = fig.legend(
         handles, labels,
         loc="upper center", bbox_to_anchor=(0.5, 0.99),
-        ncol=min(len(labels), 4), fontsize=12,
-        frameon=True, fancybox=True,
+        ncol=min(len(labels), 4), fontsize=18,
+        frameon=True, fancybox=True, edgecolor="black",
         handletextpad=0.3, columnspacing=1.0, borderpad=0.4,
     )
+    leg.get_frame().set_linewidth(0.8)
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     if outfile_name is None:

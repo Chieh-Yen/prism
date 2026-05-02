@@ -375,9 +375,7 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
             if ri == nrow - 1:
                 ax.set_xlabel(cfg["xlabel"], fontsize=17, labelpad=2)
 
-    # ── Legend (split into two rows) ───────────────────────────────
-    # Row 1: GGUF tiers (Q8_0…Q2_K)
-    # Row 2: BnB / GPTQ / FP16 + reference lines (y=x, Safe zone)
+    # ── Legend (single box; GGUF on row 1, others wrap to subsequent rows) ──
     GGUF_TIERS = {"Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"}
     LEGEND_FONTSIZE = 18
 
@@ -406,32 +404,33 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
             "Safe zone",
         ))
 
-    # Position legends in absolute inches from the top so the gap stays
-    # constant regardless of fig_height (avoids overlap when nrow is small).
-    # Each legend at fontsize=18 occupies ~0.55" of vertical space.
-    top_inch = 0.25     # top legend's top edge sits 0.35" from fig top
-    gap_inch = 0.50     # vertical distance between the two legend tops
-    top_y = (fig_height - top_inch) / fig_height
-    bot_y = (fig_height - top_inch - gap_inch) / fig_height
+    if gguf_entries or other_entries:
+        # Single legend with GGUF on row 1 and others on row 2.
+        # matplotlib fills legend column-major, so we interleave entries:
+        # col i becomes (gguf[i], other[i]). Pad shorter group with invisible
+        # handles so both rows have the same column count.
+        n_gguf = len(gguf_entries)
+        n_other = len(other_entries)
+        ncol = max(n_gguf, n_other, 1)
+        invis = Line2D([0], [0], color="none", marker="None", linestyle="None")
+        gguf_pad = list(gguf_entries) + [(invis, "")] * (ncol - n_gguf)
+        other_pad = list(other_entries) + [(invis, "")] * (ncol - n_other)
+        interleaved = []
+        for i in range(ncol):
+            interleaved.append(gguf_pad[i])
+            interleaved.append(other_pad[i])
 
-    if gguf_entries:
-        g_handles, g_labels = zip(*gguf_entries)
-        fig.legend(
-            g_handles, g_labels,
+        top_inch = 0.25
+        top_y = (fig_height - top_inch) / fig_height
+        handles, labels = zip(*interleaved)
+        leg = fig.legend(
+            handles, labels,
             loc="upper center", bbox_to_anchor=(0.52, top_y),
-            ncol=len(g_labels), fontsize=LEGEND_FONTSIZE,
-            frameon=True, fancybox=True,
+            ncol=ncol, fontsize=LEGEND_FONTSIZE,
+            frameon=True, fancybox=True, edgecolor="black",
             handletextpad=0.3, columnspacing=1.0, borderpad=0.35,
         )
-    if other_entries:
-        o_handles, o_labels = zip(*other_entries)
-        fig.legend(
-            o_handles, o_labels,
-            loc="upper center", bbox_to_anchor=(0.52, bot_y),
-            ncol=len(o_labels), fontsize=LEGEND_FONTSIZE,
-            frameon=True, fancybox=True,
-            handletextpad=0.3, columnspacing=1.0, borderpad=0.35,
-        )
+        leg.get_frame().set_linewidth(0.8)
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     outpath = FIG_DIR / cfg["outfile"].format(

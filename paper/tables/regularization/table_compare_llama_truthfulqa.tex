@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{Regularization comparison for \textbf{Llama-3.1-8B} fine-tuned on \textbf{TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark block lists metrics at step 300 for: no reg, replay $\lambda{=}0.01$ (baseline), trace $\lambda{=}1.0$ (ours). Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per block.}
+\caption{Regularization comparison for \textbf{Llama-3.1-8B} fine-tuned on \textbf{TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark block lists metrics at step 300 for: no reg, replay $\lambda{=}0.01$ (baseline), trace $\lambda{=}1.0$ (ours). Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per block. Shading: \colorbox{red!35}{$\Omega{<}0.80$} / \colorbox{red!18}{$\Omega{<}0.95$} on $(\Omega,\delta,\mathcal{B},|\Delta\mathcal{R}|)$; \colorbox{cyan!12}{$\gamma{=}0$} under frozen \texttt{lm\_head}.}
 \label{tab:reg_compare_llama_truthfulqa}
 \resizebox{0.95\textwidth}{!}{%
 \begin{tabular}{l l rrrrrrr}

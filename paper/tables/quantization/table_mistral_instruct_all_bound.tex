@@ -4,7 +4,7 @@
 \renewcommand{\arraystretch}{1.05}
 \setlength{\LTcapwidth}{\textwidth}
 \begin{longtable}{ll l rrrrrrr}
-\caption{Geometric decomposition for \textbf{Ministral-3-8B-Instruct} under identity alignment ($W{=}I$) on all benchmarks. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants.}\label{tab:mistral_instruct_decomposition_all_bound}\\
+\caption{Geometric decomposition for \textbf{Ministral-3-8B-Instruct} under identity alignment ($W{=}I$) on all benchmarks. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants. Shading: \colorbox{red!35}{$\Omega{<}0.80$} / \colorbox{red!18}{$\Omega{<}0.95$} on $(\Omega,\delta,\mathcal{B},|\Delta\mathcal{R}|)$; \colorbox{cyan!12}{$\gamma{=}0$} when the head is preserved ($H_T{=}H_P$).}\label{tab:mistral_instruct_decomposition_all_bound}\\
 \toprule
 Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & PRISM $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
 \midrule

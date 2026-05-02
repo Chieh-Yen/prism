@@ -335,10 +335,10 @@ The main analysis uses the cross-family pair Llama-3.1-8B~\cite{grattafiori2024l
 Three PTQ families across bit-widths 2--8, spanning basic rounding to calibration-based compensation: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K}--\texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4).
 
 \paragraph{Fine-Tuning Tasks.}
-LoRA fine-tunes on \textbf{TruthfulQA}\cite{lin2022truthfulqa} (factual grounding) and \textbf{BBQ} (Bias Benchmark for QA, social-context reasoning)---two tasks chosen to elicit different drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on benchmarks disjoint from both fine-tuning tasks.
+LoRA fine-tunes on \textbf{TruthfulQA}~\cite{lin2022truthfulqa} (factual grounding) and \textbf{BBQ}~\cite{parrish2022bbq} (Bias Benchmark for QA, social-context reasoning)---two tasks chosen to elicit different drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on benchmarks disjoint from both fine-tuning tasks.
 
 \paragraph{Benchmarks and Scoring.}
-Five benchmarks: \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K} (multi-step reasoning). All risks are computed teacher-forced (prompt $c$ and targets $y$ scored in a single forward pass over the gold span), matching each benchmark's scoring rule and producing deterministic per-sample residuals.
+Five benchmarks: \textbf{MMLU}~\cite{hendrycks2021measuring}, \textbf{ARC}~\cite{clark2018think} (multiple-choice knowledge), \textbf{TriviaQA}~\cite{joshi2017triviaqa}, \textbf{SQuAD}~\cite{rajpurkar2016squad} (short-horizon QA), and \textbf{GSM8K}~\cite{cobbe2021training} (multi-step reasoning). All risks are computed teacher-forced (prompt $c$ and targets $y$ scored in a single forward pass over the gold span), matching each benchmark's scoring rule and producing deterministic per-sample residuals.
 % To meausre the risks shift of all quantization algorithms, we evaluate the risk score on \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K}. We use the provided ground truth response from each dataset as target score.
 
 \paragraph{Calibration and Hyperparameters.}

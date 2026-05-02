@@ -374,7 +374,7 @@ def plot_combined(table, plot_configs, out_dir: Path):
 
     for model in MODELS:
         nrow, ncol = len(TARGETS), 6
-        legend_reserve_inch = 2.1
+        legend_reserve_inch = 2.0
         fig_height = nrow * 4.6 + legend_reserve_inch
         fig, axes = plt.subplots(nrow, ncol,
                                  figsize=(ncol * 6.0, fig_height),
@@ -422,7 +422,7 @@ def plot_combined(table, plot_configs, out_dir: Path):
                                  fontweight="bold", pad=15)
                 if ci == 0:
                     ax.set_ylabel(
-                        ROW_DISPLAY[target] + r"\n$\Delta\mathcal{R}$",
+                        ROW_DISPLAY[target] + "\n" + r"$\Delta\mathcal{R}$",
                         fontsize=30, fontweight="bold", labelpad=8)
                     ax.yaxis.set_label_coords(-0.26, 0.5)
                 if ri == nrow - 1:
@@ -446,11 +446,12 @@ def plot_combined(table, plot_configs, out_dir: Path):
             Line2D([0], [0], color="black", ls="--", lw=2.6, alpha=0.8),
             r"$\Delta\mathcal{R}=0$"))
         handles, labels = zip(*legend_entries)
-        fig.legend(handles, labels, loc="upper center",
-                   bbox_to_anchor=(0.52, 0.998),
-                   ncol=min(len(labels), 7), fontsize=34,
-                   frameon=True, fancybox=True,
-                   handletextpad=0.6, columnspacing=1.8, borderpad=0.6)
+        leg = fig.legend(handles, labels, loc="upper center",
+                         bbox_to_anchor=(0.52, 0.998),
+                         ncol=min(len(labels), 7), fontsize=30,
+                         frameon=True, fancybox=True, edgecolor="black",
+                         handletextpad=0.6, columnspacing=1.8, borderpad=0.6)
+        leg.get_frame().set_linewidth(0.8)
 
         out = out_dir / f"combined_{model}_truthfulqa_bbq.pdf"
         fig.savefig(str(out), format="pdf", dpi=300, bbox_inches="tight")

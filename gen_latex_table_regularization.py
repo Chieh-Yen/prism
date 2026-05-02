@@ -318,13 +318,13 @@ def _config_subheader(method: str, lam: str) -> str:
 
 def _fmt_compact_cell(val, bold: bool = False,
                       underline: bool = False) -> str:
-    """Format one cell. Best-in-block: bold + light-green shading.
-    Second-best: underline. Others: plain."""
+    """Format one cell. Best-in-block: bold. Second-best: underline.
+    Others: plain."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "--"
     s = f"{val:.3f}"
     if bold:
-        return r"\cellcolor{green!18} \textbf{" + s + "}"
+        return r"\textbf{" + s + "}"
     if underline:
         return r"\underline{" + s + "}"
     return s
@@ -460,8 +460,8 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
         + r"} fine-tuned on \textbf{" + ft_cfg["display"] + r"} "
         r"(identity alignment $W{=}I$; metrics at step " + str(ALIGN_STEP) + r"). "
         r"Rows: $\Omega$ (higher = more shape preserved) and $|\Delta\mathcal{R}|$ "
-        r"(lower = less forgetting). \colorbox{green!18}{\textbf{Bold + green}} / "
-        r"underline: 1st / 2nd-best per benchmark group. "
+        r"(lower = less forgetting). \textbf{Bold} / \underline{underline}: "
+        r"1st / 2nd-best per benchmark group. "
         + mean_clause + r" "
         r"In this frozen-\texttt{lm\_head} LoRA setting $\gamma \equiv 0$ and "
         r"$\rho_T \approx \rho_P$, so $\delta$ and $\mathcal{B}$ track $\Omega$; "
@@ -534,7 +534,10 @@ def build_compare_table(model_cfg, ft_cfg, configs, include_target):
         r"alignment ($W{=}I$). Rows group by evaluation benchmark; each "
         r"benchmark block lists metrics at step " + str(ALIGN_STEP)
         + r" for: " + config_summary + r". "
-        r"Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per block."
+        r"Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per block. "
+        r"Shading: \colorbox{red!35}{$\Omega{<}0.80$} / "
+        r"\colorbox{red!18}{$\Omega{<}0.95$} on $(\Omega,\delta,\mathcal{B},|\Delta\mathcal{R}|)$; "
+        r"\colorbox{cyan!12}{$\gamma{=}0$} under frozen \texttt{lm\_head}."
     )
     label = f"tab:reg_compare_{model_cfg['short']}_{ft_cfg['short']}"
     return _wrap_table(body_rows, caption, label, "Config")
