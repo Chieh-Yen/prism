@@ -22,8 +22,12 @@
     arrT/.style={->, line width=0.85pt, Tcol},
     arrP/.style={->, line width=0.85pt, Pcol},
     termbox/.style={draw=panelcol, line width=0.6pt, rounded corners=3pt, fill=white,
-                    minimum width=4.55cm, minimum height=1.75cm, align=center, inner sep=2pt}
+                    minimum width=4.20cm, minimum height=1.75cm, align=center, inner sep=2pt}
 ]
+
+% Force bounding box symmetric around x=7.0 (center of bottom three blocks)
+% so the figure is centered on the page even if the equation extends asymmetrically.
+\useasboundingbox (0, -0.05) rectangle (14, 4.45);
 
 % ═══════════════════════════════════════════════════════════
 % TOP ROW — pipelines (left, widened) + bound equation (right)
@@ -98,7 +102,7 @@
 % ═══════════════════════════════════════════════════════════
 
 % --- Scale mismatch ---
-\node[termbox, anchor=south west] (sbox) at (0.02, 0.02) {};
+\node[termbox, anchor=south west] (sbox) at (0.55, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]sbox.north) {Scale mismatch \,$(\rho_T{-}\rho_P)^{2}$};
 \coordinate (sC) at ($(sbox.center)+(0,-0.22)$);
@@ -115,7 +119,7 @@
     at ($(sC)+(0.60,0.08)$) {$\rho_P$};
 
 % --- Shape mismatch ---
-\node[termbox, anchor=south west] (hbox) at (4.72, 0.02) {};
+\node[termbox, anchor=south west] (hbox) at (4.90, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]hbox.north) {Shape mismatch \,$2\rho_T\rho_P(1{-}\Omega)$};
 \coordinate (hC) at ($(hbox.center)+(0,-0.10)$);
@@ -146,7 +150,7 @@
     at ($(hC)+(1.00,-0.36)$) {$Z_PW$};
 
 % --- Head discrepancy ---
-\node[termbox, anchor=south west] (dbox) at (9.42, 0.02) {};
+\node[termbox, anchor=south west] (dbox) at (9.25, 0.02) {};
 \node[anchor=north, font=\scriptsize\bfseries]
     at ([yshift=-0.10cm]dbox.north) {Head discrepancy \,$\|\Sigma_P^{1/2}\Delta H\|_F$};
 \coordinate (dC) at ($(dbox.center)+(-0.05,-0.52)$);

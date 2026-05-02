@@ -12,7 +12,7 @@
 
 \usepackage{graphicx}
 \usepackage[table]{xcolor}
-\usepackage{etoc}
+% \usepackage{etoc}
 
 \usepackage{tikz}
 \usetikzlibrary{
@@ -85,6 +85,14 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{remark}{Remark}
 
+\usepackage[nottoc]{tocbibind}
+\usepackage{minitoc}
+\usepackage{bbm}
+
+\renewcommand \thepart{}
+\renewcommand \partname{}
+
+
 % Tighten vertical spacing for page-budget compliance
 \setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
 \setlength{\intextsep}{6pt plus 2pt minus 2pt}
@@ -117,30 +125,14 @@ for Risk Diagnosis in LLM Variants}
 % \AND instead of \And before the third author name.
 
 \author{%
-  David S.~Hippocampus\thanks{Use footnote for providing further information
-    about author (webpage, alternative address)---\emph{not} for acknowledging
-    funding agencies.} \\
-  Department of Computer Science\\
-  Cranberry-Lemon University\\
-  Pittsburgh, PA 15213 \\
-  \texttt{hippo@cs.cranberry-lemon.edu} \\
-  % examples of more authors
-  % \And
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
-  % \AND
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
 }
 
 \begin{document}
+\doparttoc % Tell to minitoc to generate a toc for the parts
+\faketableofcontents % Run a fake tableofcontents command for the partocs
 
 \maketitle
-\addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
+% \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 
 \begin{abstract}
 Comparing Large Language Model (LLM) variants---quantized checkpoints, LoRA adaptations, distilled snapshots---faces a diagnostic gap: aggregate accuracy flags degradation without explaining it, and representational similarity scores (e.g., CKA) collapse geometric mismatch to a single number that does not link to risk.
@@ -343,10 +335,11 @@ The main analysis uses the cross-family pair Llama-3.1-8B~\cite{grattafiori2024l
 Three PTQ families across bit-widths 2--8, spanning basic rounding to calibration-based compensation: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K}--\texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4).
 
 \paragraph{Fine-Tuning Tasks.}
-LoRA fine-tunes on \textbf{TruthfulQA} (factual grounding) and \textbf{BBQ} (Bias Benchmark for QA, social-context reasoning)---two tasks chosen to elicit different drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on benchmarks disjoint from both fine-tuning tasks.
+LoRA fine-tunes on \textbf{TruthfulQA}\cite{lin2022truthfulqa} (factual grounding) and \textbf{BBQ} (Bias Benchmark for QA, social-context reasoning)---two tasks chosen to elicit different drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on benchmarks disjoint from both fine-tuning tasks.
 
 \paragraph{Benchmarks and Scoring.}
 Five benchmarks: \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K} (multi-step reasoning). All risks are computed teacher-forced (prompt $c$ and targets $y$ scored in a single forward pass over the gold span), matching each benchmark's scoring rule and producing deterministic per-sample residuals.
+% To meausre the risks shift of all quantization algorithms, we evaluate the risk score on \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K}. We use the provided ground truth response from each dataset as target score.
 
 \paragraph{Calibration and Hyperparameters.}
 PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared across all variants of a base ($512$ samples per benchmark for PTQ, $256$ for LoRA forgetting); since observed $|\Delta\mathcal{R}|$ spans 1--2 orders of magnitude across variants, rankings are robust to subset choice. LoRA fine-tunes rank-$32$ attention adapters with frozen head (AdamW, lr $10^{-5}$, bf16). For the regularization comparison (Sec.~\ref{subsec:action}), both penalties operate on $\mathcal{D}_{\mathrm{ref}}$ ($32$ pre-training sequences disjoint from $\mathcal{D}_{\mathrm{FT}}$): the trace-norm shape penalty sweeps $\lambda \in \{0.01, 0.05, 0.1, 0.5, 1.0\}$ and a replay-CE baseline sweeps $\lambda \in \{0.001, 0.005, 0.01, 0.05, 0.1\}$, each range matched to its penalty's natural scale ($1{-}\Omega \sim 0.1$ vs.\ CE reference loss $\sim 1$~nat). Checkpoints every $25$ steps, analysis at step $300$; all experiments use a single NVIDIA RTX 5090 (32~GB).
@@ -433,7 +426,8 @@ Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all ri
 
 %=========================================================================
 % \enlargethispage{1\baselineskip}
-\section{Conclusion and Future Work}
+% \section{Conclusion and Future Work}
+\section{Discussion}
 \label{sec:conclusion}
 
 We presented PRISM, a geometric framework with three contributions. \textbf{Theory} (Thm.~\ref{thm:unified_bound}): the Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; with a covariance-weighted head term, these upper-bound $|\mathcal{R}_T{-}\mathcal{R}_P|$ along three independently measurable axes. \textbf{Framework}: the bound is computable from features and head weights alone, applies to PTQ and frozen-head LoRA, and---via the differentiable $\Omega$---doubles as a regularizer against catastrophic forgetting. \textbf{Empirical}: rank-consistent on both settings (mean Spearman $r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA forgetting), the three axes localize Q2/Q3 shape distortion, Qwen3 Q6\_K/Q8\_0 head divergence, and cross-task LoRA scale-axis separability; the shape regularizer outperforms a replay baseline at mitigating downstream forgetting.
@@ -441,15 +435,28 @@ We presented PRISM, a geometric framework with three contributions. \textbf{Theo
 \paragraph{Scope and limitations.}
 PRISM bounds the cross-entropy risk gap to a reference base; it is calibrated for variant ranking, where Spearman correlations are strong across both PTQ and LoRA settings (Sec.~\ref{subsec:predict}). Tight absolute estimation of $|\Delta\mathcal{R}|$ is a complementary problem we leave to future work. Our evaluation uses teacher-forced features for efficiency (a single deterministic forward pass per variant, without sampling noise or decoding strategy to control for); the bound applies unchanged to any $(Z_T, Z_P)$ matrices, including features collected along free-running generation trajectories---a direct extension we leave to future work. The shape regularizer of Sec.~\ref{subsec:action} addresses the shape axis directly via training; complementary protocol-level mitigations targeting each axis (per-channel outlier smoothing for scale, Hessian-aware reconstruction for shape, FP16-\texttt{lm\_head} retention for head) are a research follow-up the diagnostic enables.
 
-\paragraph{Future Work.} Three directions, detailed in Appendix~\ref{app:future_work}: \textbf{beyond LoRA forgetting} (analyze and regularize SFT/distillation drift), \textbf{diagnostic applications} (OOD detection, hyperparameter transfer, drift monitoring), and \textbf{beyond LLMs} (ViT, contrastive image encoders).
+\paragraph{Future work.} 
+% Three directions, detailed in Appendix~\ref{app:future_work}: \textbf{beyond LoRA forgetting} (analyze and regularize SFT/distillation drift), \textbf{diagnostic applications} (OOD detection, hyperparameter transfer, drift monitoring), and \textbf{beyond LLMs} (ViT, contrastive image encoders).
+We describe future directions in detail in Appendix~\ref{app:future_work}, including \textbf{beyond LoRA forgetting} (analyze and regularize SFT/distillation drift), \textbf{diagnostic applications} (OOD detection, hyperparameter transfer, drift monitoring), and \textbf{beyond LLMs} (ViT, contrastive image encoders).
+
+
 
 \renewcommand{\bibname}{References}
 \bibliographystyle{plainnat}
 \bibliography{paper} 
 
 \clearpage
-
 \appendix
+\section*{Appendix}
+
+\vspace{-1.8cm}
+\begingroup
+\hypersetup{colorlinks=false, linkcolor=black}
+\hypersetup{pdfborder={0 0 0}}
+\part{} % Start the appendix part
+\parttoc % Insert the appendix TOC
+\endgroup
+
 \input{appendix/proof_of_the_unified_risk_bound}
 \input{appendix/tightness_of_nuclear_norm}
 \input{appendix/general_orthogonal_alignments}
@@ -465,5 +472,6 @@ PRISM bounds the cross-entropy risk gap to a reference base; it is calibrated fo
 \input{checklist.tex}
 
 \end{document}
+
 
 
