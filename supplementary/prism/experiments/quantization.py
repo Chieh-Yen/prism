@@ -1,0 +1,995 @@
+"""
+Quantization Quality Estimation — Identity Regime (W = I).
+
+Target = full-precision model (BF16 by default; configurable via computing.model_dtype).
+Proxy  = quantized model at each bit width.
+The alignment map W degenerates to the identity.
+
+The simplified bound (Eq. 6) becomes:
+    |R_F − R_Q| ≈ K_feat · √[ (ρ_F − ρ_Q)² + 2 ρ_F ρ_Q (1 − Ω) ]
+
+Quantisation backends
+---------------------
+Three backends are supported, selected by a **prefix** in each quant tag:
+
+* **No prefix** (e.g. ``Q8_0``, ``Q4_K_M``) → load from a GGUF repo.
+* **``bnb:``** prefix (e.g. ``bnb:nf4``, ``bnb:int8``) → load from the
+  *target* model with bitsandbytes on-the-fly quantisation.
+* **``gptq:``** prefix (e.g. ``gptq:TheBloke/Llama-2-7B-GPTQ``) → load a
+  pre-quantised GPTQ model.  Optionally specify a branch with ``@``:
+  ``gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True``.
+* **``awq:``** prefix (e.g. ``awq:TheBloke/Llama-2-7B-AWQ``) → load a
+  pre-quantised AWQ model.  Optionally specify a branch with ``@``.
+
+Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``, ``nf4-dq``
+(NF4 with double quantisation, aka QLoRA-style).
+"""
+
+from __future__ import annotations
+
+import gc
+import math
+import re
+import time
+from typing import Any, Dict, List
+
+import torch
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoModelForImageTextToText,
+    AutoTokenizer,
+    AwqConfig,
+    BitsAndBytesConfig,
+)
+
+from ..core.bounds import UnifiedBound
+from ..data.loaders import load_task_data
+from ..models.extractors import LLMExtractor
+from .base import BaseExperiment
+
+
+# ======================================================================
+# BitsAndBytes config factory
+# ======================================================================
+_BNB_CONFIGS: Dict[str, Any] = {
+    "int8": lambda: BitsAndBytesConfig(load_in_8bit=True),
+    "nf4": lambda: BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+    ),
+    "fp4": lambda: BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="fp4",
+        bnb_4bit_compute_dtype=torch.float16,
+    ),
+    "nf4-dq": lambda: BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.float16,
+    ),
+}
+
+
+def _is_bnb(quant_tag: str) -> bool:
+    return quant_tag.startswith("bnb:")
+
+
+def _bnb_type(quant_tag: str) -> str:
+    return quant_tag[4:]
+
+
+# ======================================================================
+# dtype helpers — same model weights, different native precision
+# ======================================================================
+_DTYPE_LABELS: Dict[str, str] = {
+    "float16":  "FP16",
+    "bfloat16": "BF16",
+    "float32":  "FP32",
+}
+
+
+def _is_dtype(quant_tag: str) -> bool:
+    return quant_tag.startswith("dtype:")
+
+
+def _parse_dtype(quant_tag: str) -> str:
+    return quant_tag[6:]   # e.g. "float16"
+
+
+# ======================================================================
+# GPTQ helpers
+# ======================================================================
+def _is_gptq(quant_tag: str) -> bool:
+    return quant_tag.startswith("gptq:")
+
+
+def _parse_gptq(quant_tag: str) -> tuple:
+    """Parse ``gptq:REPO`` or ``gptq:REPO@REVISION`` → (repo, revision|None)."""
+    body = quant_tag[5:]
+    if "@" in body:
+        repo, rev = body.rsplit("@", 1)
+        return repo, rev
+    return body, None
+
+
+# ======================================================================
+# AWQ helpers
+# ======================================================================
+def _is_awq(quant_tag: str) -> bool:
+    return quant_tag.startswith("awq:")
+
+
+def _parse_awq(quant_tag: str) -> tuple:
+    """Parse ``awq:REPO`` or ``awq:REPO@REVISION`` → (repo, revision|None)."""
+    body = quant_tag[4:]
+    if "@" in body:
+        repo, rev = body.rsplit("@", 1)
+        return repo, rev
+    return body, None
+
+
+# ======================================================================
+# GGUF helpers
+# ======================================================================
+def _gguf_filename(template: str, quant: str) -> str:
+    """Build a GGUF filename from a template and a quantisation tag."""
+    return template.format(quant=quant)
+
+
+def _derive_gguf_template(quant_repo: str) -> str:
+    """Auto-derive a GGUF filename template from a HuggingFace repo name.
+
+    Two conventions are handled:
+
+    1. **TheBloke** — ``TheBloke/{ModelName}-GGUF``
+       files:  ``{model-name}.{QUANT}.gguf``  (lowercased, dot separator)
+       Example: ``TheBloke/Llama-2-7b-GGUF`` → ``llama-2-7b.{quant}.gguf``
+
+    2. **Official** — ``Org/{ModelName}-GGUF``
+       files:  ``{ModelName}-{QUANT}.gguf``  (original case, dash separator)
+       Example: ``Qwen/Qwen3-8B-GGUF`` → ``Qwen3-8B-{quant}.gguf``
+
+    Override via ``proxy.gguf_template`` in the YAML config to skip this.
+    """
+    name = quant_repo.split("/")[-1]
+    stem = re.sub(r"-GGUF$", "", name, flags=re.IGNORECASE)
+    org = quant_repo.split("/")[0] if "/" in quant_repo else ""
+    if org.lower() == "thebloke":
+        return f"{stem.lower()}.{{quant}}.gguf"
+    return f"{stem}-{{quant}}.gguf"
+
+
+def _proxy_model_name(
+    quant_tag: str, target_model_id: str,
+    quant_repo: str, gguf_tpl: str,
+) -> str:
+    """Full proxy model identifier for CSV/JSON output."""
+    if _is_dtype(quant_tag):
+        lbl = _DTYPE_LABELS.get(_parse_dtype(quant_tag), _parse_dtype(quant_tag).upper())
+        return f"{target_model_id} [{lbl}]"
+    if _is_gptq(quant_tag):
+        repo, rev = _parse_gptq(quant_tag)
+        return f"{repo}@{rev} [GPTQ]" if rev else f"{repo} [GPTQ]"
+    if _is_awq(quant_tag):
+        repo, rev = _parse_awq(quant_tag)
+        return f"{repo}@{rev} [AWQ]" if rev else f"{repo} [AWQ]"
+    if _is_bnb(quant_tag):
+        return f"{target_model_id} [bnb:{_bnb_type(quant_tag)}]"
+    return f"{quant_repo}/{_gguf_filename(gguf_tpl, quant_tag)}"
+
+
+def _display_label(quant_tag: str) -> str:
+    """Human-readable name for a quant tag."""
+    if _is_bnb(quant_tag):
+        return _bnb_type(quant_tag).upper()
+    if _is_gptq(quant_tag):
+        repo, rev = _parse_gptq(quant_tag)
+        short = repo.split("/")[-1]
+        return f"GPTQ({rev})" if rev else f"GPTQ({short})"
+    if _is_awq(quant_tag):
+        repo, rev = _parse_awq(quant_tag)
+        short = repo.split("/")[-1]
+        return f"AWQ({rev})" if rev else f"AWQ({short})"
+    if _is_dtype(quant_tag):
+        dt = _parse_dtype(quant_tag)
+        return _DTYPE_LABELS.get(dt, dt.upper())
+    return quant_tag
+
+
+def _bnb_requantize(
+    model: torch.nn.Module,
+    bnb_config: BitsAndBytesConfig,
+    device: str,
+) -> torch.nn.Module:
+    """Replace ``nn.Linear`` layers with BnB-quantised equivalents in-place.
+
+    Intended for checkpoints that carry a pre-applied quantisation (e.g.
+    ``FineGrainedFP8Config``) which ``from_pretrained`` cannot combine with a
+    ``BitsAndBytesConfig`` in a single call.
+
+    The caller must have already loaded the model to CPU with
+    ``dtype=bfloat16``.  On hardware that does not support the checkpoint's
+    native format (e.g. FP8 on a GPU with compute capability < 8.9),
+    transformers automatically dequantises the weights to BF16, so all
+    ``nn.Linear`` layers already hold regular BF16 tensors at this point.
+
+    After in-place layer replacement the model is dispatched to *device*,
+    which triggers bitsandbytes' on-CUDA weight quantisation via the
+    ``Int8Params.to()`` / ``Params4bit.to()`` overrides.
+    """
+    import bitsandbytes as bnb
+    from transformers.integrations.bitsandbytes import should_convert_module
+
+    skip = getattr(bnb_config, "llm_int8_skip_modules", None) or ["lm_head"]
+    is_int8 = bool(bnb_config.load_in_8bit)
+    replaced = 0
+
+    for module_name, module in list(model.named_modules()):
+        if not isinstance(module, torch.nn.Linear):
+            continue
+        if not should_convert_module(module_name, skip):
+            continue
+
+        w = module.weight.data          # BF16, CPU
+        b = module.bias.data if module.bias is not None else None
+
+        if is_int8:
+            new = bnb.nn.Linear8bitLt(
+                module.in_features,
+                module.out_features,
+                bias=b is not None,
+                has_fp16_weights=bnb_config.llm_int8_has_fp16_weight,
+                threshold=bnb_config.llm_int8_threshold,
+            )
+            new.weight = bnb.nn.Int8Params(
+                w,
+                requires_grad=False,
+                has_fp16_weights=bnb_config.llm_int8_has_fp16_weight,
+            )
+        else:
+            new = bnb.nn.Linear4bit(
+                module.in_features,
+                module.out_features,
+                bias=b is not None,
+                compute_dtype=bnb_config.bnb_4bit_compute_dtype,
+                compress_statistics=bnb_config.bnb_4bit_use_double_quant,
+                quant_type=bnb_config.bnb_4bit_quant_type,
+            )
+            new.weight = bnb.nn.Params4bit(
+                w,
+                requires_grad=False,
+                quant_type=bnb_config.bnb_4bit_quant_type,
+                compress_statistics=bnb_config.bnb_4bit_use_double_quant,
+            )
+
+        if b is not None:
+            new.bias = torch.nn.Parameter(b, requires_grad=False)
+        new.source_cls = type(module)
+        new.requires_grad_(False)
+        model.set_submodule(module_name, new)
+        replaced += 1
+
+    print(f"  In-place BnB replacement: {replaced} Linear → {'Int8' if is_int8 else '4bit'} layers.")
+    model.to(device)    # triggers Int8Params.to() / Params4bit.to() → BnB quantisation
+    return model
+
+
+def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
+    """Load a model for causal-LM tasks.
+
+    Primary path: ``AutoModelForCausalLM`` (pure text models).
+    Fallback: ``AutoModelForImageTextToText`` for vision-language models
+    whose config (e.g. ``Mistral3Config``) is not registered under
+    ``AutoModelForCausalLM``.  The ``LLMExtractor`` handles VL model
+    structures transparently by navigating to the text backbone.
+    """
+    try:
+        return AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
+    except ValueError as exc:
+        if "Unrecognized configuration class" not in str(exc):
+            raise
+        cfg = AutoConfig.from_pretrained(
+            model_id,
+            trust_remote_code=kwargs.get("trust_remote_code", True),
+        )
+        if not hasattr(cfg, "text_config"):
+            raise
+        print(
+            f"  (VL model detected [{cfg.__class__.__name__}];"
+            " loading text backbone via AutoModelForImageTextToText)"
+        )
+        return AutoModelForImageTextToText.from_pretrained(model_id, **kwargs)
+
+
+class QuantizationExperiment(BaseExperiment):
+    """Compare full-precision target with quantised variants (proxy).
+
+    Both W = I (identity alignment) and W = W_opt (Procrustes alignment)
+    are computed; the tighter bound is selected.
+    """
+
+    def setup_pairs(self) -> List[Dict[str, Any]]:
+        """Not used directly — see ``run()``."""
+        return []
+
+    # ------------------------------------------------------------------
+    # Proxy loading — dispatches between GGUF and bitsandbytes
+    # ------------------------------------------------------------------
+    def _load_proxy_gguf(
+        self, quant_repo: str, filename: str,
+    ) -> torch.nn.Module:
+        """Load a GGUF-quantised proxy."""
+        print(f"  Loading proxy: {filename} from {quant_repo} ...")
+        proxy = _load_model(
+            quant_repo,
+            gguf_file=filename,
+            dtype=self.model_dtype,
+            device_map=self.device,
+            trust_remote_code=True,
+            **self._attn_impl_kwargs(),
+        )
+        return proxy
+
+    def _load_proxy_bnb(
+        self, bnb_tag: str, model_id: str,
+    ) -> torch.nn.Module:
+        """Load a bitsandbytes-quantised proxy from the original model."""
+        if bnb_tag not in _BNB_CONFIGS:
+            raise ValueError(
+                f"Unknown bnb quant type '{bnb_tag}'. "
+                f"Available: {sorted(_BNB_CONFIGS)}"
+            )
+        print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
+        # Pre-load config to detect whether the checkpoint already has its own
+        # quantisation (e.g. FineGrainedFP8Config for Ministral-3-8B-Instruct).
+        # Passing a BitsAndBytesConfig alongside a different quantisation class
+        # raises a conflict error in transformers.  When a pre-applied config is
+        # detected we use a two-step path:
+        #   1. Load to CPU with dtype=bfloat16 — transformers automatically
+        #      dequantises the weights to BF16 on hardware that does not support
+        #      the native format (e.g. FP8 on compute capability < 8.9).
+        #   2. Replace nn.Linear layers with BnB-quantised equivalents in-place
+        #      via _bnb_requantize, then dispatch to GPU (triggers on-CUDA
+        #      BnB weight quantisation through Int8Params / Params4bit).
+        config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+        existing_quant = getattr(config, "quantization_config", None)
+
+        if existing_quant is None:
+            proxy = _load_model(
+                model_id,
+                quantization_config=_BNB_CONFIGS[bnb_tag](),
+                device_map=self.device,
+                trust_remote_code=True,
+                **self._attn_impl_kwargs(),
+            )
+        else:
+            print(
+                f"  (pre-quantised checkpoint [{type(existing_quant).__name__}];"
+                f" loading to CPU for dequantisation, then re-quantising with BnB)"
+            )
+            proxy = _load_model(
+                model_id,
+                dtype=torch.bfloat16,
+                device_map="cpu",
+                trust_remote_code=True,
+            )
+            proxy = _bnb_requantize(proxy, _BNB_CONFIGS[bnb_tag](), self.device)
+        return proxy
+
+    def _load_proxy_hf(
+        self, repo: str, revision: str | None, backend: str,
+    ) -> torch.nn.Module:
+        """Load a pre-quantised GPTQ or AWQ model from HuggingFace."""
+        rev_tag = f" @{revision}" if revision else ""
+        print(f"  Loading proxy: {repo}{rev_tag} [{backend}] ...")
+        kwargs: dict = dict(
+            device_map=self.device,
+            trust_remote_code=True,
+            **self._attn_impl_kwargs(),
+        )
+        if revision:
+            kwargs["revision"] = revision
+        if backend == "AWQ":
+            kwargs["quantization_config"] = AwqConfig(
+                do_fuse=False, version="gemm",
+            )
+        return _load_model(repo, **kwargs)
+
+    def _load_proxy_dtype(
+        self, dtype_str: str, model_id: str,
+    ) -> torch.nn.Module:
+        """Load target model weights at a different native dtype (precision-only proxy).
+
+        E.g. ``dtype:float16`` loads the same checkpoint the target was loaded from
+        but casts to FP16, letting the experiment measure the BF16→FP16 gap as a
+        reference point against heavier quantisation tiers.
+        """
+        dtype = getattr(torch, dtype_str)
+        label = _DTYPE_LABELS.get(dtype_str, dtype_str.upper())
+        print(f"  Loading proxy: {model_id} [{label}] ...")
+        proxy = _load_model(
+            model_id,
+            dtype=dtype,
+            device_map=self.device,
+            trust_remote_code=True,
+            **self._attn_impl_kwargs(),
+        )
+        return proxy
+
+    def _load_proxy(
+        self,
+        quant_tag: str,
+        quant_repo: str,
+        gguf_tpl: str,
+        target_model_id: str,
+    ) -> torch.nn.Module:
+        """Dispatch proxy loading based on quant tag prefix."""
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        if _is_dtype(quant_tag):
+            proxy = self._load_proxy_dtype(_parse_dtype(quant_tag), target_model_id)
+        elif _is_gptq(quant_tag):
+            repo, rev = _parse_gptq(quant_tag)
+            proxy = self._load_proxy_hf(repo, rev, "GPTQ")
+        elif _is_awq(quant_tag):
+            repo, rev = _parse_awq(quant_tag)
+            proxy = self._load_proxy_hf(repo, rev, "AWQ")
+        elif _is_bnb(quant_tag):
+            proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
+        else:
+            filename = _gguf_filename(gguf_tpl, quant_tag)
+            proxy = self._load_proxy_gguf(quant_repo, filename)
+        proxy.eval()
+        return proxy
+
+    # ------------------------------------------------------------------
+    # Helpers for multi-z_mode paired-loss selection
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _select_paired_losses(zm, loss_mode, loss_stats):
+        """Return the losses tensor correctly paired with Z for K_feat estimation."""
+        if zm == "concat" and loss_stats["token_losses"] is not None:
+            return loss_stats["token_losses"]
+        if loss_mode == "answer" and loss_stats["has_answer_loss"]:
+            return loss_stats["answer_losses"]
+        return loss_stats["losses"]
+
+    def run(self) -> list:
+        """Cache target features/loss, free VRAM, then load proxies one at a time."""
+        cfg_target = self.config.get("target", {})
+        cfg_proxy = self.config.get("proxy", {})
+        cfg_data = self.config.get("data", {})
+        cfg_align = self.config.get("alignment", {})
+
+        target_model_id = cfg_target.get("model", "NousResearch/Llama-2-7b-hf")
+        quant_repo = cfg_proxy.get("model", "TheBloke/Llama-2-7b-GGUF")
+        quant_bits: List[str] = cfg_proxy.get("quantization_bits", [
+            "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K",
+        ])
+        gguf_tpl: str = cfg_proxy.get("gguf_template") or _derive_gguf_template(quant_repo)
+        absorbed: bool = cfg_align.get("scale_absorbed", False)
+
+        task_name = cfg_data.get("task", "wikitext")
+        num_samples = cfg_data.get("num_samples", 256)
+        batch_size = cfg_data.get("batch_size", 8)
+        max_length = cfg_data.get("max_length", 512)
+
+        # --- Control Variate ablation config ---
+        cfg_cv = self.config.get("cv_ablation", {})
+        cv_cal_sizes: List[int] = cfg_cv.get("calibration_sizes", [])
+        cv_n_trials: int = cfg_cv.get("n_trials", 20)
+
+        # --- Dataset-specific Z extraction and loss modes ---
+        from ..data.loaders import get_task_metadata
+        task_meta = get_task_metadata(task_name)
+        loss_mode = task_meta["loss_mode"]
+
+        # z_modes resolution: explicit list > single override > task default
+        if cfg_data.get("z_modes"):
+            z_modes = list(cfg_data["z_modes"])
+        elif cfg_data.get("z_mode"):
+            z_modes = [cfg_data["z_mode"]]
+        else:
+            z_modes = [task_meta["z_mode"]]
+
+        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q) and not _is_dtype(q) for q in quant_bits)
+        has_awq = any(_is_awq(q) for q in quant_bits)
+        has_bnb = any(_is_bnb(q) for q in quant_bits)
+        has_gptq = any(_is_gptq(q) for q in quant_bits)
+        has_dtype = any(_is_dtype(q) for q in quant_bits)
+
+        mode_tag = " (scale-absorbed)" if absorbed else ""
+        print(f"{'=' * 72}")
+        print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
+        print(f"{'=' * 72}")
+        print(f"  Target : {target_model_id}  [{_DTYPE_LABELS.get(str(self.model_dtype).split('.')[-1], str(self.model_dtype))}]")
+        if has_dtype:
+            dtype_tags = [_parse_dtype(q) for q in quant_bits if _is_dtype(q)]
+            print(f"  Dtype  : {', '.join(_DTYPE_LABELS.get(d, d.upper()) for d in dtype_tags)}")
+        if has_gguf:
+            print(f"  GGUF   : {quant_repo}  (template: {gguf_tpl})")
+        if has_bnb:
+            bnb_tags = [_bnb_type(q) for q in quant_bits if _is_bnb(q)]
+            print(f"  BnB    : {', '.join(bnb_tags)}")
+        if has_gptq:
+            gptq_repos = set()
+            for q in quant_bits:
+                if _is_gptq(q):
+                    repo, _ = _parse_gptq(q)
+                    gptq_repos.add(repo)
+            print(f"  GPTQ   : {', '.join(sorted(gptq_repos))}")
+        if has_awq:
+            awq_repos = set()
+            for q in quant_bits:
+                if _is_awq(q):
+                    repo, _ = _parse_awq(q)
+                    awq_repos.add(repo)
+            print(f"  AWQ    : {', '.join(sorted(awq_repos))}")
+        print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
+        print(f"  Data   : {task_name}  z_modes={z_modes}  loss_mode={loss_mode}")
+
+        print(f"Loading tokenizer from {target_model_id} ...")
+        tokenizer = AutoTokenizer.from_pretrained(target_model_id, trust_remote_code=True)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
+        print(f"Loading data: {task_name} (n={num_samples}) ...")
+        dataloader = load_task_data(
+            task_name, split="test", num_samples=num_samples,
+            batch_size=batch_size, tokenizer=tokenizer, max_length=max_length,
+            seed=self.seed,
+        )
+
+        # --- Phase 1: load target, extract ALL z_modes in one forward pass ---
+        target_dtype_label = _DTYPE_LABELS.get(str(self.model_dtype).split(".")[-1], str(self.model_dtype).upper())
+        print(f"Loading target ({target_dtype_label}): {target_model_id} ...")
+        target_model = _load_model(
+            target_model_id, dtype=self.model_dtype, device_map=self.device,
+            trust_remote_code=True,
+            **self._attn_impl_kwargs(),
+        )
+        target_model.eval()
+        extractor = LLMExtractor()
+
+        print(f"Caching target features and loss (single forward pass, z_modes={z_modes}) ...")
+        Z_dict_T, loss_stats = extractor.extract_features_and_loss_per_sample(
+            target_model, dataloader, self.tensor_device,
+            chunk_size=self.logit_chunk_size,
+            z_modes=z_modes,
+        )
+        H_T = extractor.extract_head(target_model)
+
+        # Compute both full-text and answer-only losses (stored for CSV).
+        has_answer = loss_stats["has_answer_loss"]
+        full_loss_target = loss_stats["losses"].mean().item()
+        full_ppl_target = math.exp(full_loss_target)
+        if has_answer:
+            answer_loss_target = loss_stats["answer_losses"].mean().item()
+            answer_ppl_target = math.exp(answer_loss_target)
+        else:
+            answer_loss_target = answer_ppl_target = None
+
+        # Primary sample-level loss follows loss_mode
+        if loss_mode == "answer" and has_answer:
+            sample_loss_target = answer_loss_target
+        else:
+            sample_loss_target = full_loss_target
+        # Token-level loss for concat z_mode — matches per-token K_feat
+        # estimation so the bound is verified against the same risk
+        # definition that K_feat was estimated under.
+        _tok_T = loss_stats["token_losses"]
+        token_loss_target = (_tok_T.mean().item()
+                             if _tok_T is not None and _tok_T.numel() > 0
+                             else sample_loss_target)
+        ppl_target = math.exp(sample_loss_target)
+
+        target_info = f"  Target: Loss={sample_loss_target:.8f}  PPL={ppl_target:.2f}  (mode={loss_mode})"
+        for zm in z_modes:
+            target_info += f"  Z[{zm}]={tuple(Z_dict_T[zm].shape)}"
+        target_info += f"  H={tuple(H_T.shape)}"
+        print(target_info)
+
+        del target_model
+        gc.collect()
+
+        # theoretical_K benefits from GPU matmuls for large-vocab heads,
+        # so compute it before moving H_T to CPU.
+        K_theory = UnifiedBound.theoretical_K(H_T)
+        K_feat = K_theory["K_feat"]
+        K_pred = K_theory["K_pred"]
+        K_pred_empirical = loss_stats["grad_norm_p95"]
+
+        # Move everything to CPU — full GPU is now free for proxy models.
+        # Z_dict_T is already CPU (features moved in extractor).
+        H_T = H_T.cpu()
+        for k, v in loss_stats.items():
+            if isinstance(v, torch.Tensor) and v.is_cuda:
+                loss_stats[k] = v.cpu()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        print("  Target model freed; tensors moved to CPU.")
+
+        # --- Lipschitz constants per z_mode (all on CPU) ---
+        K_feat_grad = loss_stats.get("feat_grad_norm_p95")
+
+        rho_T_per_zm: Dict[str, float] = {}
+        K_emp_per_zm: Dict[str, Dict] = {}
+        lipschitz_per_zm: Dict[str, Dict] = {}
+
+        for zm in z_modes:
+            Z_T_zm = Z_dict_T[zm]
+            rho_T = Z_T_zm.norm("fro").item() / math.sqrt(Z_T_zm.shape[0])
+            rho_T_per_zm[zm] = rho_T
+            paired = self._select_paired_losses(zm, loss_mode, loss_stats)
+            K_emp = UnifiedBound.estimate_lipschitz_lm(Z_T_zm, paired)
+            K_emp_per_zm[zm] = K_emp
+            lipschitz_per_zm[zm] = {
+                "K_feat_tight": K_feat,
+                "K_feat_naive": K_theory["K_feat_naive"],
+                "K_feat_empirical": K_emp["K_feat_empirical"],
+                "K_feat_empirical_median": K_emp["median"],
+                "K_feat_empirical_max": K_emp["max"],
+                "K_feat_grad_p95": K_feat_grad,
+                "K_feat_grad_max": loss_stats.get("feat_grad_norm_max"),
+                "K_feat_grad_mean": loss_stats.get("feat_grad_norm_mean"),
+                "K_pred_theory": K_pred,
+                "K_pred_empirical": K_pred_empirical,
+                "K_pred_empirical_mean": loss_stats["grad_norm_mean"],
+                "K_pred_empirical_max": loss_stats["grad_norm_max"],
+                "H_T_spectral": K_theory["H_T_spectral"],
+                "max_pairwise_dist": K_theory["max_pairwise_dist"],
+                "rho_T": rho_T,
+            }
+
+        print(f"\n  Lipschitz constants:")
+        print(f"    Theoretical : K_feat={K_feat:.8f}  K_pred={K_pred:.8f}")
+        if K_feat_grad is not None:
+            print(f"    Gradient    : K_feat_grad(p95)={K_feat_grad:.8f}  "
+                  f"K_pred_emp(p95)={K_pred_empirical:.8f}")
+        for zm in z_modes:
+            rho_T = rho_T_per_zm[zm]
+            K_emp = K_emp_per_zm[zm]
+            print(f"    [{zm}]  ρ_T={rho_T:.8f}  K_feat_pw(p95)={K_emp['p95']:.8f}  "
+                  f"(median={K_emp['median']:.8f}, max={K_emp['max']:.8f})")
+
+        # --- Phase 2: load each proxy one at a time ---
+        results = []
+        for i, bit_label in enumerate(quant_bits):
+            disp = _display_label(bit_label)
+            base_label = f"{target_dtype_label} vs {disp}"
+            print(f"\n--- [{i+1}/{len(quant_bits)}] {base_label} ---")
+            t0 = time.time()
+
+            proxy_model = None
+            try:
+                proxy_model = self._load_proxy(bit_label, quant_repo, gguf_tpl, target_model_id)
+
+                Z_dict_P, proxy_stats = extractor.extract_features_and_loss_per_sample(
+                    proxy_model, dataloader, self.tensor_device,
+                    chunk_size=self.logit_chunk_size,
+                    z_modes=z_modes,
+                )
+
+                # Z_dict_P features are already on CPU from extractor.
+                # Check all z_modes for NaN/Inf.
+                bad = [zm for zm in z_modes if not torch.isfinite(Z_dict_P[zm]).all()]
+                if bad:
+                    print(f"  WARNING: proxy features contain NaN/Inf in {bad} — skipping {disp}")
+                    continue
+
+                H_P = extractor.extract_head(proxy_model)
+
+                # Free proxy model immediately — H_P is a detached copy.
+                H_P = H_P.cpu()
+                for k, v in proxy_stats.items():
+                    if isinstance(v, torch.Tensor) and v.is_cuda:
+                        proxy_stats[k] = v.cpu()
+                del proxy_model
+                proxy_model = None
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                # Proxy loss — both full-text and answer-only
+                full_loss_proxy = proxy_stats["losses"].mean().item()
+                full_ppl_proxy = math.exp(full_loss_proxy)
+                if has_answer:
+                    answer_loss_proxy = proxy_stats["answer_losses"].mean().item()
+                    answer_ppl_proxy = math.exp(answer_loss_proxy)
+                else:
+                    answer_loss_proxy = answer_ppl_proxy = None
+
+                if loss_mode == "answer" and has_answer:
+                    sample_loss_proxy = answer_loss_proxy
+                else:
+                    sample_loss_proxy = full_loss_proxy
+                _tok_P = proxy_stats["token_losses"]
+                token_loss_proxy = (_tok_P.mean().item()
+                                    if _tok_P is not None and _tok_P.numel() > 0
+                                    else sample_loss_proxy)
+                ppl_proxy = math.exp(sample_loss_proxy)
+
+                # Proxy model label (shared across z_modes)
+                proxy_model_name = _proxy_model_name(
+                    bit_label, target_model_id, quant_repo, gguf_tpl)
+
+                elapsed = time.time() - t0
+
+                # --- One result per z_mode (dual-W: W=I and W=opt) ---
+                for zm in z_modes:
+                    rho_T = rho_T_per_zm[zm]
+                    K_emp = K_emp_per_zm[zm]
+                    Z_T_zm, Z_P_zm = Z_dict_T[zm], Z_dict_P[zm]
+                    d = Z_T_zm.shape[1]
+                    W_I = torch.eye(d, dtype=torch.float32)
+
+                    # Compute metrics under both alignment choices
+                    result_I = self.compute_metrics(
+                        Z_T_zm, H_T, Z_P_zm, H_P,
+                        W=W_I, label=base_label, absorbed=absorbed,
+                        K_feat=K_feat, K_pred=K_pred,
+                    )
+                    result_W = self.compute_metrics(
+                        Z_T_zm, H_T, Z_P_zm, H_P,
+                        W=None, label=base_label, absorbed=absorbed,
+                        K_feat=K_feat, K_pred=K_pred,
+                    )
+
+                    # Theoretical bounds (filled by fill_result inside compute_metrics)
+                    bound_I_th = result_I.risk_bound_total
+                    bound_W_th = result_W.risk_bound_total
+                    bound_th = min(bound_I_th, bound_W_th)
+
+                    # Empirical bounds (gradient-based K_feat + empirical K_pred)
+                    if K_feat_grad is not None:
+                        bound_I_emp = (K_feat_grad * result_I.feature_error
+                                       + K_pred_empirical * result_I.head_discrepancy)
+                        bound_W_emp = (K_feat_grad * result_W.feature_error
+                                       + K_pred_empirical * result_W.head_discrepancy)
+                    else:
+                        bound_I_emp = bound_I_th
+                        bound_W_emp = bound_W_th
+                    bound_emp = min(bound_I_emp, bound_W_emp)
+
+                    # Primary result — whichever W gives tighter theoretical bound
+                    result = result_I if bound_I_th <= bound_W_th else result_W
+                    result.risk_bound_total = bound_th
+
+                    # Token-level loss for concat (consistent with per-token
+                    # K_feat estimation); sample-level for other z_modes.
+                    if zm == "concat" and loss_stats["token_losses"] is not None:
+                        zm_loss_t, zm_loss_p = token_loss_target, token_loss_proxy
+                    else:
+                        zm_loss_t, zm_loss_p = sample_loss_target, sample_loss_proxy
+                    result.loss_target = zm_loss_t
+                    result.loss_proxy = zm_loss_p
+                    result.extra["perplexity_target"] = math.exp(zm_loss_t)
+                    result.extra["perplexity_proxy"] = math.exp(zm_loss_p)
+
+                    # Both loss variants for CSV
+                    result.extra["full_loss_target"] = full_loss_target
+                    result.extra["full_loss_proxy"] = full_loss_proxy
+                    result.extra["full_ppl_target"] = full_ppl_target
+                    result.extra["full_ppl_proxy"] = full_ppl_proxy
+                    if answer_loss_target is not None:
+                        result.extra["answer_loss_target"] = answer_loss_target
+                        result.extra["answer_loss_proxy"] = answer_loss_proxy
+                        result.extra["answer_ppl_target"] = answer_ppl_target
+                        result.extra["answer_ppl_proxy"] = answer_ppl_proxy
+
+                    # Dual-W metrics
+                    result.extra["omega_I"] = result_I.omega
+                    result.extra["omega_W"] = result_W.omega
+                    result.extra["delta_I"] = result_I.feature_error
+                    result.extra["delta_W"] = result_W.feature_error
+                    result.extra["gamma_I"] = result_I.head_discrepancy
+                    result.extra["gamma_W"] = result_W.head_discrepancy
+                    result.extra["bound_I_th"] = bound_I_th
+                    result.extra["bound_W_th"] = bound_W_th
+                    result.extra["bound_I_emp"] = bound_I_emp
+                    result.extra["bound_W_emp"] = bound_W_emp
+                    result.extra["bound_th"] = bound_th
+                    result.extra["bound_emp"] = bound_emp
+
+                    result.extra.update(lipschitz_per_zm[zm])
+                    result.extra["dataset"] = task_name
+                    result.extra["z_mode"] = zm
+                    result.extra["loss_mode"] = loss_mode
+                    result.extra["num_samples"] = num_samples
+                    result.extra["target_model"] = target_model_id
+                    result.extra["proxy_model"] = proxy_model_name
+                    results.append(result)
+
+                    # Console output — dual-W format
+                    rho_P = result_I.rho_proxy
+                    dr = abs(zm_loss_t - zm_loss_p)
+                    status = "PASS" if bound_th >= dr else "VIOLATED"
+                    print(f"  [{zm:<20s}] ρ_T={rho_T:.8f} ρ_P={rho_P:.8f}")
+                    print(f"    W=I:   Ω={result_I.omega:.8f} δ={result_I.feature_error:.8f} "
+                          f"γ={result_I.head_discrepancy:.8f}  "
+                          f"Bnd={bound_I_th:.8f}/{bound_I_emp:.8f}")
+                    print(f"    W=opt: Ω={result_W.omega:.8f} δ={result_W.feature_error:.8f} "
+                          f"γ={result_W.head_discrepancy:.8f}  "
+                          f"Bnd={bound_W_th:.8f}/{bound_W_emp:.8f}")
+                    print(f"    → min  Bnd(th)={bound_th:.8f} Bnd(emp)={bound_emp:.8f} "
+                          f"|dR|={dr:.8f} {status}"
+                          + (f"  ({elapsed:.1f}s)" if zm == z_modes[0] else ""))
+
+                # --- Control Variate Ablation ---
+                if cv_cal_sizes:
+                    if loss_mode == "answer" and has_answer:
+                        persample_T = loss_stats["answer_losses"]
+                        persample_P = proxy_stats["answer_losses"]
+                    else:
+                        persample_T = loss_stats["losses"]
+                        persample_P = proxy_stats["losses"]
+
+                    N_full = persample_T.shape[0]
+                    R_T_full = persample_T.mean().item()
+                    R_P_full = persample_P.mean().item()
+
+                    cv_results_for_proxy = []
+                    for n_cal in cv_cal_sizes:
+                        if n_cal >= N_full:
+                            continue
+                        errors = []
+                        for trial in range(cv_n_trials):
+                            rng = torch.Generator().manual_seed(self.seed + trial)
+                            idx = torch.randperm(N_full, generator=rng)[:n_cal]
+                            delta_hat = persample_T[idx].mean().item() - persample_P[idx].mean().item()
+                            R_T_hat = R_P_full + delta_hat
+                            errors.append(abs(R_T_hat - R_T_full))
+                        mean_err = sum(errors) / len(errors)
+                        std_err = (sum((e - mean_err) ** 2 for e in errors) / len(errors)) ** 0.5
+                        cv_results_for_proxy.append({
+                            "n_cal": n_cal,
+                            "mean_abs_error": mean_err,
+                            "std_abs_error": std_err,
+                            "R_T_full": R_T_full,
+                            "R_P_full": R_P_full,
+                        })
+                        print(f"    CV n_cal={n_cal:5d}: |R̂_T - R_T| = {mean_err:.8f} ± {std_err:.8f}")
+
+                    # Store CV ablation in the first z_mode's result
+                    if cv_results_for_proxy:
+                        results[-len(z_modes)].extra["cv_ablation"] = cv_results_for_proxy
+
+            except Exception as e:
+                elapsed = time.time() - t0
+                print(f"  ERROR processing {disp}: {e}  ({elapsed:.1f}s) — skipping")
+
+            finally:
+                del proxy_model
+                Z_dict_P = None  # type: ignore[assignment]
+                H_P = None       # type: ignore[assignment]
+                proxy_stats = None  # type: ignore[assignment]
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        # --- Report and save per z_mode ---
+        model_slug = target_model_id.split("/")[-1].lower()
+        abs_tag = "_absorbed" if absorbed else ""
+        for zm in z_modes:
+            zm_results = [r for r in results if r.extra.get("z_mode") == zm]
+            if not zm_results:
+                continue
+            print(f"\n{'=' * 72}")
+            print(f"  z_mode: {zm}")
+            print(f"{'=' * 72}")
+            self.report(zm_results)
+            stem = f"prism_{model_slug}_{task_name}_n{num_samples}_{zm}{abs_tag}"
+            self.save(zm_results, filename=f"{stem}.json")
+            self.save_csv(zm_results, filename=f"{stem}.csv", loss_mode=loss_mode)
+        return results
+
+    @staticmethod
+    def report(results: list) -> None:
+        """Print dual-W summary table with theoretical/empirical bounds."""
+        if not results:
+            print("(no results)")
+            return
+
+        absorbed = results[0].extra.get("mode") == "scale_absorbed"
+        r0 = results[0]
+
+        header = (
+            f"{'Label':<20s} {'ρ_T':>13s} {'ρ_P':>13s} "
+            f"{'Ω_I':>12s} {'Ω_W':>12s} "
+            f"{'δ_I':>12s} {'δ_W':>12s} "
+            f"{'γ_I':>12s} {'γ_W':>12s} "
+            f"{'Bnd(th)':>12s} {'Bnd(em)':>12s} "
+            f"{'|dR|':>12s} "
+            f"{'Loss_T':>12s} {'Loss_P':>12s}"
+        )
+
+        mode_tag = " (scale-absorbed)" if absorbed else ""
+        ds_tag = ""
+        if "dataset" in r0.extra:
+            z_m = r0.extra.get("z_mode", "?")
+            l_m = r0.extra.get("loss_mode", "?")
+            ds_tag = (f"  [data: {r0.extra['dataset']}, n={r0.extra.get('num_samples', '?')}, "
+                      f"z_mode={z_m}, loss_mode={l_m}]")
+        sep = "-" * len(header)
+        print(f"\n{'=' * len(header)}")
+        print(f"  PRISM Quantization Results{mode_tag}{ds_tag}")
+        print(f"{'=' * len(header)}")
+
+        rho_T_val = r0.extra.get("rho_T")
+        if rho_T_val is not None:
+            print(f"  ρ_T = {rho_T_val:.8f}")
+
+        if "K_feat_tight" in r0.extra:
+            K_f = r0.extra["K_feat_tight"]
+            K_fn = r0.extra.get("K_feat_naive")
+            K_fg_p95 = r0.extra.get("K_feat_grad_p95")
+            K_fg_max = r0.extra.get("K_feat_grad_max")
+            K_fg_mean = r0.extra.get("K_feat_grad_mean")
+            K_fe = r0.extra.get("K_feat_empirical")
+            K_p = r0.extra.get("K_pred_theory")
+            K_pe = r0.extra.get("K_pred_empirical")
+            print(f"  K_feat:  {K_f:.8f} (tight)  "
+                  + (f"{K_fn:.8f} (naive)  " if K_fn is not None else "")
+                  + (f"{K_fe:.8f} (pw-emp)" if K_fe is not None else ""))
+            if K_fg_p95 is not None:
+                print(f"  K_feat(grad): p95={K_fg_p95:.8f}  "
+                      f"max={K_fg_max:.8f}  mean={K_fg_mean:.8f}")
+            print(f"  K_pred:  {K_p:.8f} (theory) "
+                  + (f"{K_pe:.8f} (emp)" if K_pe is not None else ""))
+            print(sep)
+
+        print(header)
+        print(sep)
+
+        for r in results:
+            dr = abs(r.loss_target - r.loss_proxy) if r.loss_target is not None and r.loss_proxy is not None else None
+            dr_s = f"{dr:.8f}" if dr is not None else "—"
+            lt = f"{r.loss_target:.8f}" if r.loss_target is not None else "—"
+            lp = f"{r.loss_proxy:.8f}" if r.loss_proxy is not None else "—"
+            rho_t_s = f"{r.extra.get('rho_T', 0):.8f}" if "rho_T" in r.extra else "—"
+            rho_p_s = f"{r.rho_proxy:.8f}"
+
+            o_I = f"{r.extra.get('omega_I', r.omega):.8f}"
+            o_W = f"{r.extra.get('omega_W', r.omega):.8f}"
+            d_I = f"{r.extra.get('delta_I', r.feature_error):.8f}"
+            d_W = f"{r.extra.get('delta_W', r.feature_error):.8f}"
+            g_I = f"{r.extra.get('gamma_I', r.head_discrepancy):.8f}"
+            g_W = f"{r.extra.get('gamma_W', r.head_discrepancy):.8f}"
+
+            bnd_th = f"{r.extra.get('bound_th', r.risk_bound_total):.8f}" if r.risk_bound_total is not None else "—"
+            bnd_emp = f"{r.extra.get('bound_emp', ''):.8f}" if r.extra.get("bound_emp") is not None else "—"
+
+            print(
+                f"{r.label:<20s} {rho_t_s:>13s} {rho_p_s:>13s} "
+                f"{o_I:>12s} {o_W:>12s} "
+                f"{d_I:>12s} {d_W:>12s} "
+                f"{g_I:>12s} {g_W:>12s} "
+                f"{bnd_th:>12s} {bnd_emp:>12s} "
+                f"{dr_s:>12s} "
+                f"{lt:>12s} {lp:>12s}"
+            )
+
+        # Bound validation (theoretical)
+        valid = [(r, abs(r.loss_target - r.loss_proxy))
+                 for r in results
+                 if r.loss_target is not None and r.loss_proxy is not None and r.risk_bound_total is not None]
+        if valid:
+            print(sep)
+            loss_mode = r0.extra.get("loss_mode", "full")
+            holds_th = sum(1 for r, dr in valid if r.risk_bound_total >= dr)
+            holds_emp = sum(1 for r, dr in valid
+                           if r.extra.get("bound_emp") is not None
+                           and r.extra["bound_emp"] >= dr)
+            n_emp = sum(1 for r, _ in valid if r.extra.get("bound_emp") is not None)
+            print(f"  Bound(th) holds (loss_mode={loss_mode}): {holds_th}/{len(valid)}  "
+                  f"({'ALL PASS' if holds_th == len(valid) else 'SOME VIOLATED'})")
+            if n_emp > 0:
+                print(f"  Bound(emp) holds: {holds_emp}/{n_emp}  "
+                      f"({'ALL PASS' if holds_emp == n_emp else 'SOME VIOLATED'})")
+
+        print(f"{'=' * len(header)}\n")

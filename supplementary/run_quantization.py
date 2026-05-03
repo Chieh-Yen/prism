@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""
+PRISM — Quantization experiment runner.
+
+This is the Python dispatcher invoked by run_quantization.sh.
+It loads a YAML config, instantiates the corresponding experiment class
+from prism.experiments.EXPERIMENT_REGISTRY, and runs it.
+
+Usage:
+    python run_quantization.py --config configs/quantization.yaml
+
+    # override config keys (dotted-path, key=value):
+    python run_quantization.py --config configs/quantization.yaml \\
+        target.model=meta-llama/Meta-Llama-3.1-8B \\
+        data.num_samples=512
+
+Lists can be specified as ``proxy.quantization_bits='[Q8_0,Q4_K_M]'``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import csv
+import copy
+import sys
+from pathlib import Path
+from typing import Any, Dict
+
+import yaml
+
+from prism.experiments import EXPERIMENT_REGISTRY
+
+
+# ------------------------------------------------------------------
+# Config helpers
+# ------------------------------------------------------------------
+
+def _load_yaml(path: str) -> Dict[str, Any]:
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+def _set_nested(d: dict, dotted_key: str, value: Any) -> None:
+    """Set ``d[a][b][c] = value`` from ``'a.b.c'``."""
+    keys = dotted_key.split(".")
+    for k in keys[:-1]:
+        d = d.setdefault(k, {})
+    d[keys[-1]] = value
+
+
+def _parse_list_items(raw: str) -> list[str]:
+    """Parse comma-separated list items while honoring quoted segments."""
+    reader = csv.reader([raw], skipinitialspace=True)
+    return [item.strip() for item in next(reader) if item.strip()]
+
+
+def _parse_value(raw: str) -> Any:
+    """Best-effort cast: int > float > bool > list/dict > str.
+
+    Handles ``[Q8_0,Q6_K,Q5_K_M]`` as a list of strings (items are
+    not valid Python literals, so ``ast.literal_eval`` would fail).
+    """
+    for caster in (int, float):
+        try:
+            return caster(raw)
+        except (ValueError, TypeError):
+            pass
+    if raw.lower() in ("true", "false"):
+        return raw.lower() == "true"
+    raw = raw.strip()
+    if raw.startswith("[") or raw.startswith("{"):
+        try:
+            return ast.literal_eval(raw)
+        except (ValueError, SyntaxError):
+            pass
+        if raw.startswith("[") and raw.endswith("]"):
+            items = _parse_list_items(raw[1:-1])
+            return [_parse_value(item) for item in items]
+    return raw
+
+
+def build_config(args: argparse.Namespace) -> Dict[str, Any]:
+    config = _load_yaml(args.config)
+    for override in args.overrides:
+        if "=" not in override:
+            print(f"Warning: ignoring malformed override '{override}' (expected key=value)")
+            continue
+        key, raw_value = override.split("=", 1)
+        key = key.strip()
+        raw_value = raw_value.strip()
+        if not key:
+            print(f"Warning: ignoring malformed override '{override}' (empty key)")
+            continue
+        _set_nested(config, key, _parse_value(raw_value))
+    return config
+
+
+# ------------------------------------------------------------------
+# Main
+# ------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="PRISM — Proxy Risk Estimation via Isomorphic Spectral Matching",
+        usage="python run_quantization.py --config CONFIG [key=value ...]",
+    )
+    parser.add_argument(
+        "--config", "-c",
+        type=str,
+        required=True,
+        help="Path to YAML config file (e.g. configs/quantization.yaml)",
+    )
+    parser.add_argument(
+        "overrides",
+        nargs="*",
+        help="Dotted-path overrides, e.g. target.model=X data.num_samples=512",
+    )
+
+    args = parser.parse_args()
+
+    if not Path(args.config).exists():
+        print(f"Error: config file not found: {args.config}", file=sys.stderr)
+        sys.exit(1)
+
+    config = build_config(args)
+
+    experiment_name = config.get("experiment")
+    if experiment_name not in EXPERIMENT_REGISTRY:
+        print(
+            f"Error: unknown experiment '{experiment_name}'. "
+            f"Available: {sorted(EXPERIMENT_REGISTRY.keys())}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    ExperimentClass = EXPERIMENT_REGISTRY[experiment_name]
+    experiment = ExperimentClass(config)
+    experiment.run()
+
+
+if __name__ == "__main__":
+    main()
