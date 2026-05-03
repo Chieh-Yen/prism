@@ -257,7 +257,7 @@ def plot_grid(mode: str, corr_method: str = "spearman"):
     # Reserve an absolute vertical band at the top for the (split) legend
     # + column titles. Two legend rows (GGUF tiers / other methods) at
     # fontsize 18 each take ~0.5"; total ~1.0" + buffer for column titles.
-    legend_reserve_inch = 1.8
+    legend_reserve_inch = 1.6
     fig_height = nrow * 2.8 + legend_reserve_inch
     fig, axes = plt.subplots(
         nrow, ncol,

@@ -454,17 +454,15 @@ CAPTION_W = (
 )
 
 CAPTION_COMBINED = (
-    r"\textbf{Component-wise ablation under both alignment conventions.} "
-    r"Top block: identity-alignment form ($W{=}I$, used throughout the main text). "
-    r"Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell "
-    r"Spearman protocol throughout. Within each block, rows add bound "
-    r"components cumulatively (shape $\to +$ scale $\to +$ head); larger "
-    r"$r_s$ = better variant ranking; \textbf{bold} / \underline{underline}: 1st / 2nd-best in column \emph{within "
-    r"its block}. The $W{=}W_N$ block ranks modestly better on the full "
-    r"bound, as expected since $W_N$ minimizes the alignment residual; "
-    r"the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the "
-    r"head-term simplification $H_T = H_P$ that holds in our "
-    r"frozen-\texttt{lm\_head} regimes."
+    r"\textbf{Component-wise ablation: PRISM ranks variants strongly under both alignments.} "
+    r"Rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); "
+    r"larger $r_s$ = better ranking; \textbf{bold} / \underline{underline}: "
+    r"1st / 2nd-best within each block. "
+    r"Top block: identity $W{=}I$ (main text default; $\mathcal{B}$ reaches $r_s{=}0.82$). "
+    r"Bottom block: Procrustes-optimal $W{=}W_N$ ($\mathcal{B}_N$ reaches $r_s{=}0.91$, "
+    r"modestly tighter since $W_N$ minimizes the alignment residual). "
+    r"The main text adopts $W{=}I$ for autograd compatibility and the "
+    r"$H_T{=}H_P$ head-term simplification in frozen-\texttt{lm\_head} regimes."
 )
 
 

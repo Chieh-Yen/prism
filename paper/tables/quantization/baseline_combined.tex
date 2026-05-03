@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{\textbf{Component-wise ablation under both alignment conventions.} Top block: identity-alignment form ($W{=}I$, used throughout the main text). Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell Spearman protocol throughout. Within each block, rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $r_s$ = better variant ranking; \textbf{bold} / \underline{underline}: 1st / 2nd-best in column \emph{within its block}. The $W{=}W_N$ block ranks modestly better on the full bound, as expected since $W_N$ minimizes the alignment residual; the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the head-term simplification $H_T = H_P$ that holds in our frozen-\texttt{lm\_head} regimes.}
+\caption{\textbf{Component-wise ablation: PRISM ranks variants strongly under both alignments.} Rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $r_s$ = better ranking; \textbf{bold} / \underline{underline}: 1st / 2nd-best within each block. Top block: identity $W{=}I$ (main text default; $\mathcal{B}$ reaches $r_s{=}0.82$). Bottom block: Procrustes-optimal $W{=}W_N$ ($\mathcal{B}_N$ reaches $r_s{=}0.91$, modestly tighter since $W_N$ minimizes the alignment residual). The main text adopts $W{=}I$ for autograd compatibility and the $H_T{=}H_P$ head-term simplification in frozen-\texttt{lm\_head} regimes.}
 \label{tab:baseline_combined}
 \small
 \setlength{\tabcolsep}{4pt}
