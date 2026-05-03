@@ -120,7 +120,7 @@
 
 \flushbottom
 
-\title{PRISM\hspace{0.05cm}\raisebox{-.15\height}{\includegraphics[scale=0.02]{figures/prism_4.png}}: Decomposing Geometric Drift \\
+\title{PRISM\hspace{0.05cm}\raisebox{-.15\height}{\includegraphics[scale=0.02]{figures/prism_5.png}}: Decomposing Geometric Drift \\
 for Risk Diagnosis in LLM Variants}
 % PRISM: A Geometric Risk Bound for Diagnosing LLM Variants
 % Previous: A Geometric Risk Bound for Diagnosing LLM Post-Training Variants
@@ -150,7 +150,7 @@ Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---need
 Our key insight is that two LLM-specific structures---a linear prediction head on a non-linear backbone and near-isometric backbone features---let feature-side and head-side errors decouple analytically.
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping): a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$ that splits the Procrustes residual into three independently measurable axes---\emph{scale} ($\Delta\rho$), \emph{shape} ($1-\Omega$), and a covariance-weighted \emph{head divergence} ($\gamma$).
 Each axis maps to a distinct failure mode, so the dominant axis points to a specific \emph{direction} for remediation rather than a binary flag, and because $\Omega$ is differentiable, it doubles as a regularizer against catastrophic forgetting.
-Across the cross-family Llama--Qwen pair and five benchmarks, PRISM ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, its axes localize low-bit shape distortion, GGUF k-quant head divergence, and cross-task LoRA scale-axis separability, and the shape regularizer outperforms experience replay at suppressing downstream forgetting.
+Across the cross-family Llama--Qwen pair and five benchmarks, PRISM ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, its axes localize low-bit shape distortion, GGUF k-quant head divergence, and cross-task LoRA scale-axis separability, and the shape regularizer outperforms experience replay on shape-dominated forgetting.
 \end{abstract}
 
 \section{Introduction}
@@ -423,7 +423,7 @@ Each dominant axis suggests a different remediation---per-channel outlier smooth
 
 The decomposition of Sec.~\ref{subsec:decompose} suggests an immediate intervention: shape drift dominates LoRA forgetting, and $1{-}\Omega$ is differentiable in $Z_t$. We add the trace-norm penalty $\lambda(1{-}\Omega(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ on a $32$-sample reference set $\mathcal{D}_{\mathrm{ref}}$. To isolate shape preservation from data re-fitting, we compare against a replay-CE baseline that uses the same $\mathcal{D}_{\mathrm{ref}}$ (cross-entropy on $\mathcal{D}_{\mathrm{ref}}$, swept over $\lambda$).
 
-Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare our trace at $\lambda{=}1.0$ against the replay baseline at $\lambda{=}0.01$ on Llama-3.1-8B (no regularization as anchor reference; both $\lambda$ chosen as each method's sweep optimum under the identical evaluation protocol). Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ the contrast is qualitative: our trace lifts $\Omega$ from $0.93$ to $0.98$ while replay leaves $\Omega$ flat at $0.93$. Mechanism: replay reduces forgetting indirectly by re-fitting reference data (without directly targeting $\Omega$); trace contracts the shape arm of the bound at the source. Preserving shape geometry during training thus outperforms experience replay at matched data budget. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
+Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare our trace at $\lambda{=}1.0$ against the replay baseline at $\lambda{=}0.01$ on Llama-3.1-8B (no regularization as anchor reference; both $\lambda$ chosen as each method's sweep optimum under the identical evaluation protocol). Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ, fine-tuning is less shape-disruptive (mean baseline $\Omega = 0.932$ vs $0.906$); trace still lifts $\Omega$ ($0.93 \to 0.98$) while replay leaves it flat. Mechanism: replay reduces forgetting indirectly by re-fitting reference data (without directly targeting $\Omega$); trace contracts the shape arm of the bound at the source. Task-dependence is analyzed in Appendix~\ref{app:reg_task_dependence}. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
 
 
 \subsection{Ablation: Component-Wise Contributions}
@@ -476,6 +476,7 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 \input{appendix/model_quantization}
 \input{appendix/quantization_exp}
 \input{appendix/forgetting_qwen}
+\input{appendix/regularization_task_dependence}
 \input{appendix/future_work}
 
 \clearpage
