@@ -406,19 +406,14 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
     # ── Headers ──────────────────────────────────────────────────────
     n_cfg   = len(configs)
     n_groups = len(eval_tasks)
-    col_spec = "l " + " | ".join(["c" * n_cfg] * n_groups)
+    col_spec = "l " + "c" * (n_cfg * n_groups)
 
     group_names = [DS_DISPLAY.get(ev, ev).replace(" (self)", "")
                    for ev in eval_tasks]
-    # Trailing `|` on all but the last group's multicolumn so the vertical
-    # rules in col_spec extend up through the dataset header row, visually
-    # grouping each benchmark's three configs.
-    group_headers = []
-    for i, name in enumerate(group_names):
-        align = "c|" if i < len(group_names) - 1 else "c"
-        group_headers.append(
-            f"\\multicolumn{{{n_cfg}}}{{{align}}}{{{name}}}"
-        )
+    group_headers = [
+        f"\\multicolumn{{{n_cfg}}}{{c}}{{{name}}}"
+        for name in group_names
+    ]
     cmidrules = []
     col_idx = 2
     for _ in range(n_groups):

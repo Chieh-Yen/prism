@@ -304,9 +304,8 @@ def _emit_latex(metrics, stats, best_cols, second_cols, n_cells_with_data,
     lines.append(rf"\label{{{label}}}")
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
-    # Dynamic col_spec with vertical rules grouping: label | aggregate (Mean) |
-    # per-model. Pipes give the reader visual partitions.
-    col_spec = "l | c | " + "c" * len(ROW_MODELS)
+    # Columns: label, aggregate (Mean), per-model.
+    col_spec = "l c " + "c" * len(ROW_MODELS)
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
@@ -380,9 +379,8 @@ def _emit_combined_latex(groups, out_path, label, caption):
     lines.append(rf"\label{{{label}}}")
     lines.append(r"\small")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
-    # Dynamic col_spec: label | per-model | aggregate (Mean).
-    # Pipes give the reader visual partitions.
-    col_spec = "l | " + "c" * len(ROW_MODELS) + " | c"
+    # Columns: label, per-model, aggregate (Mean).
+    col_spec = "l " + "c" * len(ROW_MODELS) + " c"
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
