@@ -135,10 +135,11 @@ for Risk Diagnosis in LLM Variants}
 % \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 
 \begin{abstract}
-Comparing Large Language Model (LLM) variants---quantized checkpoints, LoRA adaptations, distilled snapshots---faces a diagnostic gap: aggregate accuracy flags degradation without explaining it, and representational similarity scores (e.g., CKA) collapse geometric mismatch to a single number that does not link to risk.
-We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a geometric framework that upper-bounds the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ in closed form, decomposed along three independently measurable axes: scale mismatch $\Delta\rho$, shape mismatch $1-\Omega$, and covariance-weighted head divergence $\gamma$.
-The bound applies to post-training quantization and frozen-head LoRA fine-tuning; the differentiable $\Omega$ further serves as a training-time regularizer against catastrophic forgetting.
-Across the cross-family Llama--Qwen pair and five benchmarks, the bound ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, and its axes localize distinct empirical settings---low-bit shape distortion, GGUF k-quant head divergence, cross-task LoRA scale-axis separability---turning a scalar similarity into an axis-level diagnostic that doubles as an active training signal.
+Comparing post-training LLM variants---quantized checkpoints, LoRA adaptations, distilled snapshots---needs a diagnostic that pinpoints which part has drifted; aggregate accuracy and representational similarities (CKA, SVCCA) flag degradation but link neither to risk nor to mechanism.
+Our key insight is that two LLM-specific structures---a linear prediction head on a non-linear backbone and near-isometric backbone features---let feature-side and head-side errors decouple analytically.
+We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping): a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$ that splits the Procrustes residual into three independently measurable axes---\emph{scale} ($\Delta\rho$), \emph{shape} ($1-\Omega$), and a covariance-weighted \emph{head divergence} ($\gamma$).
+Each axis maps to a distinct failure mode, so the dominant axis points to a specific \emph{direction} for remediation rather than a binary flag, and because $\Omega$ is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting.
+Across the cross-family Llama--Qwen pair and five benchmarks, PRISM ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, its axes localize low-bit shape distortion, GGUF k-quant head divergence, and cross-task LoRA scale-axis separability, and the shape regularizer outperforms a replay-CE baseline at suppressing downstream forgetting.
 \end{abstract}
 
 \section{Introduction}
