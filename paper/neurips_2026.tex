@@ -212,7 +212,7 @@ The risk of $M$ under data distribution $\mathcal{D}$ is the cross-entropy expec
 \label{eq:ce_def}
 \mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j=1}^{V} e^{v_j}, \; v \in \mathbb{R}^V.
 \end{equation}
-Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and the empirical isometry of same-family encoders~\cite{moschella2022relative}, we assume the two backbones lie in a common family: there exists an orthogonal $W \in \mathcal{O}(d)$ such that $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical (uncentered) covariance matrix $\Sigma_P = Z_P^\top Z_P / n$, on which the PRISM bound (Theorem~\ref{thm:unified_bound}) is evaluated.
+Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and the empirical isometry of same-family encoders~\cite{moschella2022relative}, we assume the backbones lie in a common family: there exists an orthogonal $W \in \mathcal{O}(d)$ with $\phi_T(x) \approx \phi_P(x)\, W$ for all $x$. On a calibration sample of size $n$, we collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F / \sqrt{n}$ and the empirical (uncentered) covariance matrix $\Sigma_P = Z_P^\top Z_P / n$, on which the PRISM bound (Theorem~\ref{thm:unified_bound}) is evaluated.
 
 
 \subsection{The Unified Risk Bound}
