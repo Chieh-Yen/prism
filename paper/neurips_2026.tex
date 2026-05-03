@@ -104,6 +104,17 @@
 \setlength{\abovedisplayshortskip}{2pt plus 1pt}
 \setlength{\belowdisplayshortskip}{2pt plus 1pt}
 
+% Single knob for vertical space before each \paragraph heading.
+% Default value matches LaTeX article's \paragraph (preserves current visual);
+% lower the value (e.g., 4pt) to globally tighten between \paragraph blocks.
+\newlength{\paraSpace}
+\setlength{\paraSpace}{14pt plus 4pt minus 1pt}
+\makeatletter
+\renewcommand{\paragraph}{\@startsection{paragraph}{4}{\z@}%
+  {\paraSpace}{-1em}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
 \newlength{\figpullup}
 \setlength{\figpullup}{-18pt}
 
