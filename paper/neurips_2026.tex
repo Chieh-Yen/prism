@@ -108,7 +108,7 @@
 % Default value matches LaTeX article's \paragraph (preserves current visual);
 % lower the value (e.g., 4pt) to globally tighten between \paragraph blocks.
 \newlength{\paraSpace}
-\setlength{\paraSpace}{14pt plus 4pt minus 1pt}
+\setlength{\paraSpace}{4pt plus 2pt minus 1pt}
 \makeatletter
 \renewcommand{\paragraph}{\@startsection{paragraph}{4}{\z@}%
   {\paraSpace}{-1em}%
@@ -120,7 +120,7 @@
 
 \flushbottom
 
-\title{PRISM\hspace{0.05cm}\raisebox{-.15\height}{\includegraphics[scale=0.02]{figures/prism.png}}: Decomposing Geometric Drift \\
+\title{PRISM\hspace{0.05cm}\raisebox{-.15\height}{\includegraphics[scale=0.02]{figures/prism_4.png}}: Decomposing Geometric Drift \\
 for Risk Diagnosis in LLM Variants}
 % PRISM: A Geometric Risk Bound for Diagnosing LLM Variants
 % Previous: A Geometric Risk Bound for Diagnosing LLM Post-Training Variants
@@ -175,7 +175,7 @@ Our analysis pivots on two observations about modern LLMs:
 Combining (i) and (ii), we propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}): a closed-form upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes.
 
 %\paragraph{PRISM: a bound with three actionable axes.}
-The three axes are scale mismatch $\Delta\rho$ (activation-magnitude collapse), shape mismatch $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---and a covariance-weighted head discrepancy $\gamma$. A simplex polarization argument keeps the feature-side Lipschitz constant $K_{\mathrm{feat}}$ informative at LLM vocabulary scale. So the dominant axis points to a specific \emph{direction}, not just a flag: scale-dominated failures point to outlier-channel corruption, shape-dominated to distorted token geometry, and head-dominated to prediction-head perturbation.
+The three axes are scale mismatch $\Delta\rho$ (activation-magnitude collapse), shape mismatch $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---and a covariance-weighted head discrepancy $\gamma$. We sharpen the feature-side Lipschitz constant $K_{\mathrm{feat}}$ beyond the naive spectral bound, keeping it informative at LLM vocabulary scale (Sec~\ref{subsec:unified_bound}). So the dominant axis points to a specific \emph{direction}, not just a flag: scale-dominated failures point to outlier-channel corruption, shape-dominated to distorted token geometry, and head-dominated to prediction-head perturbation.
 
 %\paragraph{From diagnostic to training signal.}
 Beyond diagnosis, the shape arm doubles as a training signal: under frozen-head LoRA the head term vanishes and $\Omega$ captures backbone shape drift differentiably, so a weighted penalty on $1-\Omega$ converts the bound into an active regularizer against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}).
@@ -232,7 +232,7 @@ Following the \emph{Linear Representation Hypothesis}~\cite{park2023linear} and 
 To bound $|\mathcal{R}_T - \mathcal{R}_P|$ we introduce a hybrid risk $\mathcal{R}_{P \to T} := \mathbb{E}[\ell(\phi_P(x)\,W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features. The triangle inequality $|\mathcal{R}_T - \mathcal{R}_P| \le |\mathcal{R}_T - \mathcal{R}_{P\to T}| + |\mathcal{R}_{P\to T} - \mathcal{R}_P|$ splits the gap into two components, each upper-bounded by a closed-form geometric quantity: a \emph{feature alignment error} $\delta$ and a \emph{head discrepancy} $\gamma$ (full derivations in Appendix~\ref{app:detailed_proofs}).
 
 \paragraph{Feature error $\delta$.}
-The cross-entropy loss is Lipschitz in features with constant $K_{\mathrm{feat}} = \max_{j,k}\|h_{T,j}-h_{T,k}\|_2$, where $h_{T,j}$ is the $j$-th column of $H_T$ (simplex polarization, Appendix~\ref{app:kfeat}). The alignment residual $\|Z_T - Z_P W\|_F^2 / n$ admits an exact identity for every orthogonal $W$:
+The cross-entropy loss is Lipschitz in features with constant $K_{\mathrm{feat}} = \max_{j,k}\|h_{T,j}-h_{T,k}\|_2$, where $h_{T,j}$ is the $j$-th column of $H_T$ (simplex polarization, Appendix~\ref{app:kfeat}; substantially tighter than the naive spectral bound $\sqrt{2}\|H_T\|_2$ that scales with vocabulary). The alignment residual $\|Z_T - Z_P W\|_F^2 / n$ admits an exact identity for every orthogonal $W$:
 
 \begin{proposition}[Exact Scale--Shape Decomposition]
 \label{prop:exact_decomposition}
@@ -442,7 +442,7 @@ Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all ri
 \section{Discussion}
 \label{sec:conclusion}
 
-We presented PRISM, a geometric framework with three contributions. \textbf{Theory} (Thm.~\ref{thm:unified_bound}): the Procrustes residual splits exactly into scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ arms; with a covariance-weighted head term, these upper-bound $|\mathcal{R}_T{-}\mathcal{R}_P|$ along three independently measurable axes. \textbf{Framework}: the bound is computable from features and head weights alone, applies to PTQ and frozen-head LoRA, and---via the differentiable $\Omega$---doubles as a regularizer against catastrophic forgetting. \textbf{Empirical}: rank-consistent on both settings (mean Spearman $r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA forgetting), the three axes localize Q2/Q3 shape distortion, Qwen3 Q6\_K/Q8\_0 head divergence, and cross-task LoRA scale-axis separability; the shape regularizer outperforms a replay baseline at mitigating downstream forgetting.
+PRISM combines a closed-form geometric bound on $|\mathcal{R}_T{-}\mathcal{R}_P|$ with an exact three-axis decomposition (scale, shape, head). The decomposition turns variant comparison from a scalar similarity score into an axis-level diagnostic that pinpoints \emph{which} part has drifted---applicable to PTQ and frozen-head LoRA, and (via the differentiable $\Omega$) deployable as a training-time regularizer. Empirically, this single framework ranks variants with comparable Spearman across both regimes ($r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA), the three axes localize qualitatively distinct failure modes, and the shape regularizer outperforms experience replay at suppressing forgetting.
 
 \paragraph{Scope and limitations.}
 PRISM bounds the cross-entropy risk gap to a reference base; it is calibrated for variant ranking, where Spearman correlations are strong across both PTQ and LoRA settings (Sec.~\ref{subsec:predict}). Tight absolute estimation of $|\Delta\mathcal{R}|$ is a complementary problem we leave to future work. Our evaluation uses teacher-forced features for efficiency (a single deterministic forward pass per variant, without sampling noise or decoding strategy to control for); the bound applies unchanged to any $(Z_T, Z_P)$ matrices, including features collected along free-running generation trajectories---a direct extension we leave to future work. The shape regularizer of Sec.~\ref{subsec:action} addresses the shape axis directly via training; complementary protocol-level mitigations targeting each axis (per-channel outlier smoothing for scale, Hessian-aware reconstruction for shape, FP16-\texttt{lm\_head} retention for head) are a research follow-up the diagnostic enables.
