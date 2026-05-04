@@ -92,15 +92,15 @@
 \renewcommand \thepart{}
 \renewcommand \partname{}
 
-
 % Tighten vertical spacing for page-budget compliance
-\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
-\setlength{\intextsep}{6pt plus 2pt minus 2pt}
-\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{4pt plus 2pt minus 1pt}
+\setlength{\intextsep}{4pt plus 2pt minus 1pt}
+\setlength{\floatsep}{4pt plus 2pt minus 1pt}
+
 \setlength{\abovecaptionskip}{2pt}
-\setlength{\belowcaptionskip}{0pt}
-\setlength{\abovedisplayskip}{4pt plus 1pt minus 1pt}
-\setlength{\belowdisplayskip}{4pt plus 1pt minus 1pt}
+\setlength{\belowcaptionskip}{2pt}
+\setlength{\abovedisplayskip}{3pt plus 1pt minus 1pt}
+\setlength{\belowdisplayskip}{3pt plus 1pt minus 1pt}
 \setlength{\abovedisplayshortskip}{2pt plus 1pt}
 \setlength{\belowdisplayshortskip}{2pt plus 1pt}
 
@@ -108,7 +108,7 @@
 % Default value matches LaTeX article's \paragraph (preserves current visual);
 % lower the value (e.g., 4pt) to globally tighten between \paragraph blocks.
 \newlength{\paraSpace}
-\setlength{\paraSpace}{4pt plus 2pt minus 1pt}
+\setlength{\paraSpace}{2pt plus 1pt minus 1pt}
 \makeatletter
 \renewcommand{\paragraph}{\@startsection{paragraph}{4}{\z@}%
   {\paraSpace}{-1em}%
@@ -116,7 +116,7 @@
 \makeatother
 
 \newlength{\figpullup}
-\setlength{\figpullup}{-18pt}
+\setlength{\figpullup}{-12pt}
 
 \flushbottom
 
@@ -146,11 +146,11 @@ for Risk Diagnosis in LLM Variants}
 % \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 
 \begin{abstract}
-Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---needs a diagnostic that pinpoints which part has drifted; aggregate accuracy and representational similarities (CKA, SVCCA) flag degradation but link neither to risk nor to mechanism.
-Our key insight is that two LLM-specific structures---a linear prediction head on a non-linear backbone and near-isometric backbone features---let feature-side and head-side errors decouple analytically.
-We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping): a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$ that splits the Procrustes residual into three independently measurable axes---\emph{scale} ($\Delta\rho$), \emph{shape} ($1-\Omega$), and a covariance-weighted \emph{head divergence} ($\gamma$).
-Each axis maps to a distinct failure mode, so the dominant axis points to a specific \emph{direction} for remediation rather than a binary flag, and because $\Omega$ is differentiable, it doubles as a regularizer against catastrophic forgetting.
-Across two model families and five benchmarks, PRISM ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, its axes localize low-bit shape distortion, GGUF k-quant head divergence, and cross-task LoRA scale-axis separability, and the shape regularizer outperforms experience replay at mitigating downstream forgetting.
+Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---needs a diagnostic that pinpoints \emph{which} component has drifted, not just \emph{that} it has; existing similarity scores (CKA, SVCCA) flag degradation without linking to risk or mechanism.
+We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), exploiting LLMs' linear head and near-isometric backbone to derive a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$ that decomposes drift into three independently measurable axes: \emph{scale}, \emph{shape}, and a covariance-weighted \emph{head divergence}.
+Each axis maps to a distinct failure mode (shape distortion at low-bit quantization, head divergence at GGUF k-quant, scale separability under LoRA forgetting), so the dominant axis points to a remediation direction rather than a flag.
+Because the shape term is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting.
+Across two model families and five benchmarks, PRISM ranks variants with mean Spearman $r_s{=}0.820$ (PTQ) and $0.831$ (LoRA forgetting), and the shape regularizer outperforms experience replay at mitigating downstream forgetting.
 \end{abstract}
 
 % \input{text/intro}
