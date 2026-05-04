@@ -205,7 +205,7 @@ def plot_grid(mode: str, model_dir: str, max_steps: int = 500,
     nrow, ncol = len(ROW_TASKS), len(COL_BENCHMARKS)
     # Absolute reserve at top for legend + column titles. Larger legend
     # font (18) needs more reserve.
-    legend_reserve_inch = 1.0
+    legend_reserve_inch = 1.05
     # Extra horizontal space so the right-side colorbar doesn't steal width
     # from the subplots (keeps per-subplot aspect close to quantization's).
     colorbar_reserve_inch = 0.8
