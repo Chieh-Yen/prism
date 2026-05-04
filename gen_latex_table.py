@@ -420,27 +420,55 @@ def build_summary_table(rows):
                  + row mean of mean |dR| per benchmark
                  + row mean of Spearman r_s per benchmark
     """
-    cell_dr = {}     # (short, ds) -> mean |dR| over all quantizations
-    cell_rs = {}     # (short, ds) -> Spearman r_s(B, |dR|)
+    cell_dr = {}     # (short, ds) -> mean |dR| (matches body-table aggregation)
+    cell_rs = {}     # (short, ds) -> Spearman r_s(B, |dR|) over raw rows
 
     for model_cfg in MODELS:
         target = model_cfg["path"]
         for ds in SUMMARY_BENCHMARKS:
-            xs, ys, dr_vals = [], [], []
+            # Pass 1: collect raw rows (no method/quality filter) for Spearman,
+            # which intentionally consumes every variant so it matches the
+            # figure's per-subplot r_s and the body-table convention.
+            xs, ys = [], []
+            # Pass 2: collect rows for the |dR| mean using the same filters
+            # as _collect(): per-method aggregation + GPTQ ratio>1.5x drop
+            # (a data-quality filter for GPTQ extraction failures, marked
+            # TODO in _collect; removing it would let measurement artefacts
+            # leak into the displayed mean).
+            method_rows = defaultdict(list)
             for r in rows:
                 if r["target_model"] != target or r["dataset"] != ds:
                     continue
                 try:
                     bnd = float(r["Bound_I"])
                     dr = float(r["|MdR|"])
-                    if not (math.isnan(bnd) or math.isnan(dr)):
-                        xs.append(bnd)
-                        ys.append(dr)
-                        dr_vals.append(dr)
+                    if math.isnan(bnd) or math.isnan(dr):
+                        continue
                 except (ValueError, KeyError):
-                    pass
+                    continue
+                xs.append(bnd)
+                ys.append(dr)
+                m = parse_method(r.get("Label", ""))
+                if m in {meth for meth, _ in METHOD_TABLE}:
+                    method_rows[m].append(r)
+
+            method_means = []
+            for m, group in method_rows.items():
+                # Per-method aggregation: average |dR| (and rho) across multiple
+                # checkpoints labelled the same way (e.g., several GPTQ-4bit).
+                rt = sum(float(g["rho_T"]) for g in group) / len(group)
+                rp = sum(float(g["rho_P"]) for g in group) / len(group)
+                # Drop GPTQ rows where rho_T / rho_P ratio exceeds 1.5x
+                # (data-quality filter; matches _collect()).
+                if m.startswith("GPTQ") and min(abs(rt), abs(rp)) > 0:
+                    if max(abs(rt), abs(rp)) / min(abs(rt), abs(rp)) > 1.5:
+                        continue
+                dr_avg = sum(float(g["|MdR|"]) for g in group) / len(group)
+                method_means.append(dr_avg)
+
             cell_dr[(model_cfg["short"], ds)] = (
-                sum(dr_vals) / len(dr_vals) if dr_vals else float("nan"))
+                sum(method_means) / len(method_means)
+                if method_means else float("nan"))
             cell_rs[(model_cfg["short"], ds)] = spearman(xs, ys)
 
     L = []
@@ -448,12 +476,14 @@ def build_summary_table(rows):
     L.append(r"\centering")
     L.append(
         r"\caption{Per-benchmark mean empirical risk gap "
-        r"$|\Delta\mathcal{R}|$ (averaged over all quantization variants per "
-        r"cell) and per-benchmark mean Spearman "
-        r"$r_s(\mathcal{B},|\Delta\mathcal{R}|)$ across seven 8B model "
-        r"families. GSM8K's small $|\Delta\mathcal{R}|$---driven by long "
-        r"teacher-forced answer spans diluting per-token loss---yields a low "
-        r"signal-to-noise ratio that depresses its rank correlation.}")
+        r"$|\Delta\mathcal{R}|$ (averaged over per-method aggregated "
+        r"quantization rows, matching the per-model body tables) and "
+        r"per-benchmark mean Spearman $r_s(\mathcal{B},|\Delta\mathcal{R}|)$ "
+        r"(over raw variants, matching the figure's per-subplot $r_s$) "
+        r"across seven 8B model families. GSM8K's small "
+        r"$|\Delta\mathcal{R}|$---driven by long teacher-forced answer spans "
+        r"diluting per-token loss---yields a low signal-to-noise ratio that "
+        r"depresses its rank correlation.}")
     L.append(r"\label{tab:gsm8k_outlier}")
     L.append(r"\setlength{\tabcolsep}{5pt}")
     L.append(r"\begin{tabular}{l " + "c" * len(SUMMARY_BENCHMARKS) + "}")

@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{Per-benchmark mean empirical risk gap $|\Delta\mathcal{R}|$ (averaged over all quantization variants per cell) and per-benchmark mean Spearman $r_s(\mathcal{B},|\Delta\mathcal{R}|)$ across seven 8B model families. GSM8K's small $|\Delta\mathcal{R}|$---driven by long teacher-forced answer spans diluting per-token loss---yields a low signal-to-noise ratio that depresses its rank correlation.}
+\caption{Per-benchmark mean empirical risk gap $|\Delta\mathcal{R}|$ (averaged over per-method aggregated quantization rows, matching the per-model body tables) and per-benchmark mean Spearman $r_s(\mathcal{B},|\Delta\mathcal{R}|)$ (over raw variants, matching the figure's per-subplot $r_s$) across seven 8B model families. GSM8K's small $|\Delta\mathcal{R}|$---driven by long teacher-forced answer spans diluting per-token loss---yields a low signal-to-noise ratio that depresses its rank correlation.}
 \label{tab:gsm8k_outlier}
 \setlength{\tabcolsep}{5pt}
 \begin{tabular}{l ccccc}
@@ -9,15 +9,15 @@
 \cmidrule(lr){2-6}
 Model & ARC & MMLU & SQuAD & TriviaQA & GSM8K \\
 \midrule
-Llama-3.1-8B & 0.0825 & 0.0884 & 0.1191 & 0.1902 & 0.0306 \\
+Llama-3.1-8B & 0.0795 & 0.0812 & 0.1040 & 0.1839 & 0.0311 \\
 Ministral-3-8B & 0.0870 & 0.0761 & 0.0329 & 0.0711 & 0.0116 \\
-Qwen3-8B & 0.1229 & 0.0973 & 0.2429 & 0.1801 & 0.0669 \\
+Qwen3-8B & 0.1223 & 0.0896 & 0.1405 & 0.1412 & 0.0470 \\
 DeepSeek-R1-8B & 0.0899 & 0.1112 & 0.1228 & 0.2680 & 0.0123 \\
-Llama-3.1-8B-Instruct & 0.0785 & 0.1165 & 0.0788 & 0.2149 & 0.0221 \\
+Llama-3.1-8B-Instruct & 0.0715 & 0.1080 & 0.0721 & 0.2086 & 0.0203 \\
 Ministral-3-8B-Instruct & 0.0282 & 0.0268 & 0.0379 & 0.1108 & 0.0052 \\
 Qwen3-8B-Instruct & 0.0334 & 0.0266 & 0.0865 & 0.1559 & 0.0033 \\
 \midrule
-\textbf{Mean $|\Delta\mathcal{R}|$} & 0.0746 & 0.0776 & 0.1030 & 0.1702 & \cellcolor{red!18} \textbf{0.0217} \\
+\textbf{Mean $|\Delta\mathcal{R}|$} & 0.0731 & 0.0742 & 0.0852 & 0.1628 & \cellcolor{red!18} \textbf{0.0187} \\
 \midrule
 \textbf{Mean $r_s$} & 0.768 & 0.793 & 0.801 & 0.889 & \cellcolor{red!18} 0.405 \\
 \bottomrule
