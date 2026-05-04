@@ -168,6 +168,10 @@ if both are set).
 - **Benchmark splits.** Each evaluation samples a fixed held-out subset
   (512 for PTQ, 256 for LoRA forgetting) seeded by the dataset name, so
   subsets are stable across reruns regardless of dataset version.
+- **Gated HuggingFace models.** Llama and Mistral families require
+  accepting model licenses on HuggingFace and authenticating via
+  `huggingface-cli login` or the `HF_TOKEN` environment variable before
+  first use.
 - **Quantized-checkpoint sources.** GPTQ checkpoints come from the
   Hugging Face repositories listed in Appendix~F of the paper; GGUF
   artifacts are produced on-the-fly from the BF16 base via `llama.cpp`'s
