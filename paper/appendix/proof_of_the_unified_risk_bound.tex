@@ -103,6 +103,9 @@ Applying Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$
 \delta \le K_{\mathrm{feat}} \cdot \sqrt{\mathbb{E}_x\!\big[\|\phi_T(x) - \phi_P(x) W\|_2^2\big]} = K_{\mathrm{feat}} \cdot \sqrt{\frac{1}{n}\|Z_T - Z_P W\|_F^2}.
 \end{equation}
 
+\paragraph{Empirical values.} Table~\ref{tab:lipschitz_constants} reports $K_{\mathrm{feat}}$ for all 8B models studied here, ranging from $0.93$ (Mistral family) to $3.46$ (Qwen3-Base); $K_{\mathrm{pred}}=\sqrt{2}$ holds universally. These values are bounded by pairwise token-embedding distances and remain independent of $V$ (Llama $V{=}128{,}256$, Qwen3 $V{=}151{,}936$), in contrast to the naive bound $\sqrt{2}\|H_T\|_2$ whose spectral norm grows with vocabulary size.
+
+\input{tables/quantization/table_lipschitz_constants}
 
 
 \subsection{Step 3: Exact Geometric Decomposition}
