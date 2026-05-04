@@ -4,23 +4,23 @@
 # Quantisation backends (mix freely in quantization_bits):
 #   No prefix  → GGUF file from proxy.model repo   (e.g. Q8_0, Q4_K_M)
 #   bnb:       → bitsandbytes from target.model     (e.g. bnb:nf4, bnb:int8)
-#   gptq:      → pre-quantised GPTQ model           (e.g. gptq:TheBloke/Llama-2-7B-GPTQ)
+#   gptq:      → pre-quantised GPTQ model           (e.g. gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit)
 #               optionally with branch: gptq:REPO@REVISION
 #   dtype:     → target model loaded at a different native dtype (e.g. dtype:float16)
 #               used to measure BF16→FP16 precision gap as a reference proxy
 #
 # Supported bnb: tags: int8, nf4, fp4, nf4-dq
 #
-# Usage (Llama-2-7b, default):
+# Usage (Llama-3.1-8B-Base, default; matches paper Sec. 5.2):
 #   python run_quantization.py --config configs/quantization.yaml
 #
 # Usage (mixed GGUF + bitsandbytes + GPTQ):
 #   python run_quantization.py --config configs/quantization.yaml \
-#       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,gptq:TheBloke/Llama-2-7B-GPTQ]'
+#       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit]'
 #
 # Usage (GPTQ with specific branch):
 #   python run_quantization.py --config configs/quantization.yaml \
-#       'proxy.quantization_bits=[gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True]'
+#       'proxy.quantization_bits=[gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ@main]'
 #
 # Usage (Qwen3-8B with NF4 only — no GGUF repo needed):
 #   python run_quantization.py --config configs/quantization.yaml \
@@ -36,13 +36,13 @@
 experiment: quantization
 
 target:
-  model: NousResearch/Llama-2-7b-hf
+  model: meta-llama/Meta-Llama-3.1-8B
   extractor: llm
 
 proxy:
-  model: TheBloke/Llama-2-7b-GGUF
+  model: QuantFactory/Meta-Llama-3.1-8B-GGUF
   extractor: llm
-  # gguf_template: "llama-2-7b.{quant}.gguf"   # optional: override auto-derived
+  gguf_template: "Meta-Llama-3.1-8B.{quant}.gguf"
   quantization_bits:
     - dtype:float16    # FP16 reference proxy (target is BF16)
     - Q8_0
