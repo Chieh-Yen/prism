@@ -150,45 +150,11 @@ Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---need
 Our key insight is that two LLM-specific structures---a linear prediction head on a non-linear backbone and near-isometric backbone features---let feature-side and head-side errors decouple analytically.
 We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping): a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$ that splits the Procrustes residual into three independently measurable axes---\emph{scale} ($\Delta\rho$), \emph{shape} ($1-\Omega$), and a covariance-weighted \emph{head divergence} ($\gamma$).
 Each axis maps to a distinct failure mode, so the dominant axis points to a specific \emph{direction} for remediation rather than a binary flag, and because $\Omega$ is differentiable, it doubles as a regularizer against catastrophic forgetting.
-Across the cross-family Llama--Qwen pair and five benchmarks, PRISM ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, its axes localize low-bit shape distortion, GGUF k-quant head divergence, and cross-task LoRA scale-axis separability, and the shape regularizer outperforms experience replay on shape-dominated forgetting.
+Across the cross-family Llama--Qwen pair and five benchmarks, PRISM ranks variants with mean Spearman $r_s{\approx}0.82$ on PTQ and $0.83$ on LoRA forgetting, its axes localize low-bit shape distortion, GGUF k-quant head divergence, and cross-task LoRA scale-axis separability, and the shape regularizer outperforms experience replay at mitigating downstream forgetting.
 \end{abstract}
 
-\section{Introduction}
-
-%\paragraph{The diagnostic gap in the post-training LLM lifecycle.}
-As LLMs move from research to deployment, a new comparison bottleneck emerges after pre-training: a single base checkpoint now yields many post-training variants---quantized (GPTQ~\cite{frantar2022gptq}, GGUF, BitsAndBytes~\cite{dettmers2022gpt3}), LoRA-adapted~\cite{hu2022lora}, or distilled---each requiring comparison before release~\cite{grattafiori2024llama, qwen2025qwen3}.
-Aggregate accuracy flags a degraded variant but does not explain why---forcing developers into blind trial-and-error rather than targeted correction; we need a diagnostic that pinpoints which part has drifted from its base.
-
-%\paragraph{Similarity scores without risk, without mechanism.}
-A natural shortcut is to borrow a representational similarity metric: SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and related Frobenius-norm metrics each reduce two activation matrices to a single alignment score.
-These scores, however, neither predict downstream behavior~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity} nor identify an axis for diagnosis.
-Such a diagnostic requires a geometric quantity that lifts into a risk bound while preserving a structural decomposition.
-
-%\paragraph{Three obstacles to a usable risk bound.}
-Constructing such a bound faces three technical obstacles. (i)~No prior representational similarity---CKA, SVCCA, or generalized shape metrics---has been lifted to bound cross-entropy risk on the deployed prediction head; existing decodability work~\cite{harvey2024what} routes through a freshly-trained linear probe instead. (ii)~Cross-entropy is Lipschitz in features, but the naive constant scales with the head's full spectral norm---too loose to be informative over an LLM vocabulary of size $V \sim 10^5$. (iii)~A scalar bound signals \emph{that} a variant has degraded, not \emph{why}; to be diagnostic, the bound must decompose into interpretable axes.
-Yet LLM structure supplies the leverage to overcome all three.
-
-%\paragraph{What makes LLM geometry analytically tractable.}
-Our analysis pivots on two observations about modern LLMs:
-\textbf{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
-\textbf{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
-Combining (i) and (ii), we propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}): a closed-form upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes.
-
-%\paragraph{PRISM: a bound with three actionable axes.}
-The three axes are scale mismatch $\Delta\rho$ (activation-magnitude collapse), shape mismatch $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---and a covariance-weighted head discrepancy $\gamma$. We sharpen the feature-side Lipschitz constant $K_{\mathrm{feat}}$ beyond the naive spectral bound, keeping it informative at LLM vocabulary scale (Sec~\ref{subsec:unified_bound}). So the dominant axis points to a specific \emph{direction}, not just a flag: scale-dominated failures point to outlier-channel corruption, shape-dominated to distorted token geometry, and head-dominated to prediction-head perturbation.
-
-%\paragraph{From diagnostic to training signal.}
-Beyond diagnosis, the shape arm doubles as a training signal: under frozen-head LoRA the head term vanishes and $\Omega$ captures backbone shape drift differentiably, so a weighted penalty on $1-\Omega$ converts the bound into an active regularizer against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}).
-
-\paragraph{Contributions.}
-\begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
-    \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes.} $|\mathcal{R}_T - \mathcal{R}_P|$ admits a closed-form upper bound as a sum of three axes: scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ (from an exact Procrustes residual decomposition), plus a covariance-weighted head-discrepancy term (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}).
-
-    \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} Computed from features and head weights alone, the bound applies across both PTQ and frozen-head LoRA; the differentiable trace form $\Omega$ further turns it into a training-time regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
-
-    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} On the cross-family Llama--Qwen pair (Ministral and DeepSeek in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks PTQ variants ($r_s{\approx}0.82$) and LoRA checkpoints ($r_s{\approx}0.83$) consistently (\emph{predictiveness}); its axes separate failure modes---shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift (\emph{decomposability}); and a shape regularizer outperforms a replay baseline at mitigating downstream forgetting (\emph{actionability}).
-\end{enumerate}
-%========================================================
+% \input{text/intro}
+\input{text/intro_sun}
 
 \section{Related Work}
 
@@ -350,7 +316,7 @@ Three PTQ families across bit-widths 2--8, spanning basic rounding to calibratio
 LoRA fine-tunes on \textbf{TruthfulQA}~\cite{lin2022truthfulqa} (factual grounding) and \textbf{BBQ}~\cite{parrish2022bbq} (Bias Benchmark for QA, social-context reasoning)---two tasks chosen to elicit different drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on benchmarks disjoint from both fine-tuning tasks.
 
 \paragraph{Benchmarks and Scoring.}
-Five benchmarks: \textbf{MMLU}~\cite{hendrycks2021measuring}, \textbf{ARC}~\cite{clark2018think} (multiple-choice knowledge), \textbf{TriviaQA}~\cite{joshi2017triviaqa}, \textbf{SQuAD}~\cite{rajpurkar2016squad} (short-horizon QA), and \textbf{GSM8K}~\cite{cobbe2021training} (multi-step reasoning). All risks are computed teacher-forced (prompt $c$ and targets $y$ scored in a single forward pass over the gold span), producing a deterministic per-sample CE loss whose expectation is the model's risk $\mathcal{R}_M$ that $|\Delta\mathcal{R}|$ compares.
+Five benchmarks: \textbf{MMLU}~\cite{hendrycks2021measuring}, \textbf{ARC}~\cite{clark2018think} (multiple-choice knowledge), \textbf{TriviaQA}~\cite{joshi2017triviaqa}, \textbf{SQuAD}~\cite{rajpurkar2016squad} (short-horizon QA), and \textbf{GSM8K}~\cite{cobbe2021training} (multi-step reasoning). All risks are computed teacher-forced (prompt $c$ and targets $y$ scored in a single forward pass over the gold span), producing a deterministic per-sample CE loss whose expectation gives the model's risk $\mathcal{R}_M$, the quantity $|\Delta\mathcal{R}|$ compares between target and proxy.
 % To meausre the risks shift of all quantization algorithms, we evaluate the risk score on \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K}. We use the provided ground truth response from each dataset as target score.
 
 \paragraph{Calibration and Hyperparameters.}
@@ -423,7 +389,7 @@ Each dominant axis suggests a different remediation---per-channel outlier smooth
 
 The decomposition of Sec.~\ref{subsec:decompose} suggests an immediate intervention: shape drift dominates LoRA forgetting, and $1{-}\Omega$ is differentiable in $Z_t$. We add the trace-norm penalty $\lambda(1{-}\Omega(Z_0^{\mathrm{ref}}, Z_t^{\mathrm{ref}}))$ on a $32$-sample reference set $\mathcal{D}_{\mathrm{ref}}$. To isolate shape preservation from data re-fitting, we compare against a replay-CE baseline that uses the same $\mathcal{D}_{\mathrm{ref}}$ (cross-entropy on $\mathcal{D}_{\mathrm{ref}}$, swept over $\lambda$).
 
-Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare our trace at $\lambda{=}1.0$ against the replay baseline at $\lambda{=}0.01$ on Llama-3.1-8B (no regularization as anchor reference; both $\lambda$ chosen as each method's sweep optimum under the identical evaluation protocol). Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ, fine-tuning is less shape-disruptive (mean baseline $\Omega = 0.932$ vs $0.906$); trace still lifts $\Omega$ ($0.93 \to 0.98$) while replay leaves it flat. Mechanism: replay reduces forgetting indirectly by re-fitting reference data (without directly targeting $\Omega$); trace contracts the shape arm of the bound at the source. Task-dependence is analyzed in Appendix~\ref{app:reg_task_dependence}. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
+Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare our trace at $\lambda{=}1.0$ against the replay baseline at $\lambda{=}0.01$ on Llama-3.1-8B (no regularization as anchor reference; both $\lambda$ chosen as each method's sweep optimum under the identical evaluation protocol). Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ, fine-tuning is less shape-disruptive (mean baseline $\Omega = 0.932$ vs TruthfulQA's $0.906$); trace still lifts $\Omega$ ($0.93 \to 0.98$) while replay leaves it flat. Mechanism: replay reduces forgetting indirectly by re-fitting reference data (without directly targeting $\Omega$); trace contracts the shape arm of the bound at the source. Task-dependence is analyzed in Appendix~\ref{app:reg_task_dependence}. The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
 
 
 \subsection{Ablation: Component-Wise Contributions}
@@ -433,7 +399,7 @@ Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_tru
 
 Table~\ref{tab:baseline_combined} measures the marginal ranking contribution of each PRISM bound component. Under $W{=}I$ (top block), the shape-only similarity $\Omega$ already achieves mean $r_s{=}0.804$: token-feature relational geometry alone carries most of the variant-ranking signal. Adding scale to form $\delta$ lifts the mean to $0.868$ ($+0.064$)---scale collapse is the single largest per-component contributor. Adding the head term to form $\mathcal{B}$ moves the aggregate to $0.820$: our suite mixes protocols where $\gamma{>}0$ (GGUF k-quant) with $\gamma{\equiv}0$ (GPTQ, BnB), and $\gamma$ adds variance to the pooled scatter. $\mathcal{B}$ remains our default---it is Theorem~\ref{thm:unified_bound}'s certified upper bound and the only valid metric whenever $\gamma{>}0$, and its per-family rank correlation is the most stable (Llama--Qwen Spearman gap $\approx 0.015$, vs.\ $0.026$, $0.042$ for $\delta$, $\Omega$).
 
-Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all rise monotonically and $\mathcal{B}_N$ achieves $r_s{=}0.91$, confirming the head term contributes most when the alignment absorbs the $H_T \to H_P$ rotation. The $W{=}I$ trace specialization trades $\sim$$0.09$ Spearman for autograd compatibility (no per-step SVD), frozen-\texttt{lm\_head} head-term simplification, and consistency with the Sec.~\ref{subsec:shape_reg} regularizer. Both alignments thus yield strong predictiveness; the choice between them is design-driven, not predictiveness-driven.
+Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all rise monotonically and $\mathcal{B}_N$ achieves $r_s{=}0.912$, confirming the head term contributes most when the alignment absorbs the $H_T \to H_P$ rotation. The $W{=}I$ trace specialization trades $\sim$$0.09$ Spearman for autograd compatibility (no per-step SVD), frozen-\texttt{lm\_head} head-term simplification, and consistency with the Sec.~\ref{subsec:shape_reg} regularizer. Both alignments thus yield strong predictiveness; the choice between them is design-driven, not predictiveness-driven.
 
 
 %=========================================================================
@@ -442,7 +408,7 @@ Under $W{=}W_N$ (bottom block), $\Omega_N \to \delta_N \to \mathcal{B}_N$ all ri
 \section{Discussion}
 \label{sec:conclusion}
 
-PRISM combines a closed-form geometric bound on $|\mathcal{R}_T{-}\mathcal{R}_P|$ with an exact three-axis decomposition (scale, shape, head). The decomposition turns variant comparison from a scalar similarity score into an axis-level diagnostic that pinpoints \emph{which} part has drifted; the bound applies to PTQ and frozen-head LoRA, and the differentiable $\Omega$ doubles as a training-time regularizer. Empirically, this single framework ranks variants with comparable Spearman across both regimes ($r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA), the three axes localize qualitatively distinct failure modes, and the shape regularizer outperforms experience replay at suppressing forgetting.
+PRISM combines a closed-form geometric bound on $|\mathcal{R}_T{-}\mathcal{R}_P|$ with an exact three-axis decomposition (scale, shape, head). The decomposition turns variant comparison from a scalar similarity score into an axis-level diagnostic that pinpoints \emph{which} part has drifted; the bound applies to PTQ and frozen-head LoRA, and the differentiable $\Omega$ doubles as a training-time regularizer. Empirically, this single framework ranks variants with comparable Spearman across both regimes ($r_s{\approx}0.82$ on PTQ, $0.831$ on LoRA), the three axes localize qualitatively distinct failure modes, and the shape regularizer outperforms experience replay at mitigating downstream forgetting.
 
 \paragraph{Scope and limitations.}
 PRISM bounds the cross-entropy risk gap to a reference base; it is calibrated for variant ranking, where Spearman correlations are strong across both PTQ and LoRA settings (Sec.~\ref{subsec:predict}). Tight absolute estimation of $|\Delta\mathcal{R}|$ is a complementary problem we leave to future work. Our evaluation uses teacher-forced features for efficiency (a single deterministic forward pass per variant, without sampling noise or decoding strategy to control for); the bound applies unchanged to any $(Z_T, Z_P)$ matrices, including features collected along free-running generation trajectories---a direct extension we leave to future work. The shape regularizer of Sec.~\ref{subsec:action} handles the shape axis directly via training; per-axis protocol-level mitigations (Sec.~\ref{subsec:decompose}) remain a research follow-up enabled by the diagnostic.
@@ -454,7 +420,7 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 
 
 \renewcommand{\bibname}{References}
-\bibliographystyle{plainnat}
+\bibliographystyle{unsrtnat}
 \bibliography{paper} 
 
 \clearpage
