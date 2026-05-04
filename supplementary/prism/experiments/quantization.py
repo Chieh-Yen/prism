@@ -474,7 +474,7 @@ class QuantizationExperiment(BaseExperiment):
         gguf_tpl: str = cfg_proxy.get("gguf_template") or _derive_gguf_template(quant_repo)
         absorbed: bool = cfg_align.get("scale_absorbed", False)
 
-        task_name = cfg_data.get("task", "wikitext")
+        task_name = cfg_data.get("task", "mmlu")
         num_samples = cfg_data.get("num_samples", 256)
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)

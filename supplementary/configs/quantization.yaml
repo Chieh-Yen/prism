@@ -53,13 +53,13 @@ proxy:
     - Q2_K
 
 data:
-  task: c4
+  task: mmlu          # one of {mmlu, arc, triviaqa, squad, gsm8k} — paper Sec.~5.1
   # z_modes resolution in QuantizationExperiment:
   #   data.z_modes (if provided) >
   #   data.z_mode (if provided) >
   #   TASK_REGISTRY[task].z_mode (default)
   split: test
-  num_samples: 512
+  num_samples: 512    # paper default
   batch_size: 8
   max_length: 2048
 

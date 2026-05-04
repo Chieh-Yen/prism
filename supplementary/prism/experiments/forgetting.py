@@ -42,7 +42,7 @@ class ForgettingExperiment(BaseExperiment):
             - path/to/step_1000
           extractor: llm
         data:
-          task: wikitext
+          task: mmlu
           num_samples: 256
     """
 
@@ -53,7 +53,7 @@ class ForgettingExperiment(BaseExperiment):
 
         base_model_id = cfg_target.get("model")
         checkpoint_paths: List[str] = cfg_proxy.get("checkpoints", [])
-        task_name = cfg_data.get("task", "wikitext")
+        task_name = cfg_data.get("task", "mmlu")
         num_samples = cfg_data.get("num_samples", 256)
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)

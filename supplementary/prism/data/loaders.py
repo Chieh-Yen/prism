@@ -76,18 +76,6 @@ def _format_social_iqa(row: Dict[str, Any]) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
 
 
-def _format_no_robots(row: Dict[str, Any]) -> str:
-    msgs = row["messages"]
-    user = next(m["content"] for m in msgs if m["role"] == "user")
-    asst = next(m["content"] for m in msgs if m["role"] == "assistant")
-    return f"Instruction: {user}\nResponse: {asst}"
-
-
-def _format_lima(row: Dict[str, Any]) -> str:
-    convs = row["conversations"]
-    return f"Instruction: {convs[0]}\nResponse: {convs[1]}"
-
-
 _FORMATTERS: Dict[str, Callable] = {
     "gsm8k":      _format_gsm8k,
     "mmlu":       _format_mmlu,
@@ -97,8 +85,6 @@ _FORMATTERS: Dict[str, Callable] = {
     "truthfulqa": _format_truthfulqa,
     "bbq":        _format_bbq,
     "social_iqa": _format_social_iqa,
-    "no_robots":  _format_no_robots,
-    "lima":       _format_lima,
 }
 
 
@@ -150,17 +136,6 @@ def _prompt_social_iqa(row: Dict[str, Any]) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
 
 
-def _prompt_no_robots(row: Dict[str, Any]) -> str:
-    msgs = row["messages"]
-    user = next(m["content"] for m in msgs if m["role"] == "user")
-    return f"Instruction: {user}\nResponse:"
-
-
-def _prompt_lima(row: Dict[str, Any]) -> str:
-    convs = row["conversations"]
-    return f"Instruction: {convs[0]}\nResponse:"
-
-
 _PROMPT_FORMATTERS: Dict[str, Callable] = {
     "gsm8k":      _prompt_gsm8k,
     "mmlu":       _prompt_mmlu,
@@ -170,8 +145,6 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
     "truthfulqa": _prompt_truthfulqa,
     "bbq":        _prompt_bbq,
     "social_iqa": _prompt_social_iqa,
-    "no_robots":  _prompt_no_robots,
-    "lima":       _prompt_lima,
 }
 
 
@@ -179,76 +152,28 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
 # Task registry — maps short names to HuggingFace dataset identifiers
 # ======================================================================
 TASK_REGISTRY: Dict[str, Dict] = {
-    # Vision classification
-    "sun397":        {"hf_id": "tanganke/sun397",     "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "stanford-cars": {"hf_id": "tanganke/stanford-cars", "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "resisc45":      {"hf_id": "tanganke/resisc45",   "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "eurosat":       {"hf_id": "tanganke/eurosat",    "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "svhn":          {"hf_id": "ufldl-stanford/svhn",  "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "gtsrb":         {"hf_id": "tanganke/gtsrb",      "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "mnist":         {"hf_id": "ylecun/mnist",         "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "dtd":           {"hf_id": "tanganke/dtd",         "label_key": "label", "image_key": "image", "split_map": {"test": "test"}},
-    "cifar10":       {"hf_id": "uoft-cs/cifar10",      "label_key": "label", "image_key": "img",   "split_map": {"test": "test"}},
-    "cifar100":      {"hf_id": "uoft-cs/cifar100",     "label_key": "fine_label", "image_key": "img", "split_map": {"test": "test"}},
-    # Text / LLM  — plain text defaults to concat over valid sequence
-    "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1", "text_key": "text", "split_map": {"test": "test"},
-                      "z_mode": "concat", "loss_mode": "full"},
-    "ptb":           {"hf_id": "ptb-text-only/ptb_text_only", "text_key": "sentence", "split_map": {"test": "test"},
-                      "z_mode": "concat", "loss_mode": "full"},
-    "c4":            {"hf_id": "allenai/c4",           "hf_subset": "en", "text_key": "text",  "split_map": {"test": "validation"}, "streaming": True,
-                      "z_mode": "concat", "loss_mode": "full"},
-    # Text / LLM  — LAMBADA uses concat on full sequence (context + answer)
-    "lambada":       {"hf_id": "EleutherAI/lambada_openai", "text_key": "text", "split_map": {"test": "test"},
-                      "z_mode": "concat", "loss_mode": "full"},
-    # Text / LLM  — FineWeb-Edu  (language modeling, curated educational text)
-    "fineweb_edu":   {"hf_id": "HuggingFaceFW/FineWeb-Edu-score-2", "text_key": "text", "split_map": {"test": "train"}, "streaming": True,
-                      "z_mode": "concat", "loss_mode": "full"},
-    # Text / LLM  — structured Q&A  (all use concat so Z and loss are
-    #   uniformly token-level; for single-token answers like MMLU/ARC this
-    #   is mathematically equivalent to last_context_token)
-    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",  "split_map": {"test": "test"},
+    # Structured Q&A benchmarks (PTQ + LoRA-forgetting evaluation, paper Sec.~5.1).
+    # All use concat z_mode so Z and loss are uniformly token-level; for
+    # single-token answers like MMLU/ARC this is mathematically equivalent to
+    # last_context_token.
+    "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",     "split_map": {"test": "test"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",   "split_map": {"test": "test"},
-                      "z_mode": "concat", "loss_mode": "answer"},
-    "arc_easy":      {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Easy",      "formatter": "arc",   "split_map": {"test": "test"},
+    "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",      "split_map": {"test": "test"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "triviaqa":      {"hf_id": "trivia_qa",            "hf_subset": "rc.nocontext",  "formatter": "triviaqa", "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "squad":         {"hf_id": "rajpurkar/squad",                                    "formatter": "squad",    "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    "gsm8k":         {"hf_id": "openai/gsm8k",        "hf_subset": "main",          "formatter": "gsm8k", "split_map": {"test": "test"},
+    "gsm8k":         {"hf_id": "openai/gsm8k",         "hf_subset": "main",          "formatter": "gsm8k",    "split_map": {"test": "test"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    # Safety / truthfulness / social reasoning
-    "truthfulqa":    {"hf_id": "truthful_qa",         "hf_subset": "generation",    "formatter": "truthfulqa", "split_map": {"test": "validation[80%:]"},
+    # LoRA fine-tuning sources (paper Sec.~5.4).
+    "truthfulqa":    {"hf_id": "truthful_qa",          "hf_subset": "generation",    "formatter": "truthfulqa", "split_map": {"test": "validation[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    "bbq":           {"hf_id": "lighteval/bbq_helm",  "hf_subset": "all",           "formatter": "bbq",   "split_map": {"test": "test[80%:]"},
+    "bbq":           {"hf_id": "lighteval/bbq_helm",   "hf_subset": "all",           "formatter": "bbq",      "split_map": {"test": "test[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    "social_iqa":    {"hf_id": "allenai/social_i_qa",                               "formatter": "social_iqa", "split_map": {"test": "validation"},
-                      "z_mode": "concat", "loss_mode": "answer"},
-    # Instruction-following SFT targets (single-turn filter applied at load time)
-    "no_robots":     {"hf_id": "HuggingFaceH4/no_robots",                            "formatter": "no_robots",  "split_map": {"test": "test"},
-                      "z_mode": "concat", "loss_mode": "answer"},
-    "lima":          {"hf_id": "GAIR/lima",                                          "formatter": "lima",       "split_map": {"test": "train[95%:]"},
+    "social_iqa":    {"hf_id": "allenai/social_i_qa",                                "formatter": "social_iqa", "split_map": {"test": "validation"},
                       "z_mode": "concat", "loss_mode": "answer"},
 }
-
-
-def _filter_single_turn(hf_dataset, task_name: str):
-    """Keep only single-turn rows for instruction-following datasets.
-
-    no_robots: messages length exactly 2 with roles [user, assistant].
-    lima:      conversations length exactly 2.
-    """
-    if task_name == "no_robots":
-        def ok(row):
-            msgs = row["messages"]
-            return (len(msgs) == 2
-                    and msgs[0]["role"] == "user"
-                    and msgs[1]["role"] == "assistant")
-        return hf_dataset.filter(ok)
-    if task_name == "lima":
-        return hf_dataset.filter(lambda r: len(r["conversations"]) == 2)
-    return hf_dataset
 
 
 def get_task_metadata(task_name: str) -> Dict:
@@ -264,29 +189,6 @@ def get_task_metadata(task_name: str) -> Dict:
 # ======================================================================
 # Wrapper datasets
 # ======================================================================
-class ImageClassificationDataset(Dataset):
-    """Wraps a HuggingFace image-classification dataset into (image_tensor, label)."""
-
-    def __init__(self, hf_dataset, image_key: str, label_key: str, transform: Optional[Callable] = None):
-        self.dataset = hf_dataset
-        self.image_key = image_key
-        self.label_key = label_key
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        sample = self.dataset[idx]
-        image = sample[self.image_key]
-        label = sample[self.label_key]
-        if hasattr(image, "convert"):
-            image = image.convert("RGB")
-        if self.transform is not None:
-            image = self.transform(image)
-        return image, label
-
-
 class TextDataset(Dataset):
     """Wraps a HuggingFace text dataset into tokenised batches.
 
@@ -431,49 +333,6 @@ _SOCIAL_IQA_URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/so
 _SOCIAL_IQA_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "social_iqa")
 
 
-def _load_lima(split: str):
-    """Fetch LIMA JSONL directly from the HF repo (its loader script is
-    unsupported by newer ``datasets`` versions).
-
-    Always reads ``train.jsonl``; ``test.jsonl`` is prompt-only and cannot
-    be used for CE-loss eval.  Supports HF-style slice syntax
-    (``"train[95%:]"``, ``"train[:N]"``) so callers can cut a held-out
-    split from the single 1030-row corpus.
-    """
-    import json
-    import re
-    from huggingface_hub import hf_hub_download
-    from datasets import Dataset as HFDataset
-
-    path = hf_hub_download(repo_id="GAIR/lima", filename="train.jsonl", repo_type="dataset")
-    with open(path) as f:
-        rows = [json.loads(line) for line in f]
-    # Pre-filter to single-turn so slice math operates on a clean 1000-row
-    # corpus (LIMA's 30 multi-turn rows cluster at the tail and would
-    # otherwise starve small eval slices).
-    rows = [r for r in rows if len(r["conversations"]) == 2]
-    ds = HFDataset.from_list(rows)
-
-    m = re.match(r"(\w+)(?:\[(.*)\])?$", split)
-    if m and m.group(2):
-        spec = m.group(2)
-        n = len(ds)
-
-        def _idx(s):
-            s = s.strip()
-            if not s:
-                return None
-            if s.endswith("%"):
-                return int(float(s[:-1]) * n / 100)
-            return int(s)
-
-        start_s, _, end_s = spec.partition(":")
-        start = _idx(start_s) or 0
-        end = _idx(end_s) if end_s else n
-        ds = ds.select(range(start, end))
-    return ds
-
-
 def _load_social_iqa(split: str):
     """Download Social IQa from AI2's public bucket and return an HF Dataset."""
     import io
@@ -517,9 +376,7 @@ def load_task_data(
     split: str = "test",
     num_samples: Optional[int] = None,
     batch_size: int = 32,
-    num_workers: int = 4,
     *,
-    transform: Optional[Callable] = None,
     tokenizer=None,
     max_length: int = 512,
     shuffle: bool = False,
@@ -528,18 +385,15 @@ def load_task_data(
     """Load a task dataset and return a ready-to-use DataLoader.
 
     Args:
-        task_name:   Key in ``TASK_REGISTRY`` (e.g. ``"wikitext"``).
+        task_name:   Key in ``TASK_REGISTRY`` (e.g. ``"mmlu"``).
         split:       Logical split name (``"test"``, ``"train"``).
         num_samples: Limit number of samples (None = use all).
         batch_size:  Batch size.
-        num_workers: DataLoader workers.
-        transform:   Image transform (for vision tasks).
-        tokenizer:   HuggingFace tokenizer (required for text tasks).
-        max_length:  Maximum token length for text tasks.
+        tokenizer:   HuggingFace tokenizer (required for all tasks).
+        max_length:  Maximum token length.
         shuffle:     Whether to shuffle the DataLoader across epochs.
         seed:        Random seed for reproducible dataset-level shuffling
-                     before selecting ``num_samples``.  Ignored for
-                     streaming datasets (e.g. c4) where order is fixed.
+                     before selecting ``num_samples``.
     """
     from datasets import load_dataset  # lazy import to keep startup fast
 
@@ -552,59 +406,29 @@ def load_task_data(
     # Social IQa: HF loading script is deprecated; use custom loader
     if task_name == "social_iqa":
         hf_dataset = _load_social_iqa(hf_split)
-    elif task_name == "lima":
-        # LIMA ships a legacy loading script; pull JSONL directly instead.
-        hf_dataset = _load_lima(hf_split)
     else:
         load_kwargs = {"split": hf_split}
         if "hf_subset" in meta:
             load_kwargs["name"] = meta["hf_subset"]
-        if meta.get("streaming"):
-            load_kwargs["streaming"] = True
-
         hf_dataset = load_dataset(meta["hf_id"], **load_kwargs)
 
-    if meta.get("streaming"):
-        # Streaming datasets (c4): take first N rows; shuffle not supported.
-        rows = list(hf_dataset.take(num_samples or 256))
-        from datasets import Dataset as HFDataset
-        hf_dataset = HFDataset.from_list(rows)
-    else:
-        # Single-turn filter for instruction-following datasets; applied
-        # before sampling so the chosen N are all single-turn.
-        hf_dataset = _filter_single_turn(hf_dataset, task_name)
-        # Shuffle before selecting so the chosen N samples are random but
-        # reproducible.  Skip when seed is None to preserve legacy behaviour.
-        if seed is not None:
-            hf_dataset = hf_dataset.shuffle(seed=seed)
-        if num_samples is not None and num_samples < len(hf_dataset):
-            hf_dataset = hf_dataset.select(range(num_samples))
+    # Shuffle before selecting so the chosen N samples are random but
+    # reproducible. Skip when seed is None to preserve legacy behaviour.
+    if seed is not None:
+        hf_dataset = hf_dataset.shuffle(seed=seed)
+    if num_samples is not None and num_samples < len(hf_dataset):
+        hf_dataset = hf_dataset.select(range(num_samples))
 
-    is_text = "text_key" in meta or "formatter" in meta
-    if is_text:
-        if tokenizer is None:
-            raise ValueError(f"Task '{task_name}' is text-based: pass a tokenizer.")
-        fmt_key = meta.get("formatter")
-        fmt_fn = _FORMATTERS.get(fmt_key) if fmt_key else None
-        # Fall back to task_name for prompt formatters so that
-        # plain-text datasets (e.g. LAMBADA) can still define them.
-        pfmt_fn = _PROMPT_FORMATTERS.get(fmt_key) if fmt_key else _PROMPT_FORMATTERS.get(task_name)
-        ds = TextDataset(
-            hf_dataset, tokenizer,
-            text_key=meta.get("text_key", "text"),
-            max_length=max_length,
-            formatter=fmt_fn,
-            prompt_formatter=pfmt_fn,
-        )
-        return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=0)
-
-    image_key = meta.get("image_key", "image")
-    label_key = meta.get("label_key", "label")
-    ds = ImageClassificationDataset(hf_dataset, image_key=image_key, label_key=label_key, transform=transform)
-    return DataLoader(
-        ds,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=True,
+    if tokenizer is None:
+        raise ValueError(f"Task '{task_name}' is text-based: pass a tokenizer.")
+    fmt_key = meta.get("formatter")
+    fmt_fn = _FORMATTERS.get(fmt_key) if fmt_key else None
+    pfmt_fn = _PROMPT_FORMATTERS.get(fmt_key) if fmt_key else None
+    ds = TextDataset(
+        hf_dataset, tokenizer,
+        text_key=meta.get("text_key", "text"),
+        max_length=max_length,
+        formatter=fmt_fn,
+        prompt_formatter=pfmt_fn,
     )
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=0)
