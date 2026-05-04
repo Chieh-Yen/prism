@@ -87,6 +87,14 @@ ALL_CONFIGS = [
 #       sweep maximum; trace decreases monotonically with λ on Llama.
 #   - λ ratio is 100× (2 orders of magnitude); we frame as "each method at
 #     its sweep-best" rather than as a fixed ratio.
+#
+# Scope of the paper claim (Fig 4 caption, neurips_2026.tex line 384):
+#   "trace cuts downstream MEAN |ΔR| further than the replay baseline"
+# This is a mean-level claim across the 2x5 (target x downstream) grid for
+# each fine-tuning task; per-cell wins are mixed (trace wins 7/10 across the
+# Llama TruthfulQA-FT + BBQ-FT cells) but trace's wins are larger in
+# magnitude than replay's, so the mean comparison is unambiguous in trace's
+# favor. Per-cell numbers are in the appendix tables (table_compare_*.tex).
 PLOT_CONFIGS = [
     ("baseline",    "baseline", "0.0",  "no reg",                  "#7f7f7f", "o"),
     ("replay_0.01", "replay",   "0.01", "replay λ=0.01 (baseline)", "#1f77b4", "s"),
