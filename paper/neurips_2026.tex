@@ -243,13 +243,13 @@ Theorem~\ref{thm:unified_bound} (illustrated in Fig.~\ref{fig:prism_concept}) de
 Divergence in activation magnitude directly amplifies the feature error. Aggressive bit-width reduction clips activation outliers~\cite{dettmers2022gpt3, xiao2023smoothquant}, shrinking $\rho_P < \rho_T$; the scale axis isolates this \emph{scale collapse}.
 
 \paragraph{Shape mismatch $1-\Omega_W$.}
-The shape term captures the distortion of the feature manifold up to rotation. A drop in $\Omega_W$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}.
+The shape term captures geometric distortion of the feature manifold beyond scale. A drop in $\Omega_W$ signals that the relative arrangement of token representations has been corrupted---what we term \emph{structural distortion}.
 
 \paragraph{Head divergence $\|\Sigma_P^{1/2}(W H_T - H_P)\|_F$.}
 The head term quantifies how differently the prediction heads interpret features, weighted by $\Sigma_P$ so that only directions where the data has support contribute.
 
 \paragraph{PRISM applies for any orthogonal alignment.}
-Theorem~\ref{thm:unified_bound} holds for every $W \in \mathcal{O}(d)$, yielding a family $\{\Omega_W\}$ of similarity scores. We evaluate two natural specializations: the trace form $\Omega := \Omega_{W=I}$ (used as the main text default) and the Procrustes-optimal nuclear form $\Omega_N := \Omega_{W=W_N}$ (ablation in Sec.~\ref{subsec:ablation}; full derivation in Appendix~\ref{app:tightness}). $W{=}W_N$ minimizes the alignment residual but inflates $\gamma$ when $H_T \approx H_P$ and requires per-step SVD; $W{=}I$ keeps $\gamma$ at its minimum---vanishing when $H_T{=}H_P$ (frozen-head LoRA, FP16-head PTQ; GGUF k-quant keeps $\gamma{>}0$)---and is autograd-compatible, enabling the regularizer of Sec.~\ref{subsec:shape_reg}. Both yield strong rank correlations (Sec.~\ref{subsec:ablation}); the choice is primarily design-driven.
+Theorem~\ref{thm:unified_bound} holds for every $W \in \mathcal{O}(d)$, yielding a family $\{\Omega_W\}$ of similarity scores. We evaluate two natural specializations: the trace form $\Omega := \Omega_{W=I}$ (used as the main text default) and the Procrustes-optimal nuclear form $\Omega_N := \Omega_{W=W_N}$ (ablation in Sec.~\ref{subsec:ablation}; full derivation in Appendix~\ref{app:tightness}). $W{=}W_N$ minimizes the alignment residual but introduces nonzero $\gamma$ when $H_T \approx H_P$ and requires per-step SVD; $W{=}I$ keeps $\gamma$ at its minimum---vanishing when $H_T{=}H_P$ (frozen-head LoRA, FP16-head PTQ; GGUF k-quant keeps $\gamma{>}0$)---and is directly differentiable, enabling the regularizer of Sec.~\ref{subsec:shape_reg}. Both yield strong rank correlations (Sec.~\ref{subsec:ablation}); the choice is primarily design-driven.
 
 
 \subsection{Extension to Autoregressive Generation}
@@ -260,7 +260,7 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 \label{eq:ar_risk}
 \mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{\tau=1}^{|y|} \ell\!\big(\phi_M(c, y_{<\tau}) \cdot H_M,\; y_\tau\big) \right].
 \end{equation}
-Under teacher forcing, all token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and stacked across $N$ target tokens into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ with per-sequence length normalization to match Eq.~(\ref{eq:ar_risk}); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
+Under teacher forcing, all $|y|$ token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and stacked into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$ with per-sequence length normalization to match Eq.~(\ref{eq:ar_risk}); Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
 \subsection{From Diagnostic to Training: Shape Regularization}
@@ -271,7 +271,7 @@ LoRA fine-tuning drives the backbone shape away from its base: $\Omega(Z_0, Z_t)
 \label{eq:lora_bound}
 |\mathcal{R}_0 - \mathcal{R}_t| \;\le\; K_{\mathrm{feat}}\sqrt{(\rho_0-\rho_t)^2 + 2\rho_0\rho_t(1-\Omega)}.
 \end{equation}
-Constraining shape should therefore reduce backbone drift and suppress catastrophic forgetting on downstream tasks. Since $1 - \Omega$ is differentiable in $Z_t$, we augment the fine-tuning objective with a shape-preserving penalty:
+Constraining shape should therefore reduce backbone drift and mitigate catastrophic forgetting on downstream tasks. Since $1 - \Omega$ is differentiable in $Z_t$, we augment the fine-tuning objective with a \emph{shape regularizer}---a penalty on $1-\Omega$:
 \begin{equation}
 \label{eq:shape_reg}
 L_{\mathrm{total}} \;=\; \underbrace{L_{\mathrm{CE}}\bigl(\theta_t;\,\mathcal{D}_{\mathrm{FT}}\bigr)}_{\text{task loss}} \;+\; \lambda\,\bigl(1 - \Omega\!\bigl(Z_0^{\text{ref}},\, Z_t^{\text{ref}}\bigr)\bigr),
@@ -286,7 +286,7 @@ The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_con
 
 \paragraph{Quantization quality estimation.}
 \label{subsec:quantization}
-Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. PTQ perturbs weights without applying any basis transformation, so $W{=}I$ is the natural alignment; the head term $\gamma$ enters when the protocol also quantizes \texttt{lm\_head} (GGUF k-quant) and vanishes otherwise (GPTQ, BnB).
+Target $T$ is the BF16 base model and proxy $P$ is the quantized variant. Weight-only PTQ perturbs weights without applying any basis transformation, so $W{=}I$ is the natural alignment; the head term $\gamma$ enters when the protocol also quantizes \texttt{lm\_head} (GGUF k-quant) and vanishes otherwise (GPTQ, BnB).
 
 \paragraph{Geometric monitoring of catastrophic forgetting.}
 \label{subsec:forgetting}
