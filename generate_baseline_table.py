@@ -199,7 +199,7 @@ def _fmt(x, rank=None):
     """rank=1: bold; rank=2: underline; else plain."""
     if math.isnan(x):
         return "--"
-    s = f"{x:.3f}".lstrip("0") if 0 <= x < 1 else f"{x:.3f}"
+    s = f"{x:.3f}"
     if rank == 1:
         return r"\textbf{" + s + "}"
     if rank == 2:
