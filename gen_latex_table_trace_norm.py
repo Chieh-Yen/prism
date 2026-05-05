@@ -212,7 +212,7 @@ def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\resizebox{0.85\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
-    L.append(r"Dataset & $\lambda$ & " + header_cols + r" \\")
+    L.append(r"\textbf{Dataset} & \textbf{$\lambda$} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.extend(body_rows)
     L.append(r"\bottomrule")
@@ -230,7 +230,7 @@ def build_table(model_cfg, ft_cfg, include_target=INCLUDE_TARGET_TASK):
     body_rows = _render_body_rows(short_model, short_ft, include_target=include_target)
 
     col_spec = "l l " + "r" * len(COLUMNS)
-    header_cols = " & ".join(h for _, h in COLUMNS)
+    header_cols = " & ".join(rf"\textbf{{{h}}}" for _, h in COLUMNS)
 
     caption = (
         r"Trace-norm forgetting decomposition for \textbf{" + display_model

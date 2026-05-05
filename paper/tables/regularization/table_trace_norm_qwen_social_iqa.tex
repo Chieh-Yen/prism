@@ -2,10 +2,10 @@
 \centering
 \caption{Trace-norm forgetting decomposition for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{Social IQA} under identity alignment ($W{=}I$).  Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model).  Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
 \label{tab:trace_norm_qwen_social_iqa}
-\resizebox{0.9\textwidth}{!}{%
+\resizebox{0.85\textwidth}{!}{%
 \begin{tabular}{l l rrrrrrr}
 \toprule
-Dataset & $\lambda$ & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\textbf{Dataset} & \textbf{$\lambda$} & \textbf{$\rho_T$} & \textbf{$\rho_P$} & \textbf{$\Omega$} & \textbf{$\delta$} & \textbf{$\gamma$} & \textbf{$\mathcal{B}$} & \textbf{$|\Delta\mathcal{R}|$} \\
 \midrule
 ARC & $\lambda{=}0.0$ & 332.98 & 326.71 & 0.9914 & 43.6473 & \cellcolor{cyan!12} $0$ & 43.6473 & 0.2813 \\
  & $\lambda{=}0.1$ & 332.98 & 330.48 & 0.9986 & 17.6797 & \cellcolor{cyan!12} $0$ & 61.1412 & 0.2114 \\

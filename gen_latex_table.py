@@ -315,7 +315,7 @@ def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\resizebox{\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
-    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
+    L.append(r"\textbf{Dataset} & \textbf{Family} & \textbf{Method} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.extend(body_rows)
     L.append(r"\bottomrule")
@@ -342,14 +342,14 @@ def _wrap_longtable(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\caption{" + caption + r"}\label{" + label + r"}\\")
     # First-page header
     L.append(r"\toprule")
-    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
+    L.append(r"\textbf{Dataset} & \textbf{Family} & \textbf{Method} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.append(r"\endfirsthead")
     # Subsequent-page header
     L.append(r"\multicolumn{" + str(ncols) + r"}{l}"
              r"{\small\itshape (continued from previous page)}\\")
     L.append(r"\toprule")
-    L.append(r"Dataset & Family & Method & " + header_cols + r" \\")
+    L.append(r"\textbf{Dataset} & \textbf{Family} & \textbf{Method} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.append(r"\endhead")
     # Mid-page footer (when breaking)
@@ -378,7 +378,7 @@ def build_table(model_cfg, group_cfg, rows):
     body_rows = _render_body_rows(data, rho_per_ds, datasets)
 
     col_spec = "ll l " + "r" * len(COLUMNS)
-    header_cols = " & ".join(h for _, h in COLUMNS)
+    header_cols = " & ".join(rf"\textbf{{{h}}}" for _, h in COLUMNS)
     caption = (
         r"Geometric decomposition for \textbf{" + display + r"} under identity "
         r"alignment ($W{=}I$) on " + caption_label + r". "

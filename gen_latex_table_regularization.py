@@ -284,7 +284,7 @@ def _render_body(rows_per_block, model_short, ft_task, include_target):
 
 def _wrap_table(body_rows, caption, label, second_col_header):
     col_spec = "l l " + "r" * len(COLUMNS)
-    header_cols = " & ".join(h for _, h in COLUMNS)
+    header_cols = " & ".join(rf"\textbf{{{h}}}" for _, h in COLUMNS)
     L = []
     L.append(r"\begin{table}[t]")
     L.append(r"\centering")
@@ -293,7 +293,7 @@ def _wrap_table(body_rows, caption, label, second_col_header):
     L.append(r"\resizebox{0.95\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
-    L.append(r"Dataset & " + second_col_header + r" & " + header_cols + r" \\")
+    L.append(r"\textbf{Dataset} & \textbf{" + second_col_header + r"} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.extend(body_rows)
     L.append(r"\bottomrule")
@@ -411,7 +411,7 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
     group_names = [DS_DISPLAY.get(ev, ev).replace(" (self)", "")
                    for ev in eval_tasks]
     group_headers = [
-        f"\\multicolumn{{{n_cfg}}}{{c}}{{{name}}}"
+        f"\\multicolumn{{{n_cfg}}}{{c}}{{\\textbf{{{name}}}}}"
         for name in group_names
     ]
     cmidrules = []
@@ -420,7 +420,7 @@ def build_compact_table(model_cfg, ft_cfg, configs, include_target):
         cmidrules.append(f"\\cmidrule(lr){{{col_idx}-{col_idx + n_cfg - 1}}}")
         col_idx += n_cfg
 
-    sub_headers = [_config_subheader(m, l) for m, l, _ in configs] * n_groups
+    sub_headers = [rf"\textbf{{{_config_subheader(m, l)}}}" for m, l, _ in configs] * n_groups
 
     # ── Mean clause for caption (best per metric bolded) ─────────────
     valid_om_means = [(k, means[k]["omega"]) for k in means

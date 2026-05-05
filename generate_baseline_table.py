@@ -459,7 +459,7 @@ CAPTION_COMBINED = (
     r"Top block: identity $W{=}I$ (main text default; $\mathcal{B}$ reaches $r_s{=}0.82$). "
     r"Bottom block: Procrustes-optimal $W{=}W_N$ ($\mathcal{B}_N$ reaches $r_s{=}0.91$, "
     r"modestly tighter since $W_N$ minimizes the alignment residual). "
-    r"The main text adopts $W{=}I$ for autograd compatibility and the "
+    r"The main text adopts $W{=}I$ for SVD-free differentiability and the "
     r"$H_T{=}H_P$ head-term simplification in frozen-\texttt{lm\_head} regimes."
 )
 
