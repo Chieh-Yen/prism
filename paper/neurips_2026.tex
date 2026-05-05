@@ -185,7 +185,7 @@ Let $T$ be a \emph{Target model} (e.g., a full-precision base) and $P$ a \emph{P
 \label{eq:ce_def}
 \mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j=1}^{V} e^{v_j}, \; v \in \mathbb{R}^V.
 \end{equation}
-Stacking $\phi_M$ outputs on shared inputs as rows, we form $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F/\sqrt{n}$ and the empirical (uncentered) covariance $\Sigma_P = Z_P^\top Z_P/n$. The \emph{Linear Representation Hypothesis}~\cite{park2023linear} and empirical isometry observations between trained model representations~\cite{moschella2022relative} motivate restricting attention to orthogonal alignments $W \in \mathcal{O}(d)$ between the two backbones; the PRISM bound (Theorem~\ref{thm:unified_bound}) holds for any such $W$, with alignment quality determining how tight the bound is in practice.
+Stacking $\phi_M$ outputs on shared inputs as rows, we form $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F/\sqrt{n}$ and the empirical (uncentered) covariance $\Sigma_P = Z_P^\top Z_P/n$. The empirical isometry across model representations~\cite{moschella2022relative}, consistent with the Linear Representation Hypothesis~\cite{park2023linear}, motivates restricting attention to orthogonal alignments $W \in \mathcal{O}(d)$ between the two backbones; the PRISM bound (Theorem~\ref{thm:unified_bound}) holds for any such $W$, with alignment quality determining how tight the bound is in practice.
 
 
 \subsection{The Unified Risk Bound}
@@ -221,7 +221,7 @@ Combined with the Lipschitz bound (Appendix~\ref{app:detailed_proofs}), we defin
 \end{equation}
 
 \paragraph{Head error $\gamma$.}
-Let $\Delta H := W H_T - H_P$ for the alignment $W$; we define $\gamma := K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}\Delta H\|_F$ with $K_{\mathrm{pred}} \le \sqrt{2}$ (Appendix~\ref{app:head_bound}), so that $|\mathcal{R}_{P\to T} - \mathcal{R}_P| \le \gamma$. The covariance weighting $\Sigma_P^{1/2}$ ensures that only head misalignment within the \emph{active subspace} of the data contributes.
+Let $\Delta H := W H_T - H_P$ for the alignment $W$; we define $\gamma := K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}\Delta H\|_F$ with $K_{\mathrm{pred}} \le \sqrt{2}$ (Appendix~\ref{app:head_bound}), so that $|\mathcal{R}_{P\to T} - \mathcal{R}_P| \le \gamma$. The covariance weighting $\Sigma_P^{1/2}$ ensures that only head misalignment in the \emph{active subspace} (directions where the data has support) contributes to $\gamma$.
 
 \begin{theorem}[Unified Risk Bound]
 \label{thm:unified_bound}
@@ -447,6 +447,7 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 \input{checklist.tex}
 
 \end{document}
+
 
 
 
