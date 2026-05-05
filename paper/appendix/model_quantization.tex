@@ -80,8 +80,7 @@ All repositories are publicly hosted on HuggingFace and loaded via the standard 
 \caption{Pre-quantized GPTQ checkpoints per model.
 One repository per model, corresponding to the variant actually loaded in our experiments;
 ``---'' indicates no GPTQ checkpoint was evaluated for that model.
-GPTQ bit-width is 4-bit (the canonical setting reported in Sec.~\ref{subsec:exp_setup}) for all models except Qwen3-8B-Instruct, where the only public checkpoint we could load uses 8-bit.
-$^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect clean quantization error.}
+GPTQ bit-width is 4-bit (the canonical setting reported in Sec.~\ref{subsec:exp_setup}) for all models except Qwen3-8B-Instruct, where the only public checkpoint we could load uses 8-bit.}
 \label{tab:gptq_awq}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -89,7 +88,7 @@ $^\ddagger$Post-quantization fine-tuned on distillation data; may not reflect cl
 \toprule
 \# & Model & GPTQ Repository \\
 \midrule
-1  & Qwen3-8B-Base       & \texttt{AlphaGaO/Qwen3-8B-GPTQ}$^\ddagger$ \\
+1  & Qwen3-8B-Base       & --- \\
 2  & Llama-3.1-8B        & \texttt{ModelCloud/Meta-Llama-3.1-8B-gptq-4bit} \\
 3  & Ministral-3-Base    & --- \\
 4  & Qwen3-8B            & \texttt{JunHowie/Qwen3-8B-GPTQ-Int8} \\
@@ -156,7 +155,7 @@ Table~\ref{tab:coverage} provides a per-model summary of quantization backend co
 \toprule
 \# & Model & BnB & GGUF & GPTQ \\
 \midrule
-1  & Qwen3-8B-Base               & \cmark & \cmark & \cmark \\
+1  & Qwen3-8B-Base               & \cmark & \cmark & ---    \\
 2  & Llama-3.1-8B                & \cmark & \cmark & \cmark \\
 3  & Ministral-3-8B-Base         & \cmark & \cmark & ---    \\
 4  & Qwen3-8B                    & \cmark & \cmark & \cmark \\
@@ -168,7 +167,7 @@ Table~\ref{tab:coverage} provides a per-model summary of quantization backend co
 % 10 & Mistral-7B-v0.3             & \cmark & \cmark & \cmark \\
 % 11 & Mistral-7B-Instruct-v0.3    & \cmark & \cmark & \cmark \\
 \midrule
-   & \textbf{Total}              & 7/7    & 7/7    & 5/7    \\
+   & \textbf{Total}              & 7/7    & 7/7    & 4/7    \\
 \bottomrule
 \end{tabular}
 \end{table}
