@@ -86,9 +86,9 @@ def _label(symbol_tex, qualifier):
 # CSV column names (second tuple element) keep their original "_I" suffix
 # to match the data file schema.
 METRICS_I = [
-    (_label(r"\Omega",       r"(shape only; baseline)"),     "Omega_I", "omega_i"),
-    (_label(r"\delta",       r"(+ scale; no head)"),         "delta_I", "delta_i"),
-    (_label(r"\mathcal{B}",  r"(+ head; PRISM, $W{=}I$)"),   "Bound_I", "bound_i"),
+    (_label(r"\Omega",       r"(shape similarity; baseline)"),       "Omega_I", "omega_i"),
+    (_label(r"\delta",       r"(+ scale; feature alignment error)"), "delta_I", "delta_i"),
+    (_label(r"\mathcal{B}",  r"(+ head; full bound, $W{=}I$)"),      "Bound_I", "bound_i"),
 ]
 
 # Same ablation ladder, but each metric uses the Procrustes-optimal alignment
@@ -98,9 +98,9 @@ METRICS_I = [
 # counterpart table. CSV column names (second tuple element) keep their
 # original "_W" suffix to match the data file schema.
 METRICS_W = [
-    (_label(r"\Omega_N",       r"(shape only; baseline)"),       "Omega_W", "omega_w"),
-    (_label(r"\delta_N",       r"(+ scale; no head)"),           "delta_W", "delta_w"),
-    (_label(r"\mathcal{B}_N",  r"(+ head; PRISM, $W{=}W_N$)"),   "Bound_W", "bound_w"),
+    (_label(r"\Omega_N",       r"(shape similarity; baseline)"),       "Omega_W", "omega_w"),
+    (_label(r"\delta_N",       r"(+ scale; feature alignment error)"), "delta_W", "delta_w"),
+    (_label(r"\mathcal{B}_N",  r"(+ head; full bound, $W{=}W_N$)"),    "Bound_W", "bound_w"),
 ]
 
 
@@ -309,9 +309,9 @@ def _emit_latex(metrics, stats, best_cols, second_cols, n_cells_with_data,
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
-        [r"Metric"]
-        + [r"Mean $|r_s|$"]
-        + [ROW_DISPLAY[m] for m in ROW_MODELS]
+        [r"\textbf{Metric}"]
+        + [r"\textbf{Mean $|r_s|$}"]
+        + [rf"\textbf{{{ROW_DISPLAY[m]}}}" for m in ROW_MODELS]
     )
     lines.append(" & ".join(header_cells) + r" \\")
     subheader = ([""]
@@ -384,9 +384,9 @@ def _emit_combined_latex(groups, out_path, label, caption):
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
-        [r"Metric"]
-        + [ROW_DISPLAY[m] for m in ROW_MODELS]
-        + [r"Mean $r_s$"]
+        [r"\textbf{Metric}"]
+        + [rf"\textbf{{{ROW_DISPLAY[m]}}}" for m in ROW_MODELS]
+        + [r"\textbf{Mean $r_s$}"]
     )
     lines.append(" & ".join(header_cells) + r" \\")
     subheader = ([""]

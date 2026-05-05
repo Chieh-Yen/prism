@@ -6,16 +6,16 @@
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{l cc c}
 \toprule
-Metric & Llama & Qwen3 & Mean $r_s$ \\
+\textbf{Metric} & \textbf{Llama} & \textbf{Qwen3} & \textbf{Mean $r_s$} \\
  & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) & \scriptsize (10 cells) \\
 \midrule
-\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape only; baseline)} & .825 & .783 & .804 \\
-\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; no head)} & \textbf{.881} & \textbf{.855} & \textbf{.868} \\
-\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; PRISM, $W{=}I$)} & \underline{.828} & \underline{.813} & \underline{.820} \\
+\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape similarity; baseline)} & .825 & .783 & .804 \\
+\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; feature alignment error)} & \textbf{.881} & \textbf{.855} & \textbf{.868} \\
+\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; full bound, $W{=}I$)} & \underline{.828} & \underline{.813} & \underline{.820} \\
 \midrule
-\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape only; baseline)} & .839 & .773 & .806 \\
-\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; no head)} & \underline{.898} & \underline{.847} & \underline{.873} \\
-\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; PRISM, $W{=}W_N$)} & \textbf{.927} & \textbf{.896} & \textbf{.912} \\
+\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape similarity; baseline)} & .839 & .773 & .806 \\
+\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; feature alignment error)} & \underline{.898} & \underline{.847} & \underline{.873} \\
+\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; full bound, $W{=}W_N$)} & \textbf{.927} & \textbf{.896} & \textbf{.912} \\
 \bottomrule
 \end{tabular}
 \end{table}

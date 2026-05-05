@@ -1,0 +1,35 @@
+\begin{table}[t]
+\centering
+\caption{Trace-norm forgetting decomposition for \textbf{Llama-3.1-8B} fine-tuned on \textbf{BBQ} under identity alignment ($W{=}I$).  Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model).  Each benchmark also reports Spearman $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ pooled across $\lambda \times$ checkpoints.}
+\label{tab:trace_norm_llama_bbq}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+Dataset & $\lambda$ & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+BBQ (self) & $\lambda{=}0.0$ & 140.4590 & 142.6773 & \cellcolor{red!35} 0.6248 & \cellcolor{red!35} 122.6441 & \cellcolor{cyan!12} $0$ & \cellcolor{red!35} 122.6441 & \cellcolor{red!35} 1.0227 \\
+{\small ($\mathbf{r_s{=}-0.18}$)} & $\lambda{=}0.1$ & 140.4590 & 141.5383 & \cellcolor{red!18} 0.8627 & \cellcolor{red!18} 73.8819 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 193.1082 & \cellcolor{red!18} 1.0256 \\
+ & $\lambda{=}0.5$ & 140.4590 & 141.0065 & \cellcolor{red!18} 0.9254 & \cellcolor{red!18} 54.3677 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 142.1033 & \cellcolor{red!18} 1.0547 \\
+\midrule
+ARC & $\lambda{=}0.0$ & 137.5516 & 135.3145 & \cellcolor{red!18} 0.8762 & \cellcolor{red!18} 67.9234 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 67.9234 & \cellcolor{red!18} 0.1884 \\
+{\small ($\mathbf{r_s{=}-0.07}$)} & $\lambda{=}0.1$ & 137.5516 & 135.7115 & 0.9570 & 40.1190 & \cellcolor{cyan!12} $0$ & 104.8606 & 0.1846 \\
+ & $\lambda{=}0.5$ & 137.5516 & 136.7454 & 0.9732 & 31.7369 & \cellcolor{cyan!12} $0$ & 82.9521 & 0.1892 \\
+\midrule
+MMLU & $\lambda{=}0.0$ & 138.9086 & 136.4845 & \cellcolor{red!18} 0.8759 & \cellcolor{red!18} 68.6286 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 68.6286 & \cellcolor{red!18} 0.5218 \\
+{\small ($\mathbf{r_s{=}0.10}$)} & $\lambda{=}0.1$ & 138.9086 & 137.1973 & 0.9563 & 40.8522 & \cellcolor{cyan!12} $0$ & 106.7771 & 0.6239 \\
+ & $\lambda{=}0.5$ & 138.9086 & 138.2811 & 0.9724 & 32.5811 & \cellcolor{cyan!12} $0$ & 85.1586 & 0.5441 \\
+\midrule
+SQuAD & $\lambda{=}0.0$ & 138.1988 & 138.8436 & \cellcolor{red!18} 0.9429 & \cellcolor{red!18} 46.8184 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 46.8184 & \cellcolor{red!18} 0.2117 \\
+{\small ($\mathbf{r_s{=}0.80}$)} & $\lambda{=}0.1$ & 138.1988 & 138.8200 & 0.9508 & 43.4465 & \cellcolor{cyan!12} $0$ & 113.5579 & 0.4110 \\
+ & $\lambda{=}0.5$ & 138.1988 & 138.5270 & 0.9633 & 37.4890 & \cellcolor{cyan!12} $0$ & 97.9867 & 0.3216 \\
+\midrule
+TriviaQA & $\lambda{=}0.0$ & 140.9310 & 141.5103 & 0.9841 & 25.2080 & \cellcolor{cyan!12} $0$ & 25.2080 & 0.1083 \\
+{\small ($\mathbf{r_s{=}-0.03}$)} & $\lambda{=}0.1$ & 140.9310 & 141.3757 & 0.9892 & 20.7730 & \cellcolor{cyan!12} $0$ & 54.2951 & 0.0539 \\
+ & $\lambda{=}0.5$ & 140.9310 & 141.1300 & 0.9945 & 14.7452 & \cellcolor{cyan!12} $0$ & 38.5401 & 0.0161 \\
+\midrule
+GSM8K & $\lambda{=}0.0$ & 137.1458 & 137.3618 & 1.0000 & 0.2161 & \cellcolor{cyan!12} $0$ & 0.2161 & 0.0478 \\
+{\small ($\mathbf{r_s{=}-0.09}$)} & $\lambda{=}0.1$ & 137.1458 & 137.4127 & 1.0000 & 0.2669 & \cellcolor{cyan!12} $0$ & 0.6977 & 0.0300 \\
+ & $\lambda{=}0.5$ & 137.1458 & 137.2236 & 1.0000 & 0.0778 & \cellcolor{cyan!12} $0$ & 0.2034 & 0.0152 \\
+\bottomrule
+\end{tabular}}
+\end{table}
