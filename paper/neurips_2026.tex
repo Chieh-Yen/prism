@@ -159,16 +159,16 @@ Across two model families and five benchmarks, PRISM ranks variants with mean Sp
 \section{Related Work}
 
 \paragraph{Representational Similarity and Procrustes Shape Metrics.}
-Representational similarity statistics---SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and the generalized shape metrics framework~\cite{williams2021generalized}---measure geometric resemblance between activation matrices, but their link to downstream behavior remains an open problem~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity}; a recent decodability bound~\cite{harvey2024what} reaches downstream via whitened kernels and newly-trained linear probes rather than the deployed prediction heads. The Linear Representation Hypothesis~\cite{park2023linear} and empirical relative-representation isometry across same-family encoders~\cite{moschella2022relative} together motivate restricting alignment to the orthogonal group, and the Platonic Representation Hypothesis~\cite{huh2024platonic} corroborates same-family shared geometry. PRISM lifts the Procrustes residual into a closed-form CE risk bound on the deployed head, and the residual itself splits into separately measurable scale, shape, and head components (Sec.~\ref{sec:geometric_foundation}).
+Representational similarity statistics---SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and the generalized shape metrics framework~\cite{williams2021generalized}---measure geometric resemblance between activation matrices, but their link to downstream behavior remains an open problem~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity}; a recent decodability bound~\cite{harvey2024what} reaches downstream via whitened kernels and newly-trained linear probes rather than the deployed prediction heads. The Linear Representation Hypothesis~\cite{park2023linear} and empirical relative-representation isometry across same-family encoders~\cite{moschella2022relative} together motivate restricting alignment to the orthogonal group, and the Platonic Representation Hypothesis~\cite{huh2024platonic} corroborates same-family shared geometry. PRISM lifts the Procrustes residual into a closed-form CE risk bound on the deployed head; the resulting bound splits into separately measurable scale, shape, and head components (Sec.~\ref{sec:geometric_foundation}).
 
 \paragraph{Post-Training Quantization and Its Evaluation.}
-Post-training quantization spans GPTQ~\cite{frantar2022gptq} (approximate second-order, layer-wise reconstruction) and round-to-nearest schemes (GGUF, BitsAndBytes~\cite{dettmers2022gpt3}), whose degradation tracks activation outliers~\cite{xiao2023smoothquant}. Existing cheap diagnostics---layer-wise reconstruction loss or weight quantization error---are indirect proxies that do not account for nonlinear error accumulation through the full network. PRISM, in contrast, measures the resulting drift end-to-end on the deployed model in a single forward pass (Sec.~\ref{subsec:quant_exp}).
+Post-training quantization spans calibration-based methods (GPTQ~\cite{frantar2022gptq}, second-order reconstruction) and weight-only schemes (GGUF k-quants, BitsAndBytes~\cite{dettmers2022gpt3}), with low-bit performance often constrained by activation outliers~\cite{xiao2023smoothquant}. Existing cheap diagnostics---layer-wise reconstruction loss or weight quantization error---are indirect proxies that do not account for nonlinear error accumulation through the full network. PRISM, in contrast, measures the resulting drift end-to-end on the deployed model in a single forward pass (Sec.~\ref{subsec:quant_exp}).
 
 \paragraph{Catastrophic Forgetting under Parameter-Efficient Fine-Tuning.}
 LoRA fine-tuning~\cite{hu2022lora} risks catastrophic forgetting of pre-training knowledge, even when the \texttt{lm\_head} stays frozen. Weight-space remedies---EWC~\cite{kirkpatrick2017overcoming} and experience replay---constrain parameter movement. Our formulation uses \emph{hidden-state} geometry: feature-manifold drift ($\Omega$, $\Delta\rho$) relative to the frozen base bounds the downstream risk gap and is usable as a post-hoc diagnostic and as a training-time penalty (Sec.~\ref{subsec:shape_reg}).
 
 \paragraph{Efficient Evaluation and Performance Forecasting.}
-Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss but not variant-specific degradation; efficient-evaluation subsets~\cite{polo2024tinybenchmarks, perlitz2024efficient} preserve variant orderings without explaining them; weak-to-strong generalization~\cite{burns2023weak} targets label generation rather than risk estimation. PRISM instead bounds the variant-vs-base risk gap directly from a feature comparison---no labels, no aggregate-loss extrapolation (Sec.~\ref{sec:geometric_foundation}).
+Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss but not variant-specific degradation; efficient-evaluation subsets~\cite{polo2024tinybenchmarks, perlitz2024efficient} preserve variant orderings without explaining them; weak-to-strong generalization~\cite{burns2023weak} targets label generation rather than risk estimation. PRISM instead bounds the variant-vs-base risk gap directly from a feature comparison---no labeled benchmarks, no aggregate-loss extrapolation (Sec.~\ref{sec:geometric_foundation}).
 
 \input{figures/prism_geometric_decomposition.tex}
 
@@ -180,16 +180,12 @@ Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate lo
 \subsection{Setup}
 \label{subsec:problem_setup}
 
-Let $T$ be a \emph{Target model} (e.g., a full-precision base) and $P$ a \emph{Proxy model} (e.g., a quantized or fine-tuned variant), sharing hidden dimension $d$. Each model factors into a Transformer backbone $\phi_M: \mathcal{X} \to \mathbb{R}^d$ followed by a linear prediction head $H_M \in \mathbb{R}^{d \times V}$ (the \texttt{lm\_head}, vocabulary size $V$):
-\begin{equation}
-f_M(x) = \mathrm{softmax}\!\big(\phi_M(x) H_M\big), \qquad M \in \{T, P\}.
-\end{equation}
-The risk of $M$ under data distribution $\mathcal{D}$ is the cross-entropy expectation
+Let $T$ be a \emph{Target model} (e.g., a full-precision base) and $P$ a \emph{Proxy model} (e.g., a quantized or fine-tuned variant), sharing hidden dimension $d$. Each model factors into a Transformer backbone $\phi_M: \mathcal{X} \to \mathbb{R}^d$ followed by a linear prediction head $H_M \in \mathbb{R}^{d \times V}$ (the \texttt{lm\_head}, vocabulary size $V$). The risk of $M$ under data distribution $\mathcal{D}$ is the cross-entropy expectation
 \begin{equation}
 \label{eq:ce_def}
 \mathcal{R}_M \;=\; \mathbb{E}_{(x,y) \sim \mathcal{D}}\!\big[\ell\big(\phi_M(x) H_M,\, y\big)\big], \qquad \ell(v, y) = -v_y + \log \textstyle\sum_{j=1}^{V} e^{v_j}, \; v \in \mathbb{R}^V.
 \end{equation}
-We collect features into $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F/\sqrt{n}$ and the empirical (uncentered) covariance $\Sigma_P = Z_P^\top Z_P/n$. The \emph{Linear Representation Hypothesis}~\cite{park2023linear} and empirical isometry observations between trained model representations~\cite{moschella2022relative} motivate restricting attention to orthogonal alignments $W \in \mathcal{O}(d)$ between the two backbones; the PRISM bound (Theorem~\ref{thm:unified_bound}) holds for any such $W$, with alignment quality determining how tight the bound is in practice.
+Stacking $\phi_M$ outputs on shared inputs as rows, we form $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F/\sqrt{n}$ and the empirical (uncentered) covariance $\Sigma_P = Z_P^\top Z_P/n$. The \emph{Linear Representation Hypothesis}~\cite{park2023linear} and empirical isometry observations between trained model representations~\cite{moschella2022relative} motivate restricting attention to orthogonal alignments $W \in \mathcal{O}(d)$ between the two backbones; the PRISM bound (Theorem~\ref{thm:unified_bound}) holds for any such $W$, with alignment quality determining how tight the bound is in practice.
 
 
 \subsection{The Unified Risk Bound}
@@ -451,6 +447,7 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 \input{checklist.tex}
 
 \end{document}
+
 
 
 
