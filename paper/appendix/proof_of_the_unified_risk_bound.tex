@@ -70,13 +70,13 @@ This reveals that the gradient is a \emph{non-negative linear combination} of pa
 \begin{equation}
 \|\nabla_z \ell\|_2 \le \sum_{j \neq y} \hat{p}_j \|h_{T,j} - h_{T,y}\|_2 \le \max_{j \neq y} \|h_{T,j} - h_{T,y}\|_2 \cdot \underbrace{\sum_{j \neq y} \hat{p}_j}_{\le\, 1}.
 \end{equation}
-Taking the maximum over all possible true classes $y$:
+The bound depends on the true class $y$ only through $\max_{j \neq y} \|h_{T,j} - h_{T,y}\|_2$. Taking the supremum over $y \in \{1,\ldots,V\}$ extends the maximum to all ordered pairs $(j,y)$ with $j\neq y$ (and the $j=y$ case contributes $0$), giving the full pairwise diameter:
 \begin{equation}
 \label{eq:kfeat_tight}
 K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2.
 \end{equation}
 
-\paragraph{Remark.} This bound depends on the \emph{relative distances} between token embeddings, not their absolute magnitudes. A uniform shift $H_T \to H_T + c\mathbf{1}^\top$ does not change $K_{\mathrm{feat}}$. A naive Cauchy--Schwarz bound gives $K_{\mathrm{feat}}^{\mathrm{naive}} = \sqrt{2}\|H_T\|_2$, which is substantially looser.
+\paragraph{Remark.} This bound depends on the \emph{relative distances} between token embeddings, not their absolute magnitudes. A uniform shift $H_T \to H_T + c\mathbf{1}^\top$ does not change $K_{\mathrm{feat}}$. A naive Cauchy--Schwarz bound gives $K_{\mathrm{feat}}^{\mathrm{naive}} = \sqrt{2}\|H_T\|_2$, which is substantially looser. Since the decomposition of Eq.~(\ref{eq:app_triangle}) routes through $\mathcal{R}_{P\to T}$ (which uses $H_T$), $K_{\mathrm{feat}}$ is determined by $H_T$ alone; it takes a single value across all proxy variants of a fixed target model and enters as a constant scaling on the feature term, not as a proxy-dependent quantity that could perturb variant ranking.
 
 \paragraph{From Gradient Bound to Lipschitz Inequality.}
 Since $g_T(\cdot, y)$ is continuously differentiable, the gradient bound $\|\nabla_z g_T(z, y)\|_2 \le K_{\mathrm{feat}}$ implies the Lipschitz inequality stated above by the mean value theorem: for any $z_1, z_2$,
@@ -160,7 +160,10 @@ Therefore $\Omega_{W_N} = \Omega_N := \|Z_T^\top Z_P\|_*/(\|Z_T\|_F\|Z_P\|_F)$ (
 \begin{equation}
 \min_{W \in \mathcal{O}(d)} \frac{1}{n}\|Z_T - Z_P W\|_F^2 = (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N),
 \end{equation}
-the form underlying the Sec.~\ref{subsec:ablation} ablation. Note that $W_N$ minimizes only the feature alignment residual $\delta(W)$, not the full bound $\delta(W) + \gamma(W)$, since the head term also depends on $W$ via $W H_T - H_P$. Appendix~\ref{app:joint_opt} treats the joint optimization in full and shows that $W_N$ remains the operative choice in the frozen-head LoRA and FP16-head PTQ settings studied here, where $\gamma$ either vanishes or is $W$-independent.
+the form underlying the Sec.~\ref{subsec:ablation} ablation.
+\begin{remark}[$W_N$ is the feature-side optimum, not the joint optimum]
+The Procrustes alignment $W_N$ minimizes only the feature alignment residual $\delta(W)$, not the full bound $\delta(W) + \gamma(W)$, since the head term also depends on $W$ via $W H_T - H_P$. Appendix~\ref{app:joint_opt} treats the joint optimization in full and shows that $W_N$ is the operative choice in the frozen-head LoRA and FP16-head PTQ settings studied here, where $\gamma$ either vanishes or is $W$-independent.
+\end{remark}
 
 \paragraph{Assembling the Feature Bound.}
 Combining Eq.~(\ref{eq:delta_lipschitz}) with the general decomposition Eq.~(\ref{eq:exact_decomposition_general}):
@@ -184,7 +187,11 @@ To bound this, we use the Lipschitz property of cross-entropy with respect to \e
 \begin{equation}
 \|\nabla_v \ell\|_2 = \|\hat{p} - e_y\|_2.
 \end{equation}
-Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2^2 \le \|\hat{p}\|_1^2 = 1$, and therefore $\|\hat{p} - e_y\|_2^2 = \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \le 2 - 2\hat{p}_y \le 2$. The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$, yielding the Lipschitz inequality $|\ell(v_1, y) - \ell(v_2, y)| \le K_{\mathrm{pred}}\, \|v_1 - v_2\|_2$ on logits.
+Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2 \le \|\hat{p}\|_1 = 1$, hence
+\[
+\|\hat{p} - e_y\|_2^2 \;=\; \|\hat{p}\|_2^2 - 2\hat{p}_y + 1 \;\le\; 1 - 2\hat{p}_y + 1 \;=\; 2(1 - \hat{p}_y) \;\le\; 2.
+\]
+The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$, yielding the Lipschitz inequality $|\ell(v_1, y) - \ell(v_2, y)| \le K_{\mathrm{pred}}\, \|v_1 - v_2\|_2$ on logits.
 
 \paragraph{Deriving the Covariance Projection.}
 Define the head misalignment matrix $\Delta H := W H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W H_T - H_P)$, and:
