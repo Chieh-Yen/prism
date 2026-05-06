@@ -18,7 +18,7 @@ The Procrustes solution $W_N$ minimizes $\delta(W)$ alone, yielding $\Omega_{W_N
 
 Setting $W = I$ recovers the main-text trace similarity $\Omega = \Omega_{W=I}$ (Eq.~\ref{eq:omega_def}). Two structural properties characterize this specialization.
 
-\paragraph{Ordering of Similarities.}
+\paragraph{Ordering of similarities.}
 Since the Procrustes solution maximizes $\operatorname{Tr}(Z_T^\top Z_P W)$ over $\mathcal{O}(d)$:
 \begin{equation}
 \operatorname{Tr}(Z_T^\top Z_P) \;\le\; \|Z_T^\top Z_P\|_*,
@@ -47,16 +47,16 @@ W_{\mathrm{opt}} = \arg\min_{W \in \mathcal{O}(d)}
 \end{equation}
 Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admits the closed-form $W_N = VU^\top$), the addition of $\gamma(W)$ introduces a quadratic dependence on $W$ through the head term, related to the \emph{Weighted Orthogonal Procrustes Problem} (WOPP)~\cite{gower2004procrustes}.
 
-\paragraph{Why No Closed-Form Solution Exists.}
+\paragraph{Why no closed-form solution exists.}
 The feature term $\delta(W)$ is concave in $\operatorname{Tr}(Z_T^\top Z_P W)$, while $\gamma(W)$ is convex in $W$. Their sum is neither convex nor concave on $\mathcal{O}(d)$, precluding a simple variational characterization.
 
-\paragraph{Special Case: Isotropic Features.}
+\paragraph{Special case: isotropic features.}
 If $\Sigma_P \approx \lambda I$, the head term simplifies to $K_{\mathrm{pred}}\sqrt{\lambda}\,\|W H_T - H_P\|_F$, which still depends on $W$ through the cross-term $\operatorname{Tr}(H_P^\top W H_T)$ when $\|W H_T - H_P\|_F^2$ is expanded. The joint objective then minimizes $K_{\mathrm{feat}}\sqrt{\|Z_T - Z_P W\|_F^2/n} + K_{\mathrm{pred}}\sqrt{\lambda}\|W H_T - H_P\|_F$, and each term individually admits a closed-form Procrustes minimizer; the sum does not. The isotropic assumption is, in any case, unrealistic for LLM representations, which exhibit well-documented anisotropy~\cite{ethayarajh2019contextual}.
 
-\paragraph{Numerical Solution.}
+\paragraph{Numerical solution.}
 For the general case, $W_{\mathrm{opt}}$ can be approximated via Riemannian gradient descent on the Stiefel manifold, but this entangles scale, shape, and head components, destroying the clean physical interpretation.
 
-\paragraph{Practical Irrelevance for This Paper's Regimes.}
+\paragraph{Practical irrelevance for this paper's regimes.}
 In the two primary settings:
 \begin{itemize}
     \item \textbf{Quantization (GPTQ/BnB: $H_T = H_P$; GGUF: $H_T \approx H_P$):} The Procrustes-optimal $W_N$ minimizes the feature term $\delta(W)$ alone but inflates the head term $\gamma(W)$ when the head is approximately preserved (cf.~Appendix~\ref{app:general_bound} trade-off). We adopt $W = I$ in main analyses, where $\gamma$ vanishes for FP16-head retention.

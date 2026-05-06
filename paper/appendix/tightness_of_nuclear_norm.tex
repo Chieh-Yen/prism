@@ -31,7 +31,7 @@ Since $\sigma_i \ge 0$, the basic inequality $\sum_i \sigma_i^2 \le \big(\sum_i 
 \end{equation}
 i.e., $\|\mathbf{x}\|_2 \le \|\mathbf{x}\|_1$ for any non-negative vector. Dividing both sides by $\|Z_T\|_F \|Z_P\|_F$ gives $\Omega_F \le \Omega_N$.
 
-\paragraph{Consequence for Risk Bounding.}
+\paragraph{Consequence for risk bounding.}
 $\Omega_F$ does not arise from the alignment residual $\|Z_T - Z_P W\|_F^2$ at any $W \in \mathcal{O}(d)$ (which produces only trace-based similarities $\Omega_W$); we treat it as an external comparison object. Substituting $\Omega_F$ into the bound formula in place of $\Omega_W$ yields
 \begin{equation}
 (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_F) \ge (\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1 - \Omega_N),

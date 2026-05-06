@@ -158,16 +158,16 @@ Across two model families and five benchmarks, PRISM ranks variants with mean Sp
 
 \section{Related work}
 
-\paragraph{Representational Similarity and Procrustes Shape Metrics.}
+\paragraph{Representational similarity and Procrustes shape metrics.}
 Representational similarity statistics---SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and the generalized shape metrics framework~\cite{williams2021generalized}---measure geometric resemblance between activation matrices, but their link to downstream behavior remains an open problem~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity}; a recent decodability bound~\cite{harvey2024what} reaches downstream via whitened kernels and newly-trained linear probes rather than the deployed prediction heads. The Linear Representation Hypothesis~\cite{park2023linear} and empirical relative-representation isometry across same-family encoders~\cite{moschella2022relative} together motivate restricting alignment to the orthogonal group, and the Platonic Representation Hypothesis~\cite{huh2024platonic} corroborates same-family shared geometry. PRISM lifts the Procrustes residual into a closed-form CE risk bound on the deployed head; the resulting bound splits into separately measurable scale, shape, and head components (Sec.~\ref{sec:geometric_foundation}).
 
-\paragraph{Post-Training Quantization and Its Evaluation.}
+\paragraph{Post-training quantization and its evaluation.}
 Post-training quantization spans calibration-based methods (GPTQ~\cite{frantar2022gptq}, second-order reconstruction) and weight-only schemes (GGUF k-quants, BitsAndBytes~\cite{dettmers2022gpt3}), with low-bit performance often constrained by activation outliers~\cite{xiao2023smoothquant}. Existing cheap diagnostics---layer-wise reconstruction loss or weight quantization error---are indirect proxies that do not account for nonlinear error accumulation through the full network. PRISM, in contrast, measures the resulting drift end-to-end on the deployed model in a single forward pass (Sec.~\ref{subsec:quant_exp}).
 
-\paragraph{Catastrophic Forgetting under Parameter-Efficient Fine-Tuning.}
+\paragraph{Catastrophic forgetting under parameter-efficient fine-tuning.}
 LoRA fine-tuning~\cite{hu2022lora} risks catastrophic forgetting of pre-training knowledge, even with a frozen \texttt{lm\_head}. Existing remedies fall into two families: weight-space constraints (EWC~\cite{kirkpatrick2017overcoming}) and data-space rehearsal (experience replay). PRISM's shape regularizer adds a third option---a feature-geometry constraint identifiable from the bound's decomposition: feature-manifold drift ($\Omega$, $\Delta\rho$) relative to the frozen base bounds the downstream risk gap and is usable as a post-hoc diagnostic and a training-time penalty (Sec.~\ref{subsec:shape_reg}).
 
-\paragraph{Efficient Evaluation and Performance Forecasting.}
+\paragraph{Efficient evaluation and performance forecasting.}
 Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss but not variant-specific degradation; efficient-evaluation subsets~\cite{polo2024tinybenchmarks, perlitz2024efficient} preserve variant orderings without explaining them; weak-to-strong generalization~\cite{burns2023weak} targets label generation rather than risk estimation. PRISM instead bounds the variant-vs-base risk gap directly from a feature comparison---no labeled benchmarks, no aggregate-loss extrapolation (Sec.~\ref{sec:geometric_foundation}).
 
 \input{figures/prism_geometric_decomposition.tex}
@@ -305,17 +305,17 @@ We organize the experiments around three claims: \textbf{Predictiveness}---the b
 \paragraph{Models.}
 The main analysis spans two model families: Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3}; PTQ replications on Ministral-3-8B~\cite{liu2026ministral3}, DeepSeek-R1-Distill-Llama-8B~\cite{deepseekai2025r1}, and three instruction-tuned counterparts (seven 8B families total) are in Appendix~\ref{app:per_model_tables}.
 
-\paragraph{Quantization Protocols.}
+\paragraph{Quantization protocols.}
 Three PTQ families across bit-widths 2--8, spanning basic rounding to calibration-based compensation: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K}--\texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4).
 
-\paragraph{Fine-Tuning Tasks.}
+\paragraph{Fine-tuning tasks.}
 LoRA fine-tunes on \textbf{TruthfulQA}~\cite{lin2022truthfulqa} (factual grounding) and \textbf{BBQ}~\cite{parrish2022bbq} (Bias Benchmark for QA, social-context reasoning)---two tasks with contrasting drift geometries (Sec.~\ref{subsec:decompose}). Downstream forgetting is measured on benchmarks disjoint from both fine-tuning tasks.
 
-\paragraph{Benchmarks and Scoring.}
+\paragraph{Benchmarks and scoring.}
 Five benchmarks: \textbf{MMLU}~\cite{hendrycks2021measuring}, \textbf{ARC}~\cite{clark2018think} (multiple-choice knowledge), \textbf{TriviaQA}~\cite{joshi2017triviaqa}, \textbf{SQuAD}~\cite{rajpurkar2016squad} (short-horizon QA), and \textbf{GSM8K}~\cite{cobbe2021training} (multi-step reasoning). All risks are computed teacher-forced (prompt $c$ and targets $y$ scored in a single forward pass over the gold span), producing a deterministic per-sample CE loss whose expectation gives the model's risk $\mathcal{R}_M$, and $|\Delta\mathcal{R}|$ is the target-vs-proxy gap we report.
 % To meausre the risks shift of all quantization algorithms, we evaluate the risk score on \textbf{MMLU}, \textbf{ARC} (multiple-choice knowledge), \textbf{TriviaQA}, \textbf{SQuAD} (short-horizon QA), and \textbf{GSM8K}. We use the provided ground truth response from each dataset as target score.
 
-\paragraph{Calibration and Hyperparameters.}
+\paragraph{Calibration and hyperparameters.}
 PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared across all variants of a base ($512$ samples per benchmark for PTQ, $256$ for LoRA forgetting); since observed $|\Delta\mathcal{R}|$ spans 1--2 orders of magnitude across variants, rankings are robust to subset choice. LoRA fine-tunes rank-$32$ attention adapters with frozen head (AdamW, lr $10^{-5}$, batch size $16$, bf16). For the regularization comparison (Sec.~\ref{subsec:action}), both penalties operate on $\mathcal{D}_{\mathrm{ref}}$ ($32$ pre-training sequences disjoint from $\mathcal{D}_{\mathrm{FT}}$): the trace-norm shape penalty sweeps $\lambda \in \{0.01, 0.05, 0.1, 0.5, 1.0\}$ and a replay-CE baseline sweeps $\lambda \in \{0.001, 0.005, 0.01, 0.05, 0.1\}$, each range matched to its penalty's natural scale ($1{-}\Omega \sim 0.1$ vs.\ CE reference loss $\sim 1$~nat). Checkpoints every $25$ steps, analysis at step $300$; all experiments use a single NVIDIA RTX 5090 (32~GB).
 
 

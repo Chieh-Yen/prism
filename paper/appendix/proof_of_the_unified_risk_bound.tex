@@ -40,13 +40,13 @@ $\delta$ measures how features differ through the same head $H_T$; $\gamma$ meas
 \subsection{Step 2: bounding the feature alignment error $\delta$}
 \label{app:kfeat}
 
-\paragraph{Lipschitz Property of Cross-Entropy with Respect to Features.}
+\paragraph{Lipschitz property of cross-entropy with respect to features.}
 We bound $\delta$ by showing that the cross-entropy loss is Lipschitz continuous in the feature vector $z$. Define the end-to-end composition $g_T(z, y) := \ell(z \cdot H_T, y)$, treating the classification head $H_T$ and the cross-entropy loss as a single map from features to scalar loss. We bound $g_T$ via direct gradient analysis rather than the Lipschitz composition rule (loss-Lipschitz $\sqrt{2}$ times head operator norm $\|H_T\|_2$): the composition rule is agnostic to the softmax output and gives the spectral constant $\sqrt{2}\|H_T\|_2$ (Remark below), whereas the gradient $\nabla_z g_T = H_T(\hat{p} - e_y)$ exposes the predicted distribution $\hat{p}$ and lets us derive a constant set by pairwise token-embedding distances instead. Our goal is to find the tightest constant $K_{\mathrm{feat}}$ such that:
 \begin{equation}
 |g_T(z_1, y) - g_T(z_2, y)| \le K_{\mathrm{feat}} \|z_1 - z_2\|_2, \quad \forall z_1, z_2, y.
 \end{equation}
 
-\paragraph{Computing the Gradient.}
+\paragraph{Computing the gradient.}
 The logit vector is $v = z \cdot H_T \in \mathbb{R}^V$, and the cross-entropy loss is $\ell(v, y) = -v_y + \log \sum_{j=1}^{V} e^{v_j}$. The gradient with respect to the logits is:
 \begin{equation}
 \frac{\partial \ell}{\partial v} = \hat{p} - e_y,
@@ -57,7 +57,7 @@ where $\hat{p} = \mathrm{softmax}(v) \in \mathbb{R}^V$ and $e_y$ is the one-hot 
 \end{equation}
 where $h_{T,j}$ denotes the $j$-th column of $H_T$ (the embedding vector for token $j$).
 
-\paragraph{Simplex Polarization.}
+\paragraph{Simplex polarization.}
 We now derive a tight bound on $\|\nabla_z \ell\|_2$ by exploiting the probability simplex constraint $\sum_j \hat{p}_j = 1$. Expanding the gradient for true class $y$:
 \begin{equation}
 \nabla_z \ell = (\hat{p}_y - 1)\, h_{T,y} + \sum_{j \neq y} \hat{p}_j\, h_{T,j}.
@@ -78,14 +78,14 @@ K_{\mathrm{feat}} = \max_{j,k} \|h_{T,j} - h_{T,k}\|_2.
 
 \paragraph{Remark.} This bound depends on the \emph{relative distances} between token embeddings, not their absolute magnitudes. A uniform shift $H_T \to H_T + c\mathbf{1}^\top$ does not change $K_{\mathrm{feat}}$. A naive Cauchy--Schwarz bound gives $K_{\mathrm{feat}}^{\mathrm{naive}} = \sqrt{2}\|H_T\|_2$, which is substantially looser. Since the decomposition of Eq.~(\ref{eq:app_triangle}) routes through $\mathcal{R}_{P\to T}$ (which uses $H_T$), $K_{\mathrm{feat}}$ is determined by $H_T$ alone; it takes a single value across all proxy variants of a fixed target model and enters as a constant scaling on the feature term, not as a proxy-dependent quantity that could perturb variant ranking.
 
-\paragraph{From Gradient Bound to Lipschitz Inequality.}
+\paragraph{From gradient bound to Lipschitz inequality.}
 Since $g_T(\cdot, y)$ is continuously differentiable, the gradient bound $\|\nabla_z g_T(z, y)\|_2 \le K_{\mathrm{feat}}$ implies the Lipschitz inequality stated above by the mean value theorem: for any $z_1, z_2$,
 \begin{equation*}
 g_T(z_2, y) - g_T(z_1, y) = \int_0^1 \nabla_z g_T\!\big(z_1 + t(z_2 - z_1),\, y\big)^\top (z_2 - z_1)\, dt,
 \end{equation*}
 and Cauchy--Schwarz gives $|g_T(z_2, y) - g_T(z_1, y)| \le K_{\mathrm{feat}}\, \|z_2 - z_1\|_2$.
 
-\paragraph{Applying the Lipschitz Bound.}
+\paragraph{Applying the Lipschitz bound.}
 Using the Lipschitz property with $z_1 = \phi_T(x)$ and $z_2 = \phi_P(x) W$:
 \begin{equation}
 \begin{aligned}
@@ -111,7 +111,7 @@ Applying Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$
 
 We derive the exact identity linking the alignment residual to scale and shape mismatches. The identity holds for every $W \in \mathcal{O}(d)$; we then specialize to the two cases relevant to this paper.
 
-\paragraph{General Identity.}
+\paragraph{General identity.}
 For any $W \in \mathcal{O}(d)$, expand the squared Frobenius norm:
 \begin{equation}
 \begin{aligned}
@@ -165,7 +165,7 @@ the form underlying the Sec.~\ref{subsec:ablation} ablation.
 The Procrustes alignment $W_N$ minimizes only the feature alignment residual $\delta(W)$, not the full bound $\delta(W) + \gamma(W)$, since the head term also depends on $W$ via $W H_T - H_P$. Appendix~\ref{app:joint_opt} treats the joint optimization in full and identifies the operative alignment for each setting studied here.
 \end{remark}
 
-\paragraph{Assembling the Feature Bound.}
+\paragraph{Assembling the feature bound.}
 Combining Eq.~(\ref{eq:delta_lipschitz}) with the general decomposition Eq.~(\ref{eq:exact_decomposition_general}):
 \begin{equation}
 \label{eq:delta_final}
@@ -178,7 +178,7 @@ At $W = I$, replace $\Omega_W$ with $\Omega$; at $W = W_N$, with $\Omega_N$.
 \subsection{Step 4: bounding the head discrepancy $\gamma$}
 \label{app:head_bound}
 
-\paragraph{Lipschitz Property with Respect to Logits.}
+\paragraph{Lipschitz property with respect to logits.}
 The head discrepancy measures how much predictions differ when two different ``effective heads'' ($W H_T$ vs.\ $H_P$) operate on the same proxy features. Let $z = \phi_P(x)$ denote the (unaligned) proxy feature. Then:
 \begin{equation}
 \gamma = \big|\mathcal{R}_{P \to T} - \mathcal{R}_P\big| = \Big|\mathbb{E}\!\big[\ell(z \cdot W H_T, y) - \ell(z \cdot H_P, y)\big]\Big|.
@@ -193,7 +193,7 @@ Since $\hat{p}$ lies on the probability simplex, $\|\hat{p}\|_2 \le \|\hat{p}\|_
 \]
 The supremum $\sqrt{2}$ is approached as the model's predicted distribution concentrates on an incorrect class ($\hat{p}_y \to 0$). Thus $K_{\mathrm{pred}} \le \sqrt{2}$, yielding the Lipschitz inequality $|\ell(v_1, y) - \ell(v_2, y)| \le K_{\mathrm{pred}}\, \|v_1 - v_2\|_2$ on logits.
 
-\paragraph{Deriving the Covariance Projection.}
+\paragraph{Deriving the covariance projection.}
 Define the head misalignment matrix $\Delta H := W H_T - H_P \in \mathbb{R}^{d \times V}$. The logit difference for a single sample is $z \cdot \Delta H = \phi_P(x)(W H_T - H_P)$, and:
 \begin{equation}
 \begin{aligned}
