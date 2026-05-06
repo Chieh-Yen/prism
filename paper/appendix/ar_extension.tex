@@ -1,0 +1,23 @@
+
+\section{Extension to Autoregressive Generation}
+\label{app:ar_extension}
+
+The bound of Theorem~\ref{thm:unified_bound} applies to any matrix pair $(Z_T, Z_P) \in \mathbb{R}^{n \times d}$ of feature vectors, whatever the origin of the rows. We spell out here the autoregressive instantiation informally summarized in Sec.~\ref{subsec:ar_extension}.
+
+\paragraph{From tokens to matrices.}
+Fix a single sequence $(c, y_1, \ldots, y_{|y|})$. Each position $\tau$ supplies a (context, target-token) pair instantiating Eq.~(\ref{eq:ce_def}) with feature $\phi_M(c, y_{<\tau}) \in \mathbb{R}^d$ and loss $\ell(\phi_M(c, y_{<\tau}) H_M,\, y_\tau)$. Stacking the $|y|$ feature vectors into a $|y| \times d$ block recovers exactly the per-row setting that Theorem~\ref{thm:unified_bound} controls.
+
+\begin{corollary}[Autoregressive Risk Bound]
+\label{cor:ar_bound}
+For a single sequence $(c, y_1, \ldots, y_{|y|})$, let $Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}} \in \mathbb{R}^{|y| \times d}$ be the feature matrices stacked as above, with RMS scales $\rho_T^{\mathrm{AR}}, \rho_P^{\mathrm{AR}}$, Procrustes similarity $\Omega^{\mathrm{AR}}$, and covariance $\Sigma_P^{\mathrm{AR}}$. Then
+\begin{equation}
+\label{eq:ar_bound}
+|\mathcal{R}_T^{\mathrm{AR}} - \mathcal{R}_P^{\mathrm{AR}}| \;\le\; K_{\mathrm{feat}} \sqrt{(\rho_T^{\mathrm{AR}} - \rho_P^{\mathrm{AR}})^2 + 2\,\rho_T^{\mathrm{AR}}\,\rho_P^{\mathrm{AR}}(1 - \Omega^{\mathrm{AR}})} \;+\; K_{\mathrm{pred}} \,\big\|(\Sigma_P^{\mathrm{AR}})^{1/2}(H_T - H_P)\big\|_F.
+\end{equation}
+\end{corollary}
+
+\begin{proof}
+Each row of $Z_M^{\mathrm{AR}}$ is a feature vector of dimension $d$, and the Lipschitz analysis of Appendix~\ref{app:kfeat} together with the Procrustes decomposition of Appendix~\ref{app:procrustes} depend only on the matrix shape, not on the provenance of its rows. Applying Theorem~\ref{thm:unified_bound} to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$ yields the stated inequality.
+\end{proof}
+
+This unification enables one bound to cover point-wise classification (MMLU, ARC, where $|y|{=}1$), short-horizon QA (SQuAD, TriviaQA, where $y$ is a 1--5 token span), and multi-step reasoning (GSM8K, where $y$ is a chain-of-thought solution).
