@@ -1,7 +1,7 @@
 """
-Feature extractors — abstract base class + CLIP and LLM implementations.
+Feature extractor for causal language models.
 
-Each extractor takes a loaded model + data and returns (Z, H):
+Returns (Z, H):
     Z: (n, d)  feature matrix from the backbone
     H: (d, C)  prediction-head weight matrix
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import gc
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import torch
 from torch import Tensor
@@ -37,70 +37,6 @@ class FeatureExtractor(ABC):
         **kwargs,
     ) -> Tensor:
         """Return H with shape (d, C)."""
-
-    def extract(
-        self,
-        model: torch.nn.Module,
-        dataloader: DataLoader,
-        device: str = "cuda",
-        **kwargs,
-    ) -> Tuple[Tensor, Tensor]:
-        """Convenience: return (Z, H) in one call."""
-        Z = self.extract_features(model, dataloader, device)
-        H = self.extract_head(model, **kwargs)
-        return Z, H
-
-
-class CLIPExtractor(FeatureExtractor):
-    """Feature extraction for CLIP / SigLIP vision-language models.
-
-    Z = normalised image embeddings  (n, d)
-    H = normalised zero-shot text embeddings transposed to  (d, C)
-    """
-
-    def __init__(self, processor=None):
-        self.processor = processor
-
-    def extract_features(
-        self,
-        model: torch.nn.Module,
-        dataloader: DataLoader,
-        device: str = "cuda",
-    ) -> Tensor:
-        model.eval()
-        all_features: List[Tensor] = []
-        with torch.no_grad():
-            for batch in tqdm(dataloader, desc="Extracting CLIP features", leave=False):
-                images = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch.to(device)
-                feats = model.get_image_features(pixel_values=images)
-                feats = feats / feats.norm(dim=-1, keepdim=True)
-                all_features.append(feats)
-        return torch.cat(all_features, dim=0)
-
-    def extract_head(
-        self,
-        model: torch.nn.Module,
-        *,
-        text_weights: Optional[Tensor] = None,
-        task_name: Optional[str] = None,
-        device: str = "cuda",
-        **kwargs,
-    ) -> Tensor:
-        """Return (d, C) head weights.
-
-        If ``text_weights`` is provided directly, use that.
-        Otherwise, derive from the model's text encoder + class templates.
-        """
-        if text_weights is not None:
-            H = text_weights.float()
-            if H.shape[0] > H.shape[1]:
-                H = H.T
-            return H
-
-        raise ValueError(
-            "CLIPExtractor.extract_head requires pre-computed text_weights. "
-            "Compute zero-shot weights externally and pass them in."
-        )
 
 
 class LLMExtractor(FeatureExtractor):
@@ -286,8 +222,8 @@ class LLMExtractor(FeatureExtractor):
 
         Calls ``model(..., output_hidden_states=True)`` once per batch, obtaining
         the last hidden state (for features) **and** logits (for loss) in the same
-        pass — halving the number of forward passes versus calling
-        ``extract_features()`` + ``compute_lm_loss_per_sample()`` separately.
+        pass — halving the number of forward passes versus extracting features and
+        loss separately.
 
         Args:
             z_mode:  Single feature extraction mode (legacy API).
@@ -498,21 +434,3 @@ class LLMExtractor(FeatureExtractor):
                 "Expected .lm_head or .language_model.lm_head."
             )
         return w.T.contiguous()  # (d, vocab) — detached copy, won't pin model
-
-
-# ------------------------------------------------------------------
-# Registry / factory
-# ------------------------------------------------------------------
-_EXTRACTOR_MAP = {
-    "clip": CLIPExtractor,
-    "siglip": CLIPExtractor,
-    "llm": LLMExtractor,
-}
-
-
-def get_extractor(name: str, **kwargs) -> FeatureExtractor:
-    """Look up an extractor by short name (``clip``, ``llm``, …)."""
-    key = name.lower()
-    if key not in _EXTRACTOR_MAP:
-        raise ValueError(f"Unknown extractor '{name}'. Choose from {list(_EXTRACTOR_MAP.keys())}")
-    return _EXTRACTOR_MAP[key](**kwargs)

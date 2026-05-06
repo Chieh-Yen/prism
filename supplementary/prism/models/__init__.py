@@ -1,1 +1,1 @@
-from .extractors import FeatureExtractor, CLIPExtractor, LLMExtractor, get_extractor
+from .extractors import FeatureExtractor, LLMExtractor

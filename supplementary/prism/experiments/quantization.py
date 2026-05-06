@@ -311,10 +311,6 @@ class QuantizationExperiment(BaseExperiment):
     are computed; the tighter bound is selected.
     """
 
-    def setup_pairs(self) -> List[Dict[str, Any]]:
-        """Not used directly — see ``run()``."""
-        return []
-
     # ------------------------------------------------------------------
     # Proxy loading — dispatches between GGUF and bitsandbytes
     # ------------------------------------------------------------------

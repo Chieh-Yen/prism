@@ -60,20 +60,6 @@ class PRISMMetrics:
             return 0.0
         return min(nuclear_norm / denom, 1.0)
 
-    @staticmethod
-    def trace_omega(Z_T: Tensor, Z_P: Tensor) -> float:
-        """Ω_I(Z_T, Z_P) = tr(Z_T^T Z_P) / (‖Z_T‖_F ‖Z_P‖_F).
-
-        Identity-consistent alignment score — corresponds to W = I.
-        By Cauchy-Schwarz for the Frobenius inner product, |Ω_I| ≤ 1.
-        Always ≤ procrustes_omega in absolute value.
-        """
-        trace_val = (Z_T * Z_P).sum().item()
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
-        if denom < 1e-12:
-            return 0.0
-        return max(min(trace_val / denom, 1.0), -1.0)
-
     # ------------------------------------------------------------------
     # Optimal alignment W  (Orthogonal Procrustes)
     # ------------------------------------------------------------------
@@ -154,30 +140,13 @@ class PRISMMetrics:
         return torch.linalg.svdvals(delta_H)[0].item()
 
     # ------------------------------------------------------------------
-    # Per-sample geometric consistency score  (for OOD, Sec 5.3)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def consistency_scores(
-        Z_T: Tensor,
-        Z_P: Tensor,
-        W: Tensor,
-    ) -> Tensor:
-        """s(x_i) = ‖z_T^i − z_P^i W‖_2   per sample.
-
-        Returns: (n,) tensor of scores.
-        """
-        residuals = Z_T - Z_P @ W  # (n, d_T)
-        return residuals.norm(dim=1)
-
-    # ------------------------------------------------------------------
     # General Ω for any orthogonal W
     # ------------------------------------------------------------------
     @staticmethod
     def omega_for_W(Z_T: Tensor, Z_P: Tensor, W: Tensor) -> float:
         """Ω(W) = tr(W · Z_P^T Z_T) / (‖Z_T‖_F ‖Z_P‖_F).
 
-        Unified formula that subsumes ``procrustes_omega`` (W = W_opt)
-        and ``trace_omega`` (W = I) as special cases.
+        Unified formula that subsumes the W = W_opt and W = I special cases.
         Uses O(d²) element-wise product instead of O(d³) matrix multiply.
         """
         cross = Z_P.T @ Z_T                         # (d_P, d_T)
