@@ -156,7 +156,7 @@ Across two model families and five benchmarks, PRISM ranks variants with mean Sp
 % \input{text/intro}
 \input{text/intro_sun}
 
-\section{Related Work}
+\section{Related work}
 
 \paragraph{Representational Similarity and Procrustes Shape Metrics.}
 Representational similarity statistics---SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and the generalized shape metrics framework~\cite{williams2021generalized}---measure geometric resemblance between activation matrices, but their link to downstream behavior remains an open problem~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity}; a recent decodability bound~\cite{harvey2024what} reaches downstream via whitened kernels and newly-trained linear probes rather than the deployed prediction heads. The Linear Representation Hypothesis~\cite{park2023linear} and empirical relative-representation isometry across same-family encoders~\cite{moschella2022relative} together motivate restricting alignment to the orthogonal group, and the Platonic Representation Hypothesis~\cite{huh2024platonic} corroborates same-family shared geometry. PRISM lifts the Procrustes residual into a closed-form CE risk bound on the deployed head; the resulting bound splits into separately measurable scale, shape, and head components (Sec.~\ref{sec:geometric_foundation}).
@@ -172,7 +172,7 @@ Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate lo
 
 \input{figures/prism_geometric_decomposition.tex}
 
-\section{A Geometric Bound on the Cross-Entropy Risk Gap}
+\section{A geometric bound on the cross-entropy risk gap}
 \label{sec:geometric_foundation}
 
 \textbf{PRISM} (\textbf{P}roxy \textbf{R}isk \textbf{I}nference via \textbf{S}tructural \textbf{M}apping)---developed in this section---is a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T - \mathcal{R}_P|$ that decomposes into three diagnostic axes (scale, shape, head). We build it from two structural properties of LLMs: a linear \texttt{lm\_head} on a non-linear backbone, and the Linear Representation Hypothesis.
@@ -188,7 +188,7 @@ Let $T$ be a \emph{Target model} (e.g., a full-precision base) and $P$ a \emph{P
 Stacking $\phi_M$ outputs on shared inputs as rows, we form $Z_T, Z_P \in \mathbb{R}^{n \times d}$ and define the RMS feature scale $\rho_M = \|Z_M\|_F/\sqrt{n}$ and the empirical (uncentered) covariance $\Sigma_P = Z_P^\top Z_P/n$. The empirical isometry across model representations~\cite{moschella2022relative}, consistent with the Linear Representation Hypothesis~\cite{park2023linear}, motivates restricting attention to orthogonal alignments $W \in \mathcal{O}(d)$ between the two backbones; the PRISM bound (Theorem~\ref{thm:unified_bound}) holds for any such $W$, with alignment quality determining how tight the bound is in practice.
 
 
-\subsection{The Unified Risk Bound}
+\subsection{The unified risk bound}
 \label{subsec:unified_bound}
 
 To bound $|\mathcal{R}_T - \mathcal{R}_P|$ we introduce a hybrid risk $\mathcal{R}_{P \to T} := \mathbb{E}[\ell(\phi_P(x)\,W \cdot H_T, y)]$ that evaluates the target's head on the proxy's aligned features. The triangle inequality $|\mathcal{R}_T - \mathcal{R}_P| \le |\mathcal{R}_T - \mathcal{R}_{P\to T}| + |\mathcal{R}_{P\to T} - \mathcal{R}_P|$ splits the gap into two components, each upper-bounded by a closed-form geometric quantity: a \emph{feature alignment error} $\delta$ and a \emph{head discrepancy} $\gamma$ (full derivations in Appendix~\ref{app:detailed_proofs}).
@@ -234,7 +234,7 @@ We refer to $\mathcal{B} = \delta + \gamma$ as the \emph{PRISM bound}.
 \end{theorem}
 
 
-\subsection{Three Diagnostic Axes}
+\subsection{Three diagnostic axes}
 \label{subsec:interpretation}
 
 Theorem~\ref{thm:unified_bound} (illustrated in Fig.~\ref{fig:prism_concept}) decomposes the risk gap along three \emph{independently measurable} axes, each attached to a distinct failure mode of the proxy.
@@ -252,7 +252,7 @@ The head term quantifies how differently the prediction heads interpret features
 Theorem~\ref{thm:unified_bound} holds for every $W \in \mathcal{O}(d)$, yielding a family $\{\Omega_W\}$ of similarity scores. We evaluate two natural specializations: the trace form $\Omega := \Omega_{W=I}$ (used as the main text default) and the Procrustes-optimal nuclear form $\Omega_N := \Omega_{W=W_N}$ (ablation in Sec.~\ref{subsec:ablation}; full derivation in Appendix~\ref{app:tightness}). $W{=}W_N$ minimizes the alignment residual but introduces nonzero $\gamma$ when $H_T \approx H_P$ and requires per-step SVD; $W{=}I$ keeps $\gamma$ at its minimum---vanishing when $H_T{=}H_P$ (frozen-head LoRA, FP16-head PTQ; GGUF k-quant keeps $\gamma{>}0$)---and is directly differentiable, enabling the regularizer of Sec.~\ref{subsec:shape_reg}. Both yield strong rank correlations (Sec.~\ref{subsec:ablation}); the choice is primarily design-driven.
 
 
-\subsection{Extension to Autoregressive Generation}
+\subsection{Extension to autoregressive generation}
 \label{subsec:ar_extension}
 
 The bound applies unchanged to sequence-level generation. For a sequence $(c, y)$ with context $c$ and target continuation $y = (y_1, \ldots, y_{|y|})$, the autoregressive risk is
@@ -263,7 +263,7 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 Under teacher forcing, the $|y|$ token-level features $\phi_M(c, y_{<\tau})$ of a sequence are extracted in a single forward pass and stacked into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{|y| \times d}$; Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
-\subsection{From Diagnostic to Training: Shape Regularization}
+\subsection{From diagnostic to training: shape regularization}
 \label{subsec:shape_reg}
 
 LoRA fine-tuning drives the backbone shape away from its base: $\Omega(Z_0, Z_t)$ drops as training proceeds, and---because the head is frozen---the full risk gap between base $\theta_0$ and checkpoint $\theta_t$ reduces to backbone drift alone,
@@ -279,7 +279,7 @@ L_{\mathrm{total}} \;=\; \underbrace{L_{\mathrm{CE}}\bigl(\theta_t;\,\mathcal{D}
 where $Z_0^{\text{ref}}, Z_t^{\text{ref}}$ are base and current feature matrices on a fixed reference set (training schedule in Sec.~\ref{subsec:exp_setup}); empirical effect is validated in Sec.~\ref{subsec:shape_reg_exp}.
 
 
-\section{Applications: Post-Training Quantization and LoRA Forgetting}
+\section{Applications: post-training quantization and LoRA forgetting}
 \label{sec:applications}
 
 The Unified Risk Bound (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}) applies to two LLM lifecycle settings: post-training quantization (may engage all three axes) and frozen-head LoRA fine-tuning (backbone drift alone).
@@ -299,7 +299,7 @@ Target $T{=}\theta_0$ is the frozen base model and proxy $P{=}\theta_t$ a fine-t
 
 We organize the experiments around three claims: \textbf{Predictiveness}---the bound tracks $|\Delta\mathcal{R}|$ in rank order across both PTQ and LoRA variants (Sec.~\ref{subsec:predict}); \textbf{Decomposability}---its three axes localize three qualitatively distinct empirical failure modes (Sec.~\ref{subsec:decompose}); and \textbf{Actionability}---the differentiable shape arm doubles as a training-time regularizer that suppresses catastrophic forgetting (Sec.~\ref{subsec:action}). Sec.~\ref{subsec:ablation} closes with a component-wise ablation.
 
-\subsection{Experimental Setup}
+\subsection{Experimental setup}
 \label{subsec:exp_setup}
 
 \paragraph{Models.}
@@ -319,7 +319,7 @@ Five benchmarks: \textbf{MMLU}~\cite{hendrycks2021measuring}, \textbf{ARC}~\cite
 PRISM and $|\Delta\mathcal{R}|$ are evaluated on fixed held-out subsets shared across all variants of a base ($512$ samples per benchmark for PTQ, $256$ for LoRA forgetting); since observed $|\Delta\mathcal{R}|$ spans 1--2 orders of magnitude across variants, rankings are robust to subset choice. LoRA fine-tunes rank-$32$ attention adapters with frozen head (AdamW, lr $10^{-5}$, batch size $16$, bf16). For the regularization comparison (Sec.~\ref{subsec:action}), both penalties operate on $\mathcal{D}_{\mathrm{ref}}$ ($32$ pre-training sequences disjoint from $\mathcal{D}_{\mathrm{FT}}$): the trace-norm shape penalty sweeps $\lambda \in \{0.01, 0.05, 0.1, 0.5, 1.0\}$ and a replay-CE baseline sweeps $\lambda \in \{0.001, 0.005, 0.01, 0.05, 0.1\}$, each range matched to its penalty's natural scale ($1{-}\Omega \sim 0.1$ vs.\ CE reference loss $\sim 1$~nat). Checkpoints every $25$ steps, analysis at step $300$; all experiments use a single NVIDIA RTX 5090 (32~GB).
 
 
-\subsection{Predictiveness: The Bound Tracks the Risk Gap}
+\subsection{Predictiveness: the bound tracks the risk gap}
 \label{subsec:predict}
 \label{subsec:quant_exp}
 \label{subsec:forget_exp}
@@ -351,7 +351,7 @@ On Llama MMLU specifically, this correlation reaches Spearman $r_s = 0.91$: as b
 The same predictiveness extends to fine-tuning-induced drift (Fig.~\ref{fig:forget_grid_llama}): as LoRA fine-tuning proceeds on TruthfulQA or BBQ from step 25 to step 300, the bound computed on \emph{downstream} benchmarks tracks the empirical cross-entropy drift step-by-step, with mean Spearman $r_s=0.831 \pm 0.0722$ over the $2 \times 5$ downstream cells, comparable to the PTQ grid (Fig.~\ref{fig:quant_grid_bound}). On Llama TruthfulQA in particular, forgetting accumulates progressively across checkpoints, where $\mathcal{B}$ and $|\Delta\mathcal{R}|$ trend together (mean $r_s = 0.958$ across the 5 downstream benchmarks). The Qwen3-8B replication (Appendix~\ref{app:qwen_forgetting}) reproduces both patterns.
 
 
-\subsection{Decomposability: Three Axes, Three Failure Modes}
+\subsection{Decomposability: three axes, three failure modes}
 \label{subsec:decompose}
 
 Scalar correlation alone matches prior representational similarity work in answering \emph{whether} a variant has degraded. PRISM's decomposition adds \emph{which}: the dominant axis of Theorem~\ref{thm:unified_bound} reads off directly from the per-variant numbers and maps to a distinct empirical failure mode.
@@ -369,7 +369,7 @@ When the protocol quantizes the output embedding, the head term $\gamma$ becomes
 Each dominant axis suggests an axis-specific remediation. Scale collapse admits per-channel outlier smoothing~\cite{xiao2023smoothquant}, and head divergence admits FP16-\texttt{lm\_head} retention. Shape preservation admits two lifecycle-specific instances: Hessian-aware reconstruction at PTQ time, and differentiable trace regularization at LoRA training time (Sec.~\ref{subsec:action}). The bound thus turns from a scalar score into an axis-level diagnostic with actionable structure.
 
 
-\subsection{Actionability: From Diagnostic to Training Objective}
+\subsection{Actionability: from diagnostic to training objective}
 \label{subsec:action}
 \label{subsec:shape_reg_exp}
 
@@ -388,7 +388,7 @@ The decomposition of Sec.~\ref{subsec:decompose} suggests an immediate intervent
 Fig.~\ref{fig:shape_reg_combined_llama} and Table~\ref{tab:reg_compact_llama_truthfulqa} compare our trace at $\lambda{=}1.0$ against the replay baseline at $\lambda{=}0.01$ on Llama-3.1-8B (no regularization as anchor reference; both $\lambda$ chosen as each method's sweep optimum under the identical evaluation protocol). Our trace cuts mean downstream $|\Delta\mathcal{R}|$ on TruthfulQA from $0.84$ (no reg) to $0.68$ ($-19\%$); the replay baseline only reaches $0.76$ ($-9\%$). On Llama BBQ, fine-tuning is less shape-disruptive (mean baseline $\Omega = 0.932$ vs.\ TruthfulQA's $0.906$); trace still lifts $\Omega$ ($0.93 \to 0.98$) while replay leaves it flat. Mechanistically, replay reduces forgetting indirectly by re-fitting reference data (without directly targeting $\Omega$); trace contracts the shape arm of the bound at the source. Task-dependence and the axis-guided gating signal are analyzed in Appendix~\ref{app:reg_task_dependence} (Table~\ref{tab:reg_gating}). The Qwen3-8B replication and BBQ per-variant tables are in Appendix~\ref{app:qwen_forgetting}.
 
 
-\subsection{Ablation: Component-Wise Contributions}
+\subsection{Ablation: component-wise contributions}
 \label{subsec:ablation}
 
 \input{tables/quantization/baseline_combined}

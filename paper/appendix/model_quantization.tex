@@ -3,10 +3,10 @@
 % Include via:  \input{model_quantization}
 % ============================================================
 
-\section{Model and Quantization Details}
+\section{Model and quantization details}
 \label{app:model_details}
 
-\subsection{Target Models}
+\subsection{Target models}
 
 Table~\ref{tab:target_models} lists all target (full-precision) models evaluated in the quantization experiments.
 All targets are loaded in BF16 as the reference precision; an FP16 proxy is additionally included for each model to measure the BF16$\to$FP16 precision-drift baseline.
@@ -38,7 +38,7 @@ All targets are loaded in BF16 as the reference precision; an FP16 proxy is addi
 \noindent
 Models 2, 5 (\texttt{meta-llama}) are gated and require accepting the Meta Community License on HuggingFace before access.
 
-\subsection{Quantization Backends and Bit-Widths}
+\subsection{Quantization backends and bit-widths}
 \label{app:quant_tiers}
 
 Every target model is evaluated against up to four quantization backends.
@@ -69,7 +69,7 @@ FP16 reference & dtype   & \texttt{dtype:float16} & BF16$\to$FP16 precision drif
 \end{table}
 
 
-\subsection{Per-Model GPTQ Repositories}
+\subsection{Per-model GPTQ repositories}
 \label{app:gptq_awq}
 
 Table~\ref{tab:gptq_awq} lists the pre-quantized GPTQ checkpoint used for each target model.
@@ -104,7 +104,7 @@ GPTQ bit-width is 4-bit (the canonical setting reported in Sec.~\ref{subsec:exp_
 \end{table}
 
 
-\subsection{GGUF Repositories}
+\subsection{GGUF repositories}
 \label{app:gguf_repos}
 
 Table~\ref{tab:gguf_repos} lists the GGUF repositories and filename conventions for each model.
@@ -139,7 +139,7 @@ or \emph{dash convention} (\texttt{Model-Q4\_K\_M.gguf}) used by Qwen, bartowski
 \end{table}
 
 
-\subsection{Backend Coverage Summary}
+\subsection{Backend coverage summary}
 \label{app:coverage}
 
 Table~\ref{tab:coverage} provides a per-model summary of quantization backend coverage across the combinations we evaluated.

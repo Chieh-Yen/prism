@@ -1,10 +1,10 @@
 
-\section{Extension to General Orthogonal Alignments}
+\section{Extension to general orthogonal alignments}
 \label{app:general_W}
 
 The main text (Theorem~\ref{thm:unified_bound}) states the bound at the identity alignment $W = I$. Here we lift Theorem~\ref{thm:unified_bound} to arbitrary orthogonal $W$, characterize the $W = I$ trace and $W = W_N$ nuclear specializations (the latter used in the Sec.~\ref{subsec:ablation} ablation), and treat the joint optimization over feature and head terms. The two specializations encode different priorities: $W_N$ minimizes the feature alignment residual but generally inflates the head term, while $W = I$ keeps the head term at its minimum (vanishing exactly under frozen \texttt{lm\_head}) and is SVD-free differentiable, properties that the LLM settings studied here---PTQ with FP16 head and frozen-head LoRA---require.
 
-\subsection{The General Bound for Arbitrary $W$}
+\subsection{The general bound for arbitrary $W$}
 \label{app:general_bound}
 
 The exact decomposition derived in Appendix~\ref{app:procrustes} (Eq.~\ref{eq:exact_decomposition_general}) holds for every $W \in \mathcal{O}(d)$ via the alignment-dependent similarity $\Omega_W$ of Eq.~\ref{eq:omega_def}, yielding a family of risk bounds parameterized by $W$:
@@ -13,7 +13,7 @@ The exact decomposition derived in Appendix~\ref{app:procrustes} (Eq.~\ref{eq:ex
 \end{equation}
 The Procrustes solution $W_N$ minimizes $\delta(W)$ alone, yielding $\Omega_{W_N} = \Omega_N$ (the nuclear-norm similarity, Eq.~\ref{eq:omega_nuclear}). However, $W_N$ enters the head term $\gamma(W_N)$, which can be inflated when the rotation is applied to a nearly preserved head ($H_T \approx H_P$). This creates a fundamental trade-off: $W_N$ gives the tightest feature bound but may worsen the head bound, while $W = I$ preserves head coherence at the cost of a slightly looser feature bound.
 
-\subsection{The Trace Specialization ($W = I$)}
+\subsection{The trace specialization ($W = I$)}
 \label{app:trace_specialization}
 
 Setting $W = I$ recovers the main-text trace similarity $\Omega = \Omega_{W=I}$ (Eq.~\ref{eq:omega_def}). Two structural properties characterize this specialization.
@@ -32,7 +32,7 @@ Let $Z_T^\top Z_P = U\Sigma V^\top$ be the SVD. Then $\Omega = \Omega_N$ iff $VU
 At $W = I$, the head term $K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(H_T - H_P)\|_F$ carries no rotational contamination and vanishes whenever the prediction head is preserved (FP16 head under PTQ, frozen head under LoRA), recovering the regimes used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}.
 
 
-\subsection{Joint Optimization on the Stiefel Manifold}
+\subsection{Joint optimization on the Stiefel manifold}
 \label{app:joint_opt}
 
 The tightest bound over all orthogonal alignments requires solving:

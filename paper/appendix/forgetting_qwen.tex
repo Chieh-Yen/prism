@@ -1,12 +1,12 @@
 % Qwen3-8B forgetting and shape-regularization replications.
 % Input by neurips_2025.tex in the appendix.
 
-\section{Qwen3-8B Forgetting and Shape-Regularization Replications}
+\section{Qwen3-8B forgetting and shape-regularization replications}
 \label{app:qwen_forgetting}
 
 This appendix reports the Qwen3-8B replications of Sec.~\ref{subsec:forget_exp} and Sec.~\ref{subsec:shape_reg_exp} along with the remaining trace-norm decomposition tables (Llama BBQ and both Qwen fine-tuning tasks). Qwen3-8B differs from Llama-3.1-8B in depth (36 vs.\ 32 layers), vocabulary size ($151{,}936$ vs.\ $128{,}256$), and pre-training corpus (multilingual, $\sim$36T tokens vs.\ English-dominant, $\sim$15T tokens); reproducing the main-text patterns under these shifts provides cross-family evidence for the claims of Secs.~\ref{subsec:forget_exp}--\ref{subsec:shape_reg_exp}.
 
-\subsection{Forgetting: Bound Tracks Cross-Task Drift on Qwen3-8B}
+\subsection{Forgetting: bound tracks cross-task drift on Qwen3-8B}
 \label{app:qwen_forget_grid}
 
 \begin{figure}[h]
@@ -21,7 +21,7 @@ Figure~\ref{fig:forget_grid_qwen} reproduces the two structural observations of 
 \paragraph{Per-subplot variability under low-forgetting regimes.}
 A small subset of subplots in Fig.~\ref{fig:forget_grid_qwen}---most notably Qwen3-8B fine-tuned on BBQ evaluated on MMLU and TriviaQA---shows weak or slightly negative per-subplot $r_s$. These cases share a common signature: $|\Delta\mathcal{R}|$ at $\lambda{=}0$ sits at order $10^{-3}$ nats per token---two to three orders of magnitude below the $\sim 10^{-1}$ nat scale at which the bound is informative across the rest of the grid. Within the same (model, fine-tuning task) pair, this is benchmark-specific: Qwen3-8B BBQ at $\lambda{=}0$ shows $|\Delta\mathcal{R}|{\approx}0.0035$ on TriviaQA versus ${\approx}0.288$ on ARC (Table~\ref{tab:reg_compare_qwen_bbq})---roughly two orders of magnitude apart within a single fine-tuning trajectory. When the forgetting magnitude is at this scale, per-checkpoint ranking becomes uninformative; the resulting $r_s$ reflects checkpoint-trajectory noise rather than a failure of the bound. This pattern is a property of the (model, fine-tuning task, benchmark) triple (Qwen3-8B BBQ on TriviaQA is robust to fine-tuning) rather than the diagnostic. The same noise-dominated effect appears in Llama-3.1-8B BBQ$\to$SQuAD ($r_s\approx 0.30$, Fig.~\ref{fig:forget_grid_llama}): $|\Delta\mathcal{R}|$ saturates early in fine-tuning, so late checkpoints sit at roughly the same level and the per-checkpoint Spearman is driven by checkpoint noise rather than continued drift.
 
-\subsection{Shape Regularization: Qwen3-8B Replication}
+\subsection{Shape regularization: Qwen3-8B replication}
 \label{app:qwen_shape_reg}
 
 \begin{figure}[h]
@@ -33,7 +33,7 @@ A small subset of subplots in Fig.~\ref{fig:forget_grid_qwen}---most notably Qwe
 
 Figure~\ref{fig:shape_reg_combined_qwen} reproduces the main-text Llama comparison (Fig.~\ref{fig:shape_reg_combined_llama}) on Qwen3-8B. Because Qwen3-8B's baseline forgetting is already small, both methods stay near baseline level; the qualitative pattern (trace contracts $\Omega$, replay does not) holds. Per-config decompositions are in Tables~\ref{tab:reg_compare_qwen_truthfulqa} and~\ref{tab:reg_compare_qwen_bbq} below.
 
-\subsection{Additional Trace-Norm Decomposition Tables}
+\subsection{Additional trace-norm decomposition tables}
 \label{app:trace_norm_tables}
 
 Tables~\ref{tab:reg_compare_llama_truthfulqa}--\ref{tab:reg_compare_qwen_bbq} give the full per-$(\text{model}, \text{fine-tuning task})$ decomposition at step $300$ for the three configurations (no reg, replay $\lambda{=}0.01$, trace $\lambda{=}1.0$); the main-text Table~\ref{tab:reg_compact_llama_truthfulqa} compresses the Llama-TruthfulQA combination to $\Omega$ and $|\Delta\mathcal{R}|$ only.

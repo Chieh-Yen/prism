@@ -7,18 +7,18 @@
 % 3. Print the standard global TOC (which is now filtered)
 % \tableofcontents 
 % \clearpage
-\section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
+\section{Proof of the unified risk bound (Theorem~\ref{thm:unified_bound})}
 \label{app:detailed_proofs}
 
 We provide the complete proof of Theorem~\ref{thm:unified_bound}, which the main text states for general $W \in \mathcal{O}(d)$ (trace family $\Omega_W$, Eq.~\ref{eq:omega_def}). The proof proceeds through five self-contained steps: risk decomposition via triangle inequality, Lipschitz analysis of cross-entropy with respect to features, the alignment-residual decomposition (whose Procrustes-optimal specialization $W = W_N$ yields the nuclear form $\Omega_N$ via SVD), covariance-adjusted head bound, and final assembly. The identity-alignment specialization $W = I$ (used throughout Sec.~\ref{sec:experiments} and the regularizer of Sec.~\ref{subsec:shape_reg}) and the $W = W_N$ specialization (used in the Sec.~\ref{subsec:ablation} ablation) follow as corollaries of the same proof.
 
-\subsection{Relation to Classical Procrustes Shape Metrics}
+\subsection{Relation to classical Procrustes shape metrics}
 \label{app:shape_metrics_relation}
 
 The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega_N)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Section~\ref{sec:applications} (Quantization and LoRA Forgetting paragraphs) shows that the two arms of this split have qualitatively different practical meanings and dominate the risk gap under different LLM lifecycle settings.
 
 
-\subsection{Step 1: Risk Decomposition via Triangle Inequality}
+\subsection{Step 1: risk decomposition via triangle inequality}
 \label{app:risk_decomp}
 
 \paragraph{Setup.}
@@ -37,7 +37,7 @@ By the triangle inequality on absolute values:
 $\delta$ measures how features differ through the same head $H_T$; $\gamma$ measures how heads differ on the same aligned features.
 
 
-\subsection{Step 2: Bounding the Feature Alignment Error $\delta$}
+\subsection{Step 2: bounding the feature alignment error $\delta$}
 \label{app:kfeat}
 
 \paragraph{Lipschitz Property of Cross-Entropy with Respect to Features.}
@@ -106,7 +106,7 @@ Applying Jensen's inequality ($\mathbb{E}[\|X\|] \le \sqrt{\mathbb{E}[\|X\|^2]}$
 \input{tables/quantization/table_lipschitz_constants}
 
 
-\subsection{Step 3: Exact Geometric Decomposition}
+\subsection{Step 3: exact geometric decomposition}
 \label{app:procrustes}
 
 We derive the exact identity linking the alignment residual to scale and shape mismatches. The identity holds for every $W \in \mathcal{O}(d)$; we then specialize to the two cases relevant to this paper.
@@ -175,7 +175,7 @@ At $W = I$, replace $\Omega_W$ with $\Omega$; at $W = W_N$, with $\Omega_N$.
 
 
 
-\subsection{Step 4: Bounding the Head Discrepancy $\gamma$}
+\subsection{Step 4: bounding the head discrepancy $\gamma$}
 \label{app:head_bound}
 
 \paragraph{Lipschitz Property with Respect to Logits.}
@@ -222,7 +222,7 @@ Taking the square root:
 \paragraph{Interpretation.} The covariance weighting $\Sigma_P^{1/2}$ projects the head error onto the \emph{active subspace} of the data. If the heads disagree only in directions orthogonal to the feature distribution (the null space of $\Sigma_P$), this disagreement has zero cost---it does not affect any prediction. This is sharper than the loose spectral bound $\gamma \le K_{\mathrm{pred}} \|W H_T - H_P\|_2 \cdot \mathbb{E}[\|z\|_2]$, which conservatively assumes worst-case alignment between features and head error. The covariance weighting $\Sigma_P^{1/2}$ instead aligns the bound with the data-active directions: head misalignment in directions the features rarely traverse contributes little, and disagreement on $\mathrm{null}(\Sigma_P)$ contributes nothing.
 
 
-\subsection{Step 5: Assembling the Unified Bound}
+\subsection{Step 5: assembling the unified bound}
 \label{app:assembly}
 
 For any $W \in \mathcal{O}(d)$, combining the risk decomposition (Eq.~\ref{eq:app_triangle}), the feature bound (Eq.~\ref{eq:delta_final}), and the head bound (Eq.~\ref{eq:gamma_final}):

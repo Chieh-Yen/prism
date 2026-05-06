@@ -1,4 +1,4 @@
-\section{When Shape Regularization Helps: Task-Dependence}
+\section{When shape regularization helps: task-dependence}
 \label{app:reg_task_dependence}
 
 TruthfulQA-FT, where shape drift dominates downstream forgetting, illustrates the regularizer's intended use case: trace cuts mean $|\Delta\mathcal{R}|$ from 0.843 (no reg) to 0.681 ($-19\%$), outperforming experience replay (0.764, $-9\%$). BBQ-FT serves as a robustness check in the small-$|\Delta\mathcal{R}|$ regime: averaging the per-benchmark $|\Delta\mathcal{R}|$ values from Table~\ref{tab:reg_compare_llama_bbq} gives means of 0.179 (no reg), 0.195 (trace), and 0.241 (replay)---substantially smaller than TruthfulQA's 0.843---reflecting BBQ's modest baseline shape drift (mean baseline $\Omega = 0.932$ vs $0.906$). Trace outperforms replay; per-benchmark substantive wins (detailed below) persist on shape-driven cells.
