@@ -3,8 +3,7 @@
 Reproducibility package for the paper *PRISM: Decomposing Geometric Drift for
 Risk Diagnosis in LLM Variants*. This package is **run-only**: it contains
 the experiment pipelines for the two main experiments (PTQ grid in §5.2 and
-LoRA forgetting + regularization in §5.4) but no plotting, table generation,
-or analysis utilities.
+LoRA forgetting + regularization in §5.4).
 
 
 ## Layout

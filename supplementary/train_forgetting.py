@@ -106,14 +106,6 @@ def _format_bbq(row: dict) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
 
 
-def _format_social_iqa(row: dict) -> str:
-    answers = [row["answerA"], row["answerB"], row["answerC"]]
-    labels = ["A", "B", "C"]
-    opts = "\n".join(f"{labels[i]}. {answers[i]}" for i in range(3))
-    ans_label = labels[int(row["label"]) - 1]  # 1-indexed → 0-indexed
-    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer: {ans_label}"
-
-
 FORMATTERS = {
     "arc": _format_arc,
     "mmlu": _format_mmlu,
@@ -122,7 +114,6 @@ FORMATTERS = {
     "gsm8k": _format_gsm8k,
     "truthfulqa": _format_truthfulqa,
     "bbq": _format_bbq,
-    "social_iqa": _format_social_iqa,
 }
 
 
@@ -169,13 +160,6 @@ def _prompt_bbq(row: dict) -> str:
     return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
 
 
-def _prompt_social_iqa(row: dict) -> str:
-    answers = [row["answerA"], row["answerB"], row["answerC"]]
-    labels = ["A", "B", "C"]
-    opts = "\n".join(f"{labels[i]}. {answers[i]}" for i in range(3))
-    return f"Context: {row['context']}\nQuestion: {row['question']}\n{opts}\nAnswer:"
-
-
 PROMPT_FORMATTERS = {
     "arc": _prompt_arc,
     "mmlu": _prompt_mmlu,
@@ -184,7 +168,6 @@ PROMPT_FORMATTERS = {
     "gsm8k": _prompt_gsm8k,
     "truthfulqa": _prompt_truthfulqa,
     "bbq": _prompt_bbq,
-    "social_iqa": _prompt_social_iqa,
 }
 
 
@@ -418,7 +401,7 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
 # ── Task-specific dataset configuration ───────────────────────────────────
 
 TASK_CONFIGS = {
-    # ── New tasks (safety / truthfulness / social reasoning) ─────────
+    # ── Fine-tuning tasks (paper Sec.~5.4) ───────────────────────────
     "truthfulqa": {
         "hf_id": "truthful_qa",
         "hf_subset": "generation",
@@ -439,17 +422,7 @@ TASK_CONFIGS = {
         "default_max_steps": 700,
         "default_save_steps": 25,
     },
-    "social_iqa": {
-        "hf_id": "allenai/social_i_qa",
-        "hf_subset": None,
-        "train_split": "train",
-        "eval_split": "validation",
-        "max_train_samples": 8000,
-        "max_eval_samples": 256,
-        "default_max_steps": 1500,
-        "default_save_steps": 25,
-    },
-    # ── Original tasks ───────────────────────────────────────────────
+    # ── Downstream eval benchmarks (also usable as fine-tune targets) ──
     "arc": {
         "hf_id": "allenai/ai2_arc",
         "hf_subset": "ARC-Challenge",
@@ -1025,62 +998,8 @@ def parse_args() -> argparse.Namespace:
 # Data loading  (for training only — PRISM eval uses prism.data.loaders)
 # ======================================================================
 
-_SOCIAL_IQA_URL = "https://storage.googleapis.com/ai2-mosaic/public/socialiqa/socialiqa-train-dev.zip"
-_SOCIAL_IQA_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "social_iqa")
-
-
-def _load_social_iqa(split: str):
-    """Download Social IQa from the original source and return an HF Dataset.
-
-    The allenai/social_i_qa HuggingFace repo uses a deprecated loading script,
-    so we download the raw JSONL + label files directly from AI2's public bucket.
-    """
-    import io
-    import json
-    import zipfile
-    import requests
-    from datasets import Dataset as HFDataset
-
-    cache_dir = _SOCIAL_IQA_CACHE
-    os.makedirs(cache_dir, exist_ok=True)
-
-    split_name = "train" if split == "train" else "dev"
-    jsonl_path = os.path.join(cache_dir, f"{split_name}.jsonl")
-    labels_path = os.path.join(cache_dir, f"{split_name}-labels.lst")
-
-    # Download and extract if not cached
-    if not os.path.exists(jsonl_path) or not os.path.exists(labels_path):
-        print(f"  Downloading Social IQa from {_SOCIAL_IQA_URL} ...")
-        r = requests.get(_SOCIAL_IQA_URL, timeout=60)
-        r.raise_for_status()
-        z = zipfile.ZipFile(io.BytesIO(r.content))
-        for name in ["train.jsonl", "train-labels.lst", "dev.jsonl", "dev-labels.lst"]:
-            src = f"socialiqa-train-dev/{name}"
-            dst = os.path.join(cache_dir, name)
-            with z.open(src) as zf, open(dst, "wb") as out:
-                out.write(zf.read())
-        print(f"  Cached to {cache_dir}")
-
-    # Load JSONL + labels
-    with open(jsonl_path) as f:
-        rows = [json.loads(line) for line in f]
-    with open(labels_path) as f:
-        labels = [line.strip() for line in f]
-
-    for row, label in zip(rows, labels):
-        row["label"] = label
-
-    return HFDataset.from_list(rows)
-
-
 def _load_hf_dataset(task_name: str, split: str):
     cfg = TASK_CONFIGS[task_name]
-
-    # Social IQa requires custom loading (HF script is deprecated)
-    if task_name == "social_iqa":
-        actual_split = cfg["train_split"] if split == "train" else cfg["eval_split"]
-        return _load_social_iqa(actual_split)
-
     hf_args = [cfg["hf_id"]]
     if cfg.get("hf_subset") is not None:
         hf_args.append(cfg["hf_subset"])
