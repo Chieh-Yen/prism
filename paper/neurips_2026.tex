@@ -165,7 +165,7 @@ Representational similarity statistics---SVCCA~\cite{raghu2017svcca}, CKA~\cite{
 Post-training quantization spans calibration-based methods (GPTQ~\cite{frantar2022gptq}, second-order reconstruction) and weight-only schemes (GGUF k-quants, BitsAndBytes~\cite{dettmers2022gpt3}), with low-bit performance often constrained by activation outliers~\cite{xiao2023smoothquant}. Existing cheap diagnostics---layer-wise reconstruction loss or weight quantization error---are indirect proxies that do not account for nonlinear error accumulation through the full network. PRISM, in contrast, measures the resulting drift end-to-end on the deployed model in a single forward pass (Sec.~\ref{subsec:quant_exp}).
 
 \paragraph{Catastrophic Forgetting under Parameter-Efficient Fine-Tuning.}
-LoRA fine-tuning~\cite{hu2022lora} risks catastrophic forgetting of pre-training knowledge, even when the \texttt{lm\_head} stays frozen. Existing remedies fall into two families: weight-space constraints (EWC~\cite{kirkpatrick2017overcoming}) and data-space rehearsal (experience replay). PRISM's shape regularizer adds a third option---a feature-geometry constraint identifiable from the bound's decomposition: feature-manifold drift ($\Omega$, $\Delta\rho$) relative to the frozen base bounds the downstream risk gap and is usable as a post-hoc diagnostic and as a training-time penalty (Sec.~\ref{subsec:shape_reg}).
+LoRA fine-tuning~\cite{hu2022lora} risks catastrophic forgetting of pre-training knowledge, even with a frozen \texttt{lm\_head}. Existing remedies fall into two families: weight-space constraints (EWC~\cite{kirkpatrick2017overcoming}) and data-space rehearsal (experience replay). PRISM's shape regularizer adds a third option---a feature-geometry constraint identifiable from the bound's decomposition: feature-manifold drift ($\Omega$, $\Delta\rho$) relative to the frozen base bounds the downstream risk gap and is usable as a post-hoc diagnostic and a training-time penalty (Sec.~\ref{subsec:shape_reg}).
 
 \paragraph{Efficient Evaluation and Performance Forecasting.}
 Scaling laws~\cite{kaplan2020scaling, hoffmann2022training} predict aggregate loss but not variant-specific degradation; efficient-evaluation subsets~\cite{polo2024tinybenchmarks, perlitz2024efficient} preserve variant orderings without explaining them; weak-to-strong generalization~\cite{burns2023weak} targets label generation rather than risk estimation. PRISM instead bounds the variant-vs-base risk gap directly from a feature comparison---no labeled benchmarks, no aggregate-loss extrapolation (Sec.~\ref{sec:geometric_foundation}).
@@ -447,4 +447,5 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 \input{checklist.tex}
 
 \end{document}
+
 
