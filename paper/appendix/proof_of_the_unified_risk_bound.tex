@@ -162,7 +162,7 @@ Therefore $\Omega_{W_N} = \Omega_N := \|Z_T^\top Z_P\|_*/(\|Z_T\|_F\|Z_P\|_F)$ (
 \end{equation}
 the form underlying the Sec.~\ref{subsec:ablation} ablation.
 \begin{remark}[$W_N$ is the feature-side optimum, not the joint optimum]
-The Procrustes alignment $W_N$ minimizes only the feature alignment residual $\delta(W)$, not the full bound $\delta(W) + \gamma(W)$, since the head term also depends on $W$ via $W H_T - H_P$. Appendix~\ref{app:joint_opt} treats the joint optimization in full and shows that $W_N$ is the operative choice in the frozen-head LoRA and FP16-head PTQ settings studied here, where $\gamma$ either vanishes or is $W$-independent.
+The Procrustes alignment $W_N$ minimizes only the feature alignment residual $\delta(W)$, not the full bound $\delta(W) + \gamma(W)$, since the head term also depends on $W$ via $W H_T - H_P$. Appendix~\ref{app:joint_opt} treats the joint optimization in full and identifies the operative alignment for each setting studied here.
 \end{remark}
 
 \paragraph{Assembling the Feature Bound.}
