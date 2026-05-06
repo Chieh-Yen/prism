@@ -1,14 +1,12 @@
 % 1. Tell the TOC to start tracking sections again
-\addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
+% \addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
 
 % 2. Style the TOC header
-\etocsettocstyle{\subsection*{Contents of Appendix}}{}
+% \etocsettocstyle{\subsection*{Contents of Appendix}}{}
 
 % 3. Print the standard global TOC (which is now filtered)
-\tableofcontents 
-\clearpage
-
-
+% \tableofcontents 
+% \clearpage
 \section{Proof of the Unified Risk Bound (Theorem~\ref{thm:unified_bound})}
 \label{app:detailed_proofs}
 
@@ -230,6 +228,4 @@ This is Theorem~\ref{thm:unified_bound} in its general form. The two specializat
     \item \textbf{$W = W_N$ (Procrustes-optimal, ablation):} $\Omega_W = \Omega_N$ (nuclear form, achieves the tightest feature-side specialization), giving the bound underlying the Sec.~\ref{subsec:ablation} ablation.
 \end{itemize}
 This completes the proof of Theorem~\ref{thm:unified_bound}. \qed
-
-
 

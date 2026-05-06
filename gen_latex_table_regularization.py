@@ -108,13 +108,13 @@ OMEGA_DEEP  = 0.80
 RED_COLS = {"omega", "delta", "bound_total", "delta_risk"}
 
 COLUMNS = [
-    ("rho_T",        r"$\rho_T$"),
-    ("rho_P",        r"$\rho_P$"),
-    ("omega",        r"$\Omega$"),
-    ("delta",        r"$\delta$"),
-    ("gamma",        r"$\gamma$"),
-    ("bound_total",  r"PRISM $\mathcal{B}$"),
-    ("delta_risk",   r"$|\Delta\mathcal{R}|$"),
+    ("rho_T",        r"$\boldsymbol{\rho_T}$"),
+    ("rho_P",        r"$\boldsymbol{\rho_P}$"),
+    ("omega",        r"$\boldsymbol{\Omega}$"),
+    ("delta",        r"$\boldsymbol{\delta}$"),
+    ("gamma",        r"$\boldsymbol{\gamma}$"),
+    ("bound_total",  r"\textbf{PRISM} $\boldsymbol{\mathcal{B}}$"),
+    ("delta_risk",   r"$\boldsymbol{|\Delta\mathcal{R}|}$"),
 ]
 
 
@@ -284,7 +284,7 @@ def _render_body(rows_per_block, model_short, ft_task, include_target):
 
 def _wrap_table(body_rows, caption, label, second_col_header):
     col_spec = "l l " + "r" * len(COLUMNS)
-    header_cols = " & ".join(rf"\textbf{{{h}}}" for _, h in COLUMNS)
+    header_cols = " & ".join(rf"\multicolumn{{1}}{{c}}{{{h}}}" for _, h in COLUMNS)
     L = []
     L.append(r"\begin{table}[t]")
     L.append(r"\centering")
@@ -293,7 +293,7 @@ def _wrap_table(body_rows, caption, label, second_col_header):
     L.append(r"\resizebox{0.95\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
-    L.append(r"\textbf{Dataset} & \textbf{" + second_col_header + r"} & " + header_cols + r" \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{" + second_col_header + r"} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.extend(body_rows)
     L.append(r"\bottomrule")
@@ -535,7 +535,7 @@ def build_compare_table(model_cfg, ft_cfg, configs, include_target):
         r"\colorbox{cyan!12}{$\gamma{=}0$} under frozen \texttt{lm\_head}."
     )
     label = f"tab:reg_compare_{model_cfg['short']}_{ft_cfg['short']}"
-    return _wrap_table(body_rows, caption, label, "Config")
+    return _wrap_table(body_rows, caption, label, r"\textbf{Method} ($\boldsymbol{\lambda}$)")
 
 
 def parse_configs(specs):
@@ -599,7 +599,7 @@ def build_sweep_table(method, lams, model_cfg, ft_cfg, include_target):
         r"Bold / underline: 1st / 2nd-best smallest $|\Delta\mathcal{R}|$ and largest $\Omega$ per benchmark."
     )
     label = f"tab:reg_sweep_{method}_{model_cfg['short']}_{ft_cfg['short']}"
-    return _wrap_table(body_rows, caption, label, r"$\lambda$")
+    return _wrap_table(body_rows, caption, label, r"$\boldsymbol{\lambda}$")
 
 
 def run_sweep_mode(args):

@@ -309,9 +309,9 @@ def _emit_latex(metrics, stats, best_cols, second_cols, n_cells_with_data,
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
-        [r"\textbf{Metric}"]
-        + [r"\textbf{Mean $|r_s|$}"]
-        + [rf"\textbf{{{ROW_DISPLAY[m]}}}" for m in ROW_MODELS]
+        [r"\multicolumn{1}{c}{\textbf{Metric}}"]
+        + [r"\multicolumn{1}{c}{\textbf{Mean} $\boldsymbol{|r_s|}$}"]
+        + [rf"\multicolumn{{1}}{{c}}{{\textbf{{{ROW_DISPLAY[m]}}}}}" for m in ROW_MODELS]
     )
     lines.append(" & ".join(header_cells) + r" \\")
     subheader = ([""]
@@ -384,9 +384,9 @@ def _emit_combined_latex(groups, out_path, label, caption):
     lines.append(r"\begin{tabular}{" + col_spec + "}")
     lines.append(r"\toprule")
     header_cells = (
-        [r"\textbf{Metric}"]
-        + [rf"\textbf{{{ROW_DISPLAY[m]}}}" for m in ROW_MODELS]
-        + [r"\textbf{Mean $r_s$}"]
+        [r"\multicolumn{1}{c}{\textbf{Metric}}"]
+        + [rf"\multicolumn{{1}}{{c}}{{\textbf{{{ROW_DISPLAY[m]}}}}}" for m in ROW_MODELS]
+        + [r"\multicolumn{1}{c}{\textbf{Mean} $\boldsymbol{r_s}$}"]
     )
     lines.append(" & ".join(header_cells) + r" \\")
     subheader = ([""]

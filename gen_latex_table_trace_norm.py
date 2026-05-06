@@ -69,13 +69,13 @@ OMEGA_DEEP  = 0.80
 RED_COLS = {"omega", "delta", "bound_total", "delta_risk"}
 
 COLUMNS = [
-    ("rho_T",        r"$\rho_T$"),
-    ("rho_P",        r"$\rho_P$"),
-    ("omega",        r"$\Omega$"),
-    ("delta",        r"$\delta$"),
-    ("gamma",        r"$\gamma$"),
-    ("bound_total",  r"$\mathcal{B}$"),
-    ("delta_risk",   r"$|\Delta\mathcal{R}|$"),
+    ("rho_T",        r"$\boldsymbol{\rho_T}$"),
+    ("rho_P",        r"$\boldsymbol{\rho_P}$"),
+    ("omega",        r"$\boldsymbol{\Omega}$"),
+    ("delta",        r"$\boldsymbol{\delta}$"),
+    ("gamma",        r"$\boldsymbol{\gamma}$"),
+    ("bound_total",  r"$\boldsymbol{\mathcal{B}}$"),
+    ("delta_risk",   r"$\boldsymbol{|\Delta\mathcal{R}|}$"),
 ]
 
 
@@ -212,7 +212,7 @@ def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\resizebox{0.85\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
-    L.append(r"\textbf{Dataset} & \textbf{$\lambda$} & " + header_cols + r" \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{$\boldsymbol{\lambda}$} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.extend(body_rows)
     L.append(r"\bottomrule")
@@ -230,7 +230,7 @@ def build_table(model_cfg, ft_cfg, include_target=INCLUDE_TARGET_TASK):
     body_rows = _render_body_rows(short_model, short_ft, include_target=include_target)
 
     col_spec = "l l " + "r" * len(COLUMNS)
-    header_cols = " & ".join(rf"\textbf{{{h}}}" for _, h in COLUMNS)
+    header_cols = " & ".join(rf"\multicolumn{{1}}{{c}}{{{h}}}" for _, h in COLUMNS)
 
     caption = (
         r"Trace-norm forgetting decomposition for \textbf{" + display_model

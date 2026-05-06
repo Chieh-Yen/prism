@@ -113,13 +113,13 @@ OMEGA_DEEP = 0.80
 RED_COLS = {"Omega_I", "delta_I", "Bound_I", "|MdR|"}
 
 COLUMNS = [
-    ("rho_T",   r"$\rho_T$"),
-    ("rho_P",   r"$\rho_P$"),
-    ("Omega_I", r"$\Omega$"),
-    ("delta_I", r"$\delta$"),
-    ("gamma_I", r"$\gamma$"),
-    ("Bound_I", r"PRISM $\mathcal{B}$"),
-    ("|MdR|",   r"$|\Delta\mathcal{R}|$"),
+    ("rho_T",   r"$\boldsymbol{\rho_T}$"),
+    ("rho_P",   r"$\boldsymbol{\rho_P}$"),
+    ("Omega_I", r"$\boldsymbol{\Omega}$"),
+    ("delta_I", r"$\boldsymbol{\delta}$"),
+    ("gamma_I", r"$\boldsymbol{\gamma}$"),
+    ("Bound_I", r"\textbf{PRISM} $\boldsymbol{\mathcal{B}}$"),
+    ("|MdR|",   r"$\boldsymbol{|\Delta\mathcal{R}|}$"),
 ]
 
 
@@ -315,7 +315,7 @@ def _wrap_regular_table(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\resizebox{\textwidth}{!}{%")
     L.append(r"\begin{tabular}{" + col_spec + "}")
     L.append(r"\toprule")
-    L.append(r"\textbf{Dataset} & \textbf{Family} & \textbf{Method} & " + header_cols + r" \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{\textbf{Family}} & \multicolumn{1}{c}{\textbf{Method}} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.extend(body_rows)
     L.append(r"\bottomrule")
@@ -342,14 +342,14 @@ def _wrap_longtable(body_rows, caption, label, col_spec, header_cols):
     L.append(r"\caption{" + caption + r"}\label{" + label + r"}\\")
     # First-page header
     L.append(r"\toprule")
-    L.append(r"\textbf{Dataset} & \textbf{Family} & \textbf{Method} & " + header_cols + r" \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{\textbf{Family}} & \multicolumn{1}{c}{\textbf{Method}} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.append(r"\endfirsthead")
     # Subsequent-page header
     L.append(r"\multicolumn{" + str(ncols) + r"}{l}"
              r"{\small\itshape (continued from previous page)}\\")
     L.append(r"\toprule")
-    L.append(r"\textbf{Dataset} & \textbf{Family} & \textbf{Method} & " + header_cols + r" \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{\textbf{Family}} & \multicolumn{1}{c}{\textbf{Method}} & " + header_cols + r" \\")
     L.append(r"\midrule")
     L.append(r"\endhead")
     # Mid-page footer (when breaking)
@@ -378,7 +378,7 @@ def build_table(model_cfg, group_cfg, rows):
     body_rows = _render_body_rows(data, rho_per_ds, datasets)
 
     col_spec = "ll l " + "r" * len(COLUMNS)
-    header_cols = " & ".join(rf"\textbf{{{h}}}" for _, h in COLUMNS)
+    header_cols = " & ".join(rf"\multicolumn{{1}}{{c}}{{{h}}}" for _, h in COLUMNS)
     caption = (
         r"Geometric decomposition for \textbf{" + display + r"} under identity "
         r"alignment ($W{=}I$) on " + caption_label + r". "
@@ -489,10 +489,10 @@ def build_summary_table(rows):
     L.append(r"\begin{tabular}{l " + "c" * len(SUMMARY_BENCHMARKS) + "}")
     L.append(r"\toprule")
     L.append(r" & \multicolumn{" + str(len(SUMMARY_BENCHMARKS)) +
-             r"}{c}{Empirical risk gap $|\Delta\mathcal{R}|$} \\")
+             r"}{c}{\textbf{Empirical risk gap} $\boldsymbol{|\Delta\mathcal{R}|}$} \\")
     L.append(r"\cmidrule(lr){2-" + str(len(SUMMARY_BENCHMARKS) + 1) + "}")
-    L.append("Model & " + " & ".join(
-        DS_DISPLAY[b] for b in SUMMARY_BENCHMARKS) + r" \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Model}} & " + " & ".join(
+        rf"\textbf{{{DS_DISPLAY[b]}}}" for b in SUMMARY_BENCHMARKS) + r" \\")
     L.append(r"\midrule")
 
     for model_cfg in MODELS:
@@ -518,7 +518,7 @@ def build_summary_table(rows):
         vals = [cell_dr[(m["short"], ds)] for m in MODELS]
         vals = [v for v in vals if not math.isnan(v)]
         mean_dr.append(sum(vals) / len(vals) if vals else float("nan"))
-    L.append(r"\textbf{Mean $|\Delta\mathcal{R}|$} & " + " & ".join(
+    L.append(r"\textbf{Mean} $\boldsymbol{|\Delta\mathcal{R}|}$ & " + " & ".join(
         _hl(ds, f"{v:.4f}" if not math.isnan(v) else "--", bold=True)
         for ds, v in zip(SUMMARY_BENCHMARKS, mean_dr)) + r" \\")
     L.append(r"\midrule")
@@ -528,7 +528,7 @@ def build_summary_table(rows):
         vals = [cell_rs[(m["short"], ds)] for m in MODELS]
         vals = [v for v in vals if not math.isnan(v)]
         mean_rs.append(sum(vals) / len(vals) if vals else float("nan"))
-    L.append(r"\textbf{Mean $r_s$} & " + " & ".join(
+    L.append(r"\textbf{Mean} $\boldsymbol{r_s}$ & " + " & ".join(
         _hl(ds, f"{v:.3f}" if not math.isnan(v) else "--")
         for ds, v in zip(SUMMARY_BENCHMARKS, mean_rs)) + r" \\")
 
