@@ -260,7 +260,7 @@ The bound applies unchanged to sequence-level generation. For a sequence $(c, y)
 \label{eq:ar_risk}
 \mathcal{R}_M^{\mathrm{AR}} \;=\; \mathbb{E}_{(c, y) \sim \mathcal{D}} \!\left[ \frac{1}{|y|} \sum_{\tau=1}^{|y|} \ell\!\big(\phi_M(c, y_{<\tau}) \cdot H_M,\; y_\tau\big) \right].
 \end{equation}
-Under teacher forcing, all $|y|$ token-level features $\phi_M(c, y_{<\tau})$ are extracted in a single forward pass and stacked into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{N \times d}$; Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
+Under teacher forcing, the $|y|$ token-level features $\phi_M(c, y_{<\tau})$ of a sequence are extracted in a single forward pass and stacked into $Z_M^{\mathrm{AR}} \in \mathbb{R}^{|y| \times d}$; Theorem~\ref{thm:unified_bound} then applies directly to $(Z_T^{\mathrm{AR}}, Z_P^{\mathrm{AR}})$. The full corollary is in Appendix~\ref{app:ar_extension}.
 
 
 \subsection{From Diagnostic to Training: Shape Regularization}
