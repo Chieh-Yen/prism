@@ -577,7 +577,7 @@ def build_lipschitz_table(rows):
     L.append(r"\setlength{\tabcolsep}{8pt}")
     L.append(r"\begin{tabular}{l cc}")
     L.append(r"\toprule")
-    L.append(r"Model & $K_{\mathrm{feat}}$ & $K_{\mathrm{pred}}$ \\")
+    L.append(r"\multicolumn{1}{c}{\textbf{Model}} & \multicolumn{1}{c}{$\boldsymbol{K_{\mathrm{feat}}}$} & \multicolumn{1}{c}{$\boldsymbol{K_{\mathrm{pred}}}$} \\")
     L.append(r"\midrule")
 
     for model_cfg in MODELS:
