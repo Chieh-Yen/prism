@@ -303,7 +303,7 @@ We organize the experiments around three claims: \textbf{Predictiveness}---the b
 \label{subsec:exp_setup}
 
 \paragraph{Models.}
-The main analysis spans two model families: Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3}; PTQ replications on Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B, and three instruction-tuned counterparts (seven 8B families total) are in Appendix~\ref{app:per_model_tables}, with the Qwen LoRA replication in Appendix~\ref{app:qwen_forgetting}.
+The main analysis spans two model families: Llama-3.1-8B~\cite{grattafiori2024llama} and Qwen3-8B~\cite{qwen2025qwen3}; PTQ replications on Ministral-3-8B~\cite{liu2026ministral3}, DeepSeek-R1-Distill-Llama-8B~\cite{deepseekai2025r1}, and three instruction-tuned counterparts (seven 8B families total) are in Appendix~\ref{app:per_model_tables}.
 
 \paragraph{Quantization Protocols.}
 Three PTQ families across bit-widths 2--8, spanning basic rounding to calibration-based compensation: \textbf{GGUF} (round-to-nearest, \texttt{Q2\_K}--\texttt{Q8\_0}), \textbf{GPTQ}~\cite{frantar2022gptq} (4-bit, second-order reconstruction), and \textbf{BitsAndBytes}~\cite{dettmers2022gpt3} (INT8, NF4, FP4).
