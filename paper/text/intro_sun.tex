@@ -11,8 +11,8 @@ PRISM exposes three diagnostic axes: \emph{scale mismatch} $\Delta \rho$ (activa
 Beyond post-hoc diagnosis, PRISM also provides a training signal. Under frozen-head LoRA fine-tuning, the head discrepancy term vanishes, making the differentiable shape term a clean regularization target for backbone drift. This allows us to regularize fine-tuning directly by penalizing feature-geometry distortion, reducing catastrophic forgetting without replay (Sec.~\ref{subsec:shape_reg_exp}).
 Empirically, across Llama-, Qwen-, Ministral-, and DeepSeek-based variants and five benchmarks, PRISM consistently tracks degradation across both post-training quantization (PTQ) and LoRA fine-tuning. The bound achieves mean Spearman correlations of $0.820$ for quantized variants and $0.831$ for LoRA forgetting; beyond ranking, its axes separate distinct failure modes. Moreover, the proposed axis-guided shape regularizer outperforms replay-based baselines in mitigating forgetting.
 
-Our contributions are three-fold.
-\begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
+Our contributions are threefold.
+\begin{enumerate}[leftmargin=24pt,itemsep=2pt, topsep=2pt]
     \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes.} $|\mathcal{R}_T - \mathcal{R}_P|$ admits a closed-form upper bound as a sum of three axes: scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ (from an exact Procrustes residual decomposition), plus a covariance-weighted head-discrepancy term (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}).
 
     \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} Computed from features and head weights alone, the bound applies across both PTQ and frozen-head LoRA; the differentiable trace form $\Omega$ further turns it into a training-time regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
