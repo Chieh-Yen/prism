@@ -3,20 +3,10 @@
 # PRISM — environment installer
 #
 # Installs all dependencies in the correct order:
-#   1. torch with CUDA 12.8 wheel  (must come first)
-#   2. setuptools >= 71            (GPTQModel pyproject.toml fix)
-#   3. requirements.txt            (everything else)
-#   4. GPTQModel with              (requires torch at build time)
-#      --no-build-isolation
-#
-# Background — two GPTQModel install issues:
-#   a) Without --no-build-isolation:
-#      pip creates an isolated build env that has no torch, so
-#      GPTQModel's setup.py fails with "Unable to detect torch version".
-#   b) With --no-build-isolation + setuptools < 71:
-#      setuptools rejects pyproject.toml's `license = "Apache-2.0"`
-#      (SPDX string, PEP 639) — only accepted by setuptools >= 71.0.
-#   Fix: upgrade setuptools first, then use --no-build-isolation.
+#   1. torch with CUDA 12.8 wheel
+#   2. setuptools >= 71
+#   3. requirements.txt
+#   4. GPTQModel (with --no-build-isolation)
 #
 # Usage:
 #   bash install.sh
@@ -54,12 +44,8 @@ python -c "import torch; print('      torch version:', torch.__version__)" || {
 }
 
 # ── Step 2: setuptools >= 71 ──────────────────────────────────
-# GPTQModel 5.7.0 pyproject.toml uses `license = "Apache-2.0"` (PEP 639
-# SPDX string). setuptools < 71.0 validates against the PEP 621 schema
-# which only allows {file: ...} or {text: ...}, rejecting the SPDX string.
-# setuptools >= 71.0 (2024-07-04) added full PEP 639 support.
 echo ""
-echo "[2/4] Upgrading setuptools >= 71 (required by GPTQModel pyproject.toml) ..."
+echo "[2/4] Upgrading setuptools >= 71 ..."
 pip install "setuptools>=71"
 python -c "import setuptools; print('      setuptools version:', setuptools.__version__)"
 
@@ -72,9 +58,6 @@ echo "      requirements.txt installed."
 # ── Step 4: GPTQModel ─────────────────────────────────────────
 echo ""
 echo "[4/4] Installing GPTQModel==5.7.0 (--no-build-isolation) ..."
-# --no-build-isolation: skips pip's isolated build sandbox so that
-#   (a) GPTQModel's setup.py can detect the pre-installed torch version
-#   (b) the upgraded setuptools (>= 71) is used for pyproject.toml validation
 pip install -v GPTQModel==5.7.0 --no-build-isolation
 echo "      GPTQModel installed."
 

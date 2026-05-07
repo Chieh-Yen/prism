@@ -16,8 +16,6 @@
 #   DRY_RUN=1                 print commands without executing
 # ============================================================
 set -uo pipefail
-# NOTE: -e is intentionally omitted. Failures are handled per-invocation so
-#       one bad GPTQ repo or transient OOM does not abort all jobs.
 
 MULTI_GPU="${MULTI_GPU:-0}"
 if [[ "$MULTI_GPU" == "1" ]]; then

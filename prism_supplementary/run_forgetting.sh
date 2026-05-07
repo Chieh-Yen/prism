@@ -41,8 +41,6 @@
 #   REPLAY_LAMBDAS="0.05 0.1" SHAPE_LAMBDAS="0.5" bash run_forgetting.sh
 # ============================================================
 set -uo pipefail
-# Note: -e intentionally omitted — a single OOM / transient failure
-#       shouldn't kill a multi-day sweep. Failures are logged + counted.
 
 GPUID="${CUDA_GPU:-0}"
 MAX_STEPS="${MAX_STEPS:-300}"

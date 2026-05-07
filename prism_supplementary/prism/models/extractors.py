@@ -238,9 +238,6 @@ class LLMExtractor(FeatureExtractor):
             ``answer_losses``        — (n,) answer-only loss, or None
             ``has_answer_loss``
             ``grad_norm_p95 / _max / _mean`` — empirical K_pred proxy
-
-        Falls back to the two-pass approach automatically if
-        ``output_hidden_states`` is not supported by the loaded model.
         """
         _return_dict = z_modes is not None
         if z_modes is None:
@@ -258,11 +255,8 @@ class LLMExtractor(FeatureExtractor):
         lm_weight = self._get_lm_weight(model)  # (V, d) or None
         CHUNK = chunk_size
 
-        # Probe once whether the model supports output_hidden_states.
-        # Some quantised wrappers silently ignore the flag; we verify on the
-        # first batch and fall back to two passes if hidden_states is absent.
         _checked = False
-        _use_combined = True  # updated after first batch
+        _use_combined = True
 
         with torch.no_grad():
             for batch in tqdm(dataloader, desc="Extracting features + loss", leave=False):

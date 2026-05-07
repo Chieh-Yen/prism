@@ -236,7 +236,7 @@ class ShapeRegularizedTrainer(Trainer):
     def __init__(
         self,
         *args,
-        Z_T_ref: Optional[Tensor] = None,   # required for shape; unused by ReplayCETrainer
+        Z_T_ref: Optional[Tensor] = None,
         ref_dataloader,
         lambda_shape: float = 0.1,
         reg_every_k: int = 8,
@@ -393,8 +393,6 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
             self._shape_sum = 0.0
             self._omega_sum = 0.0
             self._count = 0
-        # Skip ShapeRegularizedTrainer.log to avoid duplicate key injection;
-        # call grandparent (HF Trainer) directly.
         Trainer.log(self, logs, *args, **kwargs)
 
 

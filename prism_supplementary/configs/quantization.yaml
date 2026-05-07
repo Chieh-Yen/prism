@@ -31,7 +31,7 @@
 # GGUF filename template (auto-derived from proxy.model):
 #   TheBloke repos  → {stem}.{quant}.gguf   (lowercase, dot separator)
 #   Official repos  → {Stem}-{quant}.gguf   (original case, dash separator)
-#   Override with proxy.gguf_template if the auto-derivation is wrong.
+#   Override with proxy.gguf_template if needed.
 
 experiment: quantization
 

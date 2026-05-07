@@ -339,17 +339,6 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
-        # Pre-load config to detect whether the checkpoint already has its own
-        # quantisation (e.g. FineGrainedFP8Config for Ministral-3-8B-Instruct).
-        # Passing a BitsAndBytesConfig alongside a different quantisation class
-        # raises a conflict error in transformers.  When a pre-applied config is
-        # detected we use a two-step path:
-        #   1. Load to CPU with dtype=bfloat16 — transformers automatically
-        #      dequantises the weights to BF16 on hardware that does not support
-        #      the native format (e.g. FP8 on compute capability < 8.9).
-        #   2. Replace nn.Linear layers with BnB-quantised equivalents in-place
-        #      via _bnb_requantize, then dispatch to GPU (triggers on-CUDA
-        #      BnB weight quantisation through Int8Params / Params4bit).
         config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
         existing_quant = getattr(config, "quantization_config", None)
 
@@ -362,10 +351,6 @@ class QuantizationExperiment(BaseExperiment):
                 **self._attn_impl_kwargs(),
             )
         else:
-            print(
-                f"  (pre-quantised checkpoint [{type(existing_quant).__name__}];"
-                f" loading to CPU for dequantisation, then re-quantising with BnB)"
-            )
             proxy = _load_model(
                 model_id,
                 dtype=torch.bfloat16,
