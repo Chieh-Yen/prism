@@ -147,7 +147,7 @@ for Risk Diagnosis in LLM Variants}
 
 \begin{abstract}
 Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---needs a diagnostic that pinpoints \emph{how} the variant has drifted, not just \emph{that} it has; existing similarity scores (CKA, SVCCA) flag degradation without linking to risk or mechanism.
-We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), exploiting LLMs' linear head and near-isometric backbone to derive a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$ that decomposes drift into three independently measurable axes: \emph{scale mismatch}, \emph{shape mismatch}, and a \emph{head divergence}.
+We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), exploiting LLMs' linear head and empirically near-isometric backbone to derive a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$, calibrated for variant ranking, that decomposes drift into three independently measurable axes: \emph{scale mismatch}, \emph{shape mismatch}, and a \emph{head divergence}.
 Each axis maps to a distinct failure mode (shape distortion at low-bit quantization, scale separability under LoRA forgetting, head divergence at GGUF k-quant), so the dominant axis points to a remediation direction rather than a flag.
 Because the shape term is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting.
 Across two model families and five benchmarks, PRISM ranks variants with mean Spearman $r_s{=}0.820$ (PTQ) and $0.831$ (LoRA forgetting), and the axis-guided shape regularizer outperforms experience replay at mitigating downstream forgetting.
@@ -252,7 +252,7 @@ The head term quantifies how differently the prediction heads interpret features
 Theorem~\ref{thm:unified_bound} holds for every $W \in \mathcal{O}(d)$, yielding a family $\{\Omega_W\}$ of similarity scores. We evaluate two natural specializations: the trace form $\Omega := \Omega_{W=I}$ (used as the main text default) and the Procrustes-optimal nuclear form $\Omega_N := \Omega_{W=W_N}$ (ablation in Sec.~\ref{subsec:ablation}; full derivation in Appendix~\ref{app:tightness}). $W{=}W_N$ minimizes the alignment residual but introduces nonzero $\gamma$ when $H_T \approx H_P$ and requires per-step SVD; $W{=}I$ keeps $\gamma$ at its minimum---vanishing when $H_T{=}H_P$ (frozen-head LoRA, FP16-head PTQ; GGUF k-quant keeps $\gamma{>}0$)---and is directly differentiable, enabling the regularizer of Sec.~\ref{subsec:shape_reg}. Both yield strong rank correlations (Sec.~\ref{subsec:ablation}); the choice is primarily design-driven.
 
 
-\subsection{Extension to autoregressive generation}
+\subsection{Formal extension to autoregressive generation}
 \label{subsec:ar_extension}
 
 The bound applies unchanged to sequence-level generation. For a sequence $(c, y)$ with context $c$ and target continuation $y = (y_1, \ldots, y_{|y|})$, the autoregressive risk is
