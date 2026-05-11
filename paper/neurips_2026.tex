@@ -1,5 +1,10 @@
 \documentclass{article}
 
+% Toggle between NeurIPS submission and arXiv preprint.
+% Uncomment \arxivtrue for the arXiv version; keep commented for NeurIPS submission.
+\newif\ifarxiv
+% \arxivtrue
+
 % if you need to pass options to natbib, use, e.g.:
 %     \PassOptionsToPackage{numbers, compress}{natbib}
 % before loading neurips_2025
@@ -8,7 +13,11 @@
 % Before accepting by the NeurIPS conference, select one of the options below.
 % 0. "default" for submission
 \PassOptionsToPackage{numbers,compress}{natbib}
-\usepackage{neurips_2026}
+\ifarxiv
+  \usepackage[preprint]{neurips_2026}
+\else
+  \usepackage{neurips_2026}
+\fi
 
 \usepackage{graphicx}
 \usepackage[table]{xcolor}
@@ -135,8 +144,19 @@ for Risk Diagnosis in LLM Variants}
 % authors names on the first line, and the last on the second line, try using
 % \AND instead of \And before the third author name.
 
+\ifarxiv
+\author{%
+  % TODO: fill in arXiv author block, e.g.
+  % Author One\thanks{Affiliation One} \\
+  % \texttt{author1@example.com} \\
+  % \And
+  % Author Two\thanks{Affiliation Two} \\
+  % \texttt{author2@example.com}
+}
+\else
 \author{%
 }
+\fi
 
 \begin{document}
 \doparttoc % Tell to minitoc to generate a toc for the parts
@@ -445,8 +465,12 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 
 \clearpage
 
+\ifarxiv
+  % arXiv version omits the NeurIPS checklist
+\else
 \newpage
 \input{checklist.tex}
+\fi
 
 \end{document}
 
