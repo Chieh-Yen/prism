@@ -29,24 +29,25 @@ PRISM already measures), McDiarmid's inequality gives the population version at
 an additive b*sqrt(2 ln(2/delta)/N) cost. The restated theorem and proof are
 ready; we can post them verbatim in this thread. No experimental conclusion
 changes, since all reported quantities were already empirical.
-(2) Looseness, quantified. Across all 798 (family, benchmark, variant) cells:
-slack B/|dR| has median 1196x, IQR [368, 3404], and is NOT constant (log10 sd
-~1.0) — precisely why the raw bound is claimed for ranking only. Decomposing
-the slack: the Lipschitz-constant step contributes only 0.10–0.40 dex; the
-remainder comes from the alignment/triangle steps. Median slack SHRINKS toward
-low bit-widths (Q8_0: 3.61 dex -> Q2_K: 2.75 dex), i.e., the bound is
-relatively tightest where degradation is real.
+(2) Looseness, quantified. Across all 570 (family, benchmark, variant) cells
+over the paper's five benchmarks: slack B/|dR| has median 1597x, IQR [673,
+3966], and is NOT constant (log10 sd ~0.76) — precisely why the raw bound is
+claimed for ranking only. Decomposing the slack: the Lipschitz-constant step
+contributes only 0.13–0.40 dex; the remainder comes from the alignment/triangle
+steps. Median slack SHRINKS toward low bit-widths (Q8_0: 3.65 dex -> Q2_K: 2.78
+dex), i.e., the bound is relatively tightest where degradation is real.
 (3) Operational threshold. Per-(family, benchmark) leave-one-out isotonic
-calibration B -> |dR|: aggregate LOO MAE 0.056 nats vs 0.077 for a
-predict-the-mean baseline (-27%); the rule "calibrated prediction < 0.1 nats"
-reaches precision >= 0.8 in 66/77 cells (25 cells at 1.0); the failing cells
-concentrate exactly in the noise-floor regimes analyzed under (E). After a
-one-time calibration with ~10 benchmarked variants per family, PRISM answers
-"is Q4 within epsilon of the base?" with quantified uncertainty — no labels
-needed for each additional variant. Uncalibrated B is now explicitly scoped to
-ranking.
+calibration B -> |dR|: aggregate LOO MAE 0.055 nats vs 0.082 for a
+predict-the-mean baseline (-33%); the rule "calibrated prediction < 0.1 nats"
+reaches precision >= 0.8 in 49/55 cells (21 at 1.0), and >= 0.8 in all 55 at
+epsilon = 0.5. The six weaker cells are all multiple-choice benchmarks
+(ARC/MMLU) where the |dR| dynamic range is compressed. After a one-time
+calibration with ~10 benchmarked variants per family, PRISM answers "is Q4
+within epsilon of the base?" with quantified uncertainty — no labels needed for
+each additional variant. Uncalibrated B is now explicitly scoped to ranking.
 
-Note: ✅ 全部已有數字(E5 tex 已備 / E6 已跑)。76/77 cells 有 >=5 variants;
+Note: ✅ 全部已有數字(E5 tex 已備 / E6 已跑)。55/55 cells(11 families × 5
+      paper benchmarks,wikitext/fineweb 已排除)皆 >=5 variants;
       slack/tier 表在 rebuttal_exp/out/E6/E6_results.md。
 
 --------------------------------------------------------------------------------
@@ -54,11 +55,12 @@ B. Demonstrate benchmark-independent use: PRISM predictive on a small
    benchmark-independent reference set, incl. sensitivity to size and domain.
 
 Response:
-(1) Benchmark-independent reference — from the submission's own data (no new
-compute): our quantization tables already contain bounds computed on two
-generic corpora. Correlating the wikitext-computed bound against each
-benchmark's |dR| gives mean Spearman +0.506 (fineweb-edu: +0.330), vs +0.725
-for benchmark-specific references, pooled over 11 families x 5 benchmarks (55
+(1) Benchmark-independent reference — no new training or compute, computed from
+the same per-example features our pipeline already extracts, on two held-out
+generic corpora (WikiText, FineWeb-Edu) that are deliberately outside the
+reported benchmark set. The bound computed on the WikiText reference ranks each
+benchmark's |dR| with mean Spearman +0.506 (FineWeb-Edu: +0.330), vs +0.725 for
+benchmark-specific references, pooled over 11 families x 5 benchmarks (55
 cells). Rankings are substantially preserved but attenuated — expected for an
 input-conditioned diagnostic; the revision reports both modes: generic
 reference for label-free screening, benchmark-conditioned for per-deployment
@@ -188,18 +190,25 @@ Note: 純措辭,零實驗。Strengths 已承認 simplex polarization/exact decom
 Response:
 We agree the raw bound is loose in absolute scale — inherent to
 distribution-free CE upper bounds — and the paper claims ranking only
-(Abstract; Sec. 6). We now make it operational: across all 798 cells the slack
-B/|dR| has median 1196x, IQR [368, 3404], and is non-constant (log10 sd ~1.0),
-so no fixed multiplicative correction exists; instead we add a per-(family,
-benchmark) leave-one-out isotonic calibration B -> |dR|: aggregate LOO MAE
-0.056 nats (vs 0.077 predict-the-mean), with "calibrated prediction < 0.1
-nats" at precision >= 0.8 in 66/77 cells. So the intended workflow answers the
-reviewer's question directly: calibrate once with ~10 benchmarked variants per
-family, then screen every new variant label-free — "is Q4 within epsilon?"
-with quantified uncertainty. Slack attribution (new appendix): the
-Lipschitz-constant step contributes only 0.10–0.40 dex; slack shrinks at low
-bit-widths (Q8_0 3.61 -> Q2_K 2.75 dex median), i.e., tightest where
-degradation is real.
+(Abstract; Sec. 6). We now make it operational: across all 570 cells (the
+paper's five benchmarks) the slack B/|dR| has median 1597x, IQR [673, 3966],
+and is non-constant (log10 sd ~0.76), so no fixed multiplicative correction
+exists; instead we add a per-(family, benchmark) leave-one-out isotonic
+calibration B -> |dR|: aggregate LOO MAE 0.055 nats (vs 0.082 predict-the-mean),
+with "calibrated prediction < 0.1 nats" at precision >= 0.8 in 49/55 cells (21
+at 1.0). Concretely, take the two Llama-3.1-8B/MMLU variants that most dramatize
+the looseness: Q8_0 has raw bound 23.24 against a true |dR| of only 0.0002
+(slack ~10^5x), and Q2_K has raw bound 266.09 against a true |dR| of 0.366
+(slack ~727x). After the one-time LOO calibration those same two bounds map to
+predictions of 0.003 and 0.193 nats — correctly placing Q8_0 well within an
+epsilon = 0.1 tolerance and Q2_K clearly outside it, even though the raw bounds
+are uninformative in absolute scale. So the intended workflow answers the
+reviewer's question directly:
+calibrate once with ~10 benchmarked variants per family, then screen every new
+variant label-free — "is Q4 within epsilon?" with quantified uncertainty. Slack
+attribution (new appendix): the Lipschitz-constant step contributes only
+0.13–0.40 dex; slack shrinks at low bit-widths (Q8_0 3.65 -> Q2_K 2.78 dex
+median), i.e., tightest where degradation is real.
 
 Note: ✅ 已有全部數字(E6)。
 
@@ -314,12 +323,14 @@ Note: 指路(L258–262, L249–257)+ E4(~1.5 h)+ cost 表(從 log 估,零 GPU)�
    reference-set ablation.
 
 Response:
-Three parts. (1) Benchmark-independent reference — from the submission's own
-data: the bound computed on wikitext features ranks benchmark |dR| with mean
-Spearman +0.506 (fineweb-edu +0.330) vs +0.725 for benchmark-specific
-references (55 cells, 11 families). Rankings are substantially preserved but
-attenuated; we report both modes (generic = label-free screening,
-benchmark-conditioned = per-deployment diagnosis) and state this honestly.
+Three parts. (1) Benchmark-independent reference — no new compute, from the
+same per-example features our pipeline already extracts, on a held-out generic
+corpus (WikiText) outside the reported benchmark set: the bound so computed
+ranks each benchmark's |dR| with mean Spearman +0.506 (FineWeb-Edu +0.330) vs
++0.725 for benchmark-specific references (55 cells, 11 families). Rankings are
+substantially preserved but attenuated; we report both modes (generic =
+label-free screening, benchmark-conditioned = per-deployment diagnosis) and
+state this honestly.
 (2) Sample efficiency: reference sizes {8, 16, 32, 64, 128}: [TBD-E3B,
 stabilization point reported]. (3) Free-running: on a 100-prompt subset each
 variant generates its own continuations and both models are scored on those
@@ -352,16 +363,16 @@ Note: ⏳ E1 + E2。App B 指路可先寫。
 
 Response:
 The raw bound is indeed loose in absolute scale — we quantify it rather than
-dispute it: slack B/|dR| median 1196x, IQR [368, 3404] over 798 cells,
-non-constant (log10 sd ~1.0), hence ranking-only for uncalibrated B (as the
-paper scopes: Abstract, Sec. 6). To move beyond a heuristic: (i) Theorem 1 is
-restated as an empirical-risk-gap bound with a concentration corollary to the
-population version — a guarantee, precisely scoped; (ii) a one-time
-per-(family, benchmark) isotonic calibration turns B into a predictor of |dR|
-with LOO MAE 0.056 nats and precision >= 0.8 (at epsilon = 0.1 nats) in 66/77
-cells — an operational threshold, not just an ordering. Slack attribution
-shows the Lipschitz step contributes only 0.10–0.40 dex, and slack tightens at
-low bit-widths where degradation is real.
+dispute it: slack B/|dR| median 1597x, IQR [673, 3966] over 570 cells (the
+paper's five benchmarks), non-constant (log10 sd ~0.76), hence ranking-only for
+uncalibrated B (as the paper scopes: Abstract, Sec. 6). To move beyond a
+heuristic: (i) Theorem 1 is restated as an empirical-risk-gap bound with a
+concentration corollary to the population version — a guarantee, precisely
+scoped; (ii) a one-time per-(family, benchmark) isotonic calibration turns B
+into a predictor of |dR| with LOO MAE 0.055 nats and precision >= 0.8 (at
+epsilon = 0.1 nats) in 49/55 cells — an operational threshold, not just an
+ordering. Slack attribution shows the Lipschitz step contributes only
+0.13–0.40 dex, and slack tightens at low bit-widths where degradation is real.
 
 Note: ✅ 已有全部數字(E5+E6)。與 pCi8-W2 同素材、自包含改寫。
 
@@ -562,22 +573,37 @@ Note: ✅ 完成(e5_theorem.tex 可直接貼 thread)。
    the relaxation; any operational threshold beyond ordering?
 
 Response:
-Quantified directly, on all 798 (family, benchmark, variant) cells. Slack
-B/|dR|: median 1196x, IQR [368, 3404] — and NOT constant (log10 sd ~1.0; the
-reviewer's two cells, ~727x and ~10^5x, are both within this spread), which is
-exactly why we claim only ordering from the raw bound. Attribution by
-derivation step: the Lipschitz-constant relaxation contributes only 0.10–0.40
+Quantified directly, on all 570 (family, benchmark, variant) cells over the
+paper's five benchmarks. Slack B/|dR|: median 1597x, IQR [673, 3966] — and NOT
+constant (log10 sd ~0.76; the reviewer's two cells, ~727x near the lower
+quartile and ~10^5x in the upper tail, are both within the observed range),
+which is exactly why we claim only ordering from the raw bound. Attribution by
+derivation step: the Lipschitz-constant relaxation contributes only 0.13–0.40
 dex (simplex polarization already keeps K_feat tight); the dominant slack is
 the alignment/triangle remainder; and median slack SHRINKS with bit-width
-(Q8_0: 3.61 dex -> Q2_K: 2.75 dex) — relatively tightest where degradation is
+(Q8_0: 3.65 dex -> Q2_K: 2.78 dex) — relatively tightest where degradation is
 real. Operational threshold: per-(family, benchmark) leave-one-out isotonic
-calibration of B -> |dR| achieves aggregate LOO MAE 0.056 nats (vs 0.077
+calibration of B -> |dR| achieves aggregate LOO MAE 0.055 nats (vs 0.082
 predict-the-mean), and the rule "calibrated prediction < 0.1 nats" reaches
-precision >= 0.8 in 66/77 cells (25 at 1.0; failures concentrate in the
-noise-floor cells discussed under W4). Both analyses become a new
-section/table, and uncalibrated B is explicitly scoped to ranking.
+precision >= 0.8 in 49/55 cells (21 at 1.0; the six weaker cells are all
+multiple-choice benchmarks, ARC/MMLU, where the |dR| dynamic range is
+compressed).
 
-Note: ✅ 已有全部數字(E6)。
+Concretely, the reviewer's own two cells (both Llama-3.1-8B/MMLU): the same
+absolute-scale-uninformative bounds, after the one-time per-cell calibration,
+land on the correct side of an epsilon = 0.1 nat tolerance —
+
+| Variant | $\mathcal{B}$ | $\lvert\Delta\mathcal{R}\rvert$ | Slack $\mathcal{B}/\lvert\Delta\mathcal{R}\rvert$ | $\hat{r}$ (nats) | $\hat{r}<\varepsilon$ / truth |
+|:--|--:|--:|:--:|--:|:--:|
+| `Q8_0` | 23.24 | 0.0002 | $\sim 10^{5}\times$ | 0.003 | within / within ✓ |
+| `Q2_K` | 266.09 | 0.366 | $\sim 727\times$ | 0.193 | outside / outside ✓ |
+
+Both analyses become a new section/table, and uncalibrated B is
+explicitly scoped to ranking.
+
+Note: ✅ 已有全部數字(E6)。表格為 OpenReview markdown(MathJax,|…|→\lvert\rvert
+      避免撞欄位分隔);校準預測 0.003/0.193 出自 out/E6 LOO isotonic
+      (Meta-Llama-3.1-8B/mmlu cell)。
 
 3) W3: no controlled single-axis interventions; regularizer only clearly wins
    Llama-TruthfulQA; Table 22 negative cells; needs stronger baselines
@@ -640,12 +666,12 @@ Note: (1) ✅ 指路 Fig 7 / G.1 L770–782 + 主文承諾;(2) ⏳ E7。
 
 Response:
 Yes — summarized here, full tables in the new section: slack B/|dR| median
-1196x, IQR [368, 3404], log10 sd ~1.0 (non-constant); by derivation step, the
-Lipschitz-constant relaxation accounts for only 0.10–0.40 dex, the
+1597x, IQR [673, 3966], log10 sd ~0.76 (non-constant); by derivation step, the
+Lipschitz-constant relaxation accounts for only 0.13–0.40 dex, the
 alignment/triangle remainder for the rest; slack decreases with bit-width
-(median 3.61 dex at Q8_0 -> 2.75 dex at Q2_K); and a one-time per-(family,
+(median 3.65 dex at Q8_0 -> 2.78 dex at Q2_K); and a one-time per-(family,
 benchmark) isotonic calibration converts B into a predictor of |dR| with LOO
-MAE 0.056 nats and precision >= 0.8 at epsilon = 0.1 in 66/77 cells.
+MAE 0.055 nats and precision >= 0.8 at epsilon = 0.1 in 49/55 cells.
 
 Note: ✅ W2 的自包含濃縮版。
 
@@ -669,8 +695,9 @@ We sweep the regularizer's reference set over sizes {8, 32, 128} x domains
 Llama-TruthfulQA): retention changes by [TBD-E3C]% at most across settings
 [report honestly if sensitive]; new appendix with the full grid. For the
 DIAGNOSTIC side, the corresponding size ablation {8..128} and the
-benchmark-independent domain result (wikitext reference: mean rs +0.506 vs
-+0.725 benchmark-specific, from existing data) are reported together.
+benchmark-independent domain result (a held-out WikiText reference, outside the
+reported benchmark set: mean rs +0.506 vs +0.725 benchmark-specific, computed
+from features we already extract) are reported together.
 
 Note: ⏳ E3-C;診斷側數字 ✅ 已有。
 

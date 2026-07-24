@@ -39,6 +39,12 @@ OUT_DIR = Path(__file__).resolve().parent / "out" / "E6"
 # Main-text protocol: identity alignment W = I.
 BOUND_COL, EBOUND_COL, RISK_COL = "Bound_I", "EBound_I", "|MdR|"
 
+# Paper's quantization benchmark set (the compiled `_bound` tables in
+# paper/tables/quantization/ report exactly these five). wikitext and
+# fineweb_edu exist in the raw CSV but are NOT reported anywhere in the
+# paper, so we exclude them — every statistic below is over paper datasets.
+PAPER_DATASETS = {"arc", "gsm8k", "mmlu", "squad", "triviaqa"}
+
 # Order used for the per-tier slack table.
 TIER_ORDER = ["FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K",
               "INT8", "NF4", "FP4"]
@@ -129,8 +135,11 @@ def main():
     rows = list(csv.DictReader(open(CSV_PATH)))
 
     # Keep every (target, dataset) cell; parse numerics once.
+    # Restrict to the paper's reported benchmark set (drop wikitext / fineweb_edu).
     cells = defaultdict(list)       # (target, dataset) -> row dicts
     for r in rows:
+        if r["dataset"] not in PAPER_DATASETS:
+            continue
         rec = {
             "target": r["target_model"],
             "dataset": r["dataset"],

@@ -12,7 +12,7 @@
 
 | 實驗 | AC 條件 / 回應對象 | GPU 成本 | 狀態 | 主要取捨 |
 |---|---|---|---|---|
-| **E6** slack + calibration | **A**;pCi8-W2, G3T9-W4, 8VrD-W2/Q1 | **0** | ✅ 已跑:median slack 1196×、K-step 只佔 0.1–0.4 dex、LOO MAE 0.056 nats | 無 |
+| **E6** slack + calibration | **A**;pCi8-W2, G3T9-W4, 8VrD-W2/Q1 | **0** | ✅ 已跑(論文 5 benchmarks,570 rows):median slack 1597×、K-step 只佔 0.13–0.4 dex、LOO MAE 0.055 nats、prec@0.1≥0.8 於 49/55 | 無 |
 | **E10** Table-22 軸對齊 | **E**;8VrD-W3(2) | **0** | ✅ 已跑:**SUPPORTED**(within-model rs +1.00/+0.40) | 與 App H/Table 22 定位區分(E10.md §4) |
 | **E5** 定理重述 + corollary | **A**;8VrD-W1 | **0** | ✅ 完成:`e5_theorem.tex` | 無 |
 | **E4** 單軸介入 | 堵 "questionable diagnostic utility";8VrD-W3(1) | ~1–1.5 h | 待跑 | 單 model × {mmlu, wikitext} |
