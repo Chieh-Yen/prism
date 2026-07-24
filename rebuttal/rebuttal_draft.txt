@@ -1,0 +1,714 @@
+================================================================================
+PRISM (Submission 8674) — Rebuttal draft, filled 2026-07-24
+================================================================================
+Legend:
+  [TBD-E#]   = number pending from experiment E# (rebuttal_exp/, scripts ready;
+               fill from rebuttal_exp/out/E#/ before posting — NEVER post a TBD)
+  (Lxxx)     = line number in the submitted PDF; (App X) = appendix section
+  Note 欄    = internal status,不會貼上 OpenReview
+All numbers already present below are REAL (computed from existing repo data;
+sources: rebuttal_exp/out/{E6,E10,E3,eql6w3}/ and the submitted PDF).
+================================================================================
+
+Meta Review (AC)
+AC LN7U (17 Jul 2026, modified 24 Jul 2026) — Preliminary: Borderline Reject — "What could change the recommendation?"
+
+--------------------------------------------------------------------------------
+A. Clarify usefulness of the bound: state explicitly whether the result is an
+   empirical/calibration-set bound or a population-risk statement; quantify the
+   looseness; explain whether it supports any operational threshold beyond
+   ranking.
+
+Response:
+We have done all three.
+(1) Restatement. Theorem 1 is restated as a bound on the EMPIRICAL risk gap
+over the reference sample — the quantity every experiment already reports — and
+we add a concentration corollary: under a bounded per-sample loss gap
+(b <= K_feat*D_Z + sqrt(2)*C_z*||W H_T - H_P||_op, all three factors quantities
+PRISM already measures), McDiarmid's inequality gives the population version at
+an additive b*sqrt(2 ln(2/delta)/N) cost. The restated theorem and proof are
+ready; we can post them verbatim in this thread. No experimental conclusion
+changes, since all reported quantities were already empirical.
+(2) Looseness, quantified. Across all 798 (family, benchmark, variant) cells:
+slack B/|dR| has median 1196x, IQR [368, 3404], and is NOT constant (log10 sd
+~1.0) — precisely why the raw bound is claimed for ranking only. Decomposing
+the slack: the Lipschitz-constant step contributes only 0.10–0.40 dex; the
+remainder comes from the alignment/triangle steps. Median slack SHRINKS toward
+low bit-widths (Q8_0: 3.61 dex -> Q2_K: 2.75 dex), i.e., the bound is
+relatively tightest where degradation is real.
+(3) Operational threshold. Per-(family, benchmark) leave-one-out isotonic
+calibration B -> |dR|: aggregate LOO MAE 0.056 nats vs 0.077 for a
+predict-the-mean baseline (-27%); the rule "calibrated prediction < 0.1 nats"
+reaches precision >= 0.8 in 66/77 cells (25 cells at 1.0); the failing cells
+concentrate exactly in the noise-floor regimes analyzed under (E). After a
+one-time calibration with ~10 benchmarked variants per family, PRISM answers
+"is Q4 within epsilon of the base?" with quantified uncertainty — no labels
+needed for each additional variant. Uncalibrated B is now explicitly scoped to
+ranking.
+
+Note: ✅ 全部已有數字(E5 tex 已備 / E6 已跑)。76/77 cells 有 >=5 variants;
+      slack/tier 表在 rebuttal_exp/out/E6/E6_results.md。
+
+--------------------------------------------------------------------------------
+B. Demonstrate benchmark-independent use: PRISM predictive on a small
+   benchmark-independent reference set, incl. sensitivity to size and domain.
+
+Response:
+(1) Benchmark-independent reference — from the submission's own data (no new
+compute): our quantization tables already contain bounds computed on two
+generic corpora. Correlating the wikitext-computed bound against each
+benchmark's |dR| gives mean Spearman +0.506 (fineweb-edu: +0.330), vs +0.725
+for benchmark-specific references, pooled over 11 families x 5 benchmarks (55
+cells). Rankings are substantially preserved but attenuated — expected for an
+input-conditioned diagnostic; the revision reports both modes: generic
+reference for label-free screening, benchmark-conditioned for per-deployment
+diagnosis.
+(2) Size sensitivity: reference sets of {8, 16, 32, 64, 128} wikitext
+sequences, all Llama variants: [TBD-E3B — rank-correlation-vs-size table].
+(3) Regularizer-side sensitivity (size {8,32,128} x domain {task, wikitext}):
+[TBD-E3C]. Both will be added as an appendix with the full tables.
+
+Note: (1) ✅ 已有數字(E3-A,out/E3/partA_cross_reference.md,含 per-family 表);
+      (2)(3) ⏳ ~4 h GPU。誠實策略:0.506 vs 0.725 不迴避,用「兩種模式」框架。
+
+--------------------------------------------------------------------------------
+C. Add stronger baselines: diagnostics — CKA, SVCCA, simpler feature-preserving
+   scores; regularization — EWC, SLoRA, CLAIM, ArMA, or layer-freezing/replay.
+
+Response:
+Diagnostics: we re-extract features for every variant of the two main-text
+families under the identical protocol (same proxies, reloaded from the paper's
+own variant manifest; same 512-sample token-level features) and compute
+linear-CKA, SVCCA, and Procrustes distance on the SAME features, with |dR|
+joined from the paper's tables: [TBD-E1 — per-benchmark Spearman table,
+PRISM vs 1-CKA vs 1-SVCCA vs Procrustes-dist]. Two structural points hold
+regardless: Appendix B already proves CKA >= Omega_F^2 and that CKA is not
+derived from any alignment optimization; and none of these scores provides a
+risk bound or axis attribution, so even ties in rank correlation do not
+reproduce Sec. 5.3's diagnoses.
+Regularization: as the meta-review suggests, we added LAYER-FREEZING (LoRA
+restricted to the top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher),
+L2-SP, and feature distillation — all under the paper's exact protocol, each at
+its sweep-best setting with 3 seeds, with target-task performance reported:
+[TBD-E2 — baseline table]. SLoRA, two-phase CIT, CLAIM, and ArMA address
+sequential continual-instruction settings; we discuss all four in Related Work
+and will add matched-setting comparisons in the revision.
+
+Note: ⏳ E1 ~3–5 h;E2 sweep+seeds ~24 h(layer_freeze 已實作,AC 點名的低成本
+      合規路徑)。App B 指路已可先寫。
+
+--------------------------------------------------------------------------------
+D. Free-running generation: either provide experiments, or clearly limit the
+   claims to teacher-forced comparisons.
+
+Response:
+Both. (1) Experiment: on a 100-prompt MMLU subset, each variant GREEDILY
+generates its own continuation (so surrogate errors compound into its own
+context); both models are then scored on those generated trajectories.
+rs(B, |dR|) free-running = [TBD-E7] vs [TBD-E7] teacher-forced on the same
+subset; bound-rank agreement rs(B_tf, B_free) = [TBD-E7]. (2) Scope: we
+restate Corollary 1 as teacher-forced-only and list trajectory-distribution
+shift as an explicit limitation. We note the bound itself applies to any
+feature-matrix pair "whatever the origin of the rows" (App. D) — the
+restriction is evaluation protocol, not theory; the new experiment probes
+exactly the trajectory-shift regime the corollary previously did not cover.
+
+Note: ⏳ E7 ~2–2.5 h(rebuttal_exp/script_E7.sh)。跑不完也能交卷:AC 明文接受
+      劃界;但「子集數字 + 劃界」說服力高一級。
+
+--------------------------------------------------------------------------------
+E. Analyze failures and mixed results: GSM8K, Qwen-BBQ weak correlations;
+   cases where the regularizer does not help or worsens forgetting.
+
+Response:
+We agree these belong in the main text, and the analyses exist — we promote
+and extend them.
+(1) GSM8K: the root cause is quantified in App. F.3/Table 10: long CoT answer
+spans dilute per-token loss, collapsing mean |dR| to 0.019 nats (Qwen3-8B-
+Instruct: 0.0033) — an order of magnitude below other benchmarks (0.07–0.16).
+At that scale per-variant differences are measurement noise; ANY CE-based
+label-free proxy (including perplexity screening) inherits this. GSM8K becomes
+a first-class limitation with this SNR analysis in the main text.
+(2) Qwen-BBQ negative correlations (-0.34/-0.66, already plotted in Fig. 7):
+App. G.1 documents the same mechanism — at lambda=0, |dR| sits at ~1e-3 nats,
+two orders below where the bound is informative (0.0035 on TriviaQA vs 0.288
+on ARC within the SAME trajectory). The revised main text reports the full
+correlation matrix with all-cell aggregates, not the Llama-only mean.
+(3) Regularizer failures: Table 22 is, by construction, our diagnostic-gating
+analysis — its "gating verdict" column already marks Llama-BBQ "cell-level
+mixed" and both Qwen settings "at noise floor => skip"; trace still yields
+per-benchmark wins on shape-driven cells (BBQ-FT TriviaQA -88%, GSM8K -79%)
+and lifts Omega 0.93->0.98 where replay leaves it flat. We promote this from
+App. H to the main text and extend it with an independent rerun on 10
+(model, FT-task) cells — 5 tasks x 2 models: the trace benefit tracks the
+unregularized shape drift within model (Spearman +1.00 Qwen / +0.40 Llama),
+and the failure cells are exactly those PRISM diagnoses as not shape-driven
+(Llama-BBQ: 20% scale share; Qwen-LIMA: 1-Omega ~ 7e-4, nothing to repair).
+The regularizer is presented as axis-targeted, with the gating rule stated
+explicitly.
+
+Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E10 已跑)。⚠️ E10 的 10-cell 數字與
+      論文 Table 18–22 屬不同輪次,分開呈現(E10.md §4)。
+
+--------------------------------------------------------------------------------
+Summary — positioning sentence to close the global response:
+"We believe these results, together with the narrowed framing — PRISM as a
+calibrated, label-free ranking-and-attribution instrument with an explicitly
+empirical-risk guarantee — directly address the five points of the
+meta-review, and we respectfully ask the AC and reviewers to reconsider in
+light of the new evidence."
+
+================================================================================
+Reviewer #1 — pCi8 (3: Borderline reject, conf 4) — Q3/C3/S2/O3
+================================================================================
+
+1) W1: three diagnostic conclusions already known; contribution is a unified
+   framework, not a new discovery.
+
+Response:
+We agree each failure mode had been observed qualitatively in isolation, and
+we will cite this prior evidence more prominently. Our claimed contribution is
+not the discovery of the phenomena but the first quantitative, label-free
+instrument that makes them COMMENSURABLE: all three axes are expressed in the
+same units — contribution to a certified CE-risk-gap bound — so for a given
+variant one can compute WHICH axis dominates and by how much, something
+qualitative prior knowledge cannot do. That is what enables (i) ranking
+without benchmarks, (ii) attribution (Sec. 5.3), and (iii) the differentiable
+intervention (Sec. 5.4), which the reviewer acknowledges as strengths. The
+phenomena were known the way "fever" was known before thermometers; PRISM
+supplies the thermometer and the triage rule. We will sharpen the contribution
+statement in the Introduction accordingly.
+
+Note: 純措辭,零實驗。Strengths 已承認 simplex polarization/exact decomposition
+      是 real contribution——只需扭轉「發現 vs 儀器」框架。
+
+2) W2: bound loose by orders of magnitude; only calibrated for ranking; cannot
+   say whether Q4 is good enough.
+
+Response:
+We agree the raw bound is loose in absolute scale — inherent to
+distribution-free CE upper bounds — and the paper claims ranking only
+(Abstract; Sec. 6). We now make it operational: across all 798 cells the slack
+B/|dR| has median 1196x, IQR [368, 3404], and is non-constant (log10 sd ~1.0),
+so no fixed multiplicative correction exists; instead we add a per-(family,
+benchmark) leave-one-out isotonic calibration B -> |dR|: aggregate LOO MAE
+0.056 nats (vs 0.077 predict-the-mean), with "calibrated prediction < 0.1
+nats" at precision >= 0.8 in 66/77 cells. So the intended workflow answers the
+reviewer's question directly: calibrate once with ~10 benchmarked variants per
+family, then screen every new variant label-free — "is Q4 within epsilon?"
+with quantified uncertainty. Slack attribution (new appendix): the
+Lipschitz-constant step contributes only 0.10–0.40 dex; slack shrinks at low
+bit-widths (Q8_0 3.61 -> Q2_K 2.75 dex median), i.e., tightest where
+degradation is real.
+
+Note: ✅ 已有全部數字(E6)。
+
+3) W3: Table 3 shows Omega-alone vs full PRISM gap is small — heavy machinery
+   for modest gain.
+
+Response:
+Three points. (1) Sec. 5.5 itself explains the aggregate: gamma > 0 engages
+only on GGUF k-quant tiers, so pooling heterogeneous gamma-regimes adds
+variance while preserving validity — B remains the only valid metric whenever
+gamma > 0. (2) Omega is blind by construction to the head axis, and the paper
+contains the concrete case (Sec. 5.3, Table 12): Qwen3-Base Q6_K on SQuAD has
+NEAR-PERFECT backbone geometry (Omega ~ 1, delta = 1.18) yet gamma = 75.77
+makes up essentially the whole bound B = 76.95; BnB INT8 on the same model
+keeps gamma = 0 with B = 3.81 — a 20x difference determined entirely by which
+protocol quantizes lm_head, invisible to any Omega-only (or CKA/SVCCA-style)
+score. (3) The bound is what DERIVES Omega as the risk-relevant similarity
+(rather than CKA; App. B) and what yields the differentiable regularizer — the
+machinery is the justification, not overhead. We add a "when is Omega alone
+enough?" paragraph making this scope explicit, plus the direct CKA/SVCCA
+comparison table [TBD-E1].
+
+Note: ✅ 指路即可成立(L278–285, L249–257, App B);E1 數字錦上添花。
+      Google Doc 的 [VERIFY] 已判 CONFIRMED。
+
+4) W4: GSM8K correlation notably lower — structural limitation for reasoning.
+
+Response:
+We agree it is structural and promote it to a first-class limitation. Two
+clarifications. (1) Root cause, quantified (App. F.3, Table 10): long
+teacher-forced CoT spans dilute per-token loss, collapsing GSM8K's mean |dR|
+to 0.019 nats (Qwen3-8B-Instruct: 0.0033) — an order of magnitude below other
+benchmarks (0.07–0.16), so per-variant differences are dominated by
+measurement noise. This is a property of the CE target itself, inherited by
+ANY CE-based label-free proxy (including perplexity screening), not specific
+to our geometric decomposition — PRISM correctly reports that variants barely
+differ in CE on GSM8K; what breaks is the coupling between per-token CE and
+final-answer accuracy. (2) Mitigation within PRISM: restricting features and
+losses to answer-span tokens; we outline this variant and [if run: report the
+GSM8K rank correlation change [TBD-E9-optional]; else: leave its evaluation to
+the revision]. Implications for reasoning-heavy models are added to the
+Limitations.
+
+Note: ✅ SNR 數字已在論文(App F.3);E9 是選配,跑不了就用括號後半句。
+
+5) W5: EWC cited but never compared; only small-scale replay is a convenient
+   choice.
+
+Response:
+Replay was chosen as the CONTROLLED comparison, not the convenient one: the
+paper's design isolates the loss functional — replay-CE uses the same 32
+reference sequences, same schedule, same compute as the trace penalty
+(Sec. 5.4), and Related Work frames EWC (weight-space) / replay (data-space) /
+shape (feature-space) as three families. That said, we agree the canonical
+comparison belongs in the paper, and it now exists: EWC (diagonal Fisher on
+the trainable parameters, Fisher estimated on the reference set at the
+adapter's initialization — the base model, i.e., the old-task optimum), L2-SP,
+feature distillation, and layer-freezing (suggested in the meta-review), all
+under the identical protocol, each at sweep-best with 3 seeds, with
+target-task performance reported: [TBD-E2 — full table; summarize honestly
+where shape-reg wins / ties / loses].
+
+Note: ⏳ E2(~24 h)。先立「血緣對照」設計論點(L89–94, L265–267),再交表。
+      「convenient choice」不接招,直接給數字。
+
+6) W6: orthogonal alignment relies on near-isometry — does it hold after
+   aggressive quantization?
+
+Response:
+Important distinction, already explicit in the paper and now promoted: the
+bound's VALIDITY does not require near-isometry — only its TIGHTNESS does.
+Sec. 3.1 states the bound "holds for any such W, with alignment quality
+determining how tight the bound is in practice", and App. C.1 derives the
+bound family for every W in O(d). When aggressive quantization distorts
+geometry, the bound loosens in the CONSERVATIVE direction (over-estimating the
+gap of the most-damaged variants), which preserves ranking — consistent with
+the observed 2-bit results. App. C.2 adds that the growing gap between the
+trace and nuclear similarities under aggressive quantization is itself signal:
+genuine asymmetric distortion that a rotation-invariant metric would mask.
+[Optional: we also measure the isometry violation directly — deviation of the
+optimal unconstrained alignment from O(d) vs bit-width: [TBD-E8-optional].]
+
+Note: ✅ 指路(L112–115, App C.1/C.2)就能收工;E8 純加分。
+
+================================================================================
+Reviewer #2 — G3T9 (3: Borderline reject, conf 4) — Q3/C3/S2/O3
+================================================================================
+
+1) W1: why not just run benchmarks? axes coarse / not actionable; needs cost
+   analysis.
+
+Response:
+Three answers. (1) Cost: PRISM needs ONE teacher-forced forward pass per
+variant over a small reference set — no labels, no decoding; on an RTX 5090
+this is minutes per variant, while benchmark evaluation of the same suite is
+dominated by autoregressive decoding (GSM8K CoT). The revision adds the exact
+GPU-hours table for ranking K variants: [TBD — measured from our runner logs].
+(2) Actionability: the axis -> action map is already in Sec. 5.3: scale ->
+per-channel outlier smoothing; shape -> Hessian-aware reconstruction (PTQ) /
+trace regularization (training); head -> keep lm_head in FP16. The GGUF case
+is an end-to-end instance: PRISM attributes Q6_K SQuAD degradation to the head
+axis (gamma = 75.77 of B = 76.95); the protocol that keeps the head
+unquantized (BnB INT8) removes it (B = 3.81, 20x). Sec. 5.4 turns the shape
+axis into a working intervention. We also add controlled single-axis
+perturbation experiments demonstrating each term responds selectively:
+[TBD-E4]. (3) PRISM is label-free, so it applies where no benchmark exists
+(private domains). Positioning is made explicit in the Introduction.
+
+Note: 指路(L258–262, L249–257)+ E4(~1.5 h)+ cost 表(從 log 估,零 GPU)。
+
+2) W2: teacher-forced extraction; bound computed on benchmark inputs; needs
+   reference-set ablation.
+
+Response:
+Three parts. (1) Benchmark-independent reference — from the submission's own
+data: the bound computed on wikitext features ranks benchmark |dR| with mean
+Spearman +0.506 (fineweb-edu +0.330) vs +0.725 for benchmark-specific
+references (55 cells, 11 families). Rankings are substantially preserved but
+attenuated; we report both modes (generic = label-free screening,
+benchmark-conditioned = per-deployment diagnosis) and state this honestly.
+(2) Sample efficiency: reference sizes {8, 16, 32, 64, 128}: [TBD-E3B,
+stabilization point reported]. (3) Free-running: on a 100-prompt subset each
+variant generates its own continuations and both models are scored on those
+trajectories: rs = [TBD-E7] free-run vs [TBD-E7] teacher-forced; independently
+we restate Corollary 1 as teacher-forced-only and add trajectory shift as an
+explicit limitation (the bound applies to any feature rows, App. D — the
+restriction is protocol, not theory).
+
+Note: (1) ✅ 已有;(2)(3) ⏳ E3-B/E7。
+
+3) W3: no direct CKA/SVCCA comparison; regularizer should face simpler
+   feature-preserving baselines.
+
+Response:
+Agreed on both, and both now exist. (1) Ranking: linear-CKA, SVCCA, and
+Procrustes distance computed on the SAME features, same variants, same |dR|
+targets as PRISM: [TBD-E1 — per-benchmark Spearman table]. Beyond aggregate
+correlation, none of these provides a risk bound or axis attribution (and
+App. B shows CKA is not alignment-derived: CKA >= Omega_F^2), so they cannot
+produce Sec. 5.3's diagnoses even where correlations tie. (2) Regularizers:
+the new baseline table adds exactly the requested simple feature-preserving
+penalty — feature distillation ||Z_t - Z_0||^2_F on the same reference set —
+plus L2-SP, EWC, and layer-freezing, all protocol-identical with target-task
+columns: [TBD-E2].
+
+Note: ⏳ E1 + E2。App B 指路可先寫。
+
+4) W4: bound extremely loose in absolute scale -> only a heuristic ranking
+   score.
+
+Response:
+The raw bound is indeed loose in absolute scale — we quantify it rather than
+dispute it: slack B/|dR| median 1196x, IQR [368, 3404] over 798 cells,
+non-constant (log10 sd ~1.0), hence ranking-only for uncalibrated B (as the
+paper scopes: Abstract, Sec. 6). To move beyond a heuristic: (i) Theorem 1 is
+restated as an empirical-risk-gap bound with a concentration corollary to the
+population version — a guarantee, precisely scoped; (ii) a one-time
+per-(family, benchmark) isotonic calibration turns B into a predictor of |dR|
+with LOO MAE 0.056 nats and precision >= 0.8 (at epsilon = 0.1 nats) in 66/77
+cells — an operational threshold, not just an ordering. Slack attribution
+shows the Lipschitz step contributes only 0.10–0.40 dex, and slack tightens at
+low bit-widths where degradation is real.
+
+Note: ✅ 已有全部數字(E5+E6)。與 pCi8-W2 同素材、自包含改寫。
+
+5) Q1: applicable beyond PTQ and frozen-head LoRA (full FT, RLHF)?
+
+Response:
+The decomposition only requires matched architecture/dimension and is agnostic
+to how the variant was produced; full FT and RLHF fall under the general form
+with a nonzero head term (the frozen-head simplification no longer applies).
+The caveat is tightness: the farther the variant drifts, the less optimal any
+orthogonal alignment becomes — looser bounds, possibly weaker rank signal.
+This is exactly the setting App. C.3 already identifies ("models with both
+rotated features and divergent heads, e.g., full-parameter SFT") and App. I
+lists as the first future-work item; we keep validated claims scoped to PTQ
+and frozen-head LoRA. [Optional first data point: PRISM between base and
+instruct checkpoints: [TBD-E11-optional]; else explicitly future work.]
+
+Note: ✅ 指路 App C.3 L678–679 + App I;E11 選配。
+
+6) Q2: mixed / multi-task fine-tuning? base -> SFT?
+
+Response:
+Since submission we extended the forgetting study from 2 to 5 fine-tuning
+tasks (adding SocialIQA, No-Robots, LIMA) x 2 models — 10 (model, task) cells.
+The diagnostic pattern holds: the trace regularizer's benefit tracks the
+unregularized shape drift within each model (Spearman +1.00 on Qwen, +0.40 on
+Llama at the fullest-coverage lambda), and the cells where regularization does
+not help are those PRISM itself flags as not shape-driven. Genuinely
+heterogeneous mixed-data SFT remains untested; we state this scope explicitly
+and flag it as future work rather than claim coverage we do not have.
+
+Note: ✅ 已有(E10 rerun,5 任務 × 2 模型)。mixed-data 誠實劃界。
+
+================================================================================
+Reviewer #3 — eQL6 (3: Borderline reject, conf 3) — Q2/C2/S3/O3
+================================================================================
+
+1) W1: notation used before definition (rho_T rho_P (1-Omega) in the Intro);
+   key Sec. 5 results in the appendix.
+
+Response:
+Agreed on both counts. We will (i) define rho_T, rho_P (RMS feature scale of
+the reference feature matrices) and Omega (normalized Procrustes alignment,
+with 1-Omega the dimensionless shape residual) at first use in the
+Introduction, each with a one-line intuition; (ii) move the results Sec. 5
+argues from — the CKA/similarity comparison, the negative-cell matrix, and the
+gating table (currently App. H Table 22) — into the main text; (iii) add a
+notation table. Thank you for flagging these.
+
+Note: 認錯 + 修訂清單,零實驗。
+
+2) W2: motivation for orthogonal transformations unclear.
+
+Response:
+Three reasons, to be spelled out in Sec. 3. (1) Gauge: the head is linear, so
+any invertible feature map A can be absorbed into the head (W <- W A^-1);
+aligning over all invertible A would let the alignment absorb genuine
+degradation, making the residual meaningless. Restricting to rotations x scale
+— the isometry group up to scale — preserves the inner-product geometry the
+linear head reads out, so the residual measures true distortion. (2)
+Identifiability: over O(d) x scale, Procrustes has a closed-form solution
+yielding the EXACT scale/shape split (Prop. 1); no larger group admits this.
+(3) Empirical: the linear/platonic representation results indicate related
+models align well under maps that are in practice near-orthogonal, which we
+also observe; App. B further shows the resulting Omega_N is the
+alignment-grounded similarity (unlike CKA, which is not derived from any
+alignment optimization).
+
+Note: gauge 論證是新增文字;(2)(3) 已有依據(Prop.1, L77–80/L112–115, App B)。
+
+3) W3: shape term dominated by the rho_T*rho_P prefactor rather than 1-Omega
+   (divergent-norm limit; Tables 1/18 show Omega ~ 1, rho_T ~ rho_P).
+
+Response:
+The limit is mathematically valid, but it cannot arise in — and does not
+confound — our comparisons, and we can now show this on the paper's own data.
+The shape term rho_T*rho_P*(1-Omega) is (up to constants) the aligned residual
+ENERGY ||Z_T - s Z_P O||^2_F: the prefactor carries the physical units (logits
+scale with feature norm x head norm), while 1-Omega is the dimensionless
+geometric part. Every comparison holds T fixed and compares variants P of the
+same backbone, so across variants within a (family, benchmark) cell:
+rho_T*rho_P varies with median CV 0.47% (p90: 7.9%) — essentially constant —
+while 1-Omega spans a median 291x dynamic range; Spearman(shape term, 1-Omega)
+has median 1.000 (min 0.988) over the 62 cells with Omega variance, and the
+two produce IDENTICAL rank correlations against |dR| (median 0.745 for both).
+The ordering and the diagnostic signal come from 1-Omega; the prefactor sets
+units, not the ranking. The divergent-norm scenario would require feature
+energies blowing up relative to each other — which does not occur among
+post-training variants of a shared base, and would itself be a scale-axis
+pathology PRISM is designed to flag. We additionally report the dimensionless
+score delta/(rho_T*rho_P) alongside delta in the revision; rankings are
+unchanged.
+
+Note: ✅ 全部已有數字(exp_eql6w3_prefactor.py,零 GPU 今日跑出)。
+      全場最能「當場釘死」的一題。
+
+4) W4: impact of the regularizer on the original (target) task unclear.
+
+Response:
+This check is in the paper, and we will make it unmissable: the FIRST column
+of Fig. 4 (and Fig. 8 for Qwen) — "Fine-tune Dataset" — plots dR on the
+fine-tuning task itself for all three configurations (no-reg / replay /
+trace) across training; the trajectories essentially coincide, i.e., the shape
+penalty does not sacrifice target-task learning at the operating points used.
+The revision adds the numeric table (target-task loss alongside downstream
+forgetting for every method and seed): [TBD-E2 — in our reruns to date, the
+trace run's target-task loss is equal to or better than no-reg on both
+fine-tuning tasks; final multi-seed numbers in the table]. If any trade-off
+appears for the new baselines, we report the lambda sweep tracing the
+stability–plasticity frontier.
+
+Note: ✅ 指路 Fig 4/8 第一欄(reviewer 沒看懂該欄意義)+ ⏳ E2 數值表。
+
+5) Q1: why do the linear/platonic representation hypotheses motivate
+   orthogonal transformations specifically?
+
+Response:
+They supply the EMPIRICAL leg of the argument: those results show related
+models' representations align well under linear maps that are in practice
+near-isometric — so a rotation suffices for alignment. The PRINCIPLED leg is
+the linear head: any invertible map can be absorbed into a linear head, so
+allowing general A would let alignment absorb true degradation; O(d) (x scale)
+is the largest group that preserves the inner-product geometry the head reads
+out while leaving the residual meaningful, and it is the group over which the
+exact scale/shape split exists (Prop. 1). Validity does not depend on the
+hypotheses — Theorem 1 holds for ANY W in O(d) (App. C.1); the hypotheses only
+govern tightness.
+
+Note: 與 W2 同素材,thread 內自包含重述。
+
+6) Q2: meaning of "Shape preservation admits two lifecycle-specific
+   instances..." (Sec. 5.3)?
+
+Response:
+Apologies — the sentence compresses too much. Intended meaning: the same
+shape-preservation objective appears at two points of a model's lifecycle:
+(i) at PTQ time, Hessian-aware reconstruction (GPTQ-style layerwise
+objectives) implicitly minimizes shape distortion of layer outputs; (ii) at
+fine-tuning time, our differentiable 1-Omega regularizer minimizes it
+explicitly. We rewrite the sentence as two explicit clauses, each linked to
+its equation.
+
+Note: 純改寫。
+
+7) Q3: does the fine-tuned model perform as well on the original downstream
+   task vs no-reg / replay-CE?
+
+Response:
+Yes at the operating points studied — see Fig. 4 / Fig. 8 first column
+("Fine-tune Dataset"): target-task dR trajectories for trace, replay, and
+no-reg essentially coincide through step 300. The revision adds the numeric
+target-task column for every method (including the new EWC / L2-SP /
+layer-freezing / feature-distillation baselines) with 3 seeds: [TBD-E2].
+
+Note: 同 W4;thread 自包含。
+
+8) Q4: in Sec. 5.5, Spearman r_s is computed against what?
+
+Response:
+Against the empirical cross-entropy risk gap: for each variant we compute
+|dR| — the benchmark-measured CE gap between target and proxy under the fixed
+evaluation protocol (defined in Sec. 5.1; also stated in the captions of
+Table 1 and Fig. 2, "r_s(B, |dR|)") — and r_s is computed between each bound
+term and |dR| across all variants within a (family, benchmark) cell; Table 3
+aggregates over the 10 cells. We will state this explicitly in the Sec. 5.5
+text and every table caption.
+
+Note: ✅ 指路 caption(L196–200, Table 1/Fig 2);正文補一句。
+
+================================================================================
+Reviewer #4 — 8VrD (4: Borderline accept, conf 3) — Q3/C3/S3/O3
+================================================================================
+
+1) W1: Eq. (1) defines population risk; proofs use finite-sample matrices —
+   restate the theorem or add a finite-sample argument.
+
+Response:
+The reviewer is right, and we fix it exactly as suggested — both ways.
+(1) Theorem 1 is restated as a bound on the EMPIRICAL risk gap over the
+reference sample — also the quantity our diagnostic use case targets (all
+experiments evaluate on fixed reference sets; every step of the proof —
+per-sample triangle inequality, pointwise Lipschitz/simplex-polarization,
+Jensen on the empirical mean, and the exact finite-sample identity of
+Prop. 1 — already holds at the sample level). (2) New corollary: whenever the
+per-sample loss gap is bounded — guaranteed by bounded feature norms and the
+alignment residual, quantities PRISM already measures, with explicit constant
+b <= K_feat*D_Z + sqrt(2)*C_z*||W H_T - H_P||_op — McDiarmid's inequality
+yields |population gap - empirical gap| <= b*sqrt(2 ln(2/delta)/N) w.p.
+1-delta, giving the population version at an additive concentration cost. For
+sequences, N counts i.i.d. SEQUENCES (per-sequence token-averaged losses), not
+tokens. The restated theorem and proof are written; we are happy to post them
+in this thread. No experimental conclusion changes — all reported quantities
+were already empirical.
+
+Note: ✅ 完成(e5_theorem.tex 可直接貼 thread)。
+
+2) W2 / Q1: bound very loose (266.09 vs 0.3658; 23.24 vs 0.0002) — quantify
+   the relaxation; any operational threshold beyond ordering?
+
+Response:
+Quantified directly, on all 798 (family, benchmark, variant) cells. Slack
+B/|dR|: median 1196x, IQR [368, 3404] — and NOT constant (log10 sd ~1.0; the
+reviewer's two cells, ~727x and ~10^5x, are both within this spread), which is
+exactly why we claim only ordering from the raw bound. Attribution by
+derivation step: the Lipschitz-constant relaxation contributes only 0.10–0.40
+dex (simplex polarization already keeps K_feat tight); the dominant slack is
+the alignment/triangle remainder; and median slack SHRINKS with bit-width
+(Q8_0: 3.61 dex -> Q2_K: 2.75 dex) — relatively tightest where degradation is
+real. Operational threshold: per-(family, benchmark) leave-one-out isotonic
+calibration of B -> |dR| achieves aggregate LOO MAE 0.056 nats (vs 0.077
+predict-the-mean), and the rule "calibrated prediction < 0.1 nats" reaches
+precision >= 0.8 in 66/77 cells (25 at 1.0; failures concentrate in the
+noise-floor cells discussed under W4). Both analyses become a new
+section/table, and uncalibrated B is explicitly scoped to ranking.
+
+Note: ✅ 已有全部數字(E6)。
+
+3) W3: no controlled single-axis interventions; regularizer only clearly wins
+   Llama-TruthfulQA; Table 22 negative cells; needs stronger baselines
+   (SLoRA/two-phase/CLAIM/ArMA), seeds, source-task, 32-seq sensitivity.
+
+Response:
+(1) Controlled interventions — added: into ONE base model we inject (a) pure
+scale change (final-norm rescale, alpha in {0.5..2}), (b) pure geometric
+distortion (norm-preserving rotation expm(theta*A), token norms preserved
+exactly), (c) head-only perturbation (RTN-quantized lm_head at {8,6,4,3}
+bits, backbone untouched). Each intervention is a REAL forward-pass change, so
+the same run reports the measured |dR| and verifies the bound: [TBD-E4 —
+selectivity matrix: each family moves its own term by orders of magnitude
+while the other two stay near zero]. (2) Negative cells: Table 22 IS our
+diagnostic-gating analysis — its verdict column already marks Llama-BBQ
+"cell-level mixed" and both Qwen cells "at noise floor => skip"; App. H
+further shows trace's per-benchmark wins on shape-driven cells (BBQ-FT:
+TriviaQA -88%, GSM8K -79%) and the mechanism (trace lifts Omega 0.93 -> 0.98;
+replay leaves it flat). We promote this to the main text and extend it with an
+independent 10-cell rerun (5 FT tasks x 2 models): benefit tracks the
+unregularized shape drift within model (Spearman +1.00 Qwen / +0.40 Llama);
+failure cells are precisely the not-shape-driven ones (Llama-BBQ: 20% scale
+share, rho_P < rho_T; Qwen-LIMA: 1-Omega ~ 7e-4). The regularizer is presented
+as axis-targeted with the gating rule explicit. (3) Baselines: EWC, L2-SP,
+feature distillation, and layer-freezing added under the identical protocol,
+>= 3 seeds at sweep-best, source-task performance reported: [TBD-E2].
+SLoRA/two-phase/CLAIM/ArMA target sequential continual-instruction settings;
+we discuss all four in Related Work and add matched-setting comparisons in the
+revision. Reference-set sensitivity for the regularizer (size x domain):
+[TBD-E3C].
+
+Note: (2) ✅ 已有(App H 指路 + E10);(1)(3) ⏳ E4/E2/E3-C。
+
+4) W4 / Q2: r_s = 0.831 is Llama-only while Qwen-BBQ has -0.34/-0.66; the
+   autoregressive corollary needs free-running or a trajectory-shift term.
+
+Response:
+(1) Agreed on prominence. The 0.831 was explicitly scoped to the Llama grid
+(Sec. 5.2) and the negative Qwen-BBQ cells are plotted in Fig. 7, with App.
+G.1 diagnosing the mechanism: at lambda=0 those cells sit at |dR| ~ 1e-3 nats
+— two orders below where the bound is informative (0.0035 on TriviaQA vs
+0.288 on ARC within the SAME fine-tuning trajectory), so per-checkpoint
+rankings reflect trajectory noise rather than bound failure (the same effect
+appears in Llama BBQ->SQuAD, r_s ~ 0.30). The revised MAIN text reports the
+full correlation matrix with all-cell aggregates (mean and median over all 20
+cells), plus this SNR analysis — we will not present 0.831 without that
+context. (2) Free-running: on a 100-prompt subset, each variant greedily
+generates its own continuations (surrogate errors compound into its own
+context) and both models are scored on those trajectories: rs = [TBD-E7]
+free-running vs [TBD-E7] teacher-forced. Independently, Corollary 1 is
+restated as teacher-forced-only with trajectory-distribution shift as an
+explicit limitation (the bound applies to any feature rows — App. D; the
+restriction is protocol, not theory). The Limitations section adds
+reference-set sensitivity, free-run generation, head-varying variants, and
+feature-extraction cost, as suggested.
+
+Note: (1) ✅ 指路 Fig 7 / G.1 L770–782 + 主文承諾;(2) ⏳ E7。
+
+5) Q1: error analysis of bound magnitudes beyond ordering?
+
+Response:
+Yes — summarized here, full tables in the new section: slack B/|dR| median
+1196x, IQR [368, 3404], log10 sd ~1.0 (non-constant); by derivation step, the
+Lipschitz-constant relaxation accounts for only 0.10–0.40 dex, the
+alignment/triangle remainder for the rest; slack decreases with bit-width
+(median 3.61 dex at Q8_0 -> 2.75 dex at Q2_K); and a one-time per-(family,
+benchmark) isotonic calibration converts B into a predictor of |dR| with LOO
+MAE 0.056 nats and precision >= 0.8 at epsilon = 0.1 in 66/77 cells.
+
+Note: ✅ W2 的自包含濃縮版。
+
+6) Q2: performance on generated trajectories (free-running)?
+
+Response:
+See the new subset experiment: each variant generates its own greedy
+continuations on 100 prompts; both models are scored on those trajectories
+(features + per-token CE on the generated region). rs(B, |dR|) free-running =
+[TBD-E7] vs [TBD-E7] teacher-forced on the same prompts; bound-rank agreement
+rs(B_tf, B_free) = [TBD-E7]. Independently, Corollary 1 is restated as
+teacher-forced-only and trajectory shift listed as an explicit limitation.
+
+Note: ⏳ E7(~2.5 h)。
+
+7) Q3: sensitivity of the shape regularizer to reference-set size and domain?
+
+Response:
+We sweep the regularizer's reference set over sizes {8, 32, 128} x domains
+{fine-tuning task, wikitext} under the paper's protocol (trace, lambda = 1.0,
+Llama-TruthfulQA): retention changes by [TBD-E3C]% at most across settings
+[report honestly if sensitive]; new appendix with the full grid. For the
+DIAGNOSTIC side, the corresponding size ablation {8..128} and the
+benchmark-independent domain result (wikitext reference: mean rs +0.506 vs
++0.725 benchmark-specific, from existing data) are reported together.
+
+Note: ⏳ E3-C;診斷側數字 ✅ 已有。
+
+8) Q4: comparison to stronger forgetting baselines?
+
+Response:
+Added: EWC (diagonal Fisher), L2-SP, feature distillation, and layer-freezing
+(meta-review suggestion), all under the identical LoRA-forgetting protocol,
+each at sweep-best with 3 seeds, reporting downstream forgetting AND
+target-task performance: [TBD-E2 — table; honest win/tie/loss summary].
+SLoRA/two-phase/CLAIM/ArMA are sequential continual-instruction methods; we
+discuss them in Related Work and will compare under matched settings in the
+revision.
+
+Note: ⏳ E2。
+
+9) Limitations: also discuss reference-set sensitivity, free-run generation,
+   head-varying variants, feature computation costs.
+
+Response:
+Agreed — all four are added to the Limitations: (i) reference-set sensitivity
+with the new size/domain ablations; (ii) free-running generation with the new
+subset experiment and the restated teacher-forced-only corollary; (iii)
+head-varying variants (full SFT/RLHF), already identified in App. C.3 as the
+joint-alignment regime we scope out and list as future work; (iv) feature-
+extraction cost, quantified in the new cost table (one forward pass per
+variant over the reference set; no labels, no decoding).
+
+Note: (iii) 有 App C.3 指路;(i)(ii)(iv) 隨 E3/E7/cost 表落地。
+
+================================================================================
+Global assembly checklist (post 前逐項核對)
+================================================================================
+[ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
+[ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
+[ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
+[ ] Global response 以 AC A–E 為骨架,開頭一句 "we address each of the five
+    points raised in the meta-review with new experiments";結尾用定位句
+[ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)
+[ ] 字數:每則 comment 壓到 NeurIPS 限制內(規則待確認)後再貼
+[ ] 引用論文內容時用「promote to main text」語氣,不用防禦性句式
