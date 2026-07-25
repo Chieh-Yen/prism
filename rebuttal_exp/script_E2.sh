@@ -39,6 +39,12 @@ MAX_STEPS="${MAX_STEPS:-300}"
 # seeds with TRACE_LAM=1.0 instead of editing this file. (backfill itself
 # always runs lambda=1.0 — that is its purpose; this knob does not affect it.)
 TRACE_LAM="${TRACE_LAM:-0.5}"
+# Re-entry safety (SKIP_DONE=0 disables): a re-launched stage SKIPS runs
+# whose metrics JSON already holds the step-MAX_STEPS checkpoint. The
+# trainer has NO mid-run resume — an interrupted run restarts from its own
+# step 0 — but completed runs are never repeated, so killing and
+# re-launching a 12-14 h stage only loses the run that was in flight.
+SKIP_DONE="${SKIP_DONE:-1}"
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
@@ -54,10 +60,33 @@ if [[ -z "${HF_TOKEN:-}${HUGGING_FACE_HUB_TOKEN:-}" ]]; then
          "export HF_TOKEN to silence (see E2.md risk table)." | tee -a "$LOG"
 fi
 
+is_done () {  # method lam_or_topK seed task model  ->  0 if step-300 json exists
+    [[ "$SKIP_DONE" == "1" ]] || return 1
+    python3 - "$1" "$2" "$3" "$4" "$5" "$MAX_STEPS" <<'PY'
+import json, os, sys
+method, x, seed, task, model, steps = sys.argv[1:7]
+tag = f"top{x}" if method == "layer_freeze" else f"lam{float(x):g}"
+p = os.path.join("rebuttal_exp", "out", "E2", method, tag, f"seed{seed}",
+                 model.split("/")[-1].lower(), task,
+                 f"prism_forgetting_metrics_{task}.json")
+try:
+    cks = json.load(open(p)).get("checkpoints", [])
+    sys.exit(0 if any(c.get("step") == int(steps) for c in cks) else 1)
+except Exception:
+    sys.exit(1)
+PY
+}
+
 run_one () {  # method lambda seed task model [extra trainer args...]
     local method="$1" lam="$2" seed="$3" task="$4" model="$5"
     shift 5
     local tag="[$method lam=$lam seed=$seed $task $*]"
+    # skip-done only for plain runs: extra trainer args change the output
+    # location/protocol, so they are never auto-skipped
+    if [[ $# -eq 0 ]] && is_done "$method" "$lam" "$seed" "$task" "$model"; then
+        echo "=== SKIP (step-$MAX_STEPS json exists) $tag ===" | tee -a "$LOG"
+        return 0
+    fi
     echo ">>> $tag ($(date))" | tee -a "$LOG"
     python rebuttal_exp/train_forgetting_baselines.py \
         --model "$model" --task "$task" \
@@ -82,6 +111,10 @@ FREEZE_TOPS="4 8 16"     # layer_freeze: LoRA on top-K layers (AC-named baseline
 run_freeze () {  # topK seed task model
     local top="$1" seed="$2" task="$3" model="$4"
     local tag="[layer_freeze top=$top seed=$seed $task]"
+    if is_done layer_freeze "$top" "$seed" "$task" "$model"; then
+        echo "=== SKIP (step-$MAX_STEPS json exists) $tag ===" | tee -a "$LOG"
+        return 0
+    fi
     echo ">>> $tag ($(date))" | tee -a "$LOG"
     python rebuttal_exp/train_forgetting_baselines.py \
         --model "$model" --task "$task" \

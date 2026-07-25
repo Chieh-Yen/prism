@@ -156,27 +156,64 @@ def part_b(args):
     specs = variants_from_csv(args.family)
     risk = risk_gaps_from_csv(args.family)
 
-    tokenizer = AutoTokenizer.from_pretrained(target_id, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    loaders = {
-        k: load_task_data(args.ref_task, split="test", num_samples=k,
-                          batch_size=min(4, k), tokenizer=tokenizer,
-                          max_length=args.max_length, seed=args.seed)
-        for k in SIZES
-    }
+    # (size, draw) grid: draw 0 is the paper seed; the extra draws answer
+    # REFERENCE-SET STABILITY ("did the 32 sequences just get lucky?") at
+    # near-zero cost — forwards over <=128 sequences are seconds; the cost
+    # of this experiment is all in model loading.
+    keys = [(k, d) for k in SIZES for d in range(args.n_draws)]
+    csv_path = OUT_DIR / f"partB_{args.family}_size_ablation.csv"
 
-    print(f"Extracting target features ({target_id}) ...")
-    target = load_target(target_id, args.device)
-    extractor = LLMExtractor()
-    H_T = extractor.extract_head(target).float().cpu()
-    K = UnifiedBound.theoretical_K(H_T.to(args.device))
-    Z_T = {k: extract_Z(target, loaders[k], args.device) for k in SIZES}
-    del target
-    free_cuda()
+    # Resume: a variant is complete when all (size, draw) rows are present.
+    rows, done = [], set()
+    if csv_path.exists():
+        with open(csv_path) as f:
+            legacy = list(csv.DictReader(f))
+        if legacy and "draw" in legacy[0]:
+            counts = {}
+            for r in legacy:
+                counts[r["label"]] = counts.get(r["label"], 0) + 1
+            done = {lb for lb, c in counts.items() if c >= len(keys)}
+            rows = [{"label": r["label"], "ref_size": int(r["ref_size"]),
+                     "draw": int(r["draw"]), "n_tokens": int(r["n_tokens"]),
+                     "bound_I": float(r["bound_I"]),
+                     "omega_I": float(r["omega_I"])}
+                    for r in legacy if r["label"] in done]
+            if done:
+                print(f"[resume] {len(done)} variants already complete "
+                      f"({len(rows)} rows) — skipping them")
+        else:
+            bak = csv_path.with_suffix(".csv.predraws")
+            csv_path.rename(bak)
+            print(f"[resume] legacy single-draw csv moved to {bak.name}; "
+                  "restarting on the (size x draw) grid")
 
-    rows = []
-    for spec in specs:
+    todo = [s for s in specs if s["label"] not in done]
+    Z_T = {}
+    if todo:
+        tokenizer = AutoTokenizer.from_pretrained(target_id,
+                                                  trust_remote_code=True)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        loaders = {
+            (k, d): load_task_data(args.ref_task, split="test",
+                                   num_samples=k, batch_size=min(4, k),
+                                   tokenizer=tokenizer,
+                                   max_length=args.max_length,
+                                   seed=args.seed + 1000 * d)
+            for (k, d) in keys
+        }
+
+        print(f"Extracting target features ({target_id}) ...")
+        target = load_target(target_id, args.device)
+        extractor = LLMExtractor()
+        H_T = extractor.extract_head(target).float().cpu()
+        K = UnifiedBound.theoretical_K(H_T.to(args.device))
+        Z_T = {key: extract_Z(target, loaders[key], args.device)
+               for key in keys}
+        del target
+        free_cuda()
+
+    for spec in todo:
         label = spec["label"]
         print(f"\n=== {label} ===")
         try:
@@ -189,8 +226,8 @@ def part_b(args):
         # 2026-07-24 run OOMed a 32 GB card inside compute_all's spectral
         # SVD (4096 x |V| workspace) during the first proxy.
         Z_P_by = {}
-        for k in SIZES:
-            Z_P_by[k] = extract_Z(proxy, loaders[k], args.device)
+        for key in keys:
+            Z_P_by[key] = extract_Z(proxy, loaders[key], args.device)
         # Paper convention: only GGUF k-quants alter the served lm_head
         # (gamma > 0); BnB/GPTQ/dtype proxies keep the FP16 head, and their
         # quantized weight wrappers make extract_head unusable anyway.
@@ -199,10 +236,10 @@ def part_b(args):
         del proxy
         free_cuda()
 
-        for k in SIZES:
-            n = min(Z_T[k].shape[0], Z_P_by[k].shape[0])
-            X = Z_T[k][:n].to(args.device)
-            Y = Z_P_by[k][:n].to(args.device)
+        for (k, d) in keys:
+            n = min(Z_T[(k, d)].shape[0], Z_P_by[(k, d)].shape[0])
+            X = Z_T[(k, d)][:n].to(args.device)
+            Y = Z_P_by[(k, d)][:n].to(args.device)
             # Lightweight Bound_I path — the paper's own primitives.
             # (compute_all additionally runs a 4096 x |V| spectral SVD
             # that is NOT part of the bound; skip it.)
@@ -218,37 +255,62 @@ def part_b(args):
                     H_T.to(args.device), H_P.to(args.device),
                     torch.eye(H_T.shape[0], device=args.device), Sigma_P)
             bound = K["K_feat"] * fe + K["K_pred"] * gamma
-            rows.append({"label": label, "ref_size": k, "n_tokens": n,
-                         "bound_I": bound,
+            rows.append({"label": label, "ref_size": k, "draw": d,
+                         "n_tokens": n, "bound_I": bound,
                          "omega_I": omega})
-            print(f"  size={k:<4d} B={bound:.2f} omega={omega:.4f}")
+            print(f"  size={k:<4d} draw={d} B={bound:.2f} omega={omega:.4f}")
             del X, Y
             free_cuda()
         del Z_P_by, H_P
-        with open(OUT_DIR / f"partB_{args.family}_size_ablation.csv",
-                  "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        with open(csv_path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["label", "ref_size", "draw",
+                                              "n_tokens", "bound_I",
+                                              "omega_I"])
             w.writeheader()
             w.writerows(rows)
 
-    # rank correlation vs benchmark |dR| per size
+    # rank correlation vs benchmark |dR| per (size, draw); cells report
+    # mean +/- sd ACROSS DRAWS — the sd is the stability answer.
     md = [f"# E3 part B — reference-size ablation ({args.family}, "
           f"{args.ref_task} reference)", "",
+          f"{args.n_draws} independent draws per size (draw 0 = paper seed "
+          f"{args.seed}; draw d uses seed {args.seed}+1000d). Cells: "
+          "mean rs +/- sd across draws.", "",
           "| ref size | " + " | ".join(BENCHMARKS) + " | mean |",
           "|---|" + "---|" * (len(BENCHMARKS) + 1)]
+    sds = {}
     for k in SIZES:
-        sub = {r["label"]: r["bound_I"] for r in rows if r["ref_size"] == k}
-        cells, vals = [], []
+        cells, bench_means = [], []
         for bench in BENCHMARKS:
-            pairs = [(sub[l], risk[(l, bench)]) for l in sub
-                     if (l, bench) in risk and not math.isnan(risk[(l, bench)])]
-            rs = spearman([p[0] for p in pairs], [p[1] for p in pairs]) \
-                if len(pairs) >= 4 else float("nan")
-            cells.append(f"{rs:+.3f}" if not math.isnan(rs) else "-")
-            if not math.isnan(rs):
-                vals.append(rs)
+            rs_draws = []
+            for d in range(args.n_draws):
+                sub = {r["label"]: r["bound_I"] for r in rows
+                       if r["ref_size"] == k and r["draw"] == d}
+                pairs = [(sub[lb], risk[(lb, bench)]) for lb in sub
+                         if (lb, bench) in risk
+                         and not math.isnan(risk[(lb, bench)])]
+                if len(pairs) >= 4:
+                    rs_draws.append(spearman([p[0] for p in pairs],
+                                             [p[1] for p in pairs]))
+            if rs_draws:
+                m = statistics.mean(rs_draws)
+                sd = (statistics.stdev(rs_draws)
+                      if len(rs_draws) > 1 else 0.0)
+                sds[(k, bench)] = sd
+                cells.append(f"{m:+.3f}±{sd:.3f}")
+                bench_means.append(m)
+            else:
+                cells.append("-")
         md.append(f"| {k} | " + " | ".join(cells) +
-                  f" | {statistics.mean(vals):+.3f} |")
+                  (f" | {statistics.mean(bench_means):+.3f} |"
+                   if bench_means else " | - |"))
+    if sds:
+        sd32 = [v for (k, b), v in sds.items() if k == 32]
+        md += ["", f"Stability: max rs sd across draws = "
+               f"{max(sds.values()):.3f} (all sizes/benchmarks)"
+               + (f"; at the paper size 32: {max(sd32):.3f}" if sd32 else "")
+               + ". A small sd at 32 certifies the paper's 32-sequence "
+                 "reference is not a lucky draw."]
     out = OUT_DIR / f"partB_{args.family}_size_ablation.md"
     out.write_text("\n".join(md))
     print("\n".join(md))
@@ -263,6 +325,12 @@ def main():
     ap.add_argument("--max_length", type=int, default=512)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--n_draws", type=int, default=3,
+                    help="independent reference draws per size (draw 0 = "
+                         "the paper seed; draw d uses seed+1000d). The sd "
+                         "of rs across draws answers reference-set "
+                         "STABILITY; extra draws cost only forwards over "
+                         "<=128 sequences (seconds per variant)")
     args = ap.parse_args()
 
     part_a()

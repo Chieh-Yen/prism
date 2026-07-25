@@ -66,7 +66,10 @@ input-conditioned diagnostic; the revision reports both modes: generic
 reference for label-free screening, benchmark-conditioned for per-deployment
 diagnosis.
 (2) Size sensitivity: reference sets of {8, 16, 32, 64, 128} wikitext
-sequences, all Llama variants: [TBD-E3B — rank-correlation-vs-size table].
+sequences x 3 independent draws per size, all Llama variants: [TBD-E3B —
+rank-correlation-vs-size table, mean +/- sd across draws; the sd doubles as
+a stability check that the paper's 32-sequence reference is not a lucky
+draw].
 (3) Regularizer-side sensitivity (size {8,32,128} x domain {task, wikitext}):
 [TBD-E3C]. Both will be added as an appendix with the full tables.
 
