@@ -218,12 +218,32 @@ def main():
         del target
         free_cuda()
 
-    # ── Per-proxy loop: load once, all benchmarks ───────────────────────
+    # ── Resume: keep rows already in the CSV, skip completed variants ──
+    # (a fresh run would otherwise reload/re-extract every proxy — ~2 h —
+    # just to add the ones that previously failed, e.g. GPTQ after
+    # `pip install gptqmodel optimum`). Legacy iso_dev column is dropped.
+    csv_path = OUT_DIR / f"{args.family}_metrics.csv"
     rows = []
+    done: dict = {}
+    if csv_path.exists():
+        for r in csv.DictReader(open(csv_path)):
+            r.pop("iso_dev", None)
+            for k in ("cka", "svcca", "procr_dist", "omega_I",
+                      "bound_I", "|MdR|"):
+                r[k] = float(r[k])
+            r["n_tokens"] = int(r["n_tokens"])
+            rows.append(r)
+            done.setdefault(r["label"], set()).add(r["dataset"])
+        print(f"[resume] {csv_path.name}: {len(rows)} rows, "
+              f"{len(done)} variants already present")
+
+    # ── Per-proxy loop: load once, all benchmarks ───────────────────────
     for spec in specs:
         label = spec["label"]
-        if spec["kind"] == "dtype":
-            pass  # FP16 control row — keep, it anchors the near-zero end
+        done_b = done.get(label, set())
+        if done_b >= set(BENCHMARKS):
+            print(f"=== {label}: complete in CSV — skipped (resume) ===")
+            continue
         print(f"\n=== {label} ({spec['kind']}) ===")
         t_load = time.time()
         try:
@@ -234,6 +254,8 @@ def main():
         # Timing line harvested by E12's cost table (G3T9-W1).
         print(f"  [load] {label}: {time.time() - t_load:.0f}s")
         for b in BENCHMARKS:
+            if b in done_b:                     # partial-variant resume
+                continue
             t0 = time.time()
             try:
                 Z_P = extract_Z(proxy, loaders[b], args.device)
