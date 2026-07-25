@@ -24,7 +24,15 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-export CUDA_GPU="${CUDA_GPU:-1}"
+# GPU auto-detect: "GPU 2" means device 1 ONLY on a dual-GPU pod. On a
+# single-GPU machine CUDA_VISIBLE_DEVICES=1 masks the only card ("No CUDA
+# GPUs are available"). Explicit CUDA_GPU=<n> always wins.
+if [[ -z "${CUDA_GPU:-}" ]]; then
+    NGPU="$(nvidia-smi -L 2>/dev/null | grep -c '^GPU' || echo 0)"
+    if [[ "$NGPU" -ge 2 ]]; then CUDA_GPU=1; else CUDA_GPU=0; fi
+    echo "[gpu2] detected $NGPU GPU(s) -> using CUDA_GPU=$CUDA_GPU"
+fi
+export CUDA_GPU
 CHECK="rebuttal_exp/out/E2/backfill_check.md"
 LOG="rebuttal_exp/out/screen.gpu2.$(date +%Y%m%d_%H%M%S).log"
 mkdir -p rebuttal_exp/out
@@ -35,17 +43,23 @@ step () { echo "=== [gpu2 $(date '+%m-%d %H:%M')] $* ===" | tee -a "$LOG"; }
 # step "E1 REDO=gsm8k (~1 h/family)"
 # REDO="gsm8k" bash rebuttal_exp/script_E1.sh 2>&1 | tee -a "$LOG" || FAIL=1
 
-step "E12 cost-table regen from refreshed E1 timings (zero GPU)"
-SKIP_MEASURE=1 bash rebuttal_exp/script_E12.sh 2>&1 | tee -a "$LOG" || FAIL=1
-
-step "E8 isometry lite (~20 min)"
-bash rebuttal_exp/script_E8.sh 2>&1 | tee -a "$LOG" || FAIL=1
-
-step "E3 part B: size ablation + stability draws (~1.5-2 h)"
-PARTS="B" bash rebuttal_exp/script_E3.sh 2>&1 | tee -a "$LOG" || FAIL=1
+# step "E12 cost-table regen from refreshed E1 timings (zero GPU)"
+# SKIP_MEASURE=1 bash rebuttal_exp/script_E12.sh 2>&1 | tee -a "$LOG" || FAIL=1
 
 step "E9 answer-span (~1 h)"
 bash rebuttal_exp/script_E9.sh 2>&1 | tee -a "$LOG" || FAIL=1
+
+"""
+if [[ -s rebuttal_exp/out/E8/E8_results_llama.md && "${RERUN_E8:-0}" != "1" ]]; then
+    step "E8 SKIP: out/E8/E8_results_llama.md exists (2026-07-25 定稿; RERUN_E8=1 to force)"
+else
+    step "E8 isometry lite (~20 min)"
+    bash rebuttal_exp/script_E8.sh 2>&1 | tee -a "$LOG" || FAIL=1
+fi
+"""
+
+step "E3 part B: size ablation + stability draws (~1.5-2 h)"
+PARTS="B" bash rebuttal_exp/script_E3.sh 2>&1 | tee -a "$LOG" || FAIL=1
 
 # ---------------- E3C: wait for GPU 1's canary ----------------
 WAIT_S=$(( ${WAIT_CANARY_H:-8} * 3600 ))
@@ -58,6 +72,7 @@ done
 if [[ ! -f "$CHECK" ]]; then
     step "E3C SKIPPED: no canary verdict after ${WAIT_CANARY_H:-8} h — run later:"
     step "  E3C_CELLS=\"truthfulqa:8 truthfulqa:128 wikitext:32\" PARTS=C bash rebuttal_exp/script_E3.sh"
+    step "  (gpu1 在另一台機器時,先把 verdict 拿過來:scp <pod1>:/workspace/prism/rebuttal_exp/out/E2/backfill_check.md rebuttal_exp/out/E2/)"
 elif grep -q "Verdict: MISMATCH" "$CHECK"; then
     step "E3C SKIPPED: canary MISMATCH — no training on an unreproduced environment"
 else

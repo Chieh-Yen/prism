@@ -352,11 +352,18 @@ We also measure the isometry violation directly: the residual COST of
 restricting alignment to rotation x scale versus the best ARBITRARY linear
 map, in the features' top-r principal subspace (iso_gain = 1 -
 res_linear/res_orthogonal; ~0 means the O(d) restriction loses nothing),
-per variant vs bit-width: [TBD-E8 — out/E8/E8_results_llama.md].
+per variant vs bit-width. With the FP16 dtype-control at 0.08 (the metric's
+own noise scale), iso_gain rises only to 0.13 / 0.17 / 0.18 / 0.19 (Q8_0 /
+Q4_K_M / Q2_K / NF4; MMLU + SQuAD means): rotation x scale already achieves
+71-94% of the residual reduction ANY linear alignment can. The complement
+is decisive: even after an ORACLE arbitrary-linear alignment, 26% (Q4_K_M)
+and 57% (Q2_K) relative residual remains on MMLU — under aggressive
+quantization most feature damage is not linearly alignable at all, so the
+isometry-aligned residual is genuine degradation, not gauge artifact.
 
-Note: ✅ 指路(L112–115, App C.1/C.2)就能收工;E8 改為獨立 lite 腳本
-      (script_E8.sh,~20 min,重用 E1 快取)。⚠️ E1 內建的首版 iso_dev 欄
-      已作廢(n_tokens<d 時病態,FP16 控制組 18–50;E1.md §7),勿引。
+Note: ✅ 指路(L112–115, App C.1/C.2)+ E8 定稿已填(控制組 0.084;Q8/Q4/Q2/NF4
+      = 0.130/0.165/0.183/0.189;oracle 線性後 Q2_K 仍餘 57%;E8.md §3)。
+      ⚠️ E1 內建的首版 iso_dev 欄已作廢(n_tokens<d 病態;E1.md §7),勿引。
 
 ================================================================================
 Reviewer #2 — G3T9 (3: Borderline reject, conf 4) — Q3/C3/S2/O3
