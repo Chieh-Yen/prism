@@ -329,25 +329,34 @@ Note: ✅ 指路即可成立(L278–285, L249–257, App B);E1 數字已填—�
 4) W4: GSM8K correlation notably lower; structural limitation for reasoning.
 
 Response:
-We agree it is structural and promote it to a first-class limitation. Two
+We agree it is structural and promote it to a first-class limitation. Three
 clarifications. (1) Root cause, quantified (App. F.3, Table 10): long
 teacher-forced CoT spans dilute per-token loss, collapsing GSM8K's mean |dR|
-to 0.019 nats (Qwen3-8B-Instruct: 0.0033), an order of magnitude below other
-benchmarks (0.07-0.16), so per-variant differences are dominated by
-measurement noise. This is a property of the CE target itself, inherited by
-ANY CE-based label-free proxy (including perplexity screening), not specific
-to our geometric decomposition. PRISM correctly reports that variants barely
-differ in CE on GSM8K; what breaks is the coupling between per-token CE and
-final-answer accuracy. (2) Mitigation within PRISM, implemented: we recompute
-features AND losses on the FINAL-ANSWER span only (GSM8K's "#### <answer>"
-tokens, where the graded content lives) instead of averaging over the full
-CoT (same extractor, same bound, only the span changes): [TBD-E9, GSM8K
-rs(B,|dR|) and mean |dR|, full-CoT span vs final-answer span]. Implications
-for reasoning-heavy models are added to the Limitations.
+to 0.019 nats (Qwen3-8B-Instruct 0.0033), an order of magnitude below other
+benchmarks (0.07-0.16). This is a property of the CE target itself, inherited
+by ANY CE-based label-free proxy (perplexity screening included), and PRISM
+correctly reports that variants barely differ in CE on GSM8K. (2) We tested the
+obvious mitigation and report the outcome honestly: recomputing features AND
+losses on the FINAL-ANSWER span only ("#### <number>", where the graded content
+lives) does NOT restore the rank signal; it degrades it. The reason is
+mechanical: that span is only about 3 tokens, so span-level |dR| becomes a
+high-variance, near-binary "did it emit the right final number" target, with
+clear inversions (Q2_K, the most-damaged variant by full |dR|, looks almost
+intact on the final token, while NF4 garbles it). We therefore keep GSM8K as a
+first-class limitation rather than claim a fix. (3) The ordering that matters is
+carried by the BOUND, not by shape similarity alone: computed on full,
+non-truncated reference features, the bound ranks GSM8K variants strongly
+through its scale and gamma arms even where the shape core saturates (see our
+CKA/SVCCA comparison, B_N +0.965/+0.964 on GSM8K; App. C.2). The limitation is
+the |dR| MAGNITUDE (an SNR property of the task), not the bound's ranking.
+Implications for reasoning-heavy models are added to the Limitations.
 
-Note: ✅ SNR 數字已在論文(App F.3);E9 已實作(script_E9.sh,~1 h,llama)。
-      跑不完 fallback:改回「we outline this variant and leave its
-      evaluation to the revision」。兩種結果都有敘事(E9.md §4)。
+Note: ✅ E9 定稿——mitigation **失敗**(span rs +0.566 < full-CoT +0.979;
+      span 僅 ~3 tokens,Q2_K 反轉)。採誠實負結果框架:維持 first-class
+      limitation,限制在 |dR| magnitude 非 ranking,排序交叉引用 CKA 表 B_N
+      +0.965。⚠️ full-CoT +0.979 獨立佐證論文 gsm8k 0.51 = 截斷 artifact
+      (E1.md §1c),de-risk E1 REDO;是否在貼文明講此 artifact = 策略叉路,
+      待 user 決定 + E1 REDO 官方 protocol 確認(E9.md §7.2)。
 
 5) W5: EWC cited but never compared; only small-scale replay is a convenient
    choice.
@@ -942,8 +951,11 @@ Global assembly checklist (post 前逐項核對)
     (獨立 lite 腳本;E1 內舊 iso_dev 已作廢)
 [ ] 所有量化端統計只用論文 5 benchmarks(E6/E13/eql6w3 已重算;E4 用
     mmlu+triviaqa;E9 = gsm8k;E11 = 全 5 benchmarks)
-[ ] E9 若未及跑:pCi8-W4 依 E9.md §風險 fallback 句退回(E11 ✅ 已填 G3T9-Q1:
-    10/10 holds、head share 50%、1−Ω vs Q2_K 錨、looseness 主動揭露)
+[x] E9 定稿(pCi8-W4):mitigation **失敗**(final-answer span rs +0.566 <
+    full-CoT +0.979;span ~3 tokens 近二元,Q2_K 反轉)→ 誠實負結果,維持
+    limitation,限制在 |dR| magnitude 非 ranking,交叉引用 CKA 表 B_N +0.965;
+    ⚠️ full-CoT +0.979 佐證 gsm8k 弱 = 截斷 artifact,見下方 E1 REDO 項
+    (E11 ✅ G3T9-Q1:10/10 holds、head share 50%、1−Ω vs Q2_K 錨)
 [ ] 所有 E2/E3-C run 確認 lr=1e-5(paper-round 啟動值;首輪 2e-4 sweep 全部
     作廢,勿引 out/E3/partC_summary.md 的 lr-stress 數字;E2.md §4 勘誤)
 [ ] trace anchor λ 依 backfill 結果定(論文正文口徑 λ1.0;E2.md §5 決策規則);
@@ -963,7 +975,11 @@ Global assembly checklist (post 前逐項核對)
     bound / attribution / regularizer)。gsm8k 全量 B_N +0.965/+0.964、B_I 在
     extraction-QA 領先(SQuAD)、γ_W=isometry 訊號(App C.2)照舊;舊 gsm8k 對比
     (B_I vs 16k-子抽樣 CKA)是 artifact 不可引(E1.md §1c);bootstrap「差距不顯著」
-    正是 tie 論證的支柱,務必入文;舊 spearman.md(n=11/10)stale
+    正是 tie 論證的支柱,務必入文;舊 spearman.md(n=11/10)stale。
+    **E9 已獨立 de-risk 此 REDO**:n=512 全量 full-CoT B rs = +0.979(遠高於論文
+    Fig 2 的 0.51),即乾淨特徵下 gsm8k B 排序其實很強;REDO 官方 protocol 若確認
+    ~+0.98,則「論文 0.51 = 截斷 artifact」可正式成立(策略叉路:是否貼文明講,
+    見 E9.md §7.2 + pCi8-W4 Note)
 [x] Global response 開場 = 三支柱敘事(operational/cheaper+actionable/⊃CKA)+
     "Claims we narrow" 顯眼區塊 + "we address each of the five points";結尾定位句 ✓
 [ ] CKA 比較全篇口徑統一 = tie+containment(AC-C / pCi8-W3 / G3T9-W3 已改;
