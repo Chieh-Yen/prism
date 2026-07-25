@@ -152,12 +152,18 @@ def main():
         raise SystemExit("No runs found under rebuttal_exp/out/E2/ "
                          "(use --with-paper-runs to include paper trees).")
 
-    # no-reg anchors per (model, task)
-    noreg = {}
-    for (model, task, method, lam), seeds in runs.items():
-        if method in ("none", "none(paper)"):
-            vals = [s["mean_dR"] for s in seeds.values()]
-            noreg[(model, task)] = statistics.mean(vals)
+    # no-reg anchors per (model, task). Fresh pod-round 'none' takes
+    # precedence over 'none(paper)': mixing a paper-round anchor with
+    # pod-round method runs is a cross-round comparison (only valid once
+    # the backfill canary certifies the rounds match — and even then the
+    # same-round anchor is the cleaner default).
+    noreg, noreg_key = {}, {}
+    for pref in ("none", "none(paper)"):
+        for (model, task, method, lam), seeds in runs.items():
+            if method == pref and (model, task) not in noreg:
+                vals = [s["mean_dR"] for s in seeds.values()]
+                noreg[(model, task)] = statistics.mean(vals)
+                noreg_key[(model, task)] = (model, task, method, lam)
 
     # sweep-best lambda per (model, task, method)
     best = {}
@@ -183,17 +189,17 @@ def main():
         md.append("|---|---|---|---|---|---|---|")
         base = noreg.get((model, task))
         if base is not None:
-            key0 = next(k for k in runs
-                        if k[0] == model and k[1] == task
-                        and k[2] in ("none", "none(paper)"))
+            # same source as the '% vs no-reg' baseline (fresh-first rule)
+            key0 = noreg_key[(model, task)]
             seeds0 = runs[key0]
             tl = [s["target_loss"] for s in seeds0.values()
                   if s["target_loss"] is not None]
-            md.append(f"| no-reg | - | {base:.4f} | "
+            src = key0[2]        # 'none' (fresh) or 'none(paper)' — shown
+            md.append(f"| no-reg [{src}] | - | {base:.4f} | "
                       f"{statistics.pstdev([s['mean_dR'] for s in seeds0.values()]):.4f} "
                       f"| {len(seeds0)} | - | "
                       f"{statistics.mean(tl):.4f} |" if tl else
-                      f"| no-reg | - | {base:.4f} | - | {len(seeds0)} | - | - |")
+                      f"| no-reg [{src}] | - | {base:.4f} | - | {len(seeds0)} | - | - |")
         for (m2, t2, method), (lam, _) in sorted(best.items()):
             if (m2, t2) != (model, task):
                 continue

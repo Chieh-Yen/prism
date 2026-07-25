@@ -6,9 +6,9 @@
 # Three stages, run in order (each is resumable; individual run
 # failures are recorded and the loop continues, per repo contract):
 #
-#   STAGE=sweep      4 methods (layer_freeze/ewc/l2sp/feature_kd) x 3
+#   STAGE=sweep      4 methods (layer_freeze/ewc/l2sp/feature_kd) x 3-4
 #                    grid points x 2 tasks x seed 42
-#                    24 runs x ~25 min  ~= 10 h
+#                    28 runs x ~25 min  ~= 12 h
 #   STAGE=seeds      best-setting x seeds {43,44} for new methods (16 runs)
 #                    + trace/replay/none x seeds {42,43,44} x 2 tasks
 #                      (18 runs; regenerates complete step-300 anchors)
@@ -32,6 +32,13 @@ MODEL="${MODEL:-meta-llama/Llama-3.1-8B}"
 QWEN_MODEL="${QWEN_MODEL:-Qwen/Qwen3-8B}"
 TASKS="${TASKS:-truthfulqa bbq}"
 MAX_STEPS="${MAX_STEPS:-300}"
+# trace anchor lambda for seeds/qwen stages. Default 0.5 = the only lambda
+# with a complete paper-round step-300 run. Decision rule: after
+# STAGE=backfill completes lambda=1.0 (and its canary MATCHes), compare
+# 1.0@300 vs 0.5@300 (0.7357 for llama-TQA) — if 1.0 is sweep-best, rerun
+# seeds with TRACE_LAM=1.0 instead of editing this file. (backfill itself
+# always runs lambda=1.0 — that is its purpose; this knob does not affect it.)
+TRACE_LAM="${TRACE_LAM:-0.5}"
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
@@ -47,14 +54,15 @@ if [[ -z "${HF_TOKEN:-}${HUGGING_FACE_HUB_TOKEN:-}" ]]; then
          "export HF_TOKEN to silence (see E2.md risk table)." | tee -a "$LOG"
 fi
 
-run_one () {  # method lambda seed task model
+run_one () {  # method lambda seed task model [extra trainer args...]
     local method="$1" lam="$2" seed="$3" task="$4" model="$5"
-    local tag="[$method lam=$lam seed=$seed $task]"
+    shift 5
+    local tag="[$method lam=$lam seed=$seed $task $*]"
     echo ">>> $tag ($(date))" | tee -a "$LOG"
     python rebuttal_exp/train_forgetting_baselines.py \
         --model "$model" --task "$task" \
         --method "$method" --lambda_reg "$lam" \
-        --seed "$seed" --max_steps "$MAX_STEPS" \
+        --seed "$seed" --max_steps "$MAX_STEPS" "$@" \
         2>&1 | tee -a "$LOG"
     if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
         FAILURES+=("$tag")
@@ -62,9 +70,12 @@ run_one () {  # method lambda seed task model
     fi
 }
 
-# Lambda grids (unit-mean Fisher makes ewc share l2sp's scale; see E2.md)
-L2SP_LAMS="1e-4 1e-3 1e-2"
-EWC_LAMS="1e-4 1e-3 1e-2"
+# Lambda grids (unit-mean Fisher makes ewc share l2sp's scale; see E2.md).
+# l2sp/ewc get a 4th point (1e-1): at lr=1e-5 the LoRA drift ||theta-theta0||^2
+# is small, so 1e-2 lands only "moderate" — without a strong-end point a
+# boundary-hitting sweep-best would force a rerun.
+L2SP_LAMS="1e-4 1e-3 1e-2 1e-1"
+EWC_LAMS="1e-4 1e-3 1e-2 1e-1"
 KD_LAMS="0.1 1.0 10"
 FREEZE_TOPS="4 8 16"     # layer_freeze: LoRA on top-K layers (AC-named baseline)
 
@@ -114,14 +125,15 @@ case "$STAGE" in
                         "$lam" "$seed" "$task" "$MODEL"
             done
         done
-        # Paper-config anchors, multi-seed. trace anchor = lam 0.5: the only
+        # Paper-config anchors, multi-seed. Default TRACE_LAM=0.5: the only
         # operating point with a complete step-300 paper-round run (the old
         # "lam=1.0 -> 0.618" quote was a step-150 misread of an aborted run;
-        # E2.md §4 erratum). lr comes from the trainer's fixed 1e-5 default.
+        # E2.md §4 erratum). If the lam=1.0 backfill turns out sweep-best,
+        # rerun with TRACE_LAM=1.0. lr comes from the trainer's 1e-5 default.
         for seed in 42 43 44; do
-            run_one none   0     "$seed" "$task" "$MODEL"
-            run_one trace  0.5   "$seed" "$task" "$MODEL"
-            run_one replay 0.01  "$seed" "$task" "$MODEL"
+            run_one none   0            "$seed" "$task" "$MODEL"
+            run_one trace  "$TRACE_LAM" "$seed" "$task" "$MODEL"
+            run_one replay 0.01         "$seed" "$task" "$MODEL"
         done
     done
     ;;
@@ -137,9 +149,9 @@ case "$STAGE" in
             run_one "$(echo "$m" | tr '[:upper:]' '[:lower:]')" \
                     "${!var:-1e-3}" 42 "$task" "$QWEN_MODEL"
         done
-        run_one none   0    42 "$task" "$QWEN_MODEL"
-        run_one trace  0.5  42 "$task" "$QWEN_MODEL"
-        run_one replay 0.01 42 "$task" "$QWEN_MODEL"
+        run_one none   0            42 "$task" "$QWEN_MODEL"
+        run_one trace  "$TRACE_LAM" 42 "$task" "$QWEN_MODEL"
+        run_one replay 0.01         42 "$task" "$QWEN_MODEL"
     done
     ;;
 
@@ -147,21 +159,23 @@ case "$STAGE" in
     # Complete the lambda=1.0 runs the paper-round trees left unfinished:
     #   llama/truthfulqa (interrupted @150), llama/bbq (@50).
     # qwen truthfulqa/bbq lam=1.0 are already complete — nothing to do there.
-    # Fresh 300-step reruns, same seed/protocol (lr 1e-5 via trainer default).
+    # Fresh 300-step reruns, same seed/protocol (lr 1e-5 via trainer default;
+    # reg_every_k=8 default — MATCHES the interrupted runs AND the tree's
+    # lam 0.1/0.5 rows for TQA/bbq, so the completed lam grid stays
+    # protocol-homogeneous. Do NOT pass k=4 here: it would break both the
+    # canary comparability and the lam-grid pairing).
     # DOUBLES AS THE ENVIRONMENT-REPRODUCTION CANARY for the whole E2
     # campaign: the checker below compares steps 25..interrupt against the
-    # old trajectories — a match certifies pod-round == paper-round.
+    # old trajectories — a match certifies pod-round == paper-round
+    # (same hardware class: the paper round also ran on a single RTX 5090).
+    # Deliberately NOT backfilled: lima/no_robots lam=1.0 ({llama,qwen}).
+    # Those FT tasks are the post-submission 5-task extension (E10), not
+    # part of the submitted paper's 2x2 grid; the rebuttal only ever cites
+    # their lambda*=0.5 numbers (already computed, zero GPU). Completing
+    # their lam=1.0 column would cost ~6 h for a column nothing cites.
     for task in truthfulqa bbq; do
         run_one trace 1.0 42 "$task" "$MODEL"
     done
-    if [[ "${FULL:-0}" == "1" ]]; then
-        # Optional: also fill E10's missing lam=1.0 coverage (4 cells that
-        # were never run at lam=1.0: {llama,qwen} x {lima, no_robots}).
-        for task in lima no_robots; do
-            run_one trace 1.0 42 "$task" "$MODEL"
-            run_one trace 1.0 42 "$task" "$QWEN_MODEL"
-        done
-    fi
     python3 rebuttal_exp/exp_e2_backfill_check.py 2>&1 | tee -a "$LOG" || true
     ;;
 

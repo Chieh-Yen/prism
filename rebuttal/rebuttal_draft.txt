@@ -774,7 +774,13 @@ Global assembly checklist (post 前逐項核對)
 [ ] E9/E11 若未及跑:pCi8-W4 / G3T9-Q1 依各自 E#.md §風險的 fallback 句退回
 [ ] 所有 E2/E3-C run 確認 lr=1e-5(paper-round 啟動值;首輪 2e-4 sweep 全部
     作廢,勿引 out/E3/partC_summary.md 的 lr-stress 數字;E2.md §4 勘誤)
-[ ] llama 的 trace anchor 一律 λ0.5(λ1.0 無完整 step-300 run;0.618 是誤讀)
+[ ] trace anchor λ 依 backfill 結果定(論文正文口徑 λ1.0;E2.md §5 決策規則);
+    replay λ0.01 = 論文正文 sweep-best ✓
+[ ] reg_every_k 配對:TQA/bbq 側一律 k=8、lima/no_robots 側 k=4(E2.md §5 表);
+    引 E10 只用 λ*=0.5 的 within-model rank,不做 cross-task 同 λ 強度比較
+    (樹內 k 混用 ≈ 2× 有效 λ 差;E10.md §4 caveat 3)
+[ ] Sec 5.4 正文 "32 pre-training sequences" 與程式碼不符(實為 FT 任務 test
+    split,seed+1000)——rebuttal 描述 ref set 以程式碼為準,revision 勘誤該句
 [ ] Global response 以 AC A–E 為骨架,開頭一句 "we address each of the five
     points raised in the meta-review with new experiments";結尾用定位句
 [ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)
