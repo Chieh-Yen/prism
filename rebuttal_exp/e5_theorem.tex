@@ -1,0 +1,79 @@
+% E5 — paper-ready restatement (8VrD-W1).
+% Drop into the revised appendix; the theorem replaces the population-risk
+% phrasing of Theorem 1, the corollary adds the finite-sample bridge.
+% Notation follows the submission (rho, Omega_W, K_feat, K_pred, Sigma_P).
+
+\begin{theorem}[Empirical Unified Risk Bound]
+\label{thm:empirical}
+Let $S=\{(x_i,y_i)\}_{i=1}^{N}$ be a reference sample, and for a model $M$
+write $\widehat{\mathcal{R}}_M \;=\; \tfrac1N\sum_{i=1}^{N}
+\ell\!\bigl(\phi_M(x_i)H_M,\,y_i\bigr)$ for its empirical risk on $S$.
+Let $Z_T,Z_P\in\mathbb{R}^{n\times d}$ be the feature matrices extracted on
+$S$, and let $\widehat\rho_T,\widehat\rho_P,\widehat\Omega_W,
+\widehat\Sigma_P$ be computed from them. Then for any $W\in\mathcal{O}(d)$,
+\begin{equation}
+\bigl|\widehat{\mathcal{R}}_T-\widehat{\mathcal{R}}_P\bigr|
+\;\le\;
+\widehat{\mathcal{B}}
+:=
+K_{\mathrm{feat}}
+\sqrt{(\widehat\rho_T-\widehat\rho_P)^2
+      + 2\widehat\rho_T\widehat\rho_P\bigl(1-\widehat\Omega_W\bigr)}
+\;+\;
+K_{\mathrm{pred}}
+\bigl\|\widehat\Sigma_P^{1/2}\bigl(WH_T-H_P\bigr)\bigr\|_F .
+\end{equation}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Identical to Appendix~A with every expectation replaced by the empirical
+mean over $S$: the triangle inequality through the hybrid risk holds
+per sample; the simplex-polarization Lipschitz step is a pointwise
+inequality; Jensen's inequality is applied to the empirical mean; and the
+scale--shape decomposition (Prop.~1) is already an exact finite-sample
+identity. All quantities reported in the experiments are the hatted ones,
+so no empirical conclusion changes.
+\end{proof}
+
+\begin{corollary}[Population risk gap]
+\label{cor:population}
+Assume $S$ is drawn i.i.d.\ from $\mathcal{D}$ and that the per-sample loss
+gap is bounded: $|D_i|\le b$ almost surely, where
+$D_i:=\ell(\phi_T(x_i)H_T,y_i)-\ell(\phi_P(x_i)H_P,y_i)$.
+A sufficient condition with an explicit constant: if
+$\sup_x\|\phi_T(x)-\phi_P(x)W\|_2\le D_Z$ and
+$\sup_x\|\phi_P(x)\|_2\le C_z$, then
+$b \le K_{\mathrm{feat}} D_Z
+     + \sqrt{2}\, C_z \,\|WH_T-H_P\|_{\mathrm{op}}$,
+all three factors being quantities the PRISM pipeline already measures.
+Then by McDiarmid's inequality, with probability at least $1-\delta$ over
+the draw of $S$,
+\begin{equation}
+\bigl|\mathcal{R}_T-\mathcal{R}_P\bigr|
+\;\le\;
+\widehat{\mathcal{B}}
+\;+\;
+b\,\sqrt{\frac{2\ln(2/\delta)}{N}} .
+\end{equation}
+\end{corollary}
+
+\begin{proof}[Proof sketch]
+$\mathcal{R}_T-\mathcal{R}_P=\mathbb{E}[D_1]$ and
+$\widehat{\mathcal{R}}_T-\widehat{\mathcal{R}}_P=\tfrac1N\sum_i D_i$.
+The mean of i.i.d.\ variables bounded in $[-b,b]$ has bounded differences
+$2b/N$; McDiarmid gives
+$\Pr\bigl[\,|\tfrac1N\sum_i D_i-\mathbb{E}[D_1]|\ge t\,\bigr]
+\le 2\exp\!\bigl(-N t^2/(2b^2)\bigr)$.
+Set $t=b\sqrt{2\ln(2/\delta)/N}$ and combine with
+Theorem~\ref{thm:empirical} via the triangle inequality.
+For the explicit $b$: the first term follows from the same pointwise
+Lipschitz argument through the hybrid loss
+$\ell(\phi_P(x)W\!\cdot\!H_T,y)$; the second from the $\sqrt2$-Lipschitz
+property of $\ell$ in logit space and
+$\|z(WH_T-H_P)\|_2\le\|z\|_2\|WH_T-H_P\|_{\mathrm{op}}$.
+\end{proof}
+
+% Autoregressive remark: for sequence data, the per-sample loss is the
+% token-average within a sequence, which is again bounded by b and i.i.d.
+% ACROSS sequences; the corollary therefore applies with N equal to the
+% number of sequences (not tokens).

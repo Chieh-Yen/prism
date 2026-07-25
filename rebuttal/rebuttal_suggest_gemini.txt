@@ -1,0 +1,95 @@
+基於 Area Chair (AC) 的 Meta Review，目前的局勢非常嚴峻（**Borderline Reject**），但 AC 也明確給出了「可以改變評估結果 (What could change the recommendation)」的具體清單。
+
+這意味著我們的 Rebuttal 必須 **100% 針對 AC 的 5 點要求進行精準打擊**。在單張 RTX 5090 (32GB) 且僅有 3-4 天的極限條件下，我們必須對先前的策略進行**大幅度 Pivot (轉向)**，捨棄 AC 沒要求且極耗時的項目，最大化利用算力來滿足 AC 的胃口。
+
+以下是針對 Meta Review 更新後的「可行性分析與關鍵取捨報告及 Rebuttal 策略」：
+
+---
+
+### 🚨 總體戰略更新 (Meta Review 對應)
+
+AC 的核心疑慮在於：「這套工具除了用來做 Benchmark ranking 之外，到底有沒有實際操作價值 (Operational utility)？正則化 (Regularization) 的證據夠不夠硬？」
+我們必須把有限的 GPU 算力全部砸在 AC 點名的 **Baselines (CKA/SVCCA, Layer-freezing/EWC)** 與 **Reference set ablation** 上。
+
+---
+
+### ⚡ 實驗資源重分配與關鍵取捨 (Trade-offs)
+
+#### 🔴 E2: Regularizer Baselines (正則化基準比較) —— **策略大幅修改**
+
+* **AC 要求：** 需要更強的 Continual Learning baselines，例如 EWC, SLoRA, CLAIM, ArMA，或 **layer-freezing / replay variants**。
+* **資源困境：** SLoRA, CLAIM, ArMA 是針對大型 LLM 的複雜連續學習演算法，3 天內在 32GB VRAM 上從零實作並跑完是不可能任務。EWC 算 Fisher 矩陣極慢且易 OOM。
+* **🔑 關鍵取捨 (The Pivot)：**
+1. **直攻 AC 提議的低成本方案 (Layer-freezing)：** AC 自己提到了 layer-freezing！這在 LoRA 中極易實作（例如只 train 倒數幾層），計算成本極低，完全不會增加 VRAM 消耗。我們將其作為主要的新 baseline 之一。
+2. **極限縮水版 EWC：** 為了展現誠意，硬著頭皮跑 EWC，但**只跑 1 個 Seed，僅限 Llama-3.1-8B + TruthfulQA 設定**（Batch size 設 1 + Gradient Accumulation 防 OOM）。
+3. **放棄 Feature-KD：** AC 沒點名，且極易 OOM，果斷放棄。
+4. **目標：** 在 Rebuttal 中呈現「我們實作了 AC 建議的 Layer-freezing 以及經典的 EWC，結果顯示 PRISM Shape Regularizer 在保留 Target-task 能力與防止 forgetting 上達到更好的 Trade-off」。
+
+
+
+#### 🟡 E7: Free-running Generation (自回歸生成測試) —— **優先級提升**
+
+* **AC 要求：** 要麼提供 free-running 的實驗，要麼在論文中明確限縮 claim（僅限 teacher-forced）。
+* **資源困境：** Free-running 需要實際做 Token decoding，速度比 teacher-forcing 慢幾十倍，無法在短時間內跑完 5 個 Benchmarks。
+* **🔑 關鍵取捨：**
+* 選擇 **「小規模實驗 + 大幅限縮 Claim」** 雙管齊下。
+* 挑選 **MMLU 隨機抽樣 100 題** 進行 free-running features 提取，計算與 Teacher-forcing 算出的 PRISM 排序是否有高度相關。這只需幾個小時就能跑完。
+* 回應策略：「我們提供了一個子集的 free-running 驗證，證明趨勢一致；但為求嚴謹，我們接受 AC 建議，將論文的正式 Claim 限縮於 Teacher-forced 情境，並將 Trajectory shift 列為 Limitation。」
+
+
+
+#### 🟢 E3: Benchmark-independent Reference Set (校準集消融實驗) —— **必做**
+
+* **AC 要求：** 必須展示 PRISM 在使用與 Benchmark 無關的資料（如 C4/WikiText）以及改變 sample size 時的預測能力。
+* **可行性：極高。**
+* **執行計畫：** 這是 Inference-time 的計算。用 C4 dataset 抽 {8, 16, 32, 64, 128} 個 sequences 過一次模型抓取 Activations，然後計算 Bound。只要幾小時內就能產出 AC 要的「Size & Domain ablation 表格」。
+
+#### 🟢 E1: CKA / SVCCA 直接比較 (診斷基準) —— **必做**
+
+* **AC 要求：** 必須直接比較 CKA, SVCCA 等相似度指標。
+* **可行性：極高。**
+* **執行計畫：** 完全不需跑模型 Forward，直接讀取現有 cached 的矩陣做運算。立刻能產出一張表格證明 PRISM 分解比單一 CKA 更有用。
+
+#### 🟢 E4: 單軸控制性介入 (Actionability 證明) —— **防禦性必做**
+
+* **AC 疑慮：** 質疑分解出的三個軸是否真的能指導具體的 Mitigation (Actionable mechanisms)。
+* **執行計畫：** 手動對模型注入「純 Scale 擾動」、「純 Shape 擾動(正交外旋轉)」、「純 Head 量化」，證明 PRISM 能精準分開這三個效應。純數學矩陣操作，幾分鐘內搞定，這是封住「Questionable diagnostic utility」批評的最強武器。
+
+#### 🟢 E6 & E5 & E10: 理論澄清、Slack 量化與失敗分析 —— **純 CPU / 寫作，立刻執行**
+
+* **AC 要求：** 明確 Empirical vs. Population risk、量化 bound 到底多鬆 (Slack)、誠實分析 GSM8K 與 Qwen-BBQ 的失敗。
+* **執行計畫：**
+* 由負責撰寫的人員立刻在 CPU 端用 Scikit-learn 對現有數據跑 Isotonic Calibration，做出 B 值對應 $\vert{}\Delta\mathcal{R}\vert{}$ 的預測區間。
+* 整理 Table 22 的失敗數據，老實承認 GSM8K 因為長文本 CoT 稀釋 loss 導致診斷失效。
+* 將 Theorem 加上 Hoeffding bound 的 Corollary。
+
+
+
+---
+
+### ⏱️ 極限 72-96 小時 RTX 5090 排程指南
+
+為了拯救這篇 Borderline Reject，請嚴格執行以下排程：
+
+* **【第 1-6 小時：速贏階段】 (GPU 輕負載 / CPU)**
+* **GPU:** 跑 E1 (CKA/SVCCA 計算) 與 E4 (手動單軸擾動)。
+* **CPU:** 進行 E6 (Slack 量化) 與 E10 (失敗案例分析數據整理)。
+* *產出：拿到回應 AC 關於 Baseline 與 Diagnostic Utility 的首波證據。*
+
+
+* **【第 6-18 小時：AC 指定的核心消融】 (GPU 中負載)**
+* **GPU:** 跑 E3 (Reference Set Size & Domain)。用 C4 資料集抓 8~128 samples 的 features 並算 Bound。
+* **GPU:** 跑 E7 縮水版 (MMLU 100 題 Free-running decoding)。
+* *產出：滿足 AC 對 Benchmark-independent 與 Free-running 的要求。*
+
+
+* **【第 18-72 小時：正則化生死戰】 (GPU 極限滿載)**
+* **GPU:** 切換到 LoRA 訓練腳本。
+* 執行 AC 提議的 **Layer-freezing baseline**（極快，數小時內搞定）。
+* 挑戰 **EWC (1 Seed, 僅 Llama TruthfulQA)**，設定 Batch size = 1, 妥善處理 OOM 問題。
+* 測量這兩種方法對原任務 (Target-task) 的表現影響。
+* *產出：給出 AC 指定的 Continual Learning baselines，完成最後的拼圖。*
+
+
+* **【最後 24 小時：統合寫作】**
+* 在 Meta Reviewer 的視角下，只要作者能**不卑不亢地完成他點名的清單 (特別是 CKA比較、Layer-freezing、Reference ablation、失敗分析)**，並且**自願限縮 Claim (Free-running, Bound absolutely looseness)**，這篇文章從 Reject 翻盤至 Accept 的機率極大。撰寫時請直接引用 AC 的字眼 ("As requested in the meta-review, we added layer-freezing..." / "We explicitly narrowed our claims...").
