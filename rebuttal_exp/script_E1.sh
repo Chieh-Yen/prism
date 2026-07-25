@@ -12,7 +12,11 @@
 # Knobs:
 #   FAMILIES="llama qwen"   subset of families
 #   NUM_SAMPLES=512         per-benchmark samples (paper: 512)
-#   TOKEN_CAP=16384         paired-token subsample for CKA/SVCCA
+#   TOKEN_CAP=65536         paired-token cap (now covers gsm8k IN FULL —
+#                           the old 16384 subsampled only gsm8k and made
+#                           its similarity stats rank-diverge from the
+#                           full-feature bound; 2026-07-25 audit)
+#   REDO="gsm8k"            recompute these benchmarks despite resume
 #   CUDA_GPU=0
 # ============================================================
 set -uo pipefail
@@ -20,7 +24,8 @@ cd "$(dirname "$0")/.."           # repo root
 
 FAMILIES="${FAMILIES:-llama qwen}"
 NUM_SAMPLES="${NUM_SAMPLES:-512}"
-TOKEN_CAP="${TOKEN_CAP:-16384}"
+TOKEN_CAP="${TOKEN_CAP:-65536}"
+REDO="${REDO:-}"
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
@@ -34,6 +39,7 @@ for fam in $FAMILIES; do
         --family "$fam" \
         --num_samples "$NUM_SAMPLES" \
         --token_cap "$TOKEN_CAP" \
+        ${REDO:+--redo $REDO} \
         2>&1 | tee -a "$LOG" || FAIL=1
 done
 

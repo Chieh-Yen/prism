@@ -106,7 +106,8 @@ def collect_prompts(dataloader):
 
 @torch.no_grad()
 def generate_trajectories(model, prompts, tokenizer, device,
-                          max_new_tokens, batch_size=4, min_new_tokens=0):
+                          max_new_tokens, batch_size=4, min_new_tokens=0,
+                          temperature=0.0):
     """Greedy continuations; returns list of (ids, prompt_len).
 
     min_new_tokens > 0 suppresses EOS until that length — needed on
@@ -120,6 +121,9 @@ def generate_trajectories(model, prompts, tokenizer, device,
                       pad_token_id=pad_id)
     if min_new_tokens > 0:
         gen_kwargs["min_new_tokens"] = min_new_tokens
+    if temperature > 0:
+        torch.manual_seed(0)             # reproducible sampled variant
+        gen_kwargs.update(do_sample=True, temperature=temperature)
     out = []
     for s in range(0, len(prompts), batch_size):
         chunk = prompts[s:s + batch_size]
@@ -195,6 +199,11 @@ def main():
                     help="suppress EOS until this many tokens (use ~64-128 "
                          "on multiple-choice prompts, which otherwise stop "
                          "after one letter; disclose in the writeup)")
+    ap.add_argument("--temperature", type=float, default=0.0,
+                    help=">0 switches decoding to sampling at this "
+                         "temperature (fixed torch seed for "
+                         "reproducibility) — held in reserve for a "
+                         "'greedy is atypical' follow-up; default greedy")
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--max_length", type=int, default=512)
     ap.add_argument("--device", default="cuda:0")
@@ -229,7 +238,10 @@ def main():
     # failed to load, e.g. GPTQ before `pip install gptqmodel optimum`).
     # Note: newly added rows recompute loss_T_tf in this process — same
     # batches/machine, bf16 jitter ~1e-4, negligible vs |dR| scales.
-    stem = f"{args.family}_{args.dataset}"
+    # seed != 42 gets its own file: multi-subset robustness runs must not
+    # resume-collide with the primary subset's CSV.
+    stem = (f"{args.family}_{args.dataset}"
+            + ("" if args.seed == 42 else f"_s{args.seed}"))
     csv_path = OUT_DIR / f"{stem}_freerun.csv"
     rows = []
     done = set()
@@ -264,7 +276,8 @@ def main():
         t_gen = time.time()
         trajs = generate_trajectories(proxy, prompts, tokenizer,
                                       args.device, args.max_new_tokens,
-                                      args.batch_size, args.min_new_tokens)
+                                      args.batch_size, args.min_new_tokens,
+                                      args.temperature)
         gen_tok = sum(len(seq) - pl for seq, pl in trajs)
         dt_gen = max(time.time() - t_gen, 1e-9)
         # Timing line harvested by E12's cost table (G3T9-W1):
@@ -302,8 +315,7 @@ def main():
         del Z_P_tf, Z_P_fr, Z_T_fr
         free_cuda()
 
-        stem = f"{args.family}_{args.dataset}"
-        with open(OUT_DIR / f"{stem}_freerun.csv", "w", newline="") as f:
+        with open(csv_path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
             w.writeheader()
             w.writerows(rows)
@@ -325,6 +337,14 @@ def main():
           f"- cross rs(B_tf, |dR|_free)                : {rs_xx:+.3f}"]
     gens = [r["gen_tok_mean"] for r in rows
             if not math.isnan(r.get("gen_tok_mean", float("nan")))]
+    n_unrec = len(rows) - len(gens)
+    if n_unrec:
+        md += ["",
+               f"**WARNING — {n_unrec}/{len(rows)} rows have NO generated-"
+               "length record (pre-guard runs): non-degeneracy cannot be "
+               "certified for them. Treat their free-running columns as "
+               "UNVERIFIED (the 2026-07-24 mmlu round was degenerate at "
+               "~1 token/prompt); rerun those variants or retire the file."]
     if gens:
         mg = statistics.mean(gens)
         md.append(f"- mean generated tokens/prompt: {mg:.1f} "
@@ -343,7 +363,6 @@ def main():
     for r in rows:
         md.append(f"| {r['label']} | {r['B_tf']:.2f} | {r['dR_tf']:.4f} "
                   f"| {r['B_free']:.2f} | {r['dR_free']:.4f} |")
-    stem = f"{args.family}_{args.dataset}"
     (OUT_DIR / f"E7_results_{stem}.md").write_text("\n".join(md))
     print("\n".join(md[:12]))
 

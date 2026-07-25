@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."           # repo root
 
 PARTS="${PARTS:-A B C}"
 FAMILY="${FAMILY:-llama}"
-MODEL="${MODEL:-meta-llama/Llama-3.1-8B}"
+MODEL="${MODEL:-meta-llama/Meta-Llama-3.1-8B}"   # 統一用 CSV 同名 repo(同權重 alias);省 15G 重複 cache
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"

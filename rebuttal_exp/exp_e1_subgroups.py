@@ -19,14 +19,19 @@ from __future__ import annotations
 
 import csv
 import math
+import random
 import statistics
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
 OUT = HERE / "out" / "E1"
+QCSV = REPO / "exp_result" / "quantization" / "quantization_merged_slim.csv"
 
 GGUF = {"Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"}
 BENCHMARKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
+FAM_ID = {"llama": "meta-llama/Meta-Llama-3.1-8B",
+          "qwen": "Qwen/Qwen3-8B-Base"}
 
 
 def rankdata(v):
@@ -86,8 +91,79 @@ def main():
                 d = [float(r["|MdR|"]) for r in grp]
                 b = spearman([float(r["bound_I"]) for r in grp], d)
                 c = spearman([1 - float(r["cka"]) for r in grp], d)
-                cells.append(f"{b:+.2f} / {c:+.2f} (n={len(grp)})")
+                cells.append(f"{b:+.3f} / {c:+.3f} (n={len(grp)})")
             md.append(f"| {bench} | " + " | ".join(cells) + " |")
+        md.append("")
+
+        # ── bootstrap: is the pooled mean rs difference significant? ──
+        # (variants resampled within each cell, 5000 reps, seed 0 — the
+        # draft's "differences are within Spearman noise" claim source)
+        rng = random.Random(0)
+        cells_d = {}
+        for bench in BENCHMARKS:
+            sub = [r for r in rows if r["dataset"] == bench
+                   and not math.isnan(float(r["|MdR|"]))]
+            cells_d[bench] = [(float(r["bound_I"]), 1 - float(r["cka"]),
+                               float(r["|MdR|"])) for r in sub]
+
+        def mean_diff(cd, benches):
+            ds = []
+            for bench in benches:
+                pts = cd[bench]
+                ds.append(spearman([p[0] for p in pts], [p[2] for p in pts])
+                          - spearman([p[1] for p in pts],
+                                     [p[2] for p in pts]))
+            return statistics.mean(ds)
+
+        # ── bound-gauge comparison: W=I vs W=W_N (App C.1 family) ──────
+        # Bound_W is the ROTATION-INVARIANT gauge — the invariance class
+        # CKA/SVCCA live in — and comes from FULL paper features (no
+        # token-cap issue). Its gsm8k signal is carried by gamma_W
+        # (deviation of the optimal rotation from identity, expressed
+        # through the head) — an isometry-violation reading (App C.2).
+        gauges = {}
+        for r in csv.DictReader(open(QCSV)):
+            if r["target_model"] == FAM_ID[fam]:
+                try:
+                    gauges[(r["Label"], r["dataset"])] = (
+                        float(r["Bound_I"]), float(r["Bound_W"]))
+                except ValueError:
+                    pass
+        md += ["Bound-gauge comparison (full-feature CSV; same E1 subset):",
+               "", "| benchmark | B_I | B_W | 1-CKA (E1 feats) |",
+               "|---|---|---|---|"]
+        mi, mw, mc = [], [], []
+        for bench in BENCHMARKS:
+            sub = [r for r in rows if r["dataset"] == bench
+                   and not math.isnan(float(r["|MdR|"]))]
+            d = [float(r["|MdR|"]) for r in sub]
+            bi = spearman([gauges[(r["label"], bench)][0] for r in sub], d)
+            bw = spearman([gauges[(r["label"], bench)][1] for r in sub], d)
+            ck = spearman([1 - float(r["cka"]) for r in sub], d)
+            mi.append(bi); mw.append(bw); mc.append(ck)
+            md.append(f"| {bench} | {bi:+.3f} | {bw:+.3f} | {ck:+.3f} |")
+        md.append(f"| **mean** | **{statistics.mean(mi):+.3f}** "
+                  f"| **{statistics.mean(mw):+.3f}** "
+                  f"| **{statistics.mean(mc):+.3f}** |")
+        md.append("")
+
+        md.append(f"Bootstrap (B − 1-CKA mean rs, 5000 reps, {fam}):")
+        for tag, benches in (("all-5", BENCHMARKS),
+                             ("ex-gsm8k", [b for b in BENCHMARKS
+                                           if b != "gsm8k"])):
+            obs = mean_diff(cells_d, benches)
+            boots = []
+            for _ in range(5000):
+                samp = {b: [cells_d[b][rng.randrange(len(cells_d[b]))]
+                            for _ in cells_d[b]] for b in benches}
+                boots.append(mean_diff(samp, benches))
+            boots.sort()
+            lo = boots[int(0.025 * len(boots))]
+            hi = boots[int(0.975 * len(boots))]
+            verdict = ("significant" if hi < 0 or lo > 0
+                       else "NOT significant (CI covers 0)")
+            md.append(f"- {tag}: {obs:+.3f}, 95% CI [{lo:+.3f}, {hi:+.3f}] "
+                      f"— {verdict}")
         md.append("")
     (OUT / "subgroup_analysis.md").write_text("\n".join(md))
     print("\n".join(md))

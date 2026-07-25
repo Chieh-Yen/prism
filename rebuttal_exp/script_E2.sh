@@ -28,7 +28,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."           # repo root
 
 STAGE="${STAGE:-sweep}"
-MODEL="${MODEL:-meta-llama/Llama-3.1-8B}"
+MODEL="${MODEL:-meta-llama/Meta-Llama-3.1-8B}"   # 統一用 CSV 同名 repo(同權重 alias);省 15G 重複 cache
 QWEN_MODEL="${QWEN_MODEL:-Qwen/Qwen3-8B}"
 TASKS="${TASKS:-truthfulqa bbq}"
 MAX_STEPS="${MAX_STEPS:-300}"

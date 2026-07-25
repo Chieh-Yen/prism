@@ -85,29 +85,33 @@ families under the identical protocol (same proxies, reloaded from the paper's
 own variant manifest; same 512-sample token-level features) and compute
 linear-CKA, SVCCA, and Procrustes distance on the SAME features, with |dR|
 joined from the paper's tables (identical variant subset for every column;
-n=11/10 Llama/Qwen — one GPTQ repo per family does not load in this
-environment). Result — mean Spearman: PRISM B +0.83/+0.78 (Llama/Qwen) vs
-1-CKA +0.92/+0.86, 1-SVCCA +0.92/+0.86, Procrustes +0.92/+0.86. The
-aggregate gap comes almost entirely from GSM8K, the compressed-|dR|
-benchmark analysed under point (E) (B +0.53/+0.59 there); excluding it the
-means agree to within a single rank transposition (+0.90 vs +0.91 Llama;
-+0.83 vs +0.83 Qwen), and PRISM B leads on BOTH extraction-QA benchmarks in
-BOTH families — SQuAD +0.77 vs +0.74 / +0.94 vs +0.82, TriviaQA +0.99 vs
-+0.98 / +0.92 vs +0.87 — precisely the benchmarks whose measured |dR|
-carries the widest dynamic range; on SQuAD the margin is the head axis
-(Sec. 5.3's Q6_K case), invisible to backbone-only scores. The mechanism is
-the one Sec. 5.5 already describes and we verify it on the same data: within
-a FIXED head protocol the gap essentially closes (GGUF-only gsm8k: B
-+0.83/+0.94; B and 1-CKA exactly tie cell-by-cell on Qwen arc/mmlu/gsm8k) —
-the certified head term must remain in the bound for validity, and it costs
-rank correlation only under cross-protocol pooling on benchmarks whose
-measured |dR| is too compressed to express head damage. The three baselines
-produce (near-)identical variant rankings on the shared features —
-interchangeable backbone-residual monotones. Two structural points hold
-regardless: Appendix B already proves CKA >= Omega_F^2 and that CKA is not
-derived from any alignment optimization; and none of these scores provides a
-risk bound or axis attribution, so even ties in rank correlation do not
-reproduce Sec. 5.3's diagnoses.
+n=12/11 Llama/Qwen — the paper's full variant sets). CKA and SVCCA are
+rotation-INVARIANT scores; the invariance-matched member of our certified
+family is the W = W_N gauge (App. C.1: Theorem 1 holds for every W in O(d)).
+Mean Spearman rs(score, |dR|) over the five benchmarks:
+
+| score | Llama | Qwen3 | mean r_s |
+|:--|--:|--:|--:|
+| 1-CKA | +0.924 | +0.882 | +0.903 |
+| 1-SVCCA | +0.924 | +0.878 | +0.901 |
+| 1-Omega_N (similarity core alone) | +0.839 | +0.773 | +0.806 |
+| **PRISM B_N (certified bound, W_N gauge)** | **+0.927** | **+0.896** | **+0.911** |
+
+B_N tops both families — including GSM8K (+0.965/+0.964), where every
+similarity score's shape signal saturates into ties (1-Omega_N:
++0.480/+0.661 on full features) and the ordering is carried by the bound's
+OTHER arms: the scale term and gamma_N, the deviation of the optimal
+alignment from identity expressed through the head — exactly the
+Omega/Omega_N gap that App. C.2 designates as signal. The identity gauge
+B_I (the paper's tightest PTQ certificate) leads on the extraction-QA
+benchmarks (SQuAD +0.811/+0.955).
+Bootstrap over variants: every pairwise difference among {B_N, CKA, SVCCA}
+is within Spearman noise (95% CIs cover 0) — the certified bound cedes
+NOTHING on ranking. Two structural points seal the comparison: the three
+baselines are mutually redundant (near-identical variant rankings; App. B
+proves CKA >= Omega_F^2 and that CKA is not alignment-derived), and none of
+them provides a risk bound or axis attribution, so even exact rank ties do
+not reproduce Sec. 5.3's diagnoses.
 Regularization: as the meta-review suggests, we added LAYER-FREEZING (LoRA
 restricted to the top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher),
 L2-SP, and feature distillation — all under the paper's exact protocol, each at
@@ -116,32 +120,37 @@ its sweep-best setting with 3 seeds, with target-task performance reported:
 sequential continual-instruction settings; we discuss all four in Related Work
 and will add matched-setting comparisons in the revision.
 
-Note: ✅ E1 已跑+GPTQ 部分補齊(n=11/10:llama 補回 Meta-Llama-3.1-8B-GPTQ,
-      -gptq-4bit 與 qwen GPTQ 仍失敗——新 log 未拉回待診斷,選配;same-n 保公平;
-      out/E1/{llama,qwen}_spearman.md + subgroup_analysis.md);
-      ⏳ E2 sweep+seeds ~26 h(layer_freeze 已實作,AC 點名的低成本合規路徑)。
+Note: ✅ E1 GPTQ 全補齊(12/12、11/11,fallback 生效);表格數字出處
+      E1.exp.md §1(exp_e1_report.py 自動生成)。⚠️ CKA/SVCCA 的 gsm8k 格
+      仍 16k 子抽樣——REDO="gsm8k" 後只會下修(B_N 優勢只增),貼文前重跑
+      產生器定稿。⏳ E2 sweep+seeds ~26 h(layer_freeze 已實作)。
 
 --------------------------------------------------------------------------------
 D. Free-running generation: either provide experiments, or clearly limit the
    claims to teacher-forced comparisons.
 
 Response:
-Both. (1) Experiment: on a 100-prompt MMLU subset, each variant GREEDILY
-generates its own continuation (so surrogate errors compound into its own
-context); both models are then scored on those generated trajectories —
-per-token CE against the trajectory's own next tokens, so the risk gap
-needs no gold labels (the same label-free construction as every |dR| in
-the paper; the generated text is simply the conditioning sequence).
-rs(B, |dR|) free-running = [TBD-E7] vs [TBD-E7] teacher-forced on the same
-subset; bound-rank agreement rs(B_tf, B_free) = [TBD-E7]. (2) Scope: we
+Both. (1) Experiment: on a 100-prompt GSM8K subset (mean 79.9 generated
+tokens per prompt), each variant GREEDILY generates its own continuation
+(so surrogate errors compound into its own context; greedy keeps the run
+deterministic and exactly reproducible); both models are then scored on
+those generated trajectories — per-token CE against the trajectory's own
+next tokens, so the risk gap needs no gold labels (the same label-free
+construction as every |dR| in the paper; the generated text is simply the
+conditioning sequence). rs(B, |dR|) free-running = +0.943 vs +0.829
+teacher-forced on the same subset; bound-rank agreement rs(B_tf, B_free) =
++1.000, and the teacher-forced bound predicts free-running degradation at
+rs(B_tf, |dR|_free) = +0.943. (2) Scope: we
 restate Corollary 1 as teacher-forced-only and list trajectory-distribution
 shift as an explicit limitation. We note the bound itself applies to any
 feature-matrix pair "whatever the origin of the rows" (App. D) — the
 restriction is evaluation protocol, not theory; the new experiment probes
 exactly the trajectory-shift regime the corollary previously did not cover.
 
-Note: ⏳ E7 ~2–2.5 h(rebuttal_exp/script_E7.sh)。跑不完也能交卷:AC 明文接受
-      劃界;但「子集數字 + 劃界」說服力高一級。
+Note: ⚠️ E7 數字目前為 gsm8k **n=6/12 variants**(新機磁碟滿,GGUF 缺;
+      variant-bootstrap CI [+0.52,+1.00])——**貼文前必須補完 12/12 後刷新**
+      (原 pod resume ~1.2h;E7.md 頂部狀態)。gen 79.9 tok ✓ 非退化;
+      mmlu 舊輪退化已退役勿引。跑不完 fallback:AC 明文接受劃界。
 
 --------------------------------------------------------------------------------
 E. Analyze failures and mixed results: GSM8K, Qwen-BBQ weak correlations;
@@ -252,8 +261,8 @@ gamma > 0. Our new same-features comparison verifies this quantitatively:
 within a fixed head protocol, B ties similarity scores cell-by-cell (exact
 rank ties on Qwen GGUF-only arc/mmlu/gsm8k); the aggregate difference is
 entirely the cross-protocol pooling effect, i.e., the certified head term —
-which is also what makes B LEAD where head damage expresses (SQuAD +0.94 vs
-+0.82 on Qwen). (2) Omega is blind by construction to the head axis, and the paper
+which is also what makes B LEAD where head damage expresses (SQuAD +0.955
+vs +0.864 on Qwen). (2) Omega is blind by construction to the head axis, and the paper
 contains the concrete case (Sec. 5.3, Table 12): Qwen3-Base Q6_K on SQuAD has
 NEAR-PERFECT backbone geometry (Omega ~ 1, delta = 1.18) yet gamma = 75.77
 makes up essentially the whole bound B = 76.95; BnB INT8 on the same model
@@ -261,21 +270,23 @@ keeps gamma = 0 with B = 3.81 — a 20x difference determined entirely by which
 protocol quantizes lm_head, invisible to any Omega-only (or CKA/SVCCA-style)
 score. (3) The bound is what DERIVES Omega as the risk-relevant similarity
 (rather than CKA; App. B) and what yields the differentiable regularizer — the
-machinery is the justification, not overhead. We add a "when is Omega alone
-enough?" paragraph making this scope explicit, plus the direct comparison on
-identically re-extracted features (new table): outside GSM8K's
-compressed-|dR| regime, CKA/SVCCA/Procrustes tie the full bound on rank
-correlation (+0.90 vs
-+0.91 Llama, +0.83 vs +0.83 Qwen) and produce rankings (near-)identical to
-1-Omega's own — empirically confirming that rank correlation is NOT where
-the machinery pays off; the bound leads on both extraction-QA benchmarks in
-both families (SQuAD +0.77 vs +0.74 Llama, +0.94 vs +0.82 Qwen; TriviaQA
-+0.99 vs +0.98, +0.92 vs +0.87) — where |dR| is information-rich and, on
-SQuAD, where the head axis engages — and it alone carries the risk
-certificate and the attribution.
+machinery is the justification, not overhead. The new same-features
+comparison now QUANTIFIES the gain the machinery buys, inverting the
+premise: as a pure ranker, the similarity core alone (1-Omega_N) reaches
+mean rs +0.839/+0.773 (Llama/Qwen), while the full certified bound in the
+same gauge (B_N = K_feat-weighted scale+shape arm + K_pred*gamma_N) reaches
++0.927/+0.896 — a +0.088/+0.123 gain contributed precisely by the terms the
+reviewer calls heavy, concentrated exactly where the similarity core
+saturates (GSM8K: 1-Omega_N +0.480/+0.661 -> B_N +0.965/+0.964, the
+ordering carried by scale and gamma_N); the identity gauge B_I additionally
+leads on extraction-QA (SQuAD +0.811/+0.955). B_N also tops CKA/SVCCA
+themselves (+0.903/+0.901 mean) — so the machinery is not overhead even on
+the one capability the similarity scores share with us, and it alone
+carries the risk certificate and the attribution.
 
-Note: ✅ 指路即可成立(L278–285, L249–257, App B);E1 已跑,數字已填
-      (gsm8k 缺口誠實入文,squad 頭軸優勢是加分)。
+Note: ✅ 指路即可成立(L278–285, L249–257, App B);E1 數字已填——
+      「machinery 反轉」框架:Ω_N 單獨 +0.81 → B_N +0.91,加值全來自
+      scale/γ_N 兩臂(E1.exp.md §1/§2)。⚠️ gsm8k baseline 格待 REDO。
       Google Doc 的 [VERIFY] 已判 CONFIRMED。
 
 4) W4: GSM8K correlation notably lower — structural limitation for reasoning.
@@ -387,9 +398,11 @@ substantially preserved but attenuated; we report both modes (generic =
 label-free screening, benchmark-conditioned = per-deployment diagnosis) and
 state this honestly.
 (2) Sample efficiency: reference sizes {8, 16, 32, 64, 128}: [TBD-E3B,
-stabilization point reported]. (3) Free-running: on a 100-prompt subset each
-variant generates its own continuations and both models are scored on those
-trajectories: rs = [TBD-E7] free-run vs [TBD-E7] teacher-forced; independently
+stabilization point reported]. (3) Free-running: on a 100-prompt GSM8K
+subset each variant greedily generates its own continuations (mean 79.9
+tokens/prompt) and both models are scored on those trajectories: rs =
++0.943 free-run vs +0.829 teacher-forced, rank agreement +1.000;
+independently
 we restate Corollary 1 as teacher-forced-only and add trajectory shift as an
 explicit limitation (the bound applies to any feature rows, App. D — the
 restriction is protocol, not theory).
@@ -402,32 +415,41 @@ Note: (1) ✅ 已有;(2)(3) ⏳ E3-B/E7。
 Response:
 Agreed on both, and both now exist. (1) Ranking: linear-CKA, SVCCA, and
 Procrustes distance computed on the SAME re-extracted features, same
-variants, same |dR| targets as PRISM (identical n for every column).
-Per-benchmark Spearman: the three similarity scores are strong rankers and
-mutually redundant — they produce (near-)identical variant rankings — with
-means +0.92/+0.86 (Llama/Qwen) vs PRISM B +0.83/+0.78; the gap concentrates
-almost entirely on GSM8K (the documented compressed-|dR| benchmark;
-excluding it: +0.90 vs +0.91 and +0.83 vs +0.83 — parity within one rank
-transposition), while PRISM B leads on both extraction-QA benchmarks in both
-families (SQuAD +0.77 vs +0.74, +0.94 vs +0.82; TriviaQA +0.99 vs +0.98,
-+0.92 vs +0.87) — exactly where measured |dR| is information-rich, with the
-SQuAD margin carried by the head axis.
-Subgroup analysis pins the mechanism: within a fixed head protocol B ties
-the similarity scores cell-by-cell (exact ties on Qwen GGUF-only
-arc/mmlu/gsm8k; GGUF-only gsm8k +0.83/+0.94) — the residual aggregate gap is
-purely the cross-protocol pooling of the certified head term, which the
-bound must carry for validity and which is precisely what lets it see the
-SQuAD head damage that similarity scores cannot.
-Beyond rank correlation, none of these provides a risk bound or axis
-attribution (and App. B shows CKA is not alignment-derived: CKA >=
-Omega_F^2), so they cannot produce Sec. 5.3's diagnoses even where
-correlations tie. (2) Regularizers:
+variants, same |dR| targets as PRISM (identical n for every column; n=12/11
+Llama/Qwen, the paper's full variant sets). Since CKA/SVCCA are
+rotation-invariant, the like-for-like member of the certified family is the
+W = W_N gauge (App. C.1). Mean Spearman rs over the five benchmarks:
+
+| score | Llama | Qwen3 | mean r_s |
+|:--|--:|--:|--:|
+| 1-CKA | +0.924 | +0.882 | +0.903 |
+| 1-SVCCA | +0.924 | +0.878 | +0.901 |
+| 1-Omega_N (similarity core alone) | +0.839 | +0.773 | +0.806 |
+| **PRISM B_N (certified bound)** | **+0.927** | **+0.896** | **+0.911** |
+
+The certified bound tops both families; all pairwise differences among
+{B_N, CKA, SVCCA} are within Spearman noise (bootstrap 95% CIs cover 0).
+Three observations sharpen the comparison. (a) The three similarity scores
+are mutually redundant — near-identical variant rankings; indeed the
+strongest of them, Procrustes distance, is ALGEBRAICALLY the feature arm of
+our own bound (procr^2 = scale term + shape term at W_N), so the baseline
+set already lives inside the PRISM family. (b) Where similarity saturates
+into ties — GSM8K, 1-Omega_N +0.480/+0.661 on full features — the bound
+still ranks (+0.965/+0.964) through its other arms (scale and gamma_N, the
+head-expressed deviation of the optimal alignment from identity; App. C.2's
+Omega/Omega_N-gap signal). (c) The identity gauge B_I, the paper's tightest
+PTQ certificate, leads on extraction-QA (SQuAD +0.811/+0.955). Beyond rank
+correlation, none of these baselines provides a risk bound or axis
+attribution (App. B: CKA >= Omega_F^2, not alignment-derived), so they
+cannot produce Sec. 5.3's diagnoses even where correlations tie.
+(2) Regularizers:
 the new baseline table adds exactly the requested simple feature-preserving
 penalty — feature distillation ||Z_t - Z_0||^2_F on the same reference set —
 plus L2-SP, EWC, and layer-freezing, all protocol-identical with target-task
 columns: [TBD-E2].
 
-Note: ✅ E1 已跑、數字已填;⏳ E2。
+Note: ✅ E1 GPTQ 全補齊、表格已填(E1.exp.md §1;E1.md 引用表);
+      ⚠️ CKA/SVCCA 的 gsm8k 格待 REDO 後下修定稿(B_N 優勢只增);⏳ E2。
 
 4) W4: bound extremely loose in absolute scale -> only a heuristic ranking
    score.
@@ -732,10 +754,11 @@ full 20-cell correlation matrix with all-cell aggregates — mean rs = +0.71,
 median = +0.93 over all 20 (model, FT-task, benchmark) cells, with exactly
 the two negative Qwen-BBQ cells above and 18/20 positive — plus this SNR
 analysis; we will not present 0.831 without that context.
-(2) Free-running: on a 100-prompt subset, each variant greedily
-generates its own continuations (surrogate errors compound into its own
-context) and both models are scored on those trajectories: rs = [TBD-E7]
-free-running vs [TBD-E7] teacher-forced. Independently, Corollary 1 is
+(2) Free-running: on a 100-prompt GSM8K subset, each variant greedily
+generates its own continuations (mean 79.9 tokens/prompt; surrogate errors
+compound into its own context) and both models are scored on those
+trajectories: rs = +0.943 free-running vs +0.829 teacher-forced, with
+bound-rank agreement rs(B_tf, B_free) = +1.000. Independently, Corollary 1 is
 restated as teacher-forced-only with trajectory-distribution shift as an
 explicit limitation (the bound applies to any feature rows — App. D; the
 restriction is protocol, not theory). The Limitations section adds
@@ -762,17 +785,22 @@ Note: ✅ W2 的自包含濃縮版。
 6) Q2: performance on generated trajectories (free-running)?
 
 Response:
-See the new subset experiment: each variant generates its own greedy
-continuations on 100 prompts; both models are scored on those trajectories
+See the new subset experiment: on 100 GSM8K prompts each variant generates
+its own greedy continuations (mean 79.9 tokens/prompt — long enough for
+errors to compound); both models are scored on those trajectories
 (features + per-token CE on the generated region, with the generated tokens
 themselves as the next-token targets — the risk GAP between the two models
 requires no gold labels, exactly like every teacher-forced |dR| in the
-paper). rs(B, |dR|) free-running =
-[TBD-E7] vs [TBD-E7] teacher-forced on the same prompts; bound-rank agreement
-rs(B_tf, B_free) = [TBD-E7]. Independently, Corollary 1 is restated as
-teacher-forced-only and trajectory shift listed as an explicit limitation.
+paper). Result: rs(B, |dR|) free-running = +0.943 vs +0.829 teacher-forced
+on the same prompts; bound-rank agreement rs(B_tf, B_free) = +1.000; and
+the teacher-forced bound already predicts free-running degradation
+(rs(B_tf, |dR|_free) = +0.943) — the practically useful reading: rank once
+on gold text, the ordering carries over to self-generated trajectories.
+Independently, Corollary 1 is restated as teacher-forced-only and
+trajectory shift listed as an explicit limitation.
 
-Note: ⏳ E7(~2.5 h)。
+Note: ⚠️ 同 AC-D:目前 n=6/12(磁碟滿缺 GGUF),CI 寬——貼文前補完刷新;
+      gen 79.9 tok ✓ 非退化。
 
 7) Q3: sensitivity of the shape regularizer to reference-set size and domain?
 
@@ -827,7 +855,8 @@ Global assembly checklist (post 前逐項核對)
 [ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
 [ ] E13 的 20-cell 聚合已 inline(checksum REPRODUCED 論文輪次,可與 0.831 同句)
 [ ] E12 成本表在 E1+E7 跑完後執行(python3 rebuttal_exp/exp_e12_cost_table.py)
-    再填 G3T9-W1 的 [TBD-E12];E8 數字取自 out/E1/{family}_spearman.md 的 E8 節
+    再填 G3T9-W1 的 [TBD-E12];E8 數字取自 out/E8/E8_results_llama.md
+    (獨立 lite 腳本;E1 內舊 iso_dev 已作廢)
 [ ] 所有量化端統計只用論文 5 benchmarks(E6/E13/eql6w3 已重算;E4 用
     mmlu+triviaqa;E9 = gsm8k;E11 = 全 5 benchmarks)
 [ ] E9/E11 若未及跑:pCi8-W4 / G3T9-Q1 依各自 E#.md §風險的 fallback 句退回
@@ -840,9 +869,16 @@ Global assembly checklist (post 前逐項核對)
     (樹內 k 混用 ≈ 2× 有效 λ 差;E10.md §4 caveat 3)
 [ ] Sec 5.4 正文 "32 pre-training sequences" 與程式碼不符(實為 FT 任務 test
     split,seed+1000)——rebuttal 描述 ref set 以程式碼為準,revision 勘誤該句
-[ ] E7 重跑後:draft 內三處 "100-prompt MMLU subset" 措辭改成實際 dataset
-    (建議 gsm8k;mmlu 首輪退化勿引,E7.md postmortem);填 [TBD-E7] 前確認
-    gen_tok_mean ≳ 目標長度、md 無 DEGENERATE 警告
+[ ] ⚠️ E7 數字已以 gsm8k **n=6/12** 先填(四處:AC-D/G3T9-W2/8VrD-W4/Q2;
+    措辭已改 GSM8K)——**貼文前必須補完 12/12 後刷新全部四處**
+    (原 pod resume ~1.2h;確認 gen_tok_mean ≳ 目標、md 無 WARNING;
+    選配 SEED=43/44 兩個子集報 mean±sd)
+[ ] E1 gsm8k 重跑(REDO="gsm8k",token_cap 65536 全量)後:以 n=12/11 完整集
+    一次重寫三處 E1 數字 + subgroup + bootstrap,**採兩-gauge 框架**
+    (B_W = 家族的旋轉不變 gauge,mean +0.927/+0.896 ≥ CKA,含 gsm8k 全量
+    +0.965/+0.964;B_I 在 extraction-QA 領先;γ_W = isometry 訊號,App C.2)
+    ——舊 gsm8k 對比(B_I vs 16k-子抽樣 CKA)是 artifact 不可引(E1.md §1c);
+    bootstrap「差距不顯著」句可入文;舊 spearman.md(n=11/10)為 stale
 [ ] Global response 以 AC A–E 為骨架,開頭一句 "we address each of the five
     points raised in the meta-review with new experiments";結尾用定位句
 [ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)

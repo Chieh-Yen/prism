@@ -78,7 +78,21 @@ def linear_cka(X: torch.Tensor, Y: torch.Tensor) -> float:
 
 def _pca_basis(X: torch.Tensor, ev_keep: float = 0.99, cap: int = 256):
     X = X - X.mean(0, keepdim=True)
-    # economy SVD via covariance (d x d) — n >> d never happens here (d=4096)
+    n, d = X.shape
+    if n > 32768:
+        # covariance path (d x d eigh) — the (n x d) SVD workspace at
+        # gsm8k's ~63k tokens is needless; identical kept subspace.
+        C = X.T @ X
+        evals, evecs = torch.linalg.eigh(C)             # ascending order
+        evals = evals.flip(0).clamp(min=0)
+        evecs = evecs.flip(1)
+        ev = evals / evals.sum().clamp(min=1e-12)
+        k = int(torch.searchsorted(ev.cumsum(0),
+                                   torch.tensor(ev_keep,
+                                                device=ev.device)).item()) + 1
+        k = max(2, min(k, cap, d))
+        S = evals[:k].sqrt().clamp(min=1e-12)
+        return (X @ evecs[:, :k]) / S    # left singular vectors (n, k)
     U, S, _ = torch.linalg.svd(X, full_matrices=False)
     ev = (S ** 2) / (S ** 2).sum().clamp(min=1e-12)
     k = int(torch.searchsorted(ev.cumsum(0), torch.tensor(ev_keep, device=S.device)).item()) + 1
@@ -145,8 +159,18 @@ def main():
                     help="samples per benchmark (paper: 512)")
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--max_length", type=int, default=512)
-    ap.add_argument("--token_cap", type=int, default=16384,
-                    help="paired-token subsample for CKA/SVCCA tractability")
+    ap.add_argument("--token_cap", type=int, default=65536,
+                    help="paired-token subsample cap. Default now covers "
+                         "gsm8k's ~63k tokens IN FULL: the old 16384 cap "
+                         "subsampled ONLY gsm8k, and full-feature vs "
+                         "subsampled similarity statistics rank-disagree "
+                         "there (paper-round 1-Omega: rs +0.48 full vs "
+                         "+0.94 at 16k) — an unfair comparison against the "
+                         "full-feature paper bound (2026-07-25 audit)")
+    ap.add_argument("--redo", nargs="*", default=[],
+                    help="benchmarks to RECOMPUTE even if present in the "
+                         "CSV (their old rows are dropped on load); e.g. "
+                         "--redo gsm8k after the token_cap fix")
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
@@ -159,11 +183,18 @@ def main():
     # column computed on EXACTLY the variant subset that loads, so every
     # column of the Spearman table shares the same n (fair comparison even
     # if a proxy fails to load).
-    bound_csv = {}
+    # Both gauges of the certified family (App C.1: Theorem 1 holds for any
+    # W in O(d)): Bound_I = identity gauge (coordinate-sensitive, the PTQ
+    # protocol's tightest bound) and Bound_W = Procrustes gauge — the
+    # ROTATION-INVARIANT member, i.e. the invariance class CKA/SVCCA live
+    # in. Comparing similarity baselines against B_I alone crosses
+    # invariance classes.
+    bound_csv, bound_csv_W = {}, {}
     for r in csv.DictReader(open(CSV_PATH)):
         if r["target_model"] == target_id:
             try:
                 bound_csv[(r["Label"], r["dataset"])] = float(r["Bound_I"])
+                bound_csv_W[(r["Label"], r["dataset"])] = float(r["Bound_W"])
             except ValueError:
                 pass
     print(f"Family {args.family}: target={target_id}, {len(specs)} proxies, "
@@ -226,16 +257,27 @@ def main():
     rows = []
     done: dict = {}
     if csv_path.exists():
+        dropped = 0
         for r in csv.DictReader(open(csv_path)):
+            if r["dataset"] in args.redo:
+                dropped += 1
+                continue                    # force recompute of this bench
             r.pop("iso_dev", None)
             for k in ("cka", "svcca", "procr_dist", "omega_I",
                       "bound_I", "|MdR|"):
                 r[k] = float(r[k])
+            # gauge column added 2026-07-25 — backfill for older CSVs
+            try:
+                r["bound_W"] = float(r.get("bound_W", ""))
+            except ValueError:
+                r["bound_W"] = bound_csv_W.get(
+                    (r["label"], r["dataset"]), float("nan"))
             r["n_tokens"] = int(r["n_tokens"])
             rows.append(r)
             done.setdefault(r["label"], set()).add(r["dataset"])
-        print(f"[resume] {csv_path.name}: {len(rows)} rows, "
-              f"{len(done)} variants already present")
+        print(f"[resume] {csv_path.name}: {len(rows)} rows kept, "
+              f"{dropped} dropped for --redo {args.redo}, "
+              f"{len(done)} variants present")
 
     # ── Per-proxy loop: load once, all benchmarks ───────────────────────
     for spec in specs:
@@ -273,6 +315,7 @@ def main():
                 "procr_dist": procrustes_distance(X, Y),
                 "omega_I": omega_trace(X, Y),
                 "bound_I": bound_csv.get((label, b), float("nan")),
+                "bound_W": bound_csv_W.get((label, b), float("nan")),
                 "|MdR|": risk.get((label, b), float("nan")),
             }
             rows.append(row)
@@ -291,8 +334,8 @@ def main():
             w.writerows(rows)
 
     # ── Spearman table: degradation-score convention ────────────────────
-    METRICS = ("bound_I", "cka", "svcca", "procr_dist", "omega_I")
-    AS_IS = {"bound_I", "procr_dist"}      # already degradation-oriented
+    METRICS = ("bound_I", "bound_W", "cka", "svcca", "procr_dist", "omega_I")
+    AS_IS = {"bound_I", "bound_W", "procr_dist"}   # degradation-oriented
     md = [f"# E1 — similarity-baseline ranking, family {args.family}", "",
           "Score convention: rs( degradation-score, |dR| ), where the "
           "degradation score is Bound_I (PRISM, joined from the paper CSV "
@@ -300,9 +343,9 @@ def main():
           "(1 - omega_I). Higher rs = better ranking. All columns are "
           "computed over the IDENTICAL variant subset (same n), so the "
           "comparison stays fair even if a proxy fails to load.", ""]
-    md.append("| benchmark | n | PRISM B | 1-CKA | 1-SVCCA "
+    md.append("| benchmark | n | PRISM B_I | PRISM B_W | 1-CKA | 1-SVCCA "
               "| Procrustes dist | 1-Omega_I |")
-    md.append("|---|---|---|---|---|---|---|")
+    md.append("|---|---|---|---|---|---|---|---|")
     per_metric = {m: [] for m in METRICS}
     for b in BENCHMARKS:
         sub = [r for r in rows if r["dataset"] == b
