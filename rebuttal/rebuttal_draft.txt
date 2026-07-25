@@ -130,27 +130,26 @@ D. Free-running generation: either provide experiments, or clearly limit the
    claims to teacher-forced comparisons.
 
 Response:
-Both. (1) Experiment: on a 100-prompt GSM8K subset (mean 79.9 generated
-tokens per prompt), each variant GREEDILY generates its own continuation
-(so surrogate errors compound into its own context; greedy keeps the run
-deterministic and exactly reproducible); both models are then scored on
-those generated trajectories — per-token CE against the trajectory's own
-next tokens, so the risk gap needs no gold labels (the same label-free
-construction as every |dR| in the paper; the generated text is simply the
-conditioning sequence). rs(B, |dR|) free-running = +0.943 vs +0.829
-teacher-forced on the same subset; bound-rank agreement rs(B_tf, B_free) =
-+1.000, and the teacher-forced bound predicts free-running degradation at
-rs(B_tf, |dR|_free) = +0.943. (2) Scope: we
+Both. (1) Experiment: on a 100-prompt GSM8K subset (mean 77.4 generated
+tokens per prompt), each of the 12 variants GREEDILY generates its own
+continuation (so surrogate errors compound into its own context; greedy
+keeps the run deterministic and exactly reproducible); both models are then
+scored on those generated trajectories — per-token CE against the
+trajectory's own next tokens, so the risk gap needs no gold labels (the
+same label-free construction as every |dR| in the paper; the generated text
+is simply the conditioning sequence). rs(B, |dR|) free-running = +0.944 vs
++0.958 teacher-forced on the same subset; bound-rank agreement rs(B_tf,
+B_free) = +0.972; and the teacher-forced bound predicts free-running
+degradation at rs(B_tf, |dR|_free) = +0.951 (variant-bootstrap 95% CIs all
+above +0.75). (2) Scope: we
 restate Corollary 1 as teacher-forced-only and list trajectory-distribution
 shift as an explicit limitation. We note the bound itself applies to any
 feature-matrix pair "whatever the origin of the rows" (App. D) — the
 restriction is evaluation protocol, not theory; the new experiment probes
 exactly the trajectory-shift regime the corollary previously did not cover.
 
-Note: ⚠️ E7 數字目前為 gsm8k **n=6/12 variants**(新機磁碟滿,GGUF 缺;
-      variant-bootstrap CI [+0.52,+1.00])——**貼文前必須補完 12/12 後刷新**
-      (原 pod resume ~1.2h;E7.md 頂部狀態)。gen 79.9 tok ✓ 非退化;
-      mmlu 舊輪退化已退役勿引。跑不完 fallback:AC 明文接受劃界。
+Note: ✅ E7 定稿(12/12,gsm8k;CI 全 >+0.75,E7.md 頂部表)。選配:
+      SEED=43/44 兩子集報 mean±sd(+5h)。mmlu 舊輪退化已退役勿引。
 
 --------------------------------------------------------------------------------
 E. Analyze failures and mixed results: GSM8K, Qwen-BBQ weak correlations;
@@ -369,9 +368,14 @@ variant over a small reference set — no labels, no decoding; on an RTX 5090
 this is minutes per variant, while benchmark evaluation of the same suite is
 dominated by autoregressive decoding (GSM8K CoT). The revision adds the exact
 GPU-cost table for ranking K variants: [TBD-E12 — measured PRISM min/variant
-(from E1's load+extract timings) vs a conservative lower-bound estimate for
-decoding the benchmark suite (measured tok/s from E7 x counted answer/CoT
-tokens of the paper's own splits)].
+(full diagnosis and 32-seq screening mode, from E1's load+extract timings)
+vs three benchmark-side tiers at measured tok/s: gold-length floor /
+standard protocol (4-choice LL scoring on MC + MEASURED GSM8K decode —
+one greedy decode to natural EOS (generous token ceiling, truncation-checked)
+vs one TF pass on identical prompts/model/batch — + 64-token QA budgets) /
+maj@8 GSM8K — expected
+~2.5x / ~9x / ~49x the full diagnosis and up to ~200x the screening mode;
+run script_E12.sh for the definitive numbers].
 (2) Actionability: the axis -> action map is already in Sec. 5.3: scale ->
 per-channel outlier smoothing; shape -> Hessian-aware reconstruction (PTQ) /
 trace regularization (training); head -> keep lm_head in FP16. The GGUF case
@@ -399,9 +403,9 @@ label-free screening, benchmark-conditioned = per-deployment diagnosis) and
 state this honestly.
 (2) Sample efficiency: reference sizes {8, 16, 32, 64, 128}: [TBD-E3B,
 stabilization point reported]. (3) Free-running: on a 100-prompt GSM8K
-subset each variant greedily generates its own continuations (mean 79.9
-tokens/prompt) and both models are scored on those trajectories: rs =
-+0.943 free-run vs +0.829 teacher-forced, rank agreement +1.000;
+subset each of the 12 variants greedily generates its own continuations
+(mean 77.4 tokens/prompt) and both models are scored on those trajectories:
+rs = +0.944 free-run vs +0.958 teacher-forced, rank agreement +0.972;
 independently
 we restate Corollary 1 as teacher-forced-only and add trajectory shift as an
 explicit limitation (the bound applies to any feature rows, App. D — the
@@ -754,11 +758,12 @@ full 20-cell correlation matrix with all-cell aggregates — mean rs = +0.71,
 median = +0.93 over all 20 (model, FT-task, benchmark) cells, with exactly
 the two negative Qwen-BBQ cells above and 18/20 positive — plus this SNR
 analysis; we will not present 0.831 without that context.
-(2) Free-running: on a 100-prompt GSM8K subset, each variant greedily
-generates its own continuations (mean 79.9 tokens/prompt; surrogate errors
-compound into its own context) and both models are scored on those
-trajectories: rs = +0.943 free-running vs +0.829 teacher-forced, with
-bound-rank agreement rs(B_tf, B_free) = +1.000. Independently, Corollary 1 is
+(2) Free-running: on a 100-prompt GSM8K subset, each of the 12 variants
+greedily generates its own continuations (mean 77.4 tokens/prompt;
+surrogate errors compound into its own context) and both models are scored
+on those trajectories: rs = +0.944 free-running vs +0.958 teacher-forced,
+with bound-rank agreement rs(B_tf, B_free) = +0.972. Independently,
+Corollary 1 is
 restated as teacher-forced-only with trajectory-distribution shift as an
 explicit limitation (the bound applies to any feature rows — App. D; the
 restriction is protocol, not theory). The Limitations section adds
@@ -785,22 +790,22 @@ Note: ✅ W2 的自包含濃縮版。
 6) Q2: performance on generated trajectories (free-running)?
 
 Response:
-See the new subset experiment: on 100 GSM8K prompts each variant generates
-its own greedy continuations (mean 79.9 tokens/prompt — long enough for
-errors to compound); both models are scored on those trajectories
-(features + per-token CE on the generated region, with the generated tokens
-themselves as the next-token targets — the risk GAP between the two models
-requires no gold labels, exactly like every teacher-forced |dR| in the
-paper). Result: rs(B, |dR|) free-running = +0.943 vs +0.829 teacher-forced
-on the same prompts; bound-rank agreement rs(B_tf, B_free) = +1.000; and
-the teacher-forced bound already predicts free-running degradation
-(rs(B_tf, |dR|_free) = +0.943) — the practically useful reading: rank once
-on gold text, the ordering carries over to self-generated trajectories.
+See the new subset experiment: on 100 GSM8K prompts each of the 12 variants
+generates its own greedy continuations (mean 77.4 tokens/prompt — long
+enough for errors to compound); both models are scored on those
+trajectories (features + per-token CE on the generated region, with the
+generated tokens themselves as the next-token targets — the risk GAP
+between the two models requires no gold labels, exactly like every
+teacher-forced |dR| in the paper). Result: rs(B, |dR|) free-running =
++0.944 vs +0.958 teacher-forced on the same prompts; bound-rank agreement
+rs(B_tf, B_free) = +0.972; and the teacher-forced bound already predicts
+free-running degradation (rs(B_tf, |dR|_free) = +0.951; variant-bootstrap
+95% CIs all above +0.75) — the practically useful reading: rank once on
+gold text, the ordering carries over to self-generated trajectories.
 Independently, Corollary 1 is restated as teacher-forced-only and
 trajectory shift listed as an explicit limitation.
 
-Note: ⚠️ 同 AC-D:目前 n=6/12(磁碟滿缺 GGUF),CI 寬——貼文前補完刷新;
-      gen 79.9 tok ✓ 非退化。
+Note: ✅ E7 定稿(12/12;E7.md 頂部表含 CI)。
 
 7) Q3: sensitivity of the shape regularizer to reference-set size and domain?
 
@@ -869,10 +874,9 @@ Global assembly checklist (post 前逐項核對)
     (樹內 k 混用 ≈ 2× 有效 λ 差;E10.md §4 caveat 3)
 [ ] Sec 5.4 正文 "32 pre-training sequences" 與程式碼不符(實為 FT 任務 test
     split,seed+1000)——rebuttal 描述 ref set 以程式碼為準,revision 勘誤該句
-[ ] ⚠️ E7 數字已以 gsm8k **n=6/12** 先填(四處:AC-D/G3T9-W2/8VrD-W4/Q2;
-    措辭已改 GSM8K)——**貼文前必須補完 12/12 後刷新全部四處**
-    (原 pod resume ~1.2h;確認 gen_tok_mean ≳ 目標、md 無 WARNING;
-    選配 SEED=43/44 兩個子集報 mean±sd)
+[x] E7 定稿:12/12 gsm8k 數字已刷新四處(AC-D/G3T9-W2/8VrD-W4/Q2;
+    +0.958/+0.944/+0.972/+0.951,gen 77.4,CI 全 >+0.75)
+[ ] (選配)E7 多子集:SEED=43/44 各一輪(+5h)→ 四處改報 mean±sd
 [ ] E1 gsm8k 重跑(REDO="gsm8k",token_cap 65536 全量)後:以 n=12/11 完整集
     一次重寫三處 E1 數字 + subgroup + bootstrap,**採兩-gauge 框架**
     (B_W = 家族的旋轉不變 gauge,mean +0.927/+0.896 ≥ CKA,含 gsm8k 全量

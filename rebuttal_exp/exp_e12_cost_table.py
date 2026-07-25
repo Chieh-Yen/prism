@@ -133,28 +133,85 @@ def main():
                                  args.max_length, args.seed)
     rate = statistics.median(e7.values())        # tok/s, same hardware
 
+    # Three-tier benchmark-side estimate. The gold-length floor alone is a
+    # LOWER BOUND OF A LOWER BOUND: real MC evaluation scores every choice
+    # (~4 forwards/question, not 1 decoded token) and generative evaluation
+    # decodes to a budget/stop, not to the gold length.
+    #   floor    : decode exactly the gold answer tokens once (absurdly
+    #              generous to the benchmark side; kept as the anchor)
+    #   standard : arc/mmlu -> 4-choice log-likelihood scoring, costed at
+    #              4 x our own MEASURED per-benchmark forward time;
+    #              gsm8k -> 256-token generation budget; squad/triviaqa ->
+    #              64-token budgets; 0-shot, no few-shot prefill counted
+    #   maj8     : standard, with maj@8 self-consistency on GSM8K only
+    GEN_BUDGET = {"squad": 64, "triviaqa": 64, "gsm8k": 256}
+    MC_CHOICES = {"arc": 4, "mmlu": 4}
+
+    floor_min = sum(c["total_tok"] for c in counts.values()) / rate / 60
+
+    # E12b: if the dedicated GSM8K measurement exists, its gsm8k component
+    # replaces the 256-token-budget ASSUMPTION with a MEASURED wall-clock
+    # (one greedy decode to natural EOS, generous ceiling with truncation
+    # check; scaled linearly to the paper's sample count).
+    measured = None
+    mpath = OUT_DIR / "gsm8k_measured.json"
+    if mpath.exists():
+        import json
+        measured = json.loads(mpath.read_text())
+        # decode_s_min == the single timed run under the x1 protocol;
+        # fall back to mean for older json versions
+        measured["_dec_s"] = measured.get("decode_s_min",
+                                          measured.get("decode_s_mean"))
+        print(f"[measured] gsm8k decode {measured['_dec_s']:.1f}s "
+              f"@ n={measured['n']} (E12b, greedy x1 to natural EOS) — "
+              f"replaces the 256-token budget assumption")
+
+    def standard_min(t, maj8=False):
+        mc = sum(MC_CHOICES[b] * t["extract"].get(b, 0)
+                 for b in MC_CHOICES) / 60
+        gen = 0.0
+        for b, budget in GEN_BUDGET.items():
+            reps = 8 if (maj8 and b == "gsm8k") else 1
+            if b == "gsm8k" and measured is not None:
+                gen += (reps * measured["_dec_s"]
+                        * counts[b]["n"] / measured["n"] / 60)
+            else:
+                gen += reps * counts[b]["n"] * budget / rate / 60
+        return mc + gen
+
     md = [f"# E12 — GPU cost: PRISM diagnosis vs benchmark evaluation "
           f"({args.family}, {args.num_samples} samples/benchmark)", "",
           f"Decode throughput (measured, E7 greedy, median over "
-          f"{len(e7)} variants): **{rate:.1f} tok/s**.", "",
-          "## Per-variant cost", "",
-          "| variant | load (min) | PRISM extract, 5 benchmarks (min) "
-          "| PRISM total (min) | benchmark-suite decode estimate (min) |",
-          "|---|---|---|---|---|"]
+          f"{len(e7)} variants): **{rate:.1f} tok/s**. Benchmark-side "
+          f"tiers: floor = decode gold answers once; standard = 4-choice "
+          f"LL scoring on ARC/MMLU (at 4x our measured forward time) + "
+          + ("MEASURED gsm8k decode (E12b: one greedy decode to natural "
+             "EOS, truncation-checked) + 64-token budgets (SQuAD, TriviaQA)"
+             if measured is not None else
+             "generation budgets 256 (GSM8K) / 64 (SQuAD, TriviaQA)")
+          + f", 0-shot, no few-shot prefill counted; maj8 = standard + "
+          f"maj@8 on GSM8K. All tiers exclude retries and still require "
+          f"labels to score.",
+          "",
+          "## Per-variant cost (minutes)", "",
+          "| variant | load | PRISM 5-bench | PRISM total "
+          "| bench floor | bench standard | bench maj@8 |",
+          "|---|---|---|---|---|---|---|"]
 
-    est_decode_min = sum(c["total_tok"] for c in counts.values()) / rate / 60
-    prism_mins, ratios = [], []
+    prism_mins, std_ratios = [], []
     for label, t in sorted(e1.items()):
         ext = sum(t["extract"].values()) / 60
         load = (t["load"] or 0) / 60
         total = load + ext
+        std = standard_min(t)
+        m8 = standard_min(t, maj8=True)
         prism_mins.append(total)
-        ratios.append(est_decode_min / max(total, 1e-9))
+        std_ratios.append(std / max(total, 1e-9))
         md.append(f"| {label} | {load:.1f} | {ext:.1f} | **{total:.1f}** "
-                  f"| {est_decode_min:.0f} |")
+                  f"| {floor_min:.0f} | {std:.0f} | {m8:.0f} |")
 
     md += ["",
-           "## Benchmark decode volume (counted from the paper's own splits)",
+           "## Gold answer-span volume (the floor tier's token counts)",
            "", "| benchmark | n | mean answer tokens | total tokens |",
            "|---|---|---|---|"]
     for b in BENCHMARKS:
@@ -162,18 +219,24 @@ def main():
         md.append(f"| {b} | {c['n']} | {c['mean_answer_tok']:.0f} "
                   f"| {c['total_tok']:,} |")
 
+    med_p = statistics.median(prism_mins)
+    med_ext = statistics.median(
+        [sum(t["extract"].values()) / 60 for t in e1.values()])
+    screen = statistics.median([(t["load"] or 0) / 60 for t in e1.values()]) \
+        + med_ext / 5 * 32 / args.num_samples
+    med_std = statistics.median([standard_min(t) for t in e1.values()])
+    med_m8 = statistics.median([standard_min(t, True) for t in e1.values()])
     md += ["",
-           f"**Summary:** PRISM diagnosis median "
-           f"{statistics.median(prism_mins):.1f} min/variant "
-           f"(one teacher-forced forward pass per benchmark, no decoding, "
-           f"no labels) vs ~{est_decode_min:.0f} min/variant to DECODE the "
-           f"same 5-benchmark suite once "
-           f"(median ratio {statistics.median(ratios):.1f}x). The decode "
-           f"figure is a deliberate lower bound: greedy, single pass, no "
-           f"retries or self-consistency, and it still needs labels to "
-           f"score. Screening mode (32-sequence generic reference) drops "
-           f"PRISM's extraction cost by a further ~{args.num_samples // 32}x "
-           f"and is load-dominated.", ""]
+           f"**Summary (medians):** PRISM full 5-benchmark diagnosis "
+           f"{med_p:.1f} min/variant; PRISM screening mode (32-sequence "
+           f"generic reference, load-dominated) ~{screen:.1f} min/variant. "
+           f"Benchmark side: {floor_min:.0f} min (floor) / {med_std:.0f} min "
+           f"(standard) / {med_m8:.0f} min (maj@8 GSM8K) — i.e., "
+           f"{floor_min / med_p:.1f}x / {med_std / med_p:.0f}x / "
+           f"{med_m8 / med_p:.0f}x the full diagnosis, and "
+           f"{med_std / screen:.0f}x-{med_m8 / screen:.0f}x the screening "
+           f"mode. Even the floor tier still requires labels; PRISM "
+           f"requires none.", ""]
 
     out = OUT_DIR / "cost_table.md"
     out.write_text("\n".join(md))

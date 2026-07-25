@@ -20,7 +20,7 @@
 | **E1** CKA/SVCCA/Procrustes | **C**(診斷);G3T9-W3, pCi8-W3 | ~3–5 h | ✅ GPTQ 全補齊(**12/12、11/11**,fallback 生效)。**兩-gauge 發現:B_W(旋轉不變、全量)mean +0.927/+0.896 ≥ CKA 兩家;B_I 在 extraction-QA 領先**;⏳ 尚欠 gsm8k REDO(16k 子抽樣 artifact,E1.md §1c)→ 之後 draft 一次定稿 | [load] 計時餵 E12;bootstrap:B−CKA 差距全不顯著 |
 | **E8** isometry lite(選配) | pCi8-W6 | ~20 min | 待跑(首版 iso_dev 因 n<d 病態作廢,新 metric 金測通過;重用 E1 快取) | `script_E8.sh`;FP16 列會標 noise-floor |
 | **E3** reference set ablation | **B**;G3T9-W2, 8VrD-Q3 | ~10 h(首輪實測修正) | Part A ✅(.725/.506);**B/C 首輪失敗(OOM / lr 2e-4 + 覆寫),腳本已修待重跑**(E3.md §7) | B 只跑 Llama;C 3 sizes × 2 domains、λ=0.5 |
-| **E7** free-run 子集(meta-review 後新增) | **D**;G3T9-W2, 8VrD-W4/Q2 | ~2.5 h | ⚠️ **mmlu 首輪退化(1-token 即 EOS),勿引用;需以 DATASET=gsm8k 重跑**(E7.md 頂部 postmortem;已加 gen_tok_mean 退化警告) | 備案=劃界(AC 明文接受);GPTQ `-gptq-4bit` 根因 = gptqmodel 7.3.1 移除 EXLLAMA_V1 |
+| **E7** free-run 子集(meta-review 後新增) | **D**;G3T9-W2, 8VrD-W4/Q2 | ~2.5 h | ✅ **定稿(12/12,gsm8k)**:rs_tf +0.958 / rs_free **+0.944** / agreement +0.972 / cross +0.951,gen 77.4 tok,CI 全 >+0.75;draft 四處已填 | 選配 SEED=43/44 報 mean±sd;mmlu 舊輪退化已退役 |
 | **E2** layer-freeze/EWC/L2-SP/feature-KD | **C**(正則化);pCi8-W5, 8VrD-W3/Q4, eQL6-W4 | **~24 h**(+7 h 選配 Qwen) | 待跑;⚠️ **lr 必須 1e-5**(paper-round 啟動值;此前 2e-4 sweep 作廢,E2.md §4 勘誤;trace anchor 改 λ0.5) | 見 E2.md §2(含對 Gemini OOM 顧慮的修正:不適用本實作) |
 | **E12** GPU-cost 表 | G3T9-W1、8VrD-Lim(iv) | **0**(收割 E1/E7 計時 + CPU 計數) | 待 E1/E7 跑完後執行 | decode 端為刻意下界(greedy、單 pass、還需標籤) |
 | **E9** GSM8K final-answer span(選配) | pCi8-W4 mitigation | ~1 h | 待跑(腳本+單元測試就緒) | 只 llama × gsm8k;prompt_length 改寫至 `####` 標記,pipeline 其餘不動;兩種結果都有敘事 |
@@ -85,7 +85,8 @@ exp_e6_slack_calibration.py      E6(零 GPU,stdlib-only;只取論文 5 benchmark
 exp_e9_answer_span.py            E9(GPU ~1 h;gsm8k final-answer span,prompt_length 改寫)
 exp_e11_base_instruct.py         E11(GPU ~1.5 h;base→instruct 全分解,γ>0 + PTQ anchor)
 exp_e10_axis_alignment.py        E10(零 GPU,stdlib-only;合併三個結果樹)
-exp_e12_cost_table.py            E12 成本表(零 GPU;收割 E1/E7 計時 + CPU token 計數)
+exp_e12_cost_table.py            E12 成本表(CPU;三層估計 floor/standard/maj@8,自動吃 E12b 實測)
+exp_e12_gsm8k_measure.py         E12b(GPU ~15-20 min;gsm8k decode×3 vs TF×1 實測,natural EOS)
 exp_e13_fullmatrix.py            E13 20-cell 全矩陣(零 GPU;checksum 命中論文 0.831/−0.34/−0.66)
 exp_eql6w3_prefactor.py          eQL6-W3 prefactor 檢查(零 GPU;論文 5 benchmarks:CV 0.63% vs 1-Ω 366×)
 common_quant.py                  E1/E3/E7 共用(variant 解析自論文 CSV、proxy 載入)
