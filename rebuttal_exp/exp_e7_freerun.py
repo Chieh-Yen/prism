@@ -210,9 +210,31 @@ def main():
     H_T = H_T.cpu()
     Z_T_tf, loss_T_tf = None, None
 
+    # ── Resume: keep completed variants from a previous run's CSV ──────
+    # (each row is self-contained; a fresh run would regenerate 100
+    # trajectories per already-done variant just to add the ones that
+    # failed to load, e.g. GPTQ before `pip install gptqmodel optimum`).
+    # Note: newly added rows recompute loss_T_tf in this process — same
+    # batches/machine, bf16 jitter ~1e-4, negligible vs |dR| scales.
+    stem = f"{args.family}_{args.dataset}"
+    csv_path = OUT_DIR / f"{stem}_freerun.csv"
     rows = []
+    done = set()
+    if csv_path.exists():
+        for r in csv.DictReader(open(csv_path)):
+            for k in ("B_tf", "dR_tf", "B_free", "dR_free",
+                      "omega_tf", "omega_free"):
+                r[k] = float(r[k])
+            r["n_traj"] = int(r["n_traj"])
+            rows.append(r)
+            done.add(r["label"])
+        print(f"[resume] {csv_path.name}: {len(rows)} variants already done")
+
     for spec in specs:
         label = spec["label"]
+        if label in done:
+            print(f"=== {label}: in CSV — skipped (resume) ===")
+            continue
         print(f"\n=== {label} ===")
         try:
             proxy = load_proxy(spec, args.device)
