@@ -112,6 +112,37 @@ def load_target(model_id: str, device: str = "cuda:0"):
     ).eval()
 
 
+def _load_gptq_with_fallback(repo: str, device: str):
+    """GPTQ repos with desc_act=True crash on gptqmodel>=7:
+    `type object 'BACKEND' has no attribute 'EXLLAMA_V1'` — optimum still
+    maps legacy exllama configs to an enum member that gptqmodel 7.x
+    removed. Downgrading gptqmodel is unreliable (no wheels for new
+    torch/python). Instead, override the kernel choice at load time via
+    GPTQConfig; transformers merges it over the checkpoint's own config.
+    (bits=4 matches every GPTQ repo in the paper's variant manifest.)"""
+    from transformers import GPTQConfig                    # lazy import
+    attempts = [
+        ("as-is", None),
+        ("exllama_v2", dict(bits=4, exllama_config={"version": 2})),
+        ("no_exllama", dict(bits=4, use_exllama=False)),
+    ]
+    last_exc = None
+    for tag, qc_kwargs in attempts:
+        try:
+            kwargs = dict(device_map=device, trust_remote_code=True)
+            if qc_kwargs is not None:
+                print(f"  [gptq-fallback] retrying {repo} with {tag}")
+                kwargs["quantization_config"] = GPTQConfig(**qc_kwargs)
+            return _load_model(repo, **kwargs)
+        except Exception as exc:                           # noqa: BLE001
+            msg = str(exc)
+            if qc_kwargs is None and "EXLLAMA" not in msg \
+                    and "BACKEND" not in msg:
+                raise          # unrelated failure — surface it immediately
+            last_exc = exc
+    raise last_exc
+
+
 def load_proxy(spec: Dict, device: str = "cuda:0"):
     free_cuda()
     kind = spec["kind"]
@@ -124,7 +155,7 @@ def load_proxy(spec: Dict, device: str = "cuda:0"):
                         quantization_config=_BNB_CONFIGS[spec["tag"]](),
                         device_map=device, trust_remote_code=True)
     elif kind == "gptq":
-        m = _load_model(spec["repo"], device_map=device, trust_remote_code=True)
+        m = _load_gptq_with_fallback(spec["repo"], device)
     elif kind == "dtype":
         m = _load_model(spec["repo"], dtype=getattr(torch, spec["dtype"]),
                         device_map=device, trust_remote_code=True)

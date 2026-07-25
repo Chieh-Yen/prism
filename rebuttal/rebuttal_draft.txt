@@ -85,12 +85,16 @@ families under the identical protocol (same proxies, reloaded from the paper's
 own variant manifest; same 512-sample token-level features) and compute
 linear-CKA, SVCCA, and Procrustes distance on the SAME features, with |dR|
 joined from the paper's tables (identical variant subset for every column;
-n=10/family). Result — mean Spearman: PRISM B +0.82/+0.78 (Llama/Qwen) vs
-1-CKA +0.90/+0.86, 1-SVCCA +0.90/+0.86, Procrustes +0.90/+0.86. The entire
-aggregate gap comes from GSM8K, the compressed-|dR| benchmark analysed under
-point (E) (B +0.61/+0.59 there); excluding it the means tie (+0.87 vs +0.89
-Llama; +0.83 vs +0.83 Qwen), and PRISM B leads on SQuAD in BOTH families
-(+0.70 vs +0.65; +0.94 vs +0.82) — the benchmark where the head axis engages
+n=11/10 Llama/Qwen — one GPTQ repo per family does not load in this
+environment). Result — mean Spearman: PRISM B +0.83/+0.78 (Llama/Qwen) vs
+1-CKA +0.92/+0.86, 1-SVCCA +0.92/+0.86, Procrustes +0.92/+0.86. The
+aggregate gap comes almost entirely from GSM8K, the compressed-|dR|
+benchmark analysed under point (E) (B +0.53/+0.59 there); excluding it the
+means agree to within a single rank transposition (+0.90 vs +0.91 Llama;
++0.83 vs +0.83 Qwen), and PRISM B leads on BOTH extraction-QA benchmarks in
+BOTH families — SQuAD +0.77 vs +0.74 / +0.94 vs +0.82, TriviaQA +0.99 vs
++0.98 / +0.92 vs +0.87 — precisely the benchmarks whose measured |dR|
+carries the widest dynamic range; on SQuAD the margin is the head axis
 (Sec. 5.3's Q6_K case), invisible to backbone-only scores. The mechanism is
 the one Sec. 5.5 already describes and we verify it on the same data: within
 a FIXED head protocol the gap essentially closes (GGUF-only gsm8k: B
@@ -112,8 +116,9 @@ its sweep-best setting with 3 seeds, with target-task performance reported:
 sequential continual-instruction settings; we discuss all four in Related Work
 and will add matched-setting comparisons in the revision.
 
-Note: ✅ E1 已跑(out/E1/{llama,qwen}_spearman.md;n=10:GPTQ 於 pod 缺
-      gptqmodel 套件載入失敗,same-n 設計保公平;選配恢復 = pip install 後重跑);
+Note: ✅ E1 已跑+GPTQ 部分補齊(n=11/10:llama 補回 Meta-Llama-3.1-8B-GPTQ,
+      -gptq-4bit 與 qwen GPTQ 仍失敗——新 log 未拉回待診斷,選配;same-n 保公平;
+      out/E1/{llama,qwen}_spearman.md + subgroup_analysis.md);
       ⏳ E2 sweep+seeds ~26 h(layer_freeze 已實作,AC 點名的低成本合規路徑)。
 
 --------------------------------------------------------------------------------
@@ -255,13 +260,16 @@ score. (3) The bound is what DERIVES Omega as the risk-relevant similarity
 (rather than CKA; App. B) and what yields the differentiable regularizer — the
 machinery is the justification, not overhead. We add a "when is Omega alone
 enough?" paragraph making this scope explicit, plus the direct comparison on
-identically re-extracted features (new table): away from the GSM8K noise
-floor, CKA/SVCCA/Procrustes tie the full bound on rank correlation (+0.87 vs
-+0.89 Llama, +0.83 vs +0.83 Qwen) and produce rankings (near-)identical to
+identically re-extracted features (new table): outside GSM8K's
+compressed-|dR| regime, CKA/SVCCA/Procrustes tie the full bound on rank
+correlation (+0.90 vs
++0.91 Llama, +0.83 vs +0.83 Qwen) and produce rankings (near-)identical to
 1-Omega's own — empirically confirming that rank correlation is NOT where
-the machinery pays off; the bound leads exactly where the head axis engages
-(SQuAD: +0.70 vs +0.65 Llama, +0.94 vs +0.82 Qwen), and it alone carries the
-risk certificate and the attribution.
+the machinery pays off; the bound leads on both extraction-QA benchmarks in
+both families (SQuAD +0.77 vs +0.74 Llama, +0.94 vs +0.82 Qwen; TriviaQA
++0.99 vs +0.98, +0.92 vs +0.87) — where |dR| is information-rich and, on
+SQuAD, where the head axis engages — and it alone carries the risk
+certificate and the attribution.
 
 Note: ✅ 指路即可成立(L278–285, L249–257, App B);E1 已跑,數字已填
       (gsm8k 缺口誠實入文,squad 頭軸優勢是加分)。
@@ -394,10 +402,13 @@ Procrustes distance computed on the SAME re-extracted features, same
 variants, same |dR| targets as PRISM (identical n for every column).
 Per-benchmark Spearman: the three similarity scores are strong rankers and
 mutually redundant — they produce (near-)identical variant rankings — with
-means +0.90/+0.86 (Llama/Qwen) vs PRISM B +0.82/+0.78; the gap concentrates
-entirely on GSM8K (the documented compressed-|dR| benchmark; excluding it:
-+0.87 vs +0.89 and +0.83 vs +0.83 — parity), while PRISM B leads on SQuAD in
-both families (+0.70 vs +0.65; +0.94 vs +0.82), where the head axis engages.
+means +0.92/+0.86 (Llama/Qwen) vs PRISM B +0.83/+0.78; the gap concentrates
+almost entirely on GSM8K (the documented compressed-|dR| benchmark;
+excluding it: +0.90 vs +0.91 and +0.83 vs +0.83 — parity within one rank
+transposition), while PRISM B leads on both extraction-QA benchmarks in both
+families (SQuAD +0.77 vs +0.74, +0.94 vs +0.82; TriviaQA +0.99 vs +0.98,
++0.92 vs +0.87) — exactly where measured |dR| is information-rich, with the
+SQuAD margin carried by the head axis.
 Subgroup analysis pins the mechanism: within a fixed head protocol B ties
 the similarity scores cell-by-cell (exact ties on Qwen GGUF-only
 arc/mmlu/gsm8k; GGUF-only gsm8k +0.83/+0.94) — the residual aggregate gap is
@@ -823,6 +834,9 @@ Global assembly checklist (post 前逐項核對)
     (樹內 k 混用 ≈ 2× 有效 λ 差;E10.md §4 caveat 3)
 [ ] Sec 5.4 正文 "32 pre-training sequences" 與程式碼不符(實為 FT 任務 test
     split,seed+1000)——rebuttal 描述 ref set 以程式碼為準,revision 勘誤該句
+[ ] E7 重跑後:draft 內三處 "100-prompt MMLU subset" 措辭改成實際 dataset
+    (建議 gsm8k;mmlu 首輪退化勿引,E7.md postmortem);填 [TBD-E7] 前確認
+    gen_tok_mean ≳ 目標長度、md 無 DEGENERATE 警告
 [ ] Global response 以 AC A–E 為骨架,開頭一句 "we address each of the five
     points raised in the meta-review with new experiments";結尾用定位句
 [ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)

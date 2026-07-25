@@ -106,10 +106,20 @@ def collect_prompts(dataloader):
 
 @torch.no_grad()
 def generate_trajectories(model, prompts, tokenizer, device,
-                          max_new_tokens, batch_size=4):
-    """Greedy continuations; returns list of (ids, prompt_len)."""
+                          max_new_tokens, batch_size=4, min_new_tokens=0):
+    """Greedy continuations; returns list of (ids, prompt_len).
+
+    min_new_tokens > 0 suppresses EOS until that length — needed on
+    multiple-choice prompts ("Answer:") where greedy emits one letter and
+    stops immediately, degenerating the free-run trajectory to ~1 token
+    (2026-07-25 postmortem: the mmlu round produced 102 tokens over 100
+    prompts and B_free collapsed onto B_tf)."""
     model.eval()
     pad_id = tokenizer.pad_token_id
+    gen_kwargs = dict(max_new_tokens=max_new_tokens, do_sample=False,
+                      pad_token_id=pad_id)
+    if min_new_tokens > 0:
+        gen_kwargs["min_new_tokens"] = min_new_tokens
     out = []
     for s in range(0, len(prompts), batch_size):
         chunk = prompts[s:s + batch_size]
@@ -121,8 +131,7 @@ def generate_trajectories(model, prompts, tokenizer, device,
             mask[i, maxlen - len(p):] = 1
         gen = model.generate(
             input_ids=ids.to(device), attention_mask=mask.to(device),
-            max_new_tokens=max_new_tokens, do_sample=False,
-            pad_token_id=pad_id,
+            **gen_kwargs,
         ).cpu()
         for i, p in enumerate(chunk):
             row = gen[i]
@@ -182,6 +191,10 @@ def main():
     ap.add_argument("--dataset", default="mmlu")
     ap.add_argument("--num_prompts", type=int, default=100)
     ap.add_argument("--max_new_tokens", type=int, default=128)
+    ap.add_argument("--min_new_tokens", type=int, default=0,
+                    help="suppress EOS until this many tokens (use ~64-128 "
+                         "on multiple-choice prompts, which otherwise stop "
+                         "after one letter; disclose in the writeup)")
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--max_length", type=int, default=512)
     ap.add_argument("--device", default="cuda:0")
@@ -226,6 +239,11 @@ def main():
                       "omega_tf", "omega_free"):
                 r[k] = float(r[k])
             r["n_traj"] = int(r["n_traj"])
+            # column added 2026-07-25 (degeneracy guard) — absent in old CSVs
+            try:
+                r["gen_tok_mean"] = float(r.get("gen_tok_mean", "nan"))
+            except ValueError:
+                r["gen_tok_mean"] = float("nan")
             rows.append(r)
             done.add(r["label"])
         print(f"[resume] {csv_path.name}: {len(rows)} variants already done")
@@ -246,7 +264,7 @@ def main():
         t_gen = time.time()
         trajs = generate_trajectories(proxy, prompts, tokenizer,
                                       args.device, args.max_new_tokens,
-                                      args.batch_size)
+                                      args.batch_size, args.min_new_tokens)
         gen_tok = sum(len(seq) - pl for seq, pl in trajs)
         dt_gen = max(time.time() - t_gen, 1e-9)
         # Timing line harvested by E12's cost table (G3T9-W1):
@@ -273,6 +291,7 @@ def main():
         B_fr, omega_fr = prism_bound(Z_T_fr, Z_P_fr, H_T, H_P, K, args.device)
         row = {
             "label": label, "n_traj": len(trajs),
+            "gen_tok_mean": gen_tok / max(len(trajs), 1),
             "B_tf": B_tf, "dR_tf": abs(loss_P_tf - loss_T_tf),
             "B_free": B_fr, "dR_free": abs(loss_P_fr - loss_T_fr),
             "omega_tf": omega_tf, "omega_free": omega_fr,
@@ -303,8 +322,24 @@ def main():
           f"- rs(B, |dR|)  teacher-forced (same subset): {rs_tf:+.3f}",
           f"- rs(B, |dR|)  free-running                : {rs_fr:+.3f}",
           f"- rank agreement rs(B_tf, B_free)          : {rs_bb:+.3f}",
-          f"- cross rs(B_tf, |dR|_free)                : {rs_xx:+.3f}",
-          "", "| variant | B_tf | dR_tf | B_free | dR_free |", "|---|---|---|---|---|"]
+          f"- cross rs(B_tf, |dR|_free)                : {rs_xx:+.3f}"]
+    gens = [r["gen_tok_mean"] for r in rows
+            if not math.isnan(r.get("gen_tok_mean", float("nan")))]
+    if gens:
+        mg = statistics.mean(gens)
+        md.append(f"- mean generated tokens/prompt: {mg:.1f} "
+                  f"(target {args.max_new_tokens})")
+        if mg < 8:
+            md += ["",
+                   "**WARNING — DEGENERATE FREE-RUN: continuations average "
+                   f"{mg:.1f} tokens.** The trajectory carries no compounding "
+                   "context, B_free collapses onto B_tf, and the free-running "
+                   "columns above measure nothing distinct from "
+                   "teacher-forcing. DO NOT cite these numbers; rerun with "
+                   "DATASET=gsm8k (naturally long CoT continuations) or "
+                   "--min_new_tokens 128 (EOS suppressed, disclose in text)."]
+    md += ["", "| variant | B_tf | dR_tf | B_free | dR_free |",
+           "|---|---|---|---|---|"]
     for r in rows:
         md.append(f"| {r['label']} | {r['B_tf']:.2f} | {r['dR_tf']:.4f} "
                   f"| {r['B_free']:.2f} | {r['dR_free']:.4f} |")

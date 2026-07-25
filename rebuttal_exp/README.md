@@ -17,10 +17,10 @@
 | **E13** 20-cell 全相關矩陣 | **E**;8VrD-W4(1) | **0** | ✅ 已跑:**REPRODUCED**(llama mean +0.830 vs 論文 0.831;qwen-bbq −0.34/−0.66 命中)→ 全 20 cells mean **+0.71** / median **+0.93** | protocol 由 checksum 定位(answer-only、≤300、無 step-0) |
 | **E5** 定理重述 + corollary | **A**;8VrD-W1 | **0** | ✅ 完成:`e5_theorem.tex` | 無 |
 | **E4** 單軸介入 | 堵 "questionable diagnostic utility";8VrD-W3(1) | ~1–1.5 h | 待跑 | 單 model × {mmlu, triviaqa}(只用論文 benchmark;triviaqa = E6 中 |ΔR| 範圍最寬) |
-| **E1** CKA/SVCCA/Procrustes | **C**(診斷);G3T9-W3, pCi8-W3 | ~3–5 h | ✅ 已跑:B +0.82/+0.78 vs baselines +0.90/+0.86;**差距全在 gsm8k,排除後打平**;**SQuAD 兩 family B 皆勝**(head 軸);n=10(GPTQ 缺套件);draft 已填 | [load] 計時已入 log 餵 E12 |
+| **E1** CKA/SVCCA/Procrustes | **C**(診斷);G3T9-W3, pCi8-W3 | ~3–5 h | ✅ 已跑+GPTQ 部分補齊(n=11/10):B +0.83/+0.78 vs baselines +0.92/+0.86;**差距 ~92% 在 gsm8k,排除後 +0.90 vs +0.91 / +0.83 vs +0.83**;**extraction-QA(SQuAD+TriviaQA)兩 family B 全勝**;draft 已填 | [load] 計時已入 log 餵 E12;剩 2 個 GPTQ repo 失敗待診斷(選配) |
 | **E8** isometry lite(選配) | pCi8-W6 | ~20 min | 待跑(首版 iso_dev 因 n<d 病態作廢,新 metric 金測通過;重用 E1 快取) | `script_E8.sh`;FP16 列會標 noise-floor |
 | **E3** reference set ablation | **B**;G3T9-W2, 8VrD-Q3 | ~10 h(首輪實測修正) | Part A ✅(.725/.506);**B/C 首輪失敗(OOM / lr 2e-4 + 覆寫),腳本已修待重跑**(E3.md §7) | B 只跑 Llama;C 3 sizes × 2 domains、λ=0.5 |
-| **E7** free-run 子集(meta-review 後新增) | **D**;G3T9-W2, 8VrD-W4/Q2 | ~2–2.5 h | 待跑(腳本就緒) | 1 family × 1 benchmark × 100 prompts;備案=劃界(AC 明文接受) |
+| **E7** free-run 子集(meta-review 後新增) | **D**;G3T9-W2, 8VrD-W4/Q2 | ~2.5 h | ⚠️ **mmlu 首輪退化(1-token 即 EOS),勿引用;需以 DATASET=gsm8k 重跑**(E7.md 頂部 postmortem;已加 gen_tok_mean 退化警告) | 備案=劃界(AC 明文接受);GPTQ `-gptq-4bit` 根因 = gptqmodel 7.3.1 移除 EXLLAMA_V1 |
 | **E2** layer-freeze/EWC/L2-SP/feature-KD | **C**(正則化);pCi8-W5, 8VrD-W3/Q4, eQL6-W4 | **~24 h**(+7 h 選配 Qwen) | 待跑;⚠️ **lr 必須 1e-5**(paper-round 啟動值;此前 2e-4 sweep 作廢,E2.md §4 勘誤;trace anchor 改 λ0.5) | 見 E2.md §2(含對 Gemini OOM 顧慮的修正:不適用本實作) |
 | **E12** GPU-cost 表 | G3T9-W1、8VrD-Lim(iv) | **0**(收割 E1/E7 計時 + CPU 計數) | 待 E1/E7 跑完後執行 | decode 端為刻意下界(greedy、單 pass、還需標籤) |
 | **E9** GSM8K final-answer span(選配) | pCi8-W4 mitigation | ~1 h | 待跑(腳本+單元測試就緒) | 只 llama × gsm8k;prompt_length 改寫至 `####` 標記,pipeline 其餘不動;兩種結果都有敘事 |
