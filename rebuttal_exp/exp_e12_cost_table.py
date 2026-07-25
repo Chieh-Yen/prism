@@ -147,7 +147,7 @@ def main():
     GEN_BUDGET = {"squad": 64, "triviaqa": 64, "gsm8k": 256}
     MC_CHOICES = {"arc": 4, "mmlu": 4}
 
-    floor_min = sum(c["total_tok"] for c in counts.values()) / rate / 60
+    floor_s = sum(c["total_tok"] for c in counts.values()) / rate
 
     # E12b: if the dedicated GSM8K measurement exists, its gsm8k component
     # replaces the 256-token-budget ASSUMPTION with a MEASURED wall-clock
@@ -166,17 +166,17 @@ def main():
               f"@ n={measured['n']} (E12b, greedy x1 to natural EOS) — "
               f"replaces the 256-token budget assumption")
 
-    def standard_min(t, maj8=False):
+    def standard_s(t, maj8=False):
         mc = sum(MC_CHOICES[b] * t["extract"].get(b, 0)
-                 for b in MC_CHOICES) / 60
+                 for b in MC_CHOICES)
         gen = 0.0
         for b, budget in GEN_BUDGET.items():
             reps = 8 if (maj8 and b == "gsm8k") else 1
             if b == "gsm8k" and measured is not None:
                 gen += (reps * measured["_dec_s"]
-                        * counts[b]["n"] / measured["n"] / 60)
+                        * counts[b]["n"] / measured["n"])
             else:
-                gen += reps * counts[b]["n"] * budget / rate / 60
+                gen += reps * counts[b]["n"] * budget / rate
         return mc + gen
 
     md = [f"# E12 — GPU cost: PRISM diagnosis vs benchmark evaluation "
@@ -193,22 +193,22 @@ def main():
           f"maj@8 on GSM8K. All tiers exclude retries and still require "
           f"labels to score.",
           "",
-          "## Per-variant cost (minutes)", "",
-          "| variant | load | PRISM 5-bench | PRISM total "
-          "| bench floor | bench standard | bench maj@8 |",
+          "## Per-variant cost (seconds, 1 decimal)", "",
+          "| variant | load (s) | PRISM 5-bench (s) | PRISM total (s) "
+          "| bench floor (s) | bench standard (s) | bench maj@8 (s) |",
           "|---|---|---|---|---|---|---|"]
 
-    prism_mins, std_ratios = [], []
+    prism_s, std_ratios = [], []
     for label, t in sorted(e1.items()):
-        ext = sum(t["extract"].values()) / 60
-        load = (t["load"] or 0) / 60
+        ext = sum(t["extract"].values())
+        load = float(t["load"] or 0)
         total = load + ext
-        std = standard_min(t)
-        m8 = standard_min(t, maj8=True)
-        prism_mins.append(total)
+        std = standard_s(t)
+        m8 = standard_s(t, maj8=True)
+        prism_s.append(total)
         std_ratios.append(std / max(total, 1e-9))
         md.append(f"| {label} | {load:.1f} | {ext:.1f} | **{total:.1f}** "
-                  f"| {floor_min:.0f} | {std:.0f} | {m8:.0f} |")
+                  f"| {floor_s:.1f} | {std:.1f} | {m8:.1f} |")
 
     md += ["",
            "## Gold answer-span volume (the floor tier's token counts)",
@@ -219,20 +219,21 @@ def main():
         md.append(f"| {b} | {c['n']} | {c['mean_answer_tok']:.0f} "
                   f"| {c['total_tok']:,} |")
 
-    med_p = statistics.median(prism_mins)
+    med_p = statistics.median(prism_s)
     med_ext = statistics.median(
-        [sum(t["extract"].values()) / 60 for t in e1.values()])
-    screen = statistics.median([(t["load"] or 0) / 60 for t in e1.values()]) \
+        [sum(t["extract"].values()) for t in e1.values()])
+    screen = statistics.median(
+        [float(t["load"] or 0) for t in e1.values()]) \
         + med_ext / 5 * 32 / args.num_samples
-    med_std = statistics.median([standard_min(t) for t in e1.values()])
-    med_m8 = statistics.median([standard_min(t, True) for t in e1.values()])
+    med_std = statistics.median([standard_s(t) for t in e1.values()])
+    med_m8 = statistics.median([standard_s(t, True) for t in e1.values()])
     md += ["",
            f"**Summary (medians):** PRISM full 5-benchmark diagnosis "
-           f"{med_p:.1f} min/variant; PRISM screening mode (32-sequence "
-           f"generic reference, load-dominated) ~{screen:.1f} min/variant. "
-           f"Benchmark side: {floor_min:.0f} min (floor) / {med_std:.0f} min "
-           f"(standard) / {med_m8:.0f} min (maj@8 GSM8K) — i.e., "
-           f"{floor_min / med_p:.1f}x / {med_std / med_p:.0f}x / "
+           f"{med_p:.1f} s/variant; PRISM screening mode (32-sequence "
+           f"generic reference, load-dominated) ~{screen:.1f} s/variant. "
+           f"Benchmark side: {floor_s:.1f} s (floor) / {med_std:.1f} s "
+           f"(standard) / {med_m8:.1f} s (maj@8 GSM8K) — i.e., "
+           f"{floor_s / med_p:.1f}x / {med_std / med_p:.0f}x / "
            f"{med_m8 / med_p:.0f}x the full diagnosis, and "
            f"{med_std / screen:.0f}x-{med_m8 / screen:.0f}x the screening "
            f"mode. Even the floor tier still requires labels; PRISM "
