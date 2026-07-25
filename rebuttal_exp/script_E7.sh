@@ -24,6 +24,9 @@ SEED="${SEED:-42}"                 # prompt-subset seed; !=42 writes _s{seed}
 N_PROMPTS="${N_PROMPTS:-100}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-128}"
 MIN_NEW_TOKENS="${MIN_NEW_TOKENS:-0}"
+LOW_RAM="${LOW_RAM:-0}"            # 1 = target not CPU-resident (small-RAM pods)
+EXTRA=""
+[[ "$LOW_RAM" == "1" ]] && EXTRA="--low_ram"
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
@@ -34,7 +37,7 @@ mkdir -p "$OUT"
 python rebuttal_exp/exp_e7_freerun.py \
     --family "$FAMILY" --dataset "$DATASET" \
     --num_prompts "$N_PROMPTS" --max_new_tokens "$MAX_NEW_TOKENS" \
-    --min_new_tokens "$MIN_NEW_TOKENS" --seed "$SEED" \
+    --min_new_tokens "$MIN_NEW_TOKENS" --seed "$SEED" ${EXTRA:+$EXTRA} \
     2>&1 | tee -a "$LOG"
 
 echo "=== E7 done ($(date)); outputs in $OUT ===" | tee -a "$LOG"

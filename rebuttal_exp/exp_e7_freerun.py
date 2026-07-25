@@ -204,6 +204,13 @@ def main():
                          "temperature (fixed torch seed for "
                          "reproducibility) — held in reserve for a "
                          "'greedy is atypical' follow-up; default greedy")
+    ap.add_argument("--low_ram", action="store_true",
+                    help="do NOT keep the target resident in CPU RAM; "
+                         "reload it from cache for each variant's target "
+                         "pass (+~30s/variant). Needed on pods whose RAM "
+                         "cannot hold target + GGUF CPU-dequantization "
+                         "at once (symptom: 'Killed' during "
+                         "Converting/de-quantizing GGUF tensors)")
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--max_length", type=int, default=512)
     ap.add_argument("--device", default="cuda:0")
@@ -225,11 +232,22 @@ def main():
     prompts = collect_prompts(gold_batches)
     print(f"{len(prompts)} prompts from {args.dataset}")
 
-    print(f"Loading target {target_id} (CPU-resident) ...")
-    target = load_target(target_id, device="cpu")
-    H_T = LLMExtractor().extract_head(target).float()
-    K = UnifiedBound.theoretical_K(H_T.to(args.device))
-    H_T = H_T.cpu()
+    if args.low_ram:
+        # transient load just for the head; freed before any GGUF dequant
+        print(f"Loading target {target_id} (low-RAM: transient) ...")
+        target = load_target(target_id, args.device)
+        H_T = LLMExtractor().extract_head(target).float()
+        K = UnifiedBound.theoretical_K(H_T.to(args.device))
+        H_T = H_T.cpu()
+        del target
+        target = None
+        free_cuda()
+    else:
+        print(f"Loading target {target_id} (CPU-resident) ...")
+        target = load_target(target_id, device="cpu")
+        H_T = LLMExtractor().extract_head(target).float()
+        K = UnifiedBound.theoretical_K(H_T.to(args.device))
+        H_T = H_T.cpu()
     Z_T_tf, loss_T_tf = None, None
 
     # ── Resume: keep completed variants from a previous run's CSV ──────
@@ -293,11 +311,18 @@ def main():
         del proxy
         free_cuda()
 
-        target.to(args.device)
+        if args.low_ram:
+            target = load_target(target_id, args.device)
+        else:
+            target.to(args.device)
         if Z_T_tf is None:
             Z_T_tf, loss_T_tf = extract_on(target, gold_batches, args.device)
         Z_T_fr, loss_T_fr = extract_on(target, gen_batches, args.device)
-        target.to("cpu")
+        if args.low_ram:
+            del target
+            target = None
+        else:
+            target.to("cpu")
         free_cuda()
 
         B_tf, omega_tf = prism_bound(Z_T_tf, Z_P_tf, H_T, H_P, K, args.device)
