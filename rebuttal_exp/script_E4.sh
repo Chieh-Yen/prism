@@ -8,15 +8,18 @@
 # empirical |dR| measured in the same pass.
 #
 # GPU budget: ~30-45 min per (model, dataset) on 1x RTX 5090.
-# Default: Llama-3.1-8B on MMLU; add wikitext as a corpus control.
+# Default: Llama-3.1-8B on MMLU (primary) + TriviaQA (secondary).
+# Both are paper-reported benchmarks — do NOT use wikitext/fineweb
+# here (not reported anywhere in the compiled paper). TriviaQA is
+# the widest-|dR|-range benchmark in E6, i.e. the richest CE signal.
 #
-# Knobs: MODEL, DATASETS="mmlu wikitext", CUDA_GPU
+# Knobs: MODEL, DATASETS="mmlu triviaqa", CUDA_GPU
 # ============================================================
 set -uo pipefail
 cd "$(dirname "$0")/.."           # repo root
 
 MODEL="${MODEL:-meta-llama/Llama-3.1-8B}"
-DATASETS="${DATASETS:-mmlu wikitext}"
+DATASETS="${DATASETS:-mmlu triviaqa}"
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"

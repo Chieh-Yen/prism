@@ -19,14 +19,14 @@
 | pCi8-W1 | 三結論已知,只是統一框架 | 🟡 | L22–25, L230–232 | 措辭強化(溫度計論證) |
 | pCi8-W2 | bound 太鬆、答不了「夠不夠好」 | 🟡 | Abstract, L201–204, L299–302, Fig 2 | E6(已有數字) |
 | pCi8-W3 | Ω-only vs 完整 PRISM 差距小 | ✅ | **L278–285, L249–257**, App B | E1 加 CKA/SVCCA 欄 |
-| pCi8-W4 | GSM8K 相關性低是結構性限制 | ✅ | **App F.3 L742–751, Table 10** | 位置提升;E9 選配 |
+| pCi8-W4 | GSM8K 相關性低是結構性限制 | ✅ | **App F.3 L742–751, Table 10** | 位置提升;E9 已實作(final-answer span,script_E9.sh) |
 | pCi8-W5 | 引 EWC 卻沒比 | 🟡 | L89–94, **L265–267** | E2 |
 | pCi8-W6 | 激進量化下 near-isometry 還成立? | ✅ | **L112–115, App C.1–C.2** | E8 選配 |
 | G3T9-W1 | 何不直接跑 benchmark;成本;actionability | 🟡 | L94–99, **L258–262**, L249–257 | 成本表(由 log 估) |
 | G3T9-W2 | teacher-forcing;benchmark 輸入;ref ablation | 🟡 | L196–200, L201–204, **L302–305, App D L681–682** | E3(A 已有數字)+E7 選配 |
 | G3T9-W3 | 要直接比 CKA/SVCCA;比 simpler regularizers | 🟡 | **App B「Relation to CKA」**, Table 3 Ω row | E1 + E2(feature-KD) |
 | G3T9-W4 | bound 絕對尺度太鬆 | 🟡 | 同 pCi8-W2 | E6 |
-| G3T9-Q1 | full FT / RLHF? | ✅ | **App C.3 L678–679, App I** | E11 選配 |
+| G3T9-Q1 | full FT / RLHF? | ✅ | **App C.3 L678–679, App I** | E11 已實作(base→instruct,script_E11.sh) |
 | G3T9-Q2 | multi-task / base→SFT? | 🟡 | 無;但**已有 5-FT-task 後續數據**(E10 表) | E10 表 + scope |
 | eQL6-W1 | 符號未定義;結果在附錄 | ❌ | —(Intro L57–59 確實未定義 ρ,Ω) | 認錯+修訂清單 |
 | eQL6-W2/Q1 | 為何限 orthogonal? | 🟡 | L77–80, L112–115, App B L613–615 | 補 gauge 論證(純文字) |
@@ -82,12 +82,12 @@ reviewer 說「論文歸因於 long CoT 稀釋 per-token loss」——但沒看�
 
 ### 2.3 eQL6-W3 可以當場釘死(新數字,零 GPU,今天已算)
 
-App A.1 已寫明 shape 項是 Procrustes size-and-shape distance 的精確拆分(= 對齊後殘差能量,ρTρP 是量綱)。用論文自己的 CSV(77 cells)補上量化(`exp_eql6w3_prefactor.py`,輸出在 `out/eql6w3_prefactor.md`):
+App A.1 已寫明 shape 項是 Procrustes size-and-shape distance 的精確拆分(= 對齊後殘差能量,ρTρP 是量綱)。用論文自己的 CSV(**55 cells,只取論文 5 benchmarks**,與 E6 同一 allowlist)補上量化(`exp_eql6w3_prefactor.py`,輸出在 `out/eql6w3_prefactor.md`):
 
-- **CV(ρTρP) 跨 variant:中位數 0.47%**(p90 7.9%)——prefactor 在比較中近乎常數
-- **(1−Ω) 同 cell 動態範圍:中位數 291×**——排序變異全部來自幾何部分
-- **Spearman(shape term, 1−Ω):中位數 1.0000**(min 0.988)
-- rs(shape,|ΔR|) 與 rs(1−Ω,|ΔR|) **完全相同**(中位數皆 0.745)
+- **CV(ρTρP) 跨 variant:中位數 0.63%**(p90 7.9%)——prefactor 在比較中近乎常數
+- **(1−Ω) 同 cell 動態範圍:中位數 366×**——排序變異全部來自幾何部分
+- **Spearman(shape term, 1−Ω):中位數 1.0000**(min 0.988;52/55 cells 有變異)
+- rs(shape,|ΔR|) 與 rs(1−Ω,|ΔR|) **完全相同**(中位數皆 0.770)
 
 直接填 Google Doc eQL6-W3 草稿的三個 [RESULT NEEDED]。reviewer 的極限例子數學上對,但其前提(norm 相對爆炸)在同 base 的 post-training variants 之間不發生——而且真發生時就是 scale 軸要抓的 pathology。
 

@@ -230,7 +230,7 @@ def parse_args() -> argparse.Namespace:
                    help="reference-set source task (default: --task; "
                         "e.g. wikitext for the E3(b) domain sweep)")
     p.add_argument("--reg_samples", type=int, default=32)
-    p.add_argument("--reg_batch_size", type=int, default=4)
+    p.add_argument("--reg_batch_size", type=int, default=8)   # paper default
     p.add_argument("--reg_max_length", type=int, default=512)
     p.add_argument("--reg_every_k", type=int, default=8)
     p.add_argument("--logging_steps", type=int, default=10)
@@ -247,8 +247,14 @@ def main() -> None:
     task_max_length = task_cfg.get("max_length")
     if task_max_length is not None and args.max_length == 512:
         args.max_length = task_max_length
-    lr = args.lr if args.lr is not None else \
-        (1e-4 if "qwen" in args.model.lower() else 2e-4)
+    # Paper-round protocol: EVERY recorded forgetting/regularization run
+    # (llama AND qwen, lambda in {0, 0.5, 1.0}; see the `experiment.lr`
+    # field of exp_result/regularization/*/*.json) was launched with an
+    # explicit --lr 1e-5 override. The multitask script's internal
+    # 2e-4/1e-4 default rule is NOT what produced the paper trees — do not
+    # inherit it (a 2e-4 rerun diverges from the paper trajectories by 4x
+    # as early as step 50; see E3.md part-C postmortem).
+    lr = args.lr if args.lr is not None else 1e-5
 
     model_short = args.model.split("/")[-1].lower()
     sweep_tag = (f"top{args.lora_top_layers}" if args.method == "layer_freeze"

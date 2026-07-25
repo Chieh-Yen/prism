@@ -184,30 +184,47 @@ def part_b(args):
         except Exception as exc:                        # noqa: BLE001
             print(f"  [FAIL load] {exc}")
             continue
+        # Collect features for EVERY size first, then release the model.
+        # Head metrics must never run with an 8B model resident: the
+        # 2026-07-24 run OOMed a 32 GB card inside compute_all's spectral
+        # SVD (4096 x |V| workspace) during the first proxy.
+        Z_P_by = {}
+        for k in SIZES:
+            Z_P_by[k] = extract_Z(proxy, loaders[k], args.device)
         # Paper convention: only GGUF k-quants alter the served lm_head
         # (gamma > 0); BnB/GPTQ/dtype proxies keep the FP16 head, and their
         # quantized weight wrappers make extract_head unusable anyway.
-        if spec["kind"] == "gguf":
-            H_P = extractor.extract_head(proxy).float().cpu()
-        else:
-            H_P = H_T
+        H_P = (extractor.extract_head(proxy).float().cpu()
+               if spec["kind"] == "gguf" else None)
+        del proxy
+        free_cuda()
+
         for k in SIZES:
-            Z_P = extract_Z(proxy, loaders[k], args.device)
-            n = min(Z_T[k].shape[0], Z_P.shape[0])
-            res = PRISMMetrics.compute_all(
-                Z_T[k][:n].to(args.device), H_T.to(args.device),
-                Z_P[:n].to(args.device), H_P.to(args.device),
-                W=torch.eye(H_T.shape[0], device=args.device), label=label,
-            )
-            bound = (K["K_feat"] * res.feature_error
-                     + K["K_pred"] * res.head_discrepancy)
+            n = min(Z_T[k].shape[0], Z_P_by[k].shape[0])
+            X = Z_T[k][:n].to(args.device)
+            Y = Z_P_by[k][:n].to(args.device)
+            # Lightweight Bound_I path — the paper's own primitives.
+            # (compute_all additionally runs a 4096 x |V| spectral SVD
+            # that is NOT part of the bound; skip it.)
+            rho_T = PRISMMetrics.rms_scale(X)
+            rho_P = PRISMMetrics.rms_scale(Y)
+            omega = PRISMMetrics.trace_omega(X, Y)
+            fe = PRISMMetrics.feature_error(rho_T, rho_P, omega)
+            if H_P is None:
+                gamma = 0.0                    # FP16 head kept -> gamma == 0
+            else:
+                Sigma_P = (Y.T @ Y) / n
+                gamma = PRISMMetrics.head_discrepancy_covariance(
+                    H_T.to(args.device), H_P.to(args.device),
+                    torch.eye(H_T.shape[0], device=args.device), Sigma_P)
+            bound = K["K_feat"] * fe + K["K_pred"] * gamma
             rows.append({"label": label, "ref_size": k, "n_tokens": n,
                          "bound_I": bound,
-                         "omega_I": res.omega})
-            print(f"  size={k:<4d} B={bound:.2f} omega={res.omega:.4f}")
-            del Z_P
-        del proxy, H_P
-        free_cuda()
+                         "omega_I": omega})
+            print(f"  size={k:<4d} B={bound:.2f} omega={omega:.4f}")
+            del X, Y
+            free_cuda()
+        del Z_P_by, H_P
         with open(OUT_DIR / f"partB_{args.family}_size_ablation.csv",
                   "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

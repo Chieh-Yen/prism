@@ -8,11 +8,11 @@ Zero-GPU check on the existing paper CSV. For every (family, benchmark) cell:
   * Spearman(shape term, 1-Omega_I)          (who carries the ordering)
   * rs(shape,|dR|) vs rs(1-Omega,|dR|)       (ranking equivalence)
 
-Result (2026-07-24 run): CV median 0.47% (p90 7.9%) vs (1-Omega) range
-median 291x; Spearman(shape, 1-Omega) median 1.0000 (min 0.988, 62/77 cells
-with variance); rs vs |dR| identical for both (median 0.745). The prefactor
-sets units, not the ordering — fills the [RESULT NEEDED] slots of the
-eQL6-W3 response draft.
+Restricted to the paper's five reported benchmarks (ARC/GSM8K/MMLU/SQuAD/
+TriviaQA; wikitext and fineweb_edu exist in the raw CSV but are not reported
+anywhere in the compiled paper, so they are excluded — same convention as E6).
+The prefactor sets units, not the ordering — fills the [RESULT NEEDED] slots
+of the eQL6-W3 response draft. See out/eql6w3_prefactor.md for the numbers.
 
 Stdlib only.
 """
@@ -28,6 +28,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 CSV_PATH = REPO / "exp_result" / "quantization" / "quantization_merged_slim.csv"
 OUT = Path(__file__).resolve().parent / "out" / "eql6w3_prefactor.md"
+
+# Paper's reported benchmark set (identical to E6's PAPER_DATASETS).
+PAPER_DATASETS = {"arc", "gsm8k", "mmlu", "squad", "triviaqa"}
 
 
 def rankdata(v):
@@ -58,6 +61,8 @@ def spearman(x, y):
 def main():
     cells = defaultdict(list)
     for r in csv.DictReader(open(CSV_PATH)):
+        if r["dataset"] not in PAPER_DATASETS:
+            continue
         try:
             cells[(r["target_model"], r["dataset"])].append((
                 float(r["rho_T"]) * float(r["rho_P"]),

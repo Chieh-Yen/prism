@@ -40,14 +40,21 @@ fi
 
 if [[ " $PARTS " == *" C "* ]]; then
     echo "=== E3 part C (regularizer sensitivity, GPU) ===" | tee -a "$LOG"
+    # lambda follows the paper's llama-TQA operating point (0.5 — the value
+    # with full E10 coverage); lr comes from the trainer's fixed 1e-5
+    # default (the paper-round launch value). Override: LAMBDA=1.0.
+    LAMBDA="${LAMBDA:-0.5}"
     for ref_task in truthfulqa wikitext; do
         for n in 8 32 128; do
-            echo ">>> trace lam=1.0 ref=$ref_task n=$n ($(date))" | tee -a "$LOG"
+            echo ">>> trace lam=$LAMBDA ref=$ref_task n=$n ($(date))" | tee -a "$LOG"
+            # Per-config output_root: ref_task/reg_samples are NOT part of
+            # the trainer's own directory scheme — without this, all six
+            # configs overwrite one another (2026-07-24 postmortem).
             python rebuttal_exp/train_forgetting_baselines.py \
                 --model "$MODEL" --task truthfulqa \
-                --method trace --lambda_reg 1.0 --seed 42 --max_steps 300 \
+                --method trace --lambda_reg "$LAMBDA" --seed 42 --max_steps 300 \
                 --ref_task "$ref_task" --reg_samples "$n" \
-                --output_root rebuttal_exp/out/E3/reg_sensitivity \
+                --output_root "rebuttal_exp/out/E3/reg_sensitivity/${ref_task}_n${n}" \
                 2>&1 | tee -a "$LOG" || FAIL=1
         done
     done

@@ -54,9 +54,10 @@ REPO = HERE.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(HERE))
 
-from common_quant import (BENCHMARKS, FAMILIES, extract_Z, free_cuda,   # noqa: E402
-                          load_proxy, load_target, risk_gaps_from_csv,
-                          subsample_tokens, variants_from_csv)
+from common_quant import (BENCHMARKS, CSV_PATH, FAMILIES, extract_Z,    # noqa: E402
+                          free_cuda, load_proxy, load_target,
+                          risk_gaps_from_csv, subsample_tokens,
+                          variants_from_csv)
 from prism.data.loaders import load_task_data                          # noqa: E402
 from transformers import AutoTokenizer                                 # noqa: E402
 
@@ -96,6 +97,20 @@ def procrustes_distance(X: torch.Tensor, Y: torch.Tensor) -> float:
     nuc = torch.linalg.svdvals(X.T @ Y).sum()
     sq = (X ** 2).sum() + (Y ** 2).sum() - 2 * nuc
     return math.sqrt(max(sq.item(), 0.0) / X.shape[0])
+
+
+def isometry_deviation(X: torch.Tensor, Y: torch.Tensor) -> float:
+    """E8 (pCi8-W6): how far the OPTIMAL UNCONSTRAINED alignment is from a
+    scaled isometry. A* = argmin_A ||X A - Y||_F (ridge-regularised normal
+    equations); returns CV of A*'s singular values — 0 iff A* is exactly a
+    scalar x orthogonal map, growing as quantization distorts geometry
+    anisotropically. Zero extra GPU cost on E1's paired features."""
+    d = X.shape[1]
+    XtX = X.T @ X
+    ridge = 1e-6 * XtX.diagonal().mean()
+    A = torch.linalg.solve(XtX + ridge * torch.eye(d, device=X.device), X.T @ Y)
+    sv = torch.linalg.svdvals(A)
+    return (sv.std(unbiased=False) / sv.mean().clamp(min=1e-12)).item()
 
 
 def omega_trace(X: torch.Tensor, Y: torch.Tensor) -> float:
@@ -146,6 +161,17 @@ def main():
     target_id = FAMILIES[args.family]
     specs = variants_from_csv(args.family)
     risk = risk_gaps_from_csv(args.family)
+    # Paper bound joined on the same (Label, dataset) keys — gives a PRISM
+    # column computed on EXACTLY the variant subset that loads, so every
+    # column of the Spearman table shares the same n (fair comparison even
+    # if a proxy fails to load).
+    bound_csv = {}
+    for r in csv.DictReader(open(CSV_PATH)):
+        if r["target_model"] == target_id:
+            try:
+                bound_csv[(r["Label"], r["dataset"])] = float(r["Bound_I"])
+            except ValueError:
+                pass
     print(f"Family {args.family}: target={target_id}, {len(specs)} proxies, "
           f"{len(BENCHMARKS)} benchmarks")
 
@@ -161,22 +187,42 @@ def main():
     }
 
     # ── Target features once per benchmark, cached to disk ─────────────
+    # Self-healing cache: a run killed mid-torch.save leaves a truncated
+    # .pt that EXISTS but EOFErrors on load (seen 2026-07-24, qwen/arc).
+    # (a) validate every existing file up front, deleting unreadable ones;
+    # (b) write atomically (tmp -> rename) so it can never recur.
     zt_cache = OUT_DIR / f"{args.family}_ZT"
     zt_cache.mkdir(exist_ok=True)
     Z_T: dict = {}
-    missing = [b for b in BENCHMARKS if not (zt_cache / f"{b}.pt").exists()]
+    missing = []
+    for b in BENCHMARKS:
+        p = zt_cache / f"{b}.pt"
+        if not p.exists():
+            missing.append(b)
+            continue
+        try:
+            Z_T[b] = torch.load(p).float()
+        except Exception as exc:                       # noqa: BLE001
+            print(f"  [cache] {p.name} unreadable "
+                  f"({type(exc).__name__}: truncated save?) — deleting "
+                  f"and re-extracting")
+            p.unlink()
+            missing.append(b)
     if missing:
         print(f"Extracting target features for {missing} ...")
         target = load_target(target_id, args.device)
         for b in missing:
             t0 = time.time()
             Z = extract_Z(target, loaders[b], args.device)
-            torch.save(Z.half(), zt_cache / f"{b}.pt")
+            tmp = zt_cache / f"{b}.pt.tmp"
+            torch.save(Z.half(), tmp)
+            tmp.rename(zt_cache / f"{b}.pt")           # atomic publish
+            # fp16 roundtrip in memory too — identical precision whether a
+            # benchmark came from cache or from this fresh extraction.
+            Z_T[b] = Z.half().float()
             print(f"  {b}: Z={list(Z.shape)}  ({time.time() - t0:.0f}s)")
         del target
         free_cuda()
-    for b in BENCHMARKS:
-        Z_T[b] = torch.load(zt_cache / f"{b}.pt").float()
 
     # ── Per-proxy loop: load once, all benchmarks ───────────────────────
     rows = []
@@ -185,11 +231,14 @@ def main():
         if spec["kind"] == "dtype":
             pass  # FP16 control row — keep, it anchors the near-zero end
         print(f"\n=== {label} ({spec['kind']}) ===")
+        t_load = time.time()
         try:
             proxy = load_proxy(spec, args.device)
         except Exception as exc:                       # noqa: BLE001
             print(f"  [FAIL load] {exc}")
             continue
+        # Timing line harvested by E12's cost table (G3T9-W1).
+        print(f"  [load] {label}: {time.time() - t_load:.0f}s")
         for b in BENCHMARKS:
             t0 = time.time()
             try:
@@ -207,6 +256,8 @@ def main():
                 "svcca": svcca(X, Y),
                 "procr_dist": procrustes_distance(X, Y),
                 "omega_I": omega_trace(X, Y),
+                "iso_dev": isometry_deviation(X, Y),
+                "bound_I": bound_csv.get((label, b), float("nan")),
                 "|MdR|": risk.get((label, b), float("nan")),
             }
             rows.append(row)
@@ -214,6 +265,7 @@ def main():
             free_cuda()
             print(f"  {b}: cka={row['cka']:.4f} svcca={row['svcca']:.4f} "
                   f"procr={row['procr_dist']:.3f} omega={row['omega_I']:.4f} "
+                  f"iso_dev={row['iso_dev']:.4f} "
                   f"|dR|={row['|MdR|']:.4f} ({time.time() - t0:.0f}s)")
         del proxy
         free_cuda()
@@ -225,30 +277,51 @@ def main():
             w.writerows(rows)
 
     # ── Spearman table: degradation-score convention ────────────────────
+    METRICS = ("bound_I", "cka", "svcca", "procr_dist", "omega_I")
+    AS_IS = {"bound_I", "procr_dist"}      # already degradation-oriented
     md = [f"# E1 — similarity-baseline ranking, family {args.family}", "",
           "Score convention: rs( degradation-score, |dR| ), where the "
-          "degradation score is (1 - cka), (1 - svcca), procr_dist, "
-          "(1 - omega_I). Higher rs = better ranking. PRISM full-bound "
-          "column comes from the paper CSV (Bound_I).", ""]
-    md.append("| benchmark | n | 1-CKA | 1-SVCCA | Procrustes dist | 1-Omega_I |")
-    md.append("|---|---|---|---|---|---|")
-    per_metric = {m: [] for m in ("cka", "svcca", "procr_dist", "omega_I")}
+          "degradation score is Bound_I (PRISM, joined from the paper CSV "
+          "on the same keys), (1 - cka), (1 - svcca), procr_dist, "
+          "(1 - omega_I). Higher rs = better ranking. All columns are "
+          "computed over the IDENTICAL variant subset (same n), so the "
+          "comparison stays fair even if a proxy fails to load.", ""]
+    md.append("| benchmark | n | PRISM B | 1-CKA | 1-SVCCA "
+              "| Procrustes dist | 1-Omega_I |")
+    md.append("|---|---|---|---|---|---|---|")
+    per_metric = {m: [] for m in METRICS}
     for b in BENCHMARKS:
         sub = [r for r in rows if r["dataset"] == b
-               and not math.isnan(r["|MdR|"])]
+               and not math.isnan(r["|MdR|"])
+               and not math.isnan(r["bound_I"])]
         if len(sub) < 3:
             continue
         dr = [r["|MdR|"] for r in sub]
         cells = []
-        for m in ("cka", "svcca", "procr_dist", "omega_I"):
-            score = [r[m] if m == "procr_dist" else 1 - r[m] for r in sub]
+        for m in METRICS:
+            score = [r[m] if m in AS_IS else 1 - r[m] for r in sub]
             rs = spearman(score, dr)
             per_metric[m].append(rs)
             cells.append(f"{rs:+.3f}")
         md.append(f"| {b} | {len(sub)} | " + " | ".join(cells) + " |")
     md.append("| **mean** | | " + " | ".join(
         f"**{statistics.mean(per_metric[m]):+.3f}**"
-        for m in ("cka", "svcca", "procr_dist", "omega_I")) + " |")
+        for m in METRICS) + " |")
+
+    # ── E8 (pCi8-W6): isometry deviation vs variant/bit-width ──────────
+    md += ["", "## E8 — isometry deviation of the optimal unconstrained "
+           "alignment (pCi8-W6)", "",
+           "CV of singular values of A* = argmin ||Z_T A - Z_P||; 0 = "
+           "exactly scaled-orthogonal. Mean over benchmarks per variant:",
+           "", "| variant | mean iso_dev |", "|---|---|"]
+    seen_labels = []
+    for r in rows:
+        if r["label"] not in seen_labels:
+            seen_labels.append(r["label"])
+    for lab in seen_labels:
+        vals = [r["iso_dev"] for r in rows if r["label"] == lab]
+        md.append(f"| {lab} | {statistics.mean(vals):.4f} |")
+
     (OUT_DIR / f"{args.family}_spearman.md").write_text("\n".join(md))
     print("\n".join(md))
 

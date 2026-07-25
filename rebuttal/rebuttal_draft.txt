@@ -7,7 +7,7 @@ Legend:
   (Lxxx)     = line number in the submitted PDF; (App X) = appendix section
   Note 欄    = internal status,不會貼上 OpenReview
 All numbers already present below are REAL (computed from existing repo data;
-sources: rebuttal_exp/out/{E6,E10,E3,eql6w3}/ and the submitted PDF).
+sources: rebuttal_exp/out/{E6,E10,E13,E3,eql6w3}/ and the submitted PDF).
 ================================================================================
 
 Meta Review (AC)
@@ -71,7 +71,9 @@ sequences, all Llama variants: [TBD-E3B — rank-correlation-vs-size table].
 [TBD-E3C]. Both will be added as an appendix with the full tables.
 
 Note: (1) ✅ 已有數字(E3-A,out/E3/partA_cross_reference.md,含 per-family 表);
-      (2)(3) ⏳ ~4 h GPU。誠實策略:0.506 vs 0.725 不迴避,用「兩種模式」框架。
+      (2)(3) ⏳ 需重跑:首輪 B 因 OOM 未產出、C 因 lr=2e-4 非論文 protocol 作廢
+      (三個 bug 均已修,見 E3.md §7;重跑 ~10 h)。
+      誠實策略:0.506 vs 0.725 不迴避,用「兩種模式」框架。
 
 --------------------------------------------------------------------------------
 C. Add stronger baselines: diagnostics — CKA, SVCCA, simpler feature-preserving
@@ -135,7 +137,10 @@ a first-class limitation with this SNR analysis in the main text.
 App. G.1 documents the same mechanism — at lambda=0, |dR| sits at ~1e-3 nats,
 two orders below where the bound is informative (0.0035 on TriviaQA vs 0.288
 on ARC within the SAME trajectory). The revised main text reports the full
-correlation matrix with all-cell aggregates, not the Llama-only mean.
+correlation matrix with all-cell aggregates, not the Llama-only mean: over
+all 20 (model, FT-task, benchmark) cells, mean rs = +0.71, median = +0.93,
+with exactly two negative cells — both Qwen-BBQ, both in the noise-floor
+regime above.
 (3) Regularizer failures: Table 22 is, by construction, our diagnostic-gating
 analysis — its "gating verdict" column already marks Llama-BBQ "cell-level
 mixed" and both Qwen settings "at noise floor => skip"; trace still yields
@@ -149,8 +154,9 @@ and the failure cells are exactly those PRISM diagnoses as not shape-driven
 The regularizer is presented as axis-targeted, with the gating rule stated
 explicitly.
 
-Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E10 已跑)。⚠️ E10 的 10-cell 數字與
-      論文 Table 18–22 屬不同輪次,分開呈現(E10.md §4)。
+Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E10 已跑 + E13 的 20-cell 聚合)。
+      ⚠️ E10 的 10-cell 數字與論文 Table 18–22 屬不同輪次,分開呈現(E10.md §4);
+      E13 的 λ=0 相關矩陣則 checksum 命中論文輪次(0.831/−0.34/−0.66),可直接引用。
 
 --------------------------------------------------------------------------------
 Summary — positioning sentence to close the global response:
@@ -246,13 +252,16 @@ measurement noise. This is a property of the CE target itself, inherited by
 ANY CE-based label-free proxy (including perplexity screening), not specific
 to our geometric decomposition — PRISM correctly reports that variants barely
 differ in CE on GSM8K; what breaks is the coupling between per-token CE and
-final-answer accuracy. (2) Mitigation within PRISM: restricting features and
-losses to answer-span tokens; we outline this variant and [if run: report the
-GSM8K rank correlation change [TBD-E9-optional]; else: leave its evaluation to
-the revision]. Implications for reasoning-heavy models are added to the
-Limitations.
+final-answer accuracy. (2) Mitigation within PRISM, implemented: we recompute
+features AND losses on the FINAL-ANSWER span only (GSM8K's "#### <answer>"
+tokens, where the graded content lives) instead of averaging over the full
+CoT — same extractor, same bound, only the span changes: [TBD-E9 — GSM8K
+rs(B,|dR|) and mean |dR|, full-CoT span vs final-answer span]. Implications
+for reasoning-heavy models are added to the Limitations.
 
-Note: ✅ SNR 數字已在論文(App F.3);E9 是選配,跑不了就用括號後半句。
+Note: ✅ SNR 數字已在論文(App F.3);E9 已實作(script_E9.sh,~1 h,llama)。
+      跑不完 fallback:改回「we outline this variant and leave its
+      evaluation to the revision」。兩種結果都有敘事(E9.md §4)。
 
 5) W5: EWC cited but never compared; only small-scale replay is a convenient
    choice.
@@ -288,10 +297,13 @@ gap of the most-damaged variants), which preserves ranking — consistent with
 the observed 2-bit results. App. C.2 adds that the growing gap between the
 trace and nuclear similarities under aggressive quantization is itself signal:
 genuine asymmetric distortion that a rotation-invariant metric would mask.
-[Optional: we also measure the isometry violation directly — deviation of the
-optimal unconstrained alignment from O(d) vs bit-width: [TBD-E8-optional].]
+We also measure the isometry violation directly, at zero extra cost on E1's
+paired features: the CV of the singular values of the optimal UNCONSTRAINED
+alignment A* = argmin ||Z_T A - Z_P|| (0 = exactly a scaled isometry), per
+variant vs bit-width: [TBD-E8 — from out/E1/{family}_spearman.md's E8 table].
 
-Note: ✅ 指路(L112–115, App C.1/C.2)就能收工;E8 純加分。
+Note: ✅ 指路(L112–115, App C.1/C.2)就能收工;E8 已併入 E1(iso_dev 欄,
+      零額外 GPU),E1 跑完即有數字。
 
 ================================================================================
 Reviewer #2 — G3T9 (3: Borderline reject, conf 4) — Q3/C3/S2/O3
@@ -305,7 +317,10 @@ Three answers. (1) Cost: PRISM needs ONE teacher-forced forward pass per
 variant over a small reference set — no labels, no decoding; on an RTX 5090
 this is minutes per variant, while benchmark evaluation of the same suite is
 dominated by autoregressive decoding (GSM8K CoT). The revision adds the exact
-GPU-hours table for ranking K variants: [TBD — measured from our runner logs].
+GPU-cost table for ranking K variants: [TBD-E12 — measured PRISM min/variant
+(from E1's load+extract timings) vs a conservative lower-bound estimate for
+decoding the benchmark suite (measured tok/s from E7 x counted answer/CoT
+tokens of the paper's own splits)].
 (2) Actionability: the axis -> action map is already in Sec. 5.3: scale ->
 per-channel outlier smoothing; shape -> Hessian-aware reconstruction (PTQ) /
 trace regularization (training); head -> keep lm_head in FP16. The GGUF case
@@ -387,10 +402,17 @@ orthogonal alignment becomes — looser bounds, possibly weaker rank signal.
 This is exactly the setting App. C.3 already identifies ("models with both
 rotated features and divergent heads, e.g., full-parameter SFT") and App. I
 lists as the first future-work item; we keep validated claims scoped to PTQ
-and frozen-head LoRA. [Optional first data point: PRISM between base and
-instruct checkpoints: [TBD-E11-optional]; else explicitly future work.]
+and frozen-head LoRA. As a first data point we run the full decomposition
+between BASE and INSTRUCT checkpoints of the main-text families — the
+full-post-training regime, with the head term engaged (H_P = the instruct
+lm_head, W = I): [TBD-E11 — bound-validity count across (pair, benchmark)
+cells, head share of B, and 1-Omega vs the same family's Q4_K_M level].
+The bound remains valid there; what degrades is tightness, exactly as
+App. C.3 anticipates — we report the numbers rather than extend the claims.
 
-Note: ✅ 指路 App C.3 L678–679 + App I;E11 選配。
+Note: ✅ 指路 App C.3 L678–679 + App I;E11 已實作(script_E11.sh,預設
+      llama+qwen 2 pairs ~1.5 h)。跑不完 fallback:刪掉 data-point 句、
+      改回「else explicitly future work」。
 
 6) Q2: mixed / multi-task fine-tuning? base -> SFT?
 
@@ -399,8 +421,9 @@ Since submission we extended the forgetting study from 2 to 5 fine-tuning
 tasks (adding SocialIQA, No-Robots, LIMA) x 2 models — 10 (model, task) cells.
 The diagnostic pattern holds: the trace regularizer's benefit tracks the
 unregularized shape drift within each model (Spearman +1.00 on Qwen, +0.40 on
-Llama at the fullest-coverage lambda), and the cells where regularization does
-not help are those PRISM itself flags as not shape-driven. Genuinely
+Llama at lambda = 0.5, the setting with full 10/10-cell coverage), and the
+cells where regularization does not help are those PRISM itself flags as not
+shape-driven. Genuinely
 heterogeneous mixed-data SFT remains untested; we state this scope explicitly
 and flag it as future work rather than claim coverage we do not have.
 
@@ -454,10 +477,11 @@ ENERGY ||Z_T - s Z_P O||^2_F: the prefactor carries the physical units (logits
 scale with feature norm x head norm), while 1-Omega is the dimensionless
 geometric part. Every comparison holds T fixed and compares variants P of the
 same backbone, so across variants within a (family, benchmark) cell:
-rho_T*rho_P varies with median CV 0.47% (p90: 7.9%) — essentially constant —
-while 1-Omega spans a median 291x dynamic range; Spearman(shape term, 1-Omega)
-has median 1.000 (min 0.988) over the 62 cells with Omega variance, and the
-two produce IDENTICAL rank correlations against |dR| (median 0.745 for both).
+rho_T*rho_P varies with median CV 0.63% (p90: 7.9%) — essentially constant —
+while 1-Omega spans a median 366x dynamic range; Spearman(shape term, 1-Omega)
+has median 1.000 (min 0.988) over the 52 cells with Omega variance (of the 55
+(family, benchmark) cells on the paper's five benchmarks), and the two produce
+IDENTICAL rank correlations against |dR| (median 0.770 for both).
 The ordering and the diagnostic signal come from 1-Omega; the prefactor sets
 units, not the ranking. The divergent-norm scenario would require feature
 energies blowing up relative to each other — which does not occur among
@@ -648,9 +672,11 @@ G.1 diagnosing the mechanism: at lambda=0 those cells sit at |dR| ~ 1e-3 nats
 0.288 on ARC within the SAME fine-tuning trajectory), so per-checkpoint
 rankings reflect trajectory noise rather than bound failure (the same effect
 appears in Llama BBQ->SQuAD, r_s ~ 0.30). The revised MAIN text reports the
-full correlation matrix with all-cell aggregates (mean and median over all 20
-cells), plus this SNR analysis — we will not present 0.831 without that
-context. (2) Free-running: on a 100-prompt subset, each variant greedily
+full 20-cell correlation matrix with all-cell aggregates — mean rs = +0.71,
+median = +0.93 over all 20 (model, FT-task, benchmark) cells, with exactly
+the two negative Qwen-BBQ cells above and 18/20 positive — plus this SNR
+analysis; we will not present 0.831 without that context.
+(2) Free-running: on a 100-prompt subset, each variant greedily
 generates its own continuations (surrogate errors compound into its own
 context) and both models are scored on those trajectories: rs = [TBD-E7]
 free-running vs [TBD-E7] teacher-forced. Independently, Corollary 1 is
@@ -660,7 +686,9 @@ restriction is protocol, not theory). The Limitations section adds
 reference-set sensitivity, free-run generation, head-varying variants, and
 feature-extraction cost, as suggested.
 
-Note: (1) ✅ 指路 Fig 7 / G.1 L770–782 + 主文承諾;(2) ⏳ E7。
+Note: (1) ✅ 指路 Fig 7 / G.1 L770–782 + E13 已算出 20-cell 聚合(mean +0.71/
+      median +0.93,checksum 對上論文 0.831 與 −0.34/−0.66,見 E13.md);
+      (2) ⏳ E7。
 
 5) Q1: error analysis of bound magnitudes beyond ordering?
 
@@ -691,15 +719,17 @@ Note: ⏳ E7(~2.5 h)。
 
 Response:
 We sweep the regularizer's reference set over sizes {8, 32, 128} x domains
-{fine-tuning task, wikitext} under the paper's protocol (trace, lambda = 1.0,
-Llama-TruthfulQA): retention changes by [TBD-E3C]% at most across settings
-[report honestly if sensitive]; new appendix with the full grid. For the
+{fine-tuning task, wikitext} under the paper's protocol (trace, lambda = 0.5
+— the operating point with complete step-300 coverage, Llama-TruthfulQA):
+retention changes by [TBD-E3C]% at most across settings [report honestly if
+sensitive]; new appendix with the full grid. For the
 DIAGNOSTIC side, the corresponding size ablation {8..128} and the
 benchmark-independent domain result (a held-out WikiText reference, outside the
 reported benchmark set: mean rs +0.506 vs +0.725 benchmark-specific, computed
 from features we already extract) are reported together.
 
-Note: ⏳ E3-C;診斷側數字 ✅ 已有。
+Note: ⏳ E3-C 需重跑(首輪 lr=2e-4 非論文 protocol,作廢;λ 改 0.5;
+      ~9 h;lr-stress 內參在 out/E3/partC_summary.md);診斷側數字 ✅ 已有。
 
 8) Q4: comparison to stronger forgetting baselines?
 
@@ -722,7 +752,9 @@ Agreed — all four are added to the Limitations: (i) reference-set sensitivity
 with the new size/domain ablations; (ii) free-running generation with the new
 subset experiment and the restated teacher-forced-only corollary; (iii)
 head-varying variants (full SFT/RLHF), already identified in App. C.3 as the
-joint-alignment regime we scope out and list as future work; (iv) feature-
+joint-alignment regime we scope out and list as future work — the revision
+adds a first base-vs-instruct data point verifying bound validity in that
+regime; (iv) feature-
 extraction cost, quantified in the new cost table (one forward pass per
 variant over the reference set; no labels, no decoding).
 
@@ -734,6 +766,15 @@ Global assembly checklist (post 前逐項核對)
 [ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
+[ ] E13 的 20-cell 聚合已 inline(checksum REPRODUCED 論文輪次,可與 0.831 同句)
+[ ] E12 成本表在 E1+E7 跑完後執行(python3 rebuttal_exp/exp_e12_cost_table.py)
+    再填 G3T9-W1 的 [TBD-E12];E8 數字取自 out/E1/{family}_spearman.md 的 E8 節
+[ ] 所有量化端統計只用論文 5 benchmarks(E6/E13/eql6w3 已重算;E4 用
+    mmlu+triviaqa;E9 = gsm8k;E11 = 全 5 benchmarks)
+[ ] E9/E11 若未及跑:pCi8-W4 / G3T9-Q1 依各自 E#.md §風險的 fallback 句退回
+[ ] 所有 E2/E3-C run 確認 lr=1e-5(paper-round 啟動值;首輪 2e-4 sweep 全部
+    作廢,勿引 out/E3/partC_summary.md 的 lr-stress 數字;E2.md §4 勘誤)
+[ ] llama 的 trace anchor 一律 λ0.5(λ1.0 無完整 step-300 run;0.618 是誤讀)
 [ ] Global response 以 AC A–E 為骨架,開頭一句 "we address each of the five
     points raised in the meta-review with new experiments";結尾用定位句
 [ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)

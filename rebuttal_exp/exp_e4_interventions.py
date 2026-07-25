@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import math
 import sys
 import time
@@ -154,59 +155,34 @@ def main():
     handle = norm_mod.register_forward_hook(hook)
 
     rows = []
+    snaps = []      # deferred metric inputs — computed after model release
 
-    def evaluate(config_label, family, H_P=None):
+    def collect(config_label, family, H_P=None):
+        """Forward under the active perturbation and stash (Z_P, loss).
+        Metrics run AFTER the model is released: head metrics with an 8B
+        model resident OOM a 32 GB card (E3 part-B postmortem 2026-07-24 —
+        svdvals workspace inside compute_all)."""
         t0 = time.time()
         Z_P, loss_P = extract(model, dl, args.device)
-        H_P_use = H_P if H_P is not None else H_T
-        res = PRISMMetrics.compute_all(
-            Z_T.to(args.device), H_T.to(args.device),
-            Z_P.to(args.device), H_P_use.to(args.device),
-            W=torch.eye(d, device=args.device), label=config_label,
-        )
-        sup_res = (Z_T.to(args.device) - Z_P.to(args.device)) \
-            .norm(dim=1).max().item()
-        bound = UnifiedBound.compute_bound(
-            res.omega, res.rho_target, res.rho_proxy, res.head_discrepancy,
-            K_feat=K_feat, K_pred=K_pred,
-        )
-        b_total = bound.get("risk_bound_total",
-                            K_feat * res.feature_error
-                            + K_pred * res.head_discrepancy)
-        row = {
-            "config": config_label, "family": family,
-            "scale_term": res.scale_mismatch,
-            "shape_term": res.shape_mismatch,
-            "one_minus_omega": 1 - res.omega,
-            "gamma": res.head_discrepancy,
-            "delta": K_feat * res.feature_error,
-            "bound": b_total,
-            "|dR|": abs(loss_P - loss_T),
-            "bound_holds": b_total >= abs(loss_P - loss_T),
-            "sup_residual": sup_res,
-            "rho_T": res.rho_target, "rho_P": res.rho_proxy,
-        }
-        rows.append(row)
-        print(f"  {config_label:<16s} scale={row['scale_term']:.3e} "
-              f"shape={row['shape_term']:.3e} gamma={row['gamma']:.3e} "
-              f"B={row['bound']:.2f} |dR|={row['|dR|']:.4f} "
-              f"holds={row['bound_holds']} ({time.time() - t0:.0f}s)")
-        del Z_P
+        snaps.append({"config": config_label, "family": family,
+                      "Z_P": Z_P, "loss_P": loss_P, "H_P": H_P})
+        print(f"  {config_label:<16s} extracted "
+              f"({time.time() - t0:.0f}s)")
 
     # identity sanity row
     hook_state["mode"] = None
-    evaluate("identity", "control")
+    collect("identity", "control")
 
     # (a) scale-only
     for a in SCALE_ALPHAS:
         hook_state.update(mode="scale", alpha=a)
-        evaluate(f"scale_x{a}", "scale")
+        collect(f"scale_x{a}", "scale")
 
     # (b) shape-only (norm-preserving rotation)
     for th in SHAPE_THETAS:
         R = make_rotation(d, th, args.device, seed=args.seed)
         hook_state.update(mode="shape", R=R)
-        evaluate(f"rot_{th}rad", "shape")
+        collect(f"rot_{th}rad", "shape")
         hook_state["R"] = None
         torch.cuda.empty_cache()
 
@@ -217,9 +193,54 @@ def main():
     for bits in HEAD_BITS:
         Wq = rtn_quantize_rows(W_orig, bits)
         lm_head_w.data.copy_(Wq)
-        evaluate(f"head_rtn_{bits}bit", "head", H_P=Wq.T.contiguous().float().cpu())
+        collect(f"head_rtn_{bits}bit", "head",
+                H_P=Wq.T.contiguous().float().cpu())
     lm_head_w.data.copy_(W_orig)
     handle.remove()
+
+    # ── Deferred metrics (model released — lightweight Bound_I path) ────
+    del model, W_orig
+    gc.collect()
+    torch.cuda.empty_cache()
+    I_d = torch.eye(d, device=args.device)
+    H_T_dev = H_T.to(args.device)
+    for s in snaps:
+        t0 = time.time()
+        n = min(Z_T.shape[0], s["Z_P"].shape[0])
+        X = Z_T[:n].to(args.device)
+        Y = s["Z_P"][:n].to(args.device)
+        rho_T = PRISMMetrics.rms_scale(X)
+        rho_P = PRISMMetrics.rms_scale(Y)
+        omega = PRISMMetrics.trace_omega(X, Y)
+        fe = PRISMMetrics.feature_error(rho_T, rho_P, omega)
+        if s["H_P"] is None:
+            gamma = 0.0                    # backbone rows keep the head
+        else:
+            Sigma_P = (Y.T @ Y) / n
+            gamma = PRISMMetrics.head_discrepancy_covariance(
+                H_T_dev, s["H_P"].to(args.device), I_d, Sigma_P)
+        b_total = K_feat * fe + K_pred * gamma
+        sup_res = (X - Y).norm(dim=1).max().item()
+        row = {
+            "config": s["config"], "family": s["family"],
+            "scale_term": PRISMMetrics.scale_mismatch(rho_T, rho_P),
+            "shape_term": PRISMMetrics.shape_mismatch(rho_T, rho_P, omega),
+            "one_minus_omega": 1 - omega,
+            "gamma": gamma,
+            "delta": K_feat * fe,
+            "bound": b_total,
+            "|dR|": abs(s["loss_P"] - loss_T),
+            "bound_holds": b_total >= abs(s["loss_P"] - loss_T),
+            "sup_residual": sup_res,
+            "rho_T": rho_T, "rho_P": rho_P,
+        }
+        rows.append(row)
+        print(f"  {s['config']:<16s} scale={row['scale_term']:.3e} "
+              f"shape={row['shape_term']:.3e} gamma={row['gamma']:.3e} "
+              f"B={row['bound']:.2f} |dR|={row['|dR|']:.4f} "
+              f"holds={row['bound_holds']} ({time.time() - t0:.0f}s)")
+        del X, Y
+        torch.cuda.empty_cache()
 
     # ── Outputs ─────────────────────────────────────────────────────────
     stem = f"{short}_{args.dataset}"

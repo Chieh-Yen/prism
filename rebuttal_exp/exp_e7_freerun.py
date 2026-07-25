@@ -221,9 +221,16 @@ def main():
             continue
         t0 = time.time()
         Z_P_tf, loss_P_tf = extract_on(proxy, gold_batches, args.device)
+        t_gen = time.time()
         trajs = generate_trajectories(proxy, prompts, tokenizer,
                                       args.device, args.max_new_tokens,
                                       args.batch_size)
+        gen_tok = sum(len(seq) - pl for seq, pl in trajs)
+        dt_gen = max(time.time() - t_gen, 1e-9)
+        # Timing line harvested by E12's cost table (G3T9-W1):
+        # measured greedy-decode throughput on this hardware.
+        print(f"  [gen] {label}: {gen_tok} new tokens in {dt_gen:.0f}s "
+              f"({gen_tok / dt_gen:.1f} tok/s)")
         gen_batches = make_batches(trajs, args.batch_size)
         Z_P_fr, loss_P_fr = extract_on(proxy, gen_batches, args.device)
         H_P = (LLMExtractor().extract_head(proxy).float().cpu()

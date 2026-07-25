@@ -40,6 +40,13 @@ LOG="$OUT/screen.E2.${STAGE}.${TS}.log"
 mkdir -p "$OUT"
 FAILURES=()
 
+# Gated-repo lookups (PEFT adapter save) 401 without a token — harmless here
+# (vocab never resized) but noisy; a token also speeds up dataset pulls.
+if [[ -z "${HF_TOKEN:-}${HUGGING_FACE_HUB_TOKEN:-}" ]]; then
+    echo "[warn] HF_TOKEN not set: expect benign 401 warnings at PEFT save;" \
+         "export HF_TOKEN to silence (see E2.md risk table)." | tee -a "$LOG"
+fi
+
 run_one () {  # method lambda seed task model
     local method="$1" lam="$2" seed="$3" task="$4" model="$5"
     local tag="[$method lam=$lam seed=$seed $task]"
@@ -107,10 +114,13 @@ case "$STAGE" in
                         "$lam" "$seed" "$task" "$MODEL"
             done
         done
-        # Paper-config anchors, multi-seed (trace lam=1.0, replay lam=0.01)
+        # Paper-config anchors, multi-seed. trace anchor = lam 0.5: the only
+        # operating point with a complete step-300 paper-round run (the old
+        # "lam=1.0 -> 0.618" quote was a step-150 misread of an aborted run;
+        # E2.md §4 erratum). lr comes from the trainer's fixed 1e-5 default.
         for seed in 42 43 44; do
             run_one none   0     "$seed" "$task" "$MODEL"
-            run_one trace  1.0   "$seed" "$task" "$MODEL"
+            run_one trace  0.5   "$seed" "$task" "$MODEL"
             run_one replay 0.01  "$seed" "$task" "$MODEL"
         done
     done
@@ -128,9 +138,31 @@ case "$STAGE" in
                     "${!var:-1e-3}" 42 "$task" "$QWEN_MODEL"
         done
         run_one none   0    42 "$task" "$QWEN_MODEL"
-        run_one trace  1.0  42 "$task" "$QWEN_MODEL"
+        run_one trace  0.5  42 "$task" "$QWEN_MODEL"
         run_one replay 0.01 42 "$task" "$QWEN_MODEL"
     done
+    ;;
+
+  backfill)
+    # Complete the lambda=1.0 runs the paper-round trees left unfinished:
+    #   llama/truthfulqa (interrupted @150), llama/bbq (@50).
+    # qwen truthfulqa/bbq lam=1.0 are already complete — nothing to do there.
+    # Fresh 300-step reruns, same seed/protocol (lr 1e-5 via trainer default).
+    # DOUBLES AS THE ENVIRONMENT-REPRODUCTION CANARY for the whole E2
+    # campaign: the checker below compares steps 25..interrupt against the
+    # old trajectories — a match certifies pod-round == paper-round.
+    for task in truthfulqa bbq; do
+        run_one trace 1.0 42 "$task" "$MODEL"
+    done
+    if [[ "${FULL:-0}" == "1" ]]; then
+        # Optional: also fill E10's missing lam=1.0 coverage (4 cells that
+        # were never run at lam=1.0: {llama,qwen} x {lima, no_robots}).
+        for task in lima no_robots; do
+            run_one trace 1.0 42 "$task" "$MODEL"
+            run_one trace 1.0 42 "$task" "$QWEN_MODEL"
+        done
+    fi
+    python3 rebuttal_exp/exp_e2_backfill_check.py 2>&1 | tee -a "$LOG" || true
     ;;
 
   aggregate)
@@ -138,7 +170,7 @@ case "$STAGE" in
         2>&1 | tee -a "$LOG"
     ;;
 
-  *) echo "Unknown STAGE=$STAGE (sweep|seeds|qwen|aggregate)"; exit 2 ;;
+  *) echo "Unknown STAGE=$STAGE (sweep|seeds|qwen|aggregate|backfill)"; exit 2 ;;
 esac
 
 echo "=== E2 $STAGE done ($(date)) ===" | tee -a "$LOG"
