@@ -17,7 +17,8 @@
 | **E13** 20-cell 全相關矩陣 | **E**;8VrD-W4(1) | **0** | ✅ 已跑:**REPRODUCED**(llama mean +0.830 vs 論文 0.831;qwen-bbq −0.34/−0.66 命中)→ 全 20 cells mean **+0.71** / median **+0.93** | protocol 由 checksum 定位(answer-only、≤300、無 step-0) |
 | **E5** 定理重述 + corollary | **A**;8VrD-W1 | **0** | ✅ 完成:`e5_theorem.tex` | 無 |
 | **E4** 單軸介入 | 堵 "questionable diagnostic utility";8VrD-W3(1) | ~1–1.5 h | 待跑 | 單 model × {mmlu, triviaqa}(只用論文 benchmark;triviaqa = E6 中 |ΔR| 範圍最寬) |
-| **E1** CKA/SVCCA/Procrustes(+E8 iso_dev) | **C**(診斷);G3T9-W3, pCi8-W3;E8→pCi8-W6 | ~3–5 h | 待跑 | 主文 2 families;⚠️ Gemini「有 cached activations 免 forward」是錯的,需重抽特徵;log 計時餵 E12 |
+| **E1** CKA/SVCCA/Procrustes | **C**(診斷);G3T9-W3, pCi8-W3 | ~3–5 h | ✅ 已跑:B +0.82/+0.78 vs baselines +0.90/+0.86;**差距全在 gsm8k,排除後打平**;**SQuAD 兩 family B 皆勝**(head 軸);n=10(GPTQ 缺套件);draft 已填 | [load] 計時已入 log 餵 E12 |
+| **E8** isometry lite(選配) | pCi8-W6 | ~20 min | 待跑(首版 iso_dev 因 n<d 病態作廢,新 metric 金測通過;重用 E1 快取) | `script_E8.sh`;FP16 列會標 noise-floor |
 | **E3** reference set ablation | **B**;G3T9-W2, 8VrD-Q3 | ~10 h(首輪實測修正) | Part A ✅(.725/.506);**B/C 首輪失敗(OOM / lr 2e-4 + 覆寫),腳本已修待重跑**(E3.md §7) | B 只跑 Llama;C 3 sizes × 2 domains、λ=0.5 |
 | **E7** free-run 子集(meta-review 後新增) | **D**;G3T9-W2, 8VrD-W4/Q2 | ~2–2.5 h | 待跑(腳本就緒) | 1 family × 1 benchmark × 100 prompts;備案=劃界(AC 明文接受) |
 | **E2** layer-freeze/EWC/L2-SP/feature-KD | **C**(正則化);pCi8-W5, 8VrD-W3/Q4, eQL6-W4 | **~24 h**(+7 h 選配 Qwen) | 待跑;⚠️ **lr 必須 1e-5**(paper-round 啟動值;此前 2e-4 sweep 作廢,E2.md §4 勘誤;trace anchor 改 λ0.5) | 見 E2.md §2(含對 Gemini OOM 顧慮的修正:不適用本實作) |
@@ -71,6 +72,8 @@ E{1,2,3,4,5,6,7,9,10,11,12,13}.md 各實驗完整報告(目的/可行性/設計/
 script_E{1,2,3,4,6,7,9,10,11,13}.sh 執行入口(E5 無 script:純理論,交付 e5_theorem.tex;
                           E12 直接 python 執行,依賴 E1/E7 的 log)
 exp_e1_similarity_baselines.py   E1 主程式(GPU)
+exp_e1_subgroups.py              E1 子群分析(零 GPU;γ 混池機制驗證,B vs CKA within-protocol)
+exp_e8_isometry.py               E8 lite(GPU ~20 min;isometry-restriction cost,重用 E1 快取)
 train_forgetting_baselines.py    E2/E3-C 主程式(GPU;6 種 method 單一入口,含 layer_freeze)
 exp_e2_aggregate.py              E2 彙整(零 GPU;剔除未達 step-300 的中斷 run;支援 top{K} 目錄)
 exp_e3_refset_ablation.py        E3 A(零 GPU)+ B(GPU;BnB/GPTQ head 依論文慣例 γ≡0;OOM 已修)

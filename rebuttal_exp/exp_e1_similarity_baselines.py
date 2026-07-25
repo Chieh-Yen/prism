@@ -99,18 +99,12 @@ def procrustes_distance(X: torch.Tensor, Y: torch.Tensor) -> float:
     return math.sqrt(max(sq.item(), 0.0) / X.shape[0])
 
 
-def isometry_deviation(X: torch.Tensor, Y: torch.Tensor) -> float:
-    """E8 (pCi8-W6): how far the OPTIMAL UNCONSTRAINED alignment is from a
-    scaled isometry. A* = argmin_A ||X A - Y||_F (ridge-regularised normal
-    equations); returns CV of A*'s singular values — 0 iff A* is exactly a
-    scalar x orthogonal map, growing as quantization distorts geometry
-    anisotropically. Zero extra GPU cost on E1's paired features."""
-    d = X.shape[1]
-    XtX = X.T @ X
-    ridge = 1e-6 * XtX.diagonal().mean()
-    A = torch.linalg.solve(XtX + ridge * torch.eye(d, device=X.device), X.T @ Y)
-    sv = torch.linalg.svdvals(A)
-    return (sv.std(unbiased=False) / sv.mean().clamp(min=1e-12)).item()
+# NOTE (2026-07-25): the earlier in-loop `iso_dev` column (CV of singular
+# values of the unconstrained alignment) was REMOVED — with n_tokens < d on
+# most benchmarks (mmlu: ~511 tokens vs d=4096) the regression is
+# underdetermined and the statistic measures feature-covariance conditioning,
+# not isometry violation (FP16 control scored 18-50). E8 now lives in the
+# standalone exp_e8_isometry.py (top-r subspace residual-ratio design).
 
 
 def omega_trace(X: torch.Tensor, Y: torch.Tensor) -> float:
@@ -256,7 +250,6 @@ def main():
                 "svcca": svcca(X, Y),
                 "procr_dist": procrustes_distance(X, Y),
                 "omega_I": omega_trace(X, Y),
-                "iso_dev": isometry_deviation(X, Y),
                 "bound_I": bound_csv.get((label, b), float("nan")),
                 "|MdR|": risk.get((label, b), float("nan")),
             }
@@ -265,7 +258,6 @@ def main():
             free_cuda()
             print(f"  {b}: cka={row['cka']:.4f} svcca={row['svcca']:.4f} "
                   f"procr={row['procr_dist']:.3f} omega={row['omega_I']:.4f} "
-                  f"iso_dev={row['iso_dev']:.4f} "
                   f"|dR|={row['|MdR|']:.4f} ({time.time() - t0:.0f}s)")
         del proxy
         free_cuda()
@@ -308,20 +300,8 @@ def main():
         f"**{statistics.mean(per_metric[m]):+.3f}**"
         for m in METRICS) + " |")
 
-    # ── E8 (pCi8-W6): isometry deviation vs variant/bit-width ──────────
-    md += ["", "## E8 — isometry deviation of the optimal unconstrained "
-           "alignment (pCi8-W6)", "",
-           "CV of singular values of A* = argmin ||Z_T A - Z_P||; 0 = "
-           "exactly scaled-orthogonal. Mean over benchmarks per variant:",
-           "", "| variant | mean iso_dev |", "|---|---|"]
-    seen_labels = []
-    for r in rows:
-        if r["label"] not in seen_labels:
-            seen_labels.append(r["label"])
-    for lab in seen_labels:
-        vals = [r["iso_dev"] for r in rows if r["label"] == lab]
-        md.append(f"| {lab} | {statistics.mean(vals):.4f} |")
-
+    md += ["", "(E8 isometry analysis moved to exp_e8_isometry.py — "
+           "see out/E8/.)"]
     (OUT_DIR / f"{args.family}_spearman.md").write_text("\n".join(md))
     print("\n".join(md))
 
