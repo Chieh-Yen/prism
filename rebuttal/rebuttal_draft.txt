@@ -128,7 +128,10 @@ D. Free-running generation: either provide experiments, or clearly limit the
 Response:
 Both. (1) Experiment: on a 100-prompt MMLU subset, each variant GREEDILY
 generates its own continuation (so surrogate errors compound into its own
-context); both models are then scored on those generated trajectories.
+context); both models are then scored on those generated trajectories —
+per-token CE against the trajectory's own next tokens, so the risk gap
+needs no gold labels (the same label-free construction as every |dR| in
+the paper; the generated text is simply the conditioning sequence).
 rs(B, |dR|) free-running = [TBD-E7] vs [TBD-E7] teacher-forced on the same
 subset; bound-rank agreement rs(B_tf, B_free) = [TBD-E7]. (2) Scope: we
 restate Corollary 1 as teacher-forced-only and list trajectory-distribution
@@ -761,7 +764,10 @@ Note: ✅ W2 的自包含濃縮版。
 Response:
 See the new subset experiment: each variant generates its own greedy
 continuations on 100 prompts; both models are scored on those trajectories
-(features + per-token CE on the generated region). rs(B, |dR|) free-running =
+(features + per-token CE on the generated region, with the generated tokens
+themselves as the next-token targets — the risk GAP between the two models
+requires no gold labels, exactly like every teacher-forced |dR| in the
+paper). rs(B, |dR|) free-running =
 [TBD-E7] vs [TBD-E7] teacher-forced on the same prompts; bound-rank agreement
 rs(B_tf, B_free) = [TBD-E7]. Independently, Corollary 1 is restated as
 teacher-forced-only and trajectory shift listed as an explicit limitation.
