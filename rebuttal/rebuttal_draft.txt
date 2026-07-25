@@ -365,17 +365,23 @@ Reviewer #2 — G3T9 (3: Borderline reject, conf 4) — Q3/C3/S2/O3
 Response:
 Three answers. (1) Cost: PRISM needs ONE teacher-forced forward pass per
 variant over a small reference set — no labels, no decoding; on an RTX 5090
-this is minutes per variant, while benchmark evaluation of the same suite is
-dominated by autoregressive decoding (GSM8K CoT). The revision adds the exact
-GPU-cost table for ranking K variants: [TBD-E12 — measured PRISM s/variant
-(full diagnosis and 32-seq screening mode, from E1's load+extract timings)
-vs three benchmark-side tiers at measured tok/s: gold-length floor /
-standard protocol (4-choice LL scoring on MC + MEASURED GSM8K decode —
-one greedy decode to natural EOS (generous token ceiling, truncation-checked)
-vs one TF pass on identical prompts/model/batch — + 64-token QA budgets) /
-maj@8 GSM8K — expected
-~2.5x / ~9x / ~49x the full diagnosis and up to ~200x the screening mode;
-run script_E12.sh for the definitive numbers].
+this is 144.0 s/variant (median over 13 Llama variants at 512
+samples/benchmark, variant load included; range 94.0-189.0 s), or ~36.2
+s/variant in 32-sequence screening mode (load-dominated), while benchmark
+evaluation of the same suite is dominated by autoregressive decoding (GSM8K
+CoT). The revision adds the exact GPU-cost table for ranking K variants,
+wall-clock measured on the same hardware. Benchmark-side cost per variant:
+353.2 s merely to decode the gold answers once (an absurdly generous floor)
+/ 1671.0 s under the standard protocol (4-choice LL scoring on MC at 4x our
+measured forward time + MEASURED GSM8K decode + 64-token QA budgets) /
+9465.2 s with maj@8 on GSM8K — i.e., 2.5x / 12x / 66x PRISM's full
+diagnosis and 46x-261x its screening mode, before scoring, which
+additionally requires labels. The GSM8K component is measured, not assumed:
+one greedy decode to natural EOS vs PRISM's exact teacher-forced call on
+identical prompts, model, and batch = 556.7 s vs 8.9 s (>= 62.6x; 13% of
+generations were still running at the 1024-token ceiling, so the decode
+side is understated and the ratio is a lower bound; mean natural CoT length
+208.8 tokens/prompt vs 102 gold tokens).
 (2) Actionability: the axis -> action map is already in Sec. 5.3: scale ->
 per-channel outlier smoothing; shape -> Hessian-aware reconstruction (PTQ) /
 trace regularization (training); head -> keep lm_head in FP16. The GGUF case
@@ -393,7 +399,8 @@ head-only RTN leaves Scale = Shape = 0 exactly while gamma sweeps
 (3) PRISM is label-free, so it applies where no benchmark exists
 (private domains). Positioning is made explicit in the Introduction.
 
-Note: 指路(L258–262, L249–257)+ E4 ✅ 定稿(26/26 bound holds,選擇性 ≥2.6e5×)+ cost 表 ⏳ E12。
+Note: 指路(L258–262, L249–257)+ E4 ✅ 定稿(26/26 bound holds,選擇性 ≥2.6e5×)
++ cost 表 ✅ E12 定稿(144.0 s vs 1671.0 s standard = 12×;E12b decode/TF ≥62.6×)。
 
 2) W2: teacher-forced extraction; bound computed on benchmark inputs; needs
    reference-set ablation.
@@ -493,14 +500,19 @@ lists as the first future-work item; we keep validated claims scoped to PTQ
 and frozen-head LoRA. As a first data point we run the full decomposition
 between BASE and INSTRUCT checkpoints of the main-text families — the
 full-post-training regime, with the head term engaged (H_P = the instruct
-lm_head, W = I): [TBD-E11 — bound-validity count across (pair, benchmark)
-cells, head share of B, and 1-Omega vs the same family's Q4_K_M level].
-The bound remains valid there; what degrades is tightness, exactly as
-App. C.3 anticipates — we report the numbers rather than extend the claims.
+lm_head, W = I): the bound holds in 10/10 (pair, benchmark) cells; the head
+term engages exactly as predicted (median 50% of B, vs a structural 0% in
+every frozen-head setting of the paper); and instruct-tuning's geometric
+drift is large on the PTQ scale — 1-Omega median 0.224 on Llama, essentially
+the same family's Q2_K level (0.225), and 0.254 on Qwen, 14x its Q2_K
+(0.018). The bound remains valid; what degrades is tightness (B is orders
+looser than in PTQ — e.g., 565 vs measured |dR| = 0.02 on Llama-ARC),
+exactly as App. C.3 anticipates — we report the numbers rather than extend
+the claims.
 
-Note: ✅ 指路 App C.3 L678–679 + App I;E11 已實作(script_E11.sh,預設
-      llama+qwen 2 pairs ~1.5 h)。跑不完 fallback:刪掉 data-point 句、
-      改回「else explicitly future work」。
+Note: ✅ 指路 App C.3 L678–679 + App I + E11 定稿已填(10/10 holds;
+      head share 0%→50% 命中理論預測;1−Ω:llama 0.224≈Q2_K 0.225、
+      qwen 0.254=14×Q2_K;looseness 主動揭露)。
 
 6) Q2: mixed / multi-task fine-tuning? base -> SFT?
 
@@ -869,9 +881,11 @@ joint-alignment regime we scope out and list as future work — the revision
 adds a first base-vs-instruct data point verifying bound validity in that
 regime; (iv) feature-
 extraction cost, quantified in the new cost table (one forward pass per
-variant over the reference set; no labels, no decoding).
+variant over the reference set; no labels, no decoding — measured 144.0
+s/variant median on an RTX 5090, vs 1671.0 s to evaluate the same
+5-benchmark suite under the standard protocol).
 
-Note: (iii) 有 App C.3 指路;(i)(ii)(iv) 隨 E3/E7/cost 表落地。
+Note: (iii) 有 App C.3 指路;(iv) ✅ E12 定稿;(i)(ii) 隨 E3/E7 落地。
 
 ================================================================================
 Global assembly checklist (post 前逐項核對)
@@ -880,12 +894,14 @@ Global assembly checklist (post 前逐項核對)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
 [ ] E13 的 20-cell 聚合已 inline(checksum REPRODUCED 論文輪次,可與 0.831 同句)
-[ ] E12 成本表在 E1+E7 跑完後執行(python3 rebuttal_exp/exp_e12_cost_table.py)
-    再填 G3T9-W1 的 [TBD-E12];E8 數字取自 out/E8/E8_results_llama.md
+[x] E12 成本表 ✅ 定稿已填(G3T9-W1 + 8VrD-Lim(iv):144.0 s vs 353.2/1671.0/
+    9465.2 s = 2.5×/12×/66×;E12b decode/TF ≥62.6×,13% ceiling = lower-bound
+    方向,兩次獨立執行差 0.02%);E8 數字取自 out/E8/E8_results_llama.md
     (獨立 lite 腳本;E1 內舊 iso_dev 已作廢)
 [ ] 所有量化端統計只用論文 5 benchmarks(E6/E13/eql6w3 已重算;E4 用
     mmlu+triviaqa;E9 = gsm8k;E11 = 全 5 benchmarks)
-[ ] E9/E11 若未及跑:pCi8-W4 / G3T9-Q1 依各自 E#.md §風險的 fallback 句退回
+[ ] E9 若未及跑:pCi8-W4 依 E9.md §風險 fallback 句退回(E11 ✅ 已填 G3T9-Q1:
+    10/10 holds、head share 50%、1−Ω vs Q2_K 錨、looseness 主動揭露)
 [ ] 所有 E2/E3-C run 確認 lr=1e-5(paper-round 啟動值;首輪 2e-4 sweep 全部
     作廢,勿引 out/E3/partC_summary.md 的 lr-stress 數字;E2.md §4 勘誤)
 [ ] trace anchor λ 依 backfill 結果定(論文正文口徑 λ1.0;E2.md §5 決策規則);

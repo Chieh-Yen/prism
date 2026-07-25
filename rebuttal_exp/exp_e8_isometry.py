@@ -79,7 +79,7 @@ def subspace_residuals(X: torch.Tensor, Y: torch.Tensor, cap: int = 256):
     # out while O(r) x single-scale cannot — inflating iso_gain spuriously
     # (identity control fails without this guard).
     ev = (Sx ** 2).cumsum(0) / (Sx ** 2).sum().clamp(min=1e-12)
-    r90 = int(torch.searchsorted(ev, torch.tensor(0.90)).item()) + 1
+    r90 = int((ev < 0.90).sum().item()) + 1
     r = max(8, min(cap, n // 4, r90))
     var_share = ((Sx[:r] ** 2).sum() / (Sx ** 2).sum().clamp(min=1e-12)).item()
     Xr = Xc @ Vtx[:r].T                 # (n, r) — X in its own basis
