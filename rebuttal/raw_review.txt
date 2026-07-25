@@ -1,0 +1,303 @@
+OpenReview
+.net
+
+back arrowGo to NeurIPS 2026 Conference homepage
+PRISM: Decomposing Geometric Drift for Risk Diagnosis in LLM Variants
+Download PDF
+Chieh-Yen Lin, Shao-Hua Sun 
+30 Apr 2026 (modified: 28 May 2026)
+NeurIPS 2026 Conference Submission
+Conference, Senior Area Chairs, Area Chairs, Reviewers, Authors
+Revisions
+CC BY 4.0
+TL;DR: PRISM: a closed-form geometric bound on the LLM cross-entropy risk gap that decomposes into scale, shape, and head axes—diagnosing PTQ/LoRA failures and doubling as a differentiable regularizer against catastrophic forgetting.
+Abstract:
+Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---needs a diagnostic that pinpoints \emph{how} the variant has drifted, not just \emph{that} it has; existing similarity scores (CKA, SVCCA) flag degradation without linking to risk or mechanism. We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), exploiting LLMs' linear head and empirically near-isometric backbone to derive a closed-form upper bound on the cross-entropy risk gap 
+, calibrated for variant ranking, that decomposes drift into three independently measurable axes: \emph{scale mismatch}, \emph{shape mismatch}, and a \emph{head divergence}. Each axis maps to a distinct failure mode (shape distortion at low-bit quantization, scale separability under LoRA forgetting, head divergence at GGUF k-quant), so the dominant axis points to a remediation direction rather than a flag. Because the shape term is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting. Across two model families and five benchmarks, PRISM ranks variants with mean Spearman 
+ (PTQ) and 
+ (LoRA forgetting), and the axis-guided shape regularizer outperforms experience replay at mitigating downstream forgetting.
+
+Primary Area: Language and multimodal language models (e.g., text generation, summarization, VQA)
+Secondary Area: Deep learning advancements (e.g., architectures, optimizers, representation learning)
+Contribution Type: General: Most submissions will fall into this type.
+Checklist Confirmation: true
+Supplementary Material:  gz
+Reviewer Nomination:  Chieh-Yen Lin
+Responsible Reviewing: true
+Academic Integrity: true
+LLM Usage: editing, visualizing_results, data_processing, facilitating_experiments
+Declaration: true
+LLM Feedback Request:  Chieh-Yen Lin
+Submission Number: 8674
+Discussion
+Filter by reply type...
+Filter by author...
+Search keywords...
+
+Sort: Newest First
+8 / 8 replies shown
+Add:
+Meta Review of Submission8674 by Area Chair LN7U
+Meta Reviewby Area Chair LN7U17 Jul 2026, 21:11 (modified: 24 Jul 2026, 01:36)Senior Area Chairs, Area Chairs, Authors, Reviewers Submitted, Program Chairs, Area Chair LN7URevisions
+Metareview:
+The paper proposes PRISM, a framework for diagnosing degradation in variants of LLM post-training, including quantized and LoRA-adapted models. The main technical claim is that the cross-entropy risk gap between a target-base model and a proxy-variant model can be upper-bounded by a closed-form geometric quantity decomposed into three interpretable components: scale mismatch, shape mismatch, and head divergence. The authors argue that these components correspond to different failure modes and that the differentiable shape component can thus serve as a regularizer against catastrophic forgetting.
+
+Strong Points
+Interesting and timely problem: All reviewers recognize that diagnosing post-trained LLM variant degradation is an important problem. PRISM attempts to go beyond measuring degradation and decomposes drift into interpretable components.
+Conceptually appealing decomposition: Reviewers generally find the decomposition into scale, shape, and head terms intuitive and potentially useful. pCi8 emphasizes that the scale/shape split is mathematically clean and exact, and G3T9 and 8VrD note that this decomposition is more informative than a single representation similarity score such as CKA or SVCCA.
+Connection between geometry and risk: Several reviewers appreciate the connection between representation geometry and cross-entropy risk. G3T9 identifies this as a key strength, and 8VrD highlights the hybrid risk construction that separates backbone drift from head drift.
+Promise as an empirical ranking tool: The reported rank correlations for PTQ and LoRA forgetting suggest that PRISM may be useful for ranking variants when direct evaluation is expensive. pCi8 and G3T9 both note the low computational cost and the potential practical value of using a small number of forward passes rather than a full benchmark suite.
+Shape regularization: The use of the differentiable shape term as a training-time regularizer is viewed positively in principle. pCi8, eQL6, and 8VrD all mention this as an attractive aspect of the paper, though they differ on how convincing the evidence is.
+Weak Points
+Loose risk bound: Reviewers pCi8, G3T9, and 8VrD all note that the proposed bound appears useful mainly as a ranking signal, not as an operationally meaningful certificate of degradation. This weakens the framing of PRISM as a risk diagnostic rather than a calibrated heuristic for ordering variants.
+Questionable diagnostic utily: The scale/shape/head decomposition is intuitive, but reviewers pCi8, G3T9, and 8VrD question whether it identifies actionable mechanisms beyond coarse descriptive categories. Some identified failure modes are already expected, and stronger evidence is needed to show that the decomposition reliably guides mitigation.
+Incomplete empirical comparisons: The paper positions PRISM against representation similarity metrics and catastrophic-forgetting methods, but reviewers G3T9, pCi8, and 8VrD argue that the evaluation lacks sufficiently strong or direct baselines in both the diagnostic/ranking setting and the regularization setting.
+Narrow experimental setting: Reviewers G3T9 and 8VrD emphasize that PRISM is evaluated largely under teacher-forced feature extraction and benchmark-aligned reference data. It remains unclear how well the method transfers to benchmark-independent calibration sets, free-running generation, reasoning-heavy tasks, or variants that drift farther from the base model.
+Unconvincing regularization results: Reviewers eQL6, pCi8, and 8VrD find the shape regularizer promising but not yet fully validated. The evaluation uses limited baselines, shows mixed results across settings, and does not clearly establish the tradeoff between reducing forgetting and preserving new-task performance.
+Clarity and theoretical-framing issues: Reviewers eQL6 and 8VrD raise concerns about notation, the motivation for orthogonal alignment, and whether the stated risk guarantee should be framed more carefully as applying to empirical risk on calibration samples rather than population risk.
+What could change the recommendation?
+A very strong author response could improve the assessment, especially if it addresses the following points with concrete evidence rather than only clarification:
+
+Clarify usefulness of the bound: The authors should explicitly state whether the result should be understood as an empirical/calibration-set bound or a population-risk statement. They should also quantify the looseness of the bound and explain whether it can support any operational threshold beyond ranking.
+Demonstrate benchmark-independent use: The authors should show that PRISM remains predictive when computed on a small, benchmark-independent reference set, including sensitivity to reference-set size and domain.
+Add stronger baselines: For diagnostics, direct comparisons to CKA, SVCCA, and simpler feature-preserving scores are needed. For regularization, stronger continual-learning baselines such as EWC, SLoRA, CLAIM, ArMA, or layer-freezing/replay variants would substantially improve the evaluation.
+Free-running generation: The authors should either provide free-running generation experiments or clearly limit the claims to teacher-forced comparisons.
+Analyze failures and mixed results: The authors should discuss weaker correlations, such as those noted for GSM8K or Qwen-BBQ, and cases where the regularizer does not help or worsens forgetting.
+Summary
+My preliminary recommendation is hovering around Borderline Reject. A strong and convincing rebuttal with additional experiments and careful narrowing of the claims could move the paper closer to borderline accept, but based on the current reviews, the weaknesses outweigh the strengths.
+
+Add:
+Official Review of Submission8674 by Reviewer pCi8
+Official Reviewby Reviewer pCi827 Jun 2026, 15:07 (modified: 23 Jul 2026, 22:05)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer pCi8Revisions
+Summary:
+PRISM is a diagnostic tool for post-training LLM variants — quantized, LoRA fine-tuned, or distilled. The core problem it solves is pretty simple: when you quantize a model, you want to know how much you broke it and where, without running a full benchmark suite. Existing similarity metrics like CKA and SVCCA can tell you that a variant has drifted from the base, but not why or which component is responsible. PRISM derives a closed-form upper bound on the cross-entropy risk gap between a base model and its variant, decomposed into three independently measurable axes: scale mismatch (activation magnitude collapse), shape mismatch (distortion of the relative geometry between token representations), and head divergence (the prediction head itself drifting). The key technical insight is that the linear lm_head plus near-isometric backbone structure of modern LLMs lets you express this bound tightly — avoiding the naive Lipschitz constant that would blow up with vocabulary size — and the Procrustes residual gives you an exact scale/shape decomposition for free. Empirically it ranks PTQ variants with Spearman rs=0.820r_s = 0.820 rs​=0.820 and LoRA forgetting checkpoints at rs=0.831r_s = 0.831 rs​=0.831 across two model families and five benchmarks, using only a single forward pass per model with no labels. The shape term is also differentiable, so it doubles as a regularizer during LoRA fine-tuning that outperforms experience replay at mitigating catastrophic forgetting.
+
+Contribution Type: General: Most submissions will fall into this type.
+Strengths And Weaknesses:
+Strength:
+
+Exact decomposition. The scale/shape split is an exact identity, not an approximation. The math is clean and the derivation is self-contained.
+
+Tighter Lipschitz constant. The simplex polarization trick is a real contribution — the naive spectral bound scales with vocabulary size and becomes useless at V~10⁵, this one doesn't.
+
+Three axes are actually distinct. Empirically they do capture different failure modes rather than just being correlated proxies of the same thing.
+
+Low compute cost. One forward pass per model, no labels needed. Useful in practice when you're choosing between a dozen quantization variants and don't want to run full benchmarks on all of them.
+
+Shape regularizer is a natural byproduct. You get a differentiable training objective for free from the bound, and it actually outperforms replay in the experiments.
+
+Weakness:
+
+The three diagnostic conclusions — low-bit quantization breaks feature geometry, LoRA shifts activation scale, quantizing lm_head causes head divergence — were already known before this paper. The contribution is putting them in a unified framework, not discovering anything new about how these operations fail.
+The bound is loose by orders of magnitude against actual risk gap, and the paper admits it's only calibrated for ranking. So it tells you Q2 is worse than Q4, but not whether Q4 is actually good enough. You still need to run benchmarks for that.
+Table 3 shows the gap between using shape similarity Ω alone versus the full PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
+GSM8K correlation is noticeably lower than all other benchmarks. The paper attributes this to long chain-of-thought spans diluting per-token loss. This isn't an edge case — it's a structural limitation that gets more relevant as models move toward reasoning.
+The standard baseline for catastrophic forgetting is EWC, which the paper cites in related work but never actually compares against. Only comparing against a small-scale experience replay is a convenient choice.
+The whole orthogonal alignment setup relies on representations being near-isometric across related models. The paper cites two papers to justify this but doesn't discuss whether the assumption still holds after aggressive quantization, when feature geometry is already severely distorted.
+Quality: 3: good
+Clarity: 3: good
+Significance: 2: not good
+Originality: 3: good
+Questions:
+N/A
+
+Limitations:
+Yes
+
+Rating: 3: Borderline reject: Technically solid paper where reasons to reject, e.g., limited evaluation, outweigh reasons to accept, e.g., good evaluation. Please use sparingly.
+Confidence: 4: You are confident in your assessment, but not absolutely certain. It is unlikely, but not impossible, that you did not understand some parts of the submission or that you are unfamiliar with some pieces of related work.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+N/A
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+Add:
+Official Review of Submission8674 by Reviewer G3T9
+Official Reviewby Reviewer G3T925 Jun 2026, 21:54 (modified: 23 Jul 2026, 22:05)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer G3T9Revisions
+Summary:
+This paper proposes PRISM, a framework for diagnosing performance degradation for post-trained LLM models. The key idea is to compare the hidden representations and output heads of a base model and its finetuned model, and to decompose the resulting cross-entropy risk gap into three interpretable components: scale mismatch, shape mismatch, and head divergence. The authors derive a closed-form upper bound on the risk difference and show that the resulting PRISM score correlates with empirical degradation across quantization and LoRA fine-tuning settings. Beyond post-hoc diagnosis, the paper further uses the differentiable shape component as a regularizer during frozen-head LoRA training, aiming to mitigate catastrophic forgetting without relying on experience replay.
+
+Contribution Type: General: Most submissions will fall into this type.
+Strengths And Weaknesses:
+Strength
+
+The paper addresses how to how degradation from post-training can be explained in theory, rather than merely detecting that their performance has dropped. The proposed decomposition into scale, shape, and head components is intuitive and provides a more diagnostic view than single-number representation similarity metrics such as CKA or SVCCA.
+
+A key strength is the connection between representation geometry and cross-entropy risk. It gives a principled justification for using geometric drift as a proxy for model degradation. The decomposition also helps localize different failure modes, such as representation distortion in low-bit quantization or head divergence in GGUF-style quantization.
+
+The empirical evaluation is reasonably broad, covering multiple model families, quantization backends, bit-widths, and LoRA forgetting scenarios. The rank correlations reported for both PTQ and LoRA settings suggest that PRISM is useful as a model-ranking and diagnostic tool.
+
+Weaknesses
+
+The motivation for the proposed framework is not fully convincing to me. In many practical settings, one could simply evaluate the post-training models on the relevant benchmark suites. The paper argues that PRISM provides a more diagnostic alternative, but it is not entirely clear why decomposing the degradation into scale, shape, and head terms provides a sufficiently detailed explanation of the failure. These axes are interpretable at a high level, but they still seem relatively coarse and do not necessarily identify actionable root causes beyond another layer of descriptive analysis. If the intended advantage is computational efficiency over direct evaluation, the paper should provide a more careful cost analysis, including how many forward passes are required, what reference data are used, and how the cost compares to standard benchmark evaluation under realistic settings.
+
+The empirical evaluation appears incomplete in several important dimensions. The experiments rely on teacher-forced feature extraction, but it remains unclear whether the same conclusions hold in free-running generation. In addition, the PRISM bound seems to be computed using benchmark inputs themselves, so it is unclear how well the method works with a small benchmark-independent reference set. Additionally, an ablation for the number and type of reference samples would be important to understand the sample efficiency and robustness of the method.
+
+The comparison to existing baselines is also limited. Since PRISM is positioned as an improvement over existing representation similarity methods such as CKA and SVCCA, the paper should more directly compare against these metrics in the same ranking and diagnostic settings. Similarly, for the regularization experiments, it would be useful to compare the proposed shape regularizer against simpler feature-preserving regularizers or other representation regularization methods, not only experience replay.
+
+Finally, the proposed risk bound appears extremely loose in absolute scale, as shown in Table 1. While the paper demonstrates that the bound has good rank correlation with empirical degradation, this mainly supports its use as a heuristic ranking score, not necessarily as a practically meaningful upper bound.
+
+Quality: 3: good
+Clarity: 3: good
+Significance: 2: not good
+Originality: 3: good
+Questions:
+Questions
+
+Can PRISM be applied beyond PTQ and frozen-head LoRA, such as to full fine-tuning or RLHF/RL-trained models? Since these settings may change both the backbone and the prediction head more substantially, it would be helpful to clarify whether the proposed decomposition remains meaningful when the variant is much farther from the base model.
+
+How does PRISM behave when the model is fine-tuned on mixed or multi-task data? The current experiments seem to focus on variants derived from already post-trained models and relatively controlled fine-tuning settings. It would be useful to know whether similar correlations and diagnostic patterns hold when applying PRISM from the original base model to SFT models, or when fine-tuning jointly on heterogeneous datasets.
+
+Limitations:
+Yes
+
+Rating: 3: Borderline reject: Technically solid paper where reasons to reject, e.g., limited evaluation, outweigh reasons to accept, e.g., good evaluation. Please use sparingly.
+Confidence: 4: You are confident in your assessment, but not absolutely certain. It is unlikely, but not impossible, that you did not understand some parts of the submission or that you are unfamiliar with some pieces of related work.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+NA
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+Add:
+Official Review of Submission8674 by Reviewer eQL6
+Official Reviewby Reviewer eQL625 Jun 2026, 13:11 (modified: 23 Jul 2026, 22:05)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer eQL6Revisions
+Summary:
+The paper proposes PRISM, a framework to analyze different failure modes in post-trained variants (e.g., quantized, LoRA fine-tuned) of pre-trained LLMs. The authors analyze the population risk gap between a "target" model (e.g., full-precision pre-trained base model) and "proxy" model (e.g., quantized model) under an orthogonal transformation of the proxy model's backbone features and classifier head. They derive a bound on the risk that decomposes into three terms: backbone scale mismatch, backbone shape mismatch, and classifier head discrepancy. From this, the authors propose a shape regularizer in the objective loss to align pre- and post-trained model backbone features. Finally, the authors empirically demonstrate the derived bound scales with the observed risks, the decomposed terms correspond to different failure modes, and the proposed regularizer alleviates the risk gap between pre- and post-trained models.
+
+Contribution Type: General: Most submissions will fall into this type.
+Strengths And Weaknesses:
+Strengths:
+
+Diagnosing why and how post-trained models significantly deviate from their base models is important.
+Decomposing the proxy-target risk gap into interpretable terms, and associating each term with different failure modes, are insightful observations.
+The authors' proposed regularizer appears to mitigate the risk gap between the base and fine-tuned models.
+Weaknesses:
+
+The writing and communication is sometimes not very clear. The authors commonly use notation that has not yet been defined, e.g., under the summary of main contributions in the Introduction, they state 
+ represents "shape" without specifying what 
+ and 
+ represent, and what "shape" means in that context. Furthermore, in Section 5, results that are central to the authors' arguments are left to the appendix, making it slightly difficult to verify the written claims there.
+
+In the theoretical analysis, the motivation for considering orthogonal transformations for proxy-target alignment is not very clear.
+
+In the experiments, to me it seems the shape mismatch term dominating the risk bound is due to the scale of the feature matrices themselves, rather than the actual misalignment 
+. As an extreme example, consider 
+ with 
+ and 
+, i.e., the feature matrices and head weights blow up in magnitude, but stay on the same order before and after post-training (the second part is supported by Tables 1 and 18 in my opinion). Then, both the shape mismatch and head discrepancy terms are still 
+, but 
+. If 
+ exactly, then 
+, but we still have 
+. From Table 1, 
+ is typically close to 
+, and 
+, so to me it seems any "large" 
+'s are due to the 
+ product being large.
+
+Although the proposed regularization helps close the pre-trained & fine-tuned model risk gap, it's unclear how this regularization impacts the fine-tuned model's performance on the original downstream task.
+
+Quality: 2: not good
+Clarity: 2: not good
+Significance: 3: good
+Originality: 3: good
+Questions:
+(See Weakness 2) Could the authors clarify why the linear / platonic representation hypotheses motivates studying orthogonal transformations specifically to analyze target-proxy model risk?
+
+Could the authors also clarify the meaning of "Shape preservation admits two lifecycle-specific instances: Hessian-aware reconstruction at PTQ time, and ... " from Section 5.3?
+
+(See Weakness 4) Under the proposed regularization objective, does the fine-tuned model perform just as well on the original downstream task compared to the baselines (no regularization and replay-CE)?
+
+In Section 5.5, the Spearman 
+ is computed between each risk gap bound term, and what other variable? Is it the empirical risk gap?
+
+Limitations:
+yes
+
+Rating: 3: Borderline reject: Technically solid paper where reasons to reject, e.g., limited evaluation, outweigh reasons to accept, e.g., good evaluation. Please use sparingly.
+Confidence: 3: You are fairly confident in your assessment. It is possible that you did not understand some parts of the submission or that you are unfamiliar with some pieces of related work. Math/other details were not carefully checked.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+N/A
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+Add:
+Official Review of Submission8674 by Reviewer 8VrD
+Official Reviewby Reviewer 8VrD23 Jun 2026, 02:05 (modified: 23 Jul 2026, 22:05)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer 8VrDRevisions
+Summary:
+This paper proposes a PRISM method for diagnosing drift between LLMs and their post-training variants. The analysis introduces a hybrid model that applies the target head to aligned surrogate features. This decomposes the cross-entropy risk gap into feature terms and head terms. Feature residuals are further precisely decomposed into scale mismatch and shape mismatch, while the head term is weighted by the covariance of the surrogate features. Experiments cover PTQ variants and frozen-head LoRA checkpoints. The authors also use a differentiable shape term as a regularization term to prevent forgetting.
+
+Contribution Type: General: Most submissions will fall into this type.
+Strengths And Weaknesses:
+Strengths
+The derivation is clear and easy to understand. The hybrid risk construction method separates the backbone network and head drift, with pairwise embedding diameters superior to the general spectral norm Lipschitz bound, and covariance weighting restricting head differences to the direction of data activity. Its innovation lies in combining these elements to form a deployed head risk diagnostic model.
+
+Scale/shape/head decomposition is more informative than a single representation similarity score. This paper also effectively distinguishes between identity alignment that preserves frozen head simplification and feature-optimal Procrustes alignment.
+
+Transforming differentiable shape terms into training objectives is conceptually attractive and helps address the significant shape drift problem in Llama-TruthfulQA scenarios.
+
+Weaknesses
+Empirical Risk vs. Overall Risk: Formula (1) defines risk as the expectation of D, but subsequent proofs use a finite sample feature matrix without introducing a generalization term. For now, this guarantee seems to apply only to empirical risk on calibration samples. The theorem should be restated accordingly, or supplemented with a finite sample argument.
+
+Tightness and Practical Value of the Bound: The bound is very loose. For example, B=266.09 for Llama-MMLU Q2_K, while |Delta R|=0.3658; B=23.24 for Q8_0, while |Delta R|=0.0002. The paper should quantify additive or multiplicative relaxation and clarify whether the bound supports any operational threshold other than ordination.
+
+The evidence for actionability is mixed. The three proposed failure modes are illustrated through selected cases, but there are no controlled interventions that change only activation scale, backbone geometry, or the output head. The regularizer clearly improves over no regularization only for Llama-TruthfulQA. Table 22 reports increased forgetting on Llama-BBQ (+8.6%) and Qwen-TruthfulQA (+2.7%), with almost no change on Qwen-BBQ. Experience replay is therefore not enough as the sole strong baseline. Comparisons with SLoRA [1], replay or layer freezing from two-phase continual fine-tuning [2], CLAIM [3], and ArMA [4] would make the result more convincing. Multiple training seeds, source-task performance, and sensitivity to the 32-sequence reference set are also needed.
+
+Some conclusions are broader than the evidence. The reported LoRA mean correlation of r_s=0.831 is based on the Llama cells, whereas the Qwen-BBQ appendix includes correlations of -0.34 and -0.66. These failures should be reflected more clearly in the main discussion. Also, the autoregressive corollary evaluates both models on the same teacher-forced prefixes. It does not address the setting where the models generate different early tokens and therefore encounter different later contexts. A free-running experiment, or an additional term accounting for trajectory distribution shift, is needed for that claim.
+
+References
+[1] SLoRA: Balancing Plasticity and Forgetting in Large Language Models for Continual Learning. ACL, 2026.
+[2] Exploring Two-Phase Continual Instruction Fine-tuning for Multilingual Adaptation in Large Language Models. Findings ACL, 2026.
+[3] CLAIM: Mitigating Catastrophic Forgetting in Continual Instruction Fine-tuning Large Language Models. IEEE TCDS, 2026.
+[4] ArMA: Mitigating Catastrophic Forgetting using Attention-Regularized Model Averaging in Continual Fine-tuning Large Language Models. IEEE TAI, 2026.
+Quality: 3: good
+Clarity: 3: good
+Significance: 3: good
+Originality: 3: good
+Questions:
+Besides the ordering, could the authors provide an error analysis regarding the magnitude of the bounds?
+
+How does PRISM perform on generated trajectories when surrogate errors affect subsequent context?
+
+How sensitive is the shape regularizer to the size of the reference set and the domain?
+
+Can this regularizer be compared to stronger forgetting baseline methods?
+
+Limitations:
+This paper acknowledges the limitations of ranking risk and absolute risk, as well as the teacher-enforced approach. It should also discuss reference set sensitivity, free-run generation, head variation variants, and feature computation costs.
+
+Rating: 4: Borderline accept: Technically solid paper where reasons to accept outweigh reasons to reject, e.g., limited evaluation. Please use sparingly.
+Confidence: 3: You are fairly confident in your assessment. It is possible that you did not understand some parts of the submission or that you are unfamiliar with some pieces of related work. Math/other details were not carefully checked.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+None
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+Add:
+LLM Feedback • by Program Chairs
+LLM Feedback • by Program Chairs
+LLM Feedback by Program Chairs
+LLM Feedbackby Program Chairs30 Apr 2026, 12:07Conference, Authors
+Feedback:
+Hello!
+
+You requested feedback on your paper submitted to NeurIPS using the Google Paper Assistant Tool (PAT).
+We received your paper and are currently processing it. We will post the feedback here once it is ready.
+
+If you have not received feedback within 24 hours, please contact us at paper-assistant@google.com.
+About OpenReview
+Contact
+FAQ
+Hosting a Venue
+Sponsors
+Terms of Use / Privacy Policy
+All Venues
+Donate
+OpenReview is a long-term project to advance science through improved peer review with legal nonprofit status. We gratefully acknowledge the support of the OpenReview Sponsors. © 2026 OpenReview
+
+
