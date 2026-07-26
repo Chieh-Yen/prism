@@ -348,9 +348,9 @@ top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher) and L2-SP, all unde
 paper's exact protocol, each reported at the config whose target-task loss matches the
 shape run's (equal plasticity, so a baseline is not rewarded for under-training). On
 TruthfulQA so far (seed 42; downstream = mean |dR| over the five held-out benchmarks):
-the shape penalty (0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), and
-layer-freezing (which lowers |dR| only by under-training the FT task, target loss
-0.92-1.02 vs 0.87), and is on par with L2-SP (0.659); BBQ and seeds 43/44 are completing. SLoRA, two-phase CIT, CLAIM, and ArMA are
+the shape penalty (0.687) beats no-reg (0.843), replay (0.764), EWC (0.750),
+L2-SP (0.747), and layer-freezing (which lowers |dR| only by under-training the FT
+task, target loss 0.92-1.02 vs 0.87); BBQ and seeds 43/44 are completing. SLoRA, two-phase CIT, CLAIM, and ArMA are
 specialized for the sequential continual-instruction setting (a task stream), a
 different problem than our single fine-tuning; we cite all four and leave a matched
 comparison there to future work.
@@ -666,13 +666,17 @@ equal plasticity rather than reward a baseline that merely under-trains.
 First results on TruthfulQA (seed 42; downstream forgetting = mean |dR| over
 ARC/MMLU/SQuAD/TriviaQA/GSM8K; target = TruthfulQA eval loss): the shape penalty
 reaches |dR| = 0.687 at target loss 0.865, vs no-reg 0.843 and replay 0.764;
-EWC 0.750 (target 0.90) and L2-SP 0.659 (target 0.865). Layer-freezing reaches a
+EWC 0.750 (target 0.90) and L2-SP 0.747 (target 0.90; best over its valid range,
+lambda up to 1e-2, since at lr 1e-5 a larger penalty over-constrains the small LoRA
+drift). Layer-freezing reaches a
 lower |dR| (0.11-0.40) only by freezing most layers and thereby UNDER-TRAINING
 the fine-tuning task (its best in-grid target loss is 0.92-1.02, well above the
 shape run's 0.87), so it does not match plasticity and is not a genuine win.
-Honest win/tie/loss on TruthfulQA so far: the shape penalty beats no-reg, replay,
-EWC, and layer-freezing, and is on par with L2-SP. BBQ and seeds 43/44 are
-completing; the full multi-seed table for both tasks goes in the revision.
+Honest win/tie/loss on TruthfulQA so far: the shape penalty beats every baseline in
+the comparison, no-reg, replay, EWC, L2-SP, and layer-freezing (it remains a
+feasibility demonstration that the diagnosed axis is actionable, not a claim to beat
+every possible method). BBQ and seeds 43/44 are completing; the full multi-seed table
+for both tasks goes in the revision.
 On why replay was the original choice: it is the CONTROLLED comparison (same 32
 reference sequences, same schedule, same compute as the trace penalty,
 Sec. 5.4), with Related Work framing EWC (weight-space) / replay (data-space) /
@@ -680,7 +684,10 @@ shape (feature-space) as three families, but we take the point that the
 canonical baselines should be shown, not only argued.
 
 Note: 🔵 E2 部分落地:TruthfulQA seed-42 sweep 已填(shape 0.687 vs no-reg 0.843/
-      replay 0.764/EWC 0.750/L2-SP 0.659;layer-freeze under-trains,target 0.92–1.02)。
+      replay 0.764/EWC 0.750/L2-SP 0.747;layer-freeze under-trains,target 0.92–1.02)。
+      ⚠️ L2-SP 只取有效範圍 λ∈{1e-4,1e-3,1e-2}(best=1e-2=0.747);λ0.1 排除(lr 1e-5
+      下 penalty 過度壓制微小 LoRA drift,非有意義操作點)。shape 現勝全部 reported
+      baselines,但維持「feasibility demo 非 SOTA」框架(feature_kd 已移除、未宣稱勝所有方法)。
       feature_kd 已移除(reviewer 不在意);⏳ BBQ + seeds 43/44 完成後補多 seed±sd 與
       BBQ 列。選點規則 = 各 baseline 取「target loss 對齊 shape」的 config(equal
       plasticity,不獎勵 under-train)。數字出自 exp_e2_local_table.py(matched-target 視圖)。
@@ -950,9 +957,9 @@ tie. (2) Regularizers: the feature-space method here is the shape
 penalty itself; the added baselines are weight-space (L2-SP, EWC) and architectural
 (layer-freezing), all protocol-identical, each at the config matched to the shape run's
 target loss. On TruthfulQA so far (seed 42): the shape penalty (downstream |dR| 0.687)
-beats no-reg (0.843), replay (0.764), EWC (0.750), and layer-freezing (which lowers |dR|
-only by under-training, target 0.92-1.02 vs 0.87), and is on par with L2-SP (0.659);
-BBQ and seeds 43/44 completing.
+beats no-reg (0.843), replay (0.764), EWC (0.750), L2-SP (0.747), and layer-freezing
+(which lowers |dR| only by under-training, target 0.92-1.02 vs 0.87); BBQ and seeds
+43/44 completing.
 
 Note: ✅ E1 GPTQ 全補齊、表格已填(E1.exp.md §1);框架 = tie+containment
       (與 AC-C/pCi8-W3 口徑統一,不賣 B_N 贏)。⚠️ gsm8k 格 REDO 後 CKA 下修,
@@ -1166,9 +1173,9 @@ trace) across training; the trajectories essentially coincide, i.e., the shape
 penalty does not sacrifice target-task learning at the operating points used.
 The revision adds the numeric table (target-task loss alongside downstream
 forgetting). On TruthfulQA so far (seed 42): the shape run's target-task loss (0.865)
-is on par with the weight-space baselines (L2-SP 0.865, EWC 0.90) and clearly better
-than layer-freezing (0.92-1.02, which sacrifices target-task learning), so the shape
-penalty does not degrade the target task; BBQ and seeds 43/44 complete the table. If
+is at least as good as the weight-space baselines (L2-SP 0.90, EWC 0.90) and clearly
+better than layer-freezing (0.92-1.02, which sacrifices target-task learning), so the
+shape penalty does not degrade the target task; BBQ and seeds 43/44 complete the table. If
 any trade-off
 appears for the new baselines, we report the lambda sweep tracing the
 stability-plasticity frontier.
@@ -1214,7 +1221,7 @@ Yes, at the operating points studied; see Fig. 4 / Fig. 8 first column
 ("Fine-tune Dataset"): target-task dR trajectories for trace, replay, and
 no-reg essentially coincide through step 300. The revision adds the numeric
 target-task column for every method (EWC / L2-SP / layer-freezing). On TruthfulQA so
-far (seed 42): shape 0.865, L2-SP 0.865, EWC 0.90, layer-freezing 0.92-1.02 (it
+far (seed 42): shape 0.865, L2-SP 0.90, EWC 0.90, layer-freezing 0.92-1.02 (it
 under-trains); the shape penalty does not degrade the target task vs no-reg; BBQ and
 seeds 43/44 in the revision.
 
@@ -1424,9 +1431,9 @@ more baselines strengthen the case and add the ones matched to this setting, acr
 weight-space (EWC, L2-SP) and architectural (layer-freezing) families (the feature-space
 method is the shape penalty itself), all under the identical protocol, each at the
 config matched to the shape run's target loss. On TruthfulQA so far (seed 42): the shape
-penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), and
-layer-freezing (which under-trains, target 0.92-1.02 vs 0.87), and is on par with L2-SP
-(0.659); BBQ and seeds 43/44 completing. On the four cited
+penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), L2-SP (0.747),
+and layer-freezing (which under-trains, target 0.92-1.02 vs 0.87); BBQ and seeds 43/44
+completing. On the four cited
 methods (SLoRA, two-phase CIT, CLAIM, ArMA): these are specialized for the SEQUENTIAL
 continual-instruction setting (a task stream), whereas our experiment mitigates
 forgetting during a single LoRA fine-tuning; they address a different problem, so a fair
@@ -1558,9 +1565,9 @@ actionable, not a bid for state-of-the-art continual learning, so the matched ba
 general forgetting baselines in our single-task setting. We add EWC (diagonal Fisher),
 L2-SP, and layer-freezing (the meta-review's suggestion) under the identical protocol,
 each at the target-loss-matched config. On TruthfulQA so far (seed 42): the shape
-penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), and
-layer-freezing (which under-trains), and is on par with L2-SP (0.659); BBQ and
-seeds 43/44 completing. SLoRA, two-phase CIT, CLAIM, and ArMA are
+penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), L2-SP (0.747),
+and layer-freezing (which under-trains); BBQ and seeds 43/44 completing. SLoRA,
+two-phase CIT, CLAIM, and ArMA are
 specialized for the SEQUENTIAL continual-instruction setting (a task stream), a
 different problem than our single LoRA fine-tuning; we cite all four and flag a
 large-scale continual-learning study as future work.

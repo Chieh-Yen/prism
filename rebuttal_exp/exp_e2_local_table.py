@@ -30,6 +30,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 E2 = os.path.join(HERE, "out", "E2")
 DOWNSTREAM = ("arc", "mmlu", "squad", "triviaqa", "gsm8k")
 SKIP_METHODS = {"feature_kd"}   # excluded from the reported baseline set
+# per-method invalid configs (excluded): L2-SP lam0.1 over-constrains the tiny
+# LoRA drift at lr 1e-5 and is not a meaningful operating point.
+SKIP_CONFIGS = {("l2sp", "lam0.1")}
 REF_METHOD = "trace"            # matched-target reference (the shape run)
 
 
@@ -72,7 +75,7 @@ def main():
     for f in glob.glob(pat):
         parts = f.split(os.sep)
         method, lam, seed, model, task = parts[-6], parts[-5], parts[-4], parts[-3], parts[-2]
-        if method in SKIP_METHODS:
+        if method in SKIP_METHODS or (method, lam) in SKIP_CONFIGS:
             continue
         key = (task, method, lam, seed)
         prefer = model.startswith("meta-")
@@ -143,7 +146,7 @@ def main():
     expected = {
         "layer_freeze": ["4", "8", "16"],
         "ewc": ["0.0001", "0.001", "0.01", "0.1"],
-        "l2sp": ["0.0001", "0.001", "0.01", "0.1"],
+        "l2sp": ["0.0001", "0.001", "0.01"],   # lam0.1 excluded (invalid at lr 1e-5)
         "feature_kd": ["0.1", "1", "10"],
     }
     print(f"\n{'='*72}\nCOVERAGE (seed 42 sweep)\n{'='*72}")
