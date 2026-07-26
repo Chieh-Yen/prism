@@ -86,8 +86,9 @@ dramatize looseness (Llama-MMLU Q8_0 B=23.24, Q2_K B=266.09) map to 0.003 and
 0.193 nats after calibration, on the correct sides of an epsilon = 0.1
 tolerance.
 
-(ii) CHEAPER AND ACTIONABLE: one label-free forward pass (measured 144 s/
-variant vs 1671 s to evaluate the same 5-benchmark suite, a 12-66x gap), plus a
+(ii) CHEAPER AND ACTIONABLE: one label-free teacher-forced pass, no decoding and no
+grading. On GSM8K, the generation-heaviest benchmark, a single greedy decode of the
+same prompts costs a measured 62.6x that pass (501x with self-consistency), plus a
 closed diagnostic loop. PRISM attributes Q6_K SQuAD damage to the head axis;
 keeping lm_head in FP16 removes it (bound 76.95 -> 3.81, 20x). Controlled
 single-axis interventions confirm each term responds only to its own axis
@@ -562,6 +563,15 @@ Note: ✅ 已有全部數字(E6)。
    PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
 
 Response:
+We are grateful that the reviewer's own strengths already value the machinery
+independently of ranking. They credit the scale/shape split as "an exact identity,
+not an approximation", the simplex-polarization Lipschitz constant as "a real
+contribution", the three axes as ones that "actually capture different failure
+modes rather than just being correlated proxies of the same thing", and the shape
+regularizer as "a differentiable training objective for free from the bound".
+Ranking is only ONE of the machinery's outputs; those others, all credited by the
+reviewer, are the rest. A small pooled ranking gain therefore measures one output,
+not the worth of the machinery. With that framing:
 The reviewer's number is Table 3's W=I block: Omega alone 0.804 -> full B 0.820,
 +0.016 pooled. That pooled gap is real; we explain why it is small, then show
 the machinery is not overhead. (1) Why small: gamma > 0 engages ONLY on GGUF
@@ -730,7 +740,8 @@ mitigate catastrophic forgetting without relying on experience replay.
 
 We thank the reviewer for pressing on cost and actionability, the two questions
 that most sharpen the paper. Summary of what we added: a wall-clock cost table
-(PRISM 144 s/variant vs 1671 s to evaluate the suite, 12x, label-free; W1);
+(on GSM8K, one greedy decode 556.7 s vs PRISM's 8.9 s teacher-forced pass on the
+same prompts, a measured 62.6x, label-free; W1);
 controlled single-axis interventions showing each axis is causally separable and
 actionable (W1); a same-features CKA/SVCCA comparison (W3); a
 benchmark-independent reference and a free-running experiment (W2); and
@@ -749,26 +760,76 @@ base-vs-instruct and multi-task extensions (Q1, Q2).
    evaluation under realistic settings.
 
 Response:
-Three answers. (1) Cost: PRISM needs ONE teacher-forced forward pass per
-variant over a small reference set, no labels, no decoding; on an RTX 5090
-this is 144.0 s/variant (median over 13 Llama variants at 512
-samples/benchmark, variant load included; range 94.0-189.0 s), or ~36.2
-s/variant in 32-sequence screening mode (load-dominated), while benchmark
-evaluation of the same suite is dominated by autoregressive decoding (GSM8K
-CoT). The revision adds the exact GPU-cost table for ranking K variants,
-wall-clock measured on the same hardware. Benchmark-side cost per variant:
-353.2 s merely to decode the gold answers once (an absurdly generous floor)
-/ 1671.0 s under the standard protocol (4-choice LL scoring on MC at 4x our
-measured forward time + MEASURED GSM8K decode + 64-token QA budgets) /
-9465.2 s with maj@8 on GSM8K, i.e., 2.5x / 12x / 66x PRISM's full
-diagnosis and 46x-261x its screening mode, before scoring, which
-additionally requires labels. The GSM8K component is measured, not assumed: on
-identical prompts, one greedy decode costs 556.7 s vs 8.9 s for PRISM's exact
-teacher-forced call, at least 62.6x (a conservative lower bound; 13% of
-generations had not reached EOS at the cap).
-(2) Actionability: the concern is that the axes are "another layer of
-descriptive analysis". They are not: the axis -> action map closes into a
-DIAGNOSE -> ACT -> VERIFY loop. Sec. 5.3 maps scale -> per-channel outlier
+We answer the cost analysis the reviewer asks for (1), the actionability and
+coarseness concern (2), and note where PRISM uniquely applies (3). Because the cost
+comparison depends on it, we first fix the terminology.
+
+How PRISM works. PRISM's diagnosis is ONE teacher-forced forward pass per model over
+a small set of REFERENCE SEQUENCES (a handful of input sequences, e.g. held-out
+examples from the task being diagnosed, that both models are run over). In that
+single pass the model reads the whole sequence at once; we record its hidden features
+and per-token cross-entropy, and PRISM's score is a closed-form geometric bound on
+the cross-entropy gap between the base model and the variant on those same sequences.
+This is NOT text generation: generation is autoregressive, one forward pass per
+emitted token (a GSM8K solution runs ~77 tokens, hence ~77 sequential passes per
+prompt), whereas PRISM emits nothing and grades nothing.
+
+(1) Cost analysis, itemized as the reviewer asks. We compare FORWARD/compute time;
+model loading is a one-time cost both methods pay once and is excluded from both
+sides.
+Forward passes: one teacher-forced pass per model over the reference set; ranking K
+variants is K+1 passes (the base extracted once and reused, then one per variant).
+Benchmark evaluation instead needs O(generated tokens) autoregressive passes per
+prompt.
+Reference data: a small set of UNLABELED input sequences the bound is evaluated on.
+Because the bound is input-conditioned (it holds for whatever distribution the
+reference is drawn from, App. A/D), the choice is free: per-task diagnosis uses a
+small held-out slice of the task being diagnosed (512 sequences per benchmark for
+PTQ, 256 for LoRA forgetting), which any evaluation already has; label-free screening
+uses a generic corpus (WikiText, W2); the regularizer uses the fine-tuning task's
+held-out split. The reference is tiny and its size barely matters: the variant
+ranking is unchanged from 8 to 128 sequences (size ablation, W2). No gold answers are
+graded and no text is generated; "label-free" means the ranking needs no correctness
+labels, and when a benchmark's text is used its answer tokens serve only as shared
+next-token targets for the model-vs-model CE gap (PRISM ranks with zero gold too:
+generic WikiText +0.506 and the models' own generations +0.947, both W2).
+Forward/compute time on GSM8K, measured on identical prompts (E12b micro-benchmark,
+256 GSM8K prompts, RTX 5090; model load excluded from both sides):
+
+| pipeline (256 GSM8K prompts) | forward passes | autoregr. decoding? | grades vs gold labels? | determinism | compute (s) | x vs PRISM (full) |
+|---|---|---|---|---|---|---|
+| PRISM, teacher-forced (full)      | 1 TF over the prompts | no  | no  | deterministic          | 8.9    | 1x    |
+| PRISM, screening (32 prompts)     | 1 TF over the prompts | no  | no  | deterministic          | ~1.1   | -     |
+| Benchmark, greedy decode          | O(tokens) AR / prompt | yes | yes | deterministic (greedy) | 556.7  | 62.6x |
+| Benchmark, self-consistency maj@8 | 8x greedy decode      | yes | yes | stochastic (sampled)   | 4453.6 | 501x  |
+
+[a] All rows are teacher-forced / decode COMPUTE, measured on the SAME 256 prompts, load excluded (a
+    one-time cost both pay). GSM8K is the generation-heaviest benchmark, so this is the high end; the gap
+    scales with generation length, so shorter benchmarks give a smaller gap.
+[b] Screening on 32 prompts is a single ~1.1 s pass, about 1/8 of the full teacher-forced pass (ranking
+    is size-invariant down to 8 sequences, W2). It is a reference-size point, NOT a term in the cost
+    multiple: the 62.6x and 501x compare like-for-like the SAME 256 prompts under teacher-forcing vs
+    generation.
+[c] maj@8 = self-consistency (8 sampled solutions, majority vote): a common but heavier, OPTIONAL
+    reasoning protocol shown as the upper end; the 62.6x greedy-decode figure is the headline.
+
+So on GSM8K one greedy decode already costs a measured 62.6x PRISM's teacher-forced pass over the same
+prompts (501x with self-consistency), before any label scoring. The gap is STRUCTURAL, not a constant:
+PRISM avoids both autoregressive decoding and answer grading, so it widens with generation length. And
+under a realistic selection over K variants, PRISM screens all K label-free (a 32-prompt screen is
+~1.1 s, about 1/8 of a full pass) while the full benchmark runs only on the one or two finalists (or not
+at all once the bound is calibrated, W2/AC-A).
+(2) Actionability and granularity. The reviewer's own strengths give the foothold:
+the assessment credits that the decomposition "helps localize different failure
+modes, such as representation distortion in low-bit quantization or head divergence
+in GGUF-style quantization". Building on that granted localization, we answer the
+two doubts this weakness raises, that the axes are relatively COARSE and merely
+DESCRIPTIVE. On coarse: each axis maps one-to-one to a distinct remediation, and the
+controlled interventions below show the axes are cleanly separable (each moves ONLY
+its own term, at the selectivity quantified below), so three axes are granular and
+independent, not a blurry bucket. On descriptive: the axis -> action map closes into
+a DIAGNOSE -> ACT -> VERIFY loop, which turns a localization into a verified fix
+rather than another re-description. Sec. 5.3 maps scale -> per-channel outlier
 smoothing, shape -> Hessian-aware reconstruction (PTQ) / trace regularization
 (training), head -> keep lm_head in FP16. The GGUF case runs the full loop:
 PRISM ATTRIBUTES Q6_K SQuAD degradation to the head axis (gamma = 75.77 of
@@ -784,13 +845,15 @@ exactly while gamma sweeps 10 -> 541 over 8 -> 3 bits), bound holds 26/26.
 deployments where no public benchmark exists. Positioning is made explicit in
 the Introduction.
 
-Net: the measured 12-66x cost gap and the causal single-axis interventions
+Net: the measured 62.6x cost gap on GSM8K (501x with self-consistency) and the causal single-axis interventions
 together answer "why not just run benchmarks": PRISM is materially cheaper AND
 tells you which axis to fix, which a benchmark score does not. We hope this
 addresses the significance concern.
 
 Note: 指路(L258–262, L249–257)+ E4 ✅ 定稿(26/26 bound holds,選擇性 ≥2.6e5×)
-+ cost 表 ✅ E12 定稿(144.0 s vs 1671.0 s standard = 12×;E12b decode/TF ≥62.6×)。
++ cost 表 ✅ 改用 E12b GSM8K-only 純實測(TF 8.9 s vs greedy decode 556.7 s = 62.6×;
+maj@8 501×;load 兩端皆扣;screening 32-prompt ~1.1 s = 1/8 full,只在敘述提、不與
+generation 比倍數;數字出自 out/E12/gsm8k_measured.md)。
 
 2) W2 [原文]: The empirical evaluation appears incomplete in several important dimensions.
    The experiments rely on teacher-forced feature extraction, but it remains unclear whether
@@ -1216,6 +1279,10 @@ Note: ✅ 完成(e5_theorem.tex 可直接貼 thread)。
    magnitude of the bounds?
 
 Response:
+We would first connect this to the reviewer's own strengths, which credit our
+"pairwise embedding diameters superior to the general spectral norm Lipschitz
+bound": the slack attribution below bears that out, since the diameter-based step
+is not where the looseness lives. With that noted:
 Quantified directly, on all 570 (family, benchmark, variant) cells over the
 paper's five benchmarks. Slack B/|dR|: median 1597x, IQR [673, 3966], and NOT
 constant (log10 sd ~0.76; the reviewer's two cells, ~727x near the lower
@@ -1286,7 +1353,11 @@ Shape follows theta^2 to within ~1%, and gamma rises monotonically with head
 quantization (10 -> 40 -> 210 -> 541 for 8/6/4/3 bits). The interventions
 cause real measured damage (|dR| up to 1.39 nats at alpha = 0.5, 0.42 at
 3-bit head), so the attribution is causal, not correlational.
-(2) Negative cells: we address the reviewer's exact figures, and first note that
+(2) Negative cells: we would first note that the reviewer's own strengths already
+state the positive half of our gating thesis, that the shape objective "helps
+address the significant shape drift problem in Llama-TruthfulQA scenarios"; the
+gating analysis simply completes that observation by explaining the "only". We
+address the reviewer's exact figures, and first note that
 the aggregate win on Llama-TruthfulQA stands (Table 2; trace -19% forgetting vs
 replay -9%); the negative cells below are the per-cell variation, not a
 reversal. Table 22's increased forgetting on Llama-BBQ (+8.6%) and
@@ -1449,8 +1520,8 @@ joint-alignment regime we scope out and list as future work; the revision
 adds a first base-vs-instruct data point verifying bound validity in that
 regime; (iv) feature-extraction cost, quantified in the new cost table (one
 forward pass per variant over the reference set; no labels, no decoding;
-measured 144.0 s/variant median on an RTX 5090, vs 1671.0 s to evaluate the
-same 5-benchmark suite under the standard protocol).
+measured on GSM8K on identical prompts, one greedy decode 556.7 s vs PRISM's 8.9 s
+teacher-forced pass, a 62.6x gap, with model load excluded from both sides).
 
 Note: (iii) 有 App C.3 指路;(iv) ✅ E12 定稿;(i)(ii) 隨 E3/E7 落地。
 
@@ -1466,8 +1537,9 @@ Global assembly checklist (post 前逐項核對)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
 [ ] E13 的 20-cell 聚合已 inline(checksum REPRODUCED 論文輪次,可與 0.831 同句)
-[x] E12 成本表 ✅ 定稿已填(G3T9-W1 + 8VrD-Lim(iv):144.0 s vs 353.2/1671.0/
-    9465.2 s = 2.5×/12×/66×;E12b decode/TF ≥62.6×,13% ceiling = lower-bound
+[x] E12 成本表 ✅ 定稿已填(G3T9-W1 + 8VrD-Lim(iv) + AC-ii + G3T9-opener + Net 全部
+    改 GSM8K-only 純實測:TF 8.9 s vs greedy decode 556.7 s = 62.6×,maj@8 501×;
+    load 兩端皆扣;13% ceiling = lower-bound(decode 端低估,比值方向不變)
     方向,兩次獨立執行差 0.02%);E8 數字取自 out/E8/E8_results_llama.md
     (獨立 lite 腳本;E1 內舊 iso_dev 已作廢)
 [ ] 所有量化端統計只用論文 5 benchmarks(E6/E13/eql6w3 已重算;E4 用
