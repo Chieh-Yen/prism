@@ -23,12 +23,27 @@
 # (skip-done makes that rerun touch only the 6 trace rows.)
 #
 # Knobs: CUDA_GPU (default 0), TRACE_LAM (default 0.5)
+#   SKIP_BBQ=1   run TruthfulQA ONLY across sweep+seeds (drop BBQ) to finish
+#                the TQA side first when time is tight. BBQ is simply never
+#                looped; already-done TQA runs still skip, so a relaunch jumps
+#                straight to the remaining TQA work. Re-enable later with a
+#                plain relaunch (SKIP_BBQ unset) — BBQ runs then fill in.
 # Run AFTER ./sync_to_runpod.sh.
 # ============================================================
 set -uo pipefail
 cd "$(dirname "$0")"
 
 export CUDA_GPU="${CUDA_GPU:-0}"
+
+# SKIP_BBQ=1 -> TruthfulQA only. Exported TASKS is honored by the sweep/seeds
+# task loops in script_E2.sh; the backfill trace anchors are already complete
+# so they skip regardless of this.
+if [[ "${SKIP_BBQ:-0}" == "1" ]]; then
+    export TASKS="truthfulqa"
+else
+    export TASKS="${TASKS:-truthfulqa bbq}"
+fi
+
 OUT="rebuttal_exp/out/E2"
 CHECK="$OUT/backfill_check.md"
 LOG="$OUT/screen.gpu1.$(date +%Y%m%d_%H%M%S).log"
@@ -36,6 +51,8 @@ mkdir -p "$OUT"
 FAIL=0
 
 step () { echo "=== [gpu1 $(date '+%m-%d %H:%M')] $* ===" | tee -a "$LOG"; }
+
+step "E2 tasks = [$TASKS]$( [[ "${SKIP_BBQ:-0}" == "1" ]] && echo '  (SKIP_BBQ=1: BBQ disabled)' )"
 
 step "STAGE=backfill (~3 h; lambda=1.0 TQA/bbq + canary check)"
 STAGE=backfill bash rebuttal_exp/script_E2.sh 2>&1 | tee -a "$LOG" || FAIL=1

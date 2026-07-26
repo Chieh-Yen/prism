@@ -1,0 +1,89 @@
+rebuttal 可能提高分數，效果集中在 borderline papers；但初始分數、其他 reviewers 的意見及論文本身的問題，通常比文筆或話術更重要。 現有研究多半是 observational association，尚不能保證某種寫法「因果地」使 reviewer 加分。
+
+主要研究結果
+
+(1) Gao et al., NAACL 2019：ACL 2018，約 4,000 reviews、1,200 author responses
+
+Author response 對最終分數有「小但統計顯著」的關聯，尤其是 borderline papers；但 reviewer 的初始分數，以及它和其他 reviewers 分數的差距，影響更大。
+
+人工分析發現，較好的 responses 通常：
+ - 明確回答特定問題；
+ - 提供數值、實驗結果或精確位置；
+ - 解釋為何某項要求不合理或超出 scope；
+ - 而不是只說「我們會在 camera-ready 修改」。
+不禮貌可能造成扣分，但禮貌本身未必足以加分。
+
+(2) Huang et al., Journal of Informetrics 2023：ICLR 2022，3,338 papers、13,021 reviews
+
+約 17.95% 的 individual reviews 在 rebuttal 後加分；paper-level average score 上升的比例約 43%。與加分相關的特徵包括：
+ - 回應較完整、不漏掉 reviewer concerns；
+ - 有較實質、較長的互動；
+ - 提供 references；
+ - 保持禮貌；
+ - 適當指出其他 reviewers 對相關問題的共同理解。
+但作者自己明確承認，這些主要是 group comparison 和相關性分析，不能解讀成因果效果。
+
+(3) Louis et al., 2026：ICLR 2024–2025，約 73,000 reviewer trajectories
+
+這是目前規模相當大的最新研究。它發現：
+有 author reply 的 reviews 中，27% 加分；沒有 reply 的只有 2.7%，但兩群起點不同，所以不能說 reply 本身造成十倍效果。
+初始 review 資訊已能相當程度預測是否加分；加入完整 reviewer–author exchange 後，預測 AUC 從 0.747 提高到 0.804。
+控制初始分數等結構因素後，較穩定的正向訊號包括：
+ - 補上缺少的 baselines/comparators；
+ - non-defensive tone；
+ - 明確修正 writing/clarity 問題；
+ - 補充 theoretical grounding。
+強烈負向訊號包括：
+ - 解釋仍不充分；
+ - low-effort response；
+ - defensive/dismissive tone；
+ - 無法合理說明 novelty；
+ - 只指向某個 section，卻沒有真正回答；
+ - 模糊承諾「未來會做」。
+rebuttal 長度、reply 數量和多快回覆，在 joint model 中沒有明顯獨立效果。
+作者的概括很值得注意：成功往往比較像是避免明顯失敗模式，而不是靠修辭把 reviewer 說服。
+
+(4) Li et al., NeurIPS 2025 CauScien Workshop
+
+以 ICLR 2024–2025 的 8,684 submissions 做 causal representation analysis，發現較相關的因素是：
+ - openness：願意承認合理限制；
+ - evidence：提供資料、實驗或引用；
+ - rigor：技術論證完整；
+ - reviewer 是否 open-minded，以及 concern 的嚴重程度。
+
+單純 clarity、directness、attitude 沒有顯示與「分數改變」有穩定 dependence，可能是因為頂會 rebuttal 在這些面向普遍已經寫得不差，缺乏變異。這篇雖稱 causal model，但仍不是隨機操弄 rebuttal 寫法的實驗，應保守解讀。
+
+
+
+# 有沒有真正的因果實驗？
+目前幾乎沒有研究隨機分配作者採用不同 rebuttal 策略，再觀察分數。
+最接近的是 ICML 2020 的大型 RCT：1,544 篇論文、2,797 位 reviewers，隨機指定由較正面或較負面的 reviewer 開始討論。結果沒有發現「誰先發言」造成顯著 herding effect。它研究的是 reviewer discussion order，不是 rebuttal 內容。
+
+從研究可以合理導出的寫法
+有效 rebuttal 的核心不是「證明 reviewer 錯了」，而是讓 reviewer 或 AC 能快速判定：原本影響 recommendation 的主要 concern，現在是否已被消除？
+可以參考這種結構：
+ - R2-C1: Missing comparison with X
+ - We agree that X is an important comparison. We have now run …
+ - The result is …, compared with …
+ - This shows that the main conclusion remains …
+ - We will add the result to Table 3 and clarify the evaluation protocol in Sec. 4.
+
+優先順序是：
+ - correctness / fatal misunderstanding；
+ - missing baseline、experiment、ablation；
+ - novelty 與 related-work positioning；
+ - claim 是否被 evidence 支持；
+ - presentation 和 minor edits。
+
+特別應避免：
+ - 大量致謝和禮貌用語 (但開頭的禮貌和謙遜還是很重要)，卻沒有回答問題；
+ - 「Please see Section 4」但沒有在 rebuttal 中說出關鍵答案；
+ - 模糊的 future-work promise；
+ - 逐字糾正 reviewer 的小錯，卻沒處理其核心疑慮；
+ - 防衛性或帶情緒的語氣；
+ - 把「寫得更長」誤當成「證據更充分」。
+
+此外要依 venue 規則調整。例如 ICML 2026 官方明說，不必回答每個 minor suggestion；應優先處理 reviewer 的不確定、錯誤假設或誤解，並保持專業、禮貌。
+
+所以，最精確的答案是：有人研究，而且證據支持「具體、完整、evidence-backed、non-defensive、針對決策關鍵問題」的 rebuttal 較可能伴隨加分；但不存在可保證 acceptance 的話術，且最大的限制通常仍是初始評價與論文本身。
+
