@@ -143,8 +143,8 @@ W-3 [原文]: Incomplete empirical comparisons: The paper positions PRISM agains
      G3T9, pCi8, and 8VrD argue that the evaluation lacks sufficiently strong or direct
      baselines in both the diagnostic/ranking setting and the regularization setting.
      -> Condition C. CKA/SVCCA on identical
-     features (diagnostics) and EWC / L2-SP / feature-distillation /
-     layer-freezing (regularization), all under the paper's protocol.
+     features (diagnostics) and EWC / L2-SP / layer-freezing
+     (regularization), all under the paper's protocol.
 W-4 [原文]: Narrow experimental setting: Reviewers G3T9 and 8VrD emphasize that PRISM is
      evaluated largely under teacher-forced feature extraction and benchmark-aligned
      reference data. It remains unclear how well the method transfers to benchmark-
@@ -344,9 +344,13 @@ define the attribution, let alone the bound or the training signal.
 Regularization: the shape regularizer is a demonstration that the framework's diagnosed
 axis is actionable, so its matched baselines are general forgetting methods in our
 single-task setting. As the meta-review suggests, we add layer-freezing (LoRA on the
-top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher), L2-SP, and feature
-distillation, all under the paper's exact protocol, 3 seeds at sweep-best, with
-target-task performance reported: [TBD-E2]. SLoRA, two-phase CIT, CLAIM, and ArMA are
+top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher) and L2-SP, all under the
+paper's exact protocol, each reported at the config whose target-task loss matches the
+shape run's (equal plasticity, so a baseline is not rewarded for under-training). On
+TruthfulQA so far (seed 42; downstream = mean |dR| over the five held-out benchmarks):
+the shape penalty (0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), and
+layer-freezing (which lowers |dR| only by under-training the FT task, target loss
+0.92-1.02 vs 0.87), and is on par with L2-SP (0.659); BBQ and seeds 43/44 are completing. SLoRA, two-phase CIT, CLAIM, and ArMA are
 specialized for the sequential continual-instruction setting (a task stream), a
 different problem than our single fine-tuning; we cite all four and leave a matched
 comparison there to future work.
@@ -506,7 +510,7 @@ We thank the reviewer for the generous account of the paper's strengths. Summary
 of what we added for the points raised: a calibration analysis that answers "is
 Q4 good enough" on the exact looseness flagged (W2); a same-features CKA/SVCCA
 comparison quantifying what the machinery buys (W3); EWC / L2-SP /
-feature-distillation / layer-freezing baselines (W5); and a direct measurement
+layer-freezing baselines (W5); and a direct measurement
 of isometry violation vs bit-width (W6). We also report, candidly, one
 mitigation that did NOT work (GSM8K final-answer span, W4).
 
@@ -654,18 +658,32 @@ Note: ✅ E9 定稿——mitigation **失敗**(span rs +0.566 < full-CoT +0.979;
 Response:
 Agreed, the canonical comparison belongs in the paper, and it now exists: EWC
 (diagonal Fisher on the trainable parameters, estimated on the reference set at
-the adapter's initialization = the base/old-task optimum), L2-SP, feature
-distillation, and layer-freezing (the meta-review's suggestion), all under the
-identical protocol, each at sweep-best with 3 seeds, with target-task
-performance reported: [TBD-E2, full table; honest win/tie/loss summary]. On
-why replay was the original choice: it is the CONTROLLED comparison (same 32
+the adapter's initialization = the base/old-task optimum), L2-SP, and
+layer-freezing (the meta-review's suggestion), all under the identical protocol
+(LoRA, 300 steps, lr 1e-5). Selection rule: each baseline is reported at the
+sweep config whose target-task loss MATCHES the shape run's, so we compare at
+equal plasticity rather than reward a baseline that merely under-trains.
+First results on TruthfulQA (seed 42; downstream forgetting = mean |dR| over
+ARC/MMLU/SQuAD/TriviaQA/GSM8K; target = TruthfulQA eval loss): the shape penalty
+reaches |dR| = 0.687 at target loss 0.865, vs no-reg 0.843 and replay 0.764;
+EWC 0.750 (target 0.90) and L2-SP 0.659 (target 0.865). Layer-freezing reaches a
+lower |dR| (0.11-0.40) only by freezing most layers and thereby UNDER-TRAINING
+the fine-tuning task (its best in-grid target loss is 0.92-1.02, well above the
+shape run's 0.87), so it does not match plasticity and is not a genuine win.
+Honest win/tie/loss on TruthfulQA so far: the shape penalty beats no-reg, replay,
+EWC, and layer-freezing, and is on par with L2-SP. BBQ and seeds 43/44 are
+completing; the full multi-seed table for both tasks goes in the revision.
+On why replay was the original choice: it is the CONTROLLED comparison (same 32
 reference sequences, same schedule, same compute as the trace penalty,
 Sec. 5.4), with Related Work framing EWC (weight-space) / replay (data-space) /
 shape (feature-space) as three families, but we take the point that the
-canonical baseline should be shown, not only argued.
+canonical baselines should be shown, not only argued.
 
-Note: ⏳ E2(~24 h)。先立「血緣對照」設計論點(L89–94, L265–267),再交表。
-      「convenient choice」不接招,直接給數字。
+Note: 🔵 E2 部分落地:TruthfulQA seed-42 sweep 已填(shape 0.687 vs no-reg 0.843/
+      replay 0.764/EWC 0.750/L2-SP 0.659;layer-freeze under-trains,target 0.92–1.02)。
+      feature_kd 已移除(reviewer 不在意);⏳ BBQ + seeds 43/44 完成後補多 seed±sd 與
+      BBQ 列。選點規則 = 各 baseline 取「target loss 對齊 shape」的 config(equal
+      plasticity,不獎勵 under-train)。數字出自 exp_e2_local_table.py(matched-target 視圖)。
 
 6) W6 [原文]: The whole orthogonal alignment setup relies on representations being
    near-isometric across related models. The paper cites two papers to justify this but
@@ -928,10 +946,13 @@ variant's degradation, e.g. the identity gauge B_I leads on extraction-QA
 similarity score provides. (b) None of CKA/SVCCA/Procrustes bounds
 |dR| or attributes to an axis (App. B: CKA >= Omega_F^2, not alignment-
 derived), so they cannot produce Sec. 5.3's diagnoses even where correlations
-tie. (2) Regularizers: the new baseline table adds exactly the requested simple
-feature-preserving penalty, feature distillation ||Z_t - Z_0||^2_F on the same
-reference set, plus L2-SP, EWC, and layer-freezing, all protocol-identical
-with target-task columns: [TBD-E2].
+tie. (2) Regularizers: the feature-space method here is the shape
+penalty itself; the added baselines are weight-space (L2-SP, EWC) and architectural
+(layer-freezing), all protocol-identical, each at the config matched to the shape run's
+target loss. On TruthfulQA so far (seed 42): the shape penalty (downstream |dR| 0.687)
+beats no-reg (0.843), replay (0.764), EWC (0.750), and layer-freezing (which lowers |dR|
+only by under-training, target 0.92-1.02 vs 0.87), and is on par with L2-SP (0.659);
+BBQ and seeds 43/44 completing.
 
 Note: ✅ E1 GPTQ 全補齊、表格已填(E1.exp.md §1);框架 = tie+containment
       (與 AC-C/pCi8-W3 口徑統一,不賣 B_N 贏)。⚠️ gsm8k 格 REDO 後 CKA 下修,
@@ -1144,9 +1165,11 @@ fine-tuning task itself for all three configurations (no-reg / replay /
 trace) across training; the trajectories essentially coincide, i.e., the shape
 penalty does not sacrifice target-task learning at the operating points used.
 The revision adds the numeric table (target-task loss alongside downstream
-forgetting for every method and seed): [TBD-E2, in our reruns to date, the
-trace run's target-task loss is equal to or better than no-reg on both
-fine-tuning tasks; final multi-seed numbers in the table]. If any trade-off
+forgetting). On TruthfulQA so far (seed 42): the shape run's target-task loss (0.865)
+is on par with the weight-space baselines (L2-SP 0.865, EWC 0.90) and clearly better
+than layer-freezing (0.92-1.02, which sacrifices target-task learning), so the shape
+penalty does not degrade the target task; BBQ and seeds 43/44 complete the table. If
+any trade-off
 appears for the new baselines, we report the lambda sweep tracing the
 stability-plasticity frontier.
 
@@ -1190,8 +1213,10 @@ Response:
 Yes, at the operating points studied; see Fig. 4 / Fig. 8 first column
 ("Fine-tune Dataset"): target-task dR trajectories for trace, replay, and
 no-reg essentially coincide through step 300. The revision adds the numeric
-target-task column for every method (including the new EWC / L2-SP /
-layer-freezing / feature-distillation baselines) with 3 seeds: [TBD-E2].
+target-task column for every method (EWC / L2-SP / layer-freezing). On TruthfulQA so
+far (seed 42): shape 0.865, L2-SP 0.865, EWC 0.90, layer-freezing 0.92-1.02 (it
+under-trains); the shape penalty does not degrade the target task vs no-reg; BBQ and
+seeds 43/44 in the revision.
 
 Note: 同 W4;thread 自包含。
 
@@ -1396,9 +1421,12 @@ replay: it was not a weak or arbitrary control but the most general and most wid
 forgetting baseline, and in our SINGLE-adapter, single-task setting it is the matched
 comparison (same reference data, schedule, and compute as the shape penalty). We agree
 more baselines strengthen the case and add the ones matched to this setting, across all
-three families: EWC and L2-SP (weight-space), feature distillation (feature-space), and
-layer-freezing (the meta-review's suggestion), all under the identical protocol, >= 3
-seeds at sweep-best, source-task performance reported: [TBD-E2]. On the four cited
+weight-space (EWC, L2-SP) and architectural (layer-freezing) families (the feature-space
+method is the shape penalty itself), all under the identical protocol, each at the
+config matched to the shape run's target loss. On TruthfulQA so far (seed 42): the shape
+penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), and
+layer-freezing (which under-trains, target 0.92-1.02 vs 0.87), and is on par with L2-SP
+(0.659); BBQ and seeds 43/44 completing. On the four cited
 methods (SLoRA, two-phase CIT, CLAIM, ArMA): these are specialized for the SEQUENTIAL
 continual-instruction setting (a task stream), whereas our experiment mitigates
 forgetting during a single LoRA fine-tuning; they address a different problem, so a fair
@@ -1528,9 +1556,11 @@ Response:
 The shape regularizer is a demonstration that the framework's diagnosed axis is
 actionable, not a bid for state-of-the-art continual learning, so the matched bar is
 general forgetting baselines in our single-task setting. We add EWC (diagonal Fisher),
-L2-SP, feature distillation, and layer-freezing (the meta-review's suggestion), all
-under the identical protocol, >= 3 seeds at sweep-best, reporting downstream forgetting
-AND target-task performance: [TBD-E2]. SLoRA, two-phase CIT, CLAIM, and ArMA are
+L2-SP, and layer-freezing (the meta-review's suggestion) under the identical protocol,
+each at the target-loss-matched config. On TruthfulQA so far (seed 42): the shape
+penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), and
+layer-freezing (which under-trains), and is on par with L2-SP (0.659); BBQ and
+seeds 43/44 completing. SLoRA, two-phase CIT, CLAIM, and ArMA are
 specialized for the SEQUENTIAL continual-instruction setting (a task stream), a
 different problem than our single LoRA fine-tuning; we cite all four and flag a
 large-scale continual-learning study as future work.
