@@ -162,18 +162,46 @@ cells). Rankings are substantially preserved but attenuated, as expected for an
 input-conditioned diagnostic; the revision reports both modes: generic
 reference for label-free screening, benchmark-conditioned for per-deployment
 diagnosis.
-(2) Size sensitivity: reference sets of {8, 16, 32, 64, 128} wikitext
-sequences x 3 independent draws per size, all Llama variants: [TBD-E3B,
-rank-correlation-vs-size table, mean +/- sd across draws; the sd doubles as
-a stability check that the paper's 32-sequence reference is not a lucky
-draw].
-(3) Regularizer-side sensitivity (size {8,32,128} x domain {task, wikitext}):
-[TBD-E3C]. Both will be added as an appendix with the full tables.
+(2) Size sensitivity (diagnostic side). Two takeaways. (i) The ranking is
+SIZE-INVARIANT: rs against each benchmark's |dR| is identical (to four decimals)
+across sizes {8, 16, 32, 64, 128} and 3 draws per size, so even 8 sequences
+reproduce the full ranking and 32 is not a lucky draw. (ii) The across-draw
+NOISE IS SMALL AND SHRINKS WITH SIZE: the mean coefficient of variation falls
+from 3.7% (n=8) to 1.2% (n=128). The ranking holds even where adjacent bounds
+are close because variants sharing a reference set shift together (common-mode),
+so the per-draw order is preserved in all 15 settings. Bound_I, mean +- sd over
+3 draws (Llama):
 
-Note: (1) ✅ 已有數字(E3-A,out/E3/partA_cross_reference.md,含 per-family 表);
-      (2)(3) ⏳ 需重跑:首輪 B 因 OOM 未產出、C 因 lr=2e-4 非論文 protocol 作廢
-      (三個 bug 均已修,見 E3.md §7;重跑 ~10 h)。
-      誠實策略:0.506 vs 0.725 不迴避,用「兩種模式」框架。
+| variant | n=8 | n=16 | n=32 | n=64 | n=128 |
+|---|---|---|---|---|---|
+| FP16 (dtype) | 5.5 ± 0.3 | 5.9 ± 0.3 | 5.7 ± 0.1 | 5.9 ± 0.3 | 5.7 ± 0.1 |
+| Q8_0 | 19.5 ± 2.9 | 20.2 ± 2.0 | 20.3 ± 0.8 | 20.2 ± 0.7 | 20.3 ± 1.0 |
+| Q6_K | 44.6 ± 2.8 | 46.0 ± 1.3 | 46.0 ± 0.7 | 46.4 ± 1.1 | 46.3 ± 0.3 |
+| INT8 | 51.3 ± 2.3 | 51.9 ± 1.9 | 51.3 ± 0.7 | 51.3 ± 1.4 | 51.6 ± 0.6 |
+| Q5_K_M | 55.0 ± 0.8 | 56.7 ± 1.3 | 57.2 ± 0.8 | 57.6 ± 1.2 | 57.9 ± 0.3 |
+| Q4_K_M | 81.2 ± 1.2 | 83.3 ± 2.6 | 84.0 ± 0.5 | 84.5 ± 1.9 | 85.1 ± 0.5 |
+| NF4 | 92.1 ± 1.0 | 95.8 ± 5.1 | 97.0 ± 0.9 | 96.7 ± 1.7 | 96.8 ± 0.4 |
+| GPTQ (4bit) | 99.5 ± 1.0 | 104.5 ± 1.3 | 104.7 ± 1.6 | 104.8 ± 2.7 | 104.7 ± 0.6 |
+| FP4 | 124.8 ± 1.6 | 126.8 ± 4.0 | 128.7 ± 1.9 | 128.8 ± 2.4 | 129.2 ± 0.9 |
+| Q3_K_M | 130.1 ± 2.6 | 132.6 ± 3.4 | 134.8 ± 2.5 | 134.4 ± 3.5 | 134.3 ± 1.1 |
+| GPTQ | 139.5 ± 2.9 | 140.2 ± 5.0 | 141.3 ± 1.9 | 141.6 ± 3.9 | 141.7 ± 1.2 |
+| Q2_K | 222.7 ± 5.4 | 231.0 ± 5.4 | 233.8 ± 4.7 | 234.0 ± 4.0 | 232.7 ± 1.1 |
+(3) Regularizer-side sensitivity (trace, lambda = 0.5, a point in the paper's
+swept range; Llama-TruthfulQA, lr 1e-5; measured in the extended forgetting
+round of App. H, kept separate from the Table 2 headline). The effect is
+size-insensitive and only mildly domain-sensitive: mean downstream |dR| is
+0.725 / 0.736 / 0.724 for a task-domain reference at sizes 8 / 32 / 128 (flat
+across size), and 0.773 for a generic WikiText reference at n=32 (about 7%
+higher). Relative to this round's own no-reg baseline the reduction is
+essentially constant across all four settings, so the penalty needs neither a
+large nor an in-task reference set. Full grid in the appendix.
+
+Note: (1) ✅ Part A(論文輪 pooled +0.506/+0.725);(2) ✅ Part B(排序恆定:
+      bound 值變 ~5% 但 12 variants 差 40× 永不翻序;只講 stability 不並排 level,
+      E3.md §8.1 輪次 caveat);(3) ✅ Part C(lr=1e-5;task |dR| 0.725/0.736/0.724、
+      wiki32 0.773;E3.md §8.2)。⚠️ Part C 的 −51% 是 **extended round vs 其自身
+      no-reg 1.483**,≠ 論文 Table 2 的 −19%(no-reg 0.843);貼文只講 robustness/
+      spread、不並排 % 以免與 P9 的 −19% 撞。舊 lr=2e-4 partC 勿引。
 
 --------------------------------------------------------------------------------
 C. Add stronger baselines: diagnostics (CKA, SVCCA, simpler feature-preserving
@@ -301,7 +329,7 @@ restatement):
 | condition | new evidence | headline |
 |---|---|---|
 | A. usefulness | isotonic calibration + slack decomposition | LOO MAE 0.055 nats; the two cited cells calibrate to 0.003 / 0.193 nats |
-| B. benchmark-independent | generic-reference ranking + size/domain ablation | WikiText rs +0.506 vs +0.725; size/stability in the revision |
+| B. benchmark-independent | generic-reference ranking + size/domain ablation | WikiText rs +0.506 vs +0.725; diagnostic ranking size-invariant (n>=8); regularizer size-invariant, mildly domain-sensitive (|dR| 0.72-0.77 across settings) |
 | C. stronger baselines | CKA/SVCCA on identical features; EWC/L2-SP/KD/layer-freeze | bound ties CKA (CIs cover 0) and does strictly more; baseline table in the revision |
 | D. free-running | greedy self-generation subset | rs +0.944 free vs +0.958 teacher-forced; TF bound predicts free-run at +0.951 |
 | E. failures | full 20-cell matrix + GSM8K SNR + honest span-fix negative | mean +0.71 / median +0.93; only 2 negative cells, both at the noise floor |
@@ -559,8 +587,12 @@ ranks each benchmark's |dR| with mean Spearman +0.506 (FineWeb-Edu +0.330) vs
 substantially preserved but attenuated; we report both modes (generic =
 label-free screening, benchmark-conditioned = per-deployment diagnosis) and
 state this honestly.
-(2) Sample efficiency: reference sizes {8, 16, 32, 64, 128}: [TBD-E3B,
-stabilization point reported]. (3) Free-running: we test on GSM8K
+(2) Sample efficiency: the diagnostic bound's variant ranking is size-invariant.
+Across sizes {8, 16, 32, 64, 128} and 3 draws, rs against each benchmark's |dR|
+is identical (to four decimals) and the across-draw coefficient of variation
+falls from 3.7% (n=8) to 1.2% (n=128), so even 8 sequences reproduce the full
+ranking (per-variant mean +- sd table in the size-ablation appendix).
+(3) Free-running: we test on GSM8K
 SPECIFICALLY because it is the generation-heaviest, reasoning-heavy benchmark
 where trajectory shift is most severe, the hardest case for a teacher-forced
 bound. On a 100-prompt subset each of the 12 variants greedily generates its
@@ -570,7 +602,7 @@ agreement +0.972. Independently we restate Corollary 1 as teacher-forced-only
 and add trajectory shift as an explicit limitation (the bound applies to any
 feature rows, App. D; the restriction is protocol, not theory).
 
-Note: (1) ✅ 已有;(2)(3) ⏳ E3-B/E7。
+Note: (1) ✅ Part A;(2) ✅ E3-B(size stability,sd<0.001,8 條即足);(3) ✅ E7。
 
 3) W3: no direct CKA/SVCCA comparison; regularizer should face simpler
    feature-preserving baselines.
@@ -933,7 +965,11 @@ ArMA): all target SEQUENTIAL multi-task continual-instruction tuning, whereas
 our regularizer targets single-adapter shape drift diagnosed by the bound; a
 matched comparison requires porting to their sequential benchmarks, which we
 add in the revision (all four are now cited). Reference-set sensitivity for the
-regularizer (size x domain): [TBD-E3C].
+regularizer (size x domain): the shape penalty is size-insensitive (mean
+downstream |dR| 0.725 / 0.736 / 0.724 at sizes 8 / 32 / 128) and only mildly
+domain-sensitive (0.773 with a generic WikiText reference at n=32), so it needs
+neither a large nor an in-task reference set (E3-C, extended forgetting round,
+lambda = 0.5).
 
 Note: (1)(2) ✅ 已有(E4 定稿 26/26 + selectivity 表已填;App H 指路 + E10);(3) ⏳ E2/E3-C。
 
@@ -1006,16 +1042,25 @@ Note: ✅ E7 定稿(12/12;E7.md 頂部表含 CI)。
 Response:
 We sweep the regularizer's reference set over sizes {8, 32, 128} x domains
 {fine-tuning task, wikitext} under the paper's protocol (trace at lambda = 0.5,
-the operating point with complete step-300 coverage on Llama-TruthfulQA):
-retention changes by [TBD-E3C]% at most across settings [report honestly if
-sensitive]; new appendix with the full grid. For the
-DIAGNOSTIC side, the corresponding size ablation {8..128} and the
+lr 1e-5, the operating point with complete step-300 coverage on
+Llama-TruthfulQA; measured in the extended forgetting round of App. H, kept
+separate from the Table 2 headline). The penalty is size-insensitive and only
+mildly domain-sensitive: mean downstream |dR| is 0.725 / 0.736 / 0.724 for a
+task-domain reference at sizes 8 / 32 / 128 (flat across size), and 0.773 for a
+generic WikiText reference at n=32 (about 7% higher). Relative to this round's
+own no-reg baseline the reduction is essentially constant across all four
+settings, so the penalty needs neither a large nor an in-task reference set;
+the full grid is in the appendix. For the DIAGNOSTIC side, the corresponding size
+ablation {8..128} shows the bound's variant ranking is invariant to reference
+size (rs changes by < 0.001, 8 sequences suffice), and the
 benchmark-independent domain result (a held-out WikiText reference, outside the
 reported benchmark set: mean rs +0.506 vs +0.725 benchmark-specific, computed
-from features we already extract) are reported together.
+from features we already extract) is reported together.
 
-Note: ⏳ E3-C 需重跑(首輪 lr=2e-4 非論文 protocol,作廢;λ 改 0.5;
-      ~9 h;lr-stress 內參在 out/E3/partC_summary.md);診斷側數字 ✅ 已有。
+Note: ✅ E3-C 定稿(lr=1e-5;task |dR| 0.725/0.736/0.724、wiki32 0.773;
+      E3.md §8.2)+ E3-B 排序恆定。⚠️ 貼文只講 robustness/spread,**不並排
+      reduction %**——Part C 的 −51% 是 extended round(no-reg 1.483),與論文
+      Table 2 的 −19%(no-reg 0.843)不同輪,並排會撞 P9。舊 lr=2e-4 勿引。
 
 8) Q4: comparison to stronger forgetting baselines?
 
@@ -1053,8 +1098,8 @@ Global assembly checklist (post 前逐項核對)
 [x] rebuttal.proposal.md 已整合(2026-07-26):general 致謝 + 六 weak-points
     映射(W-1/3/4/5→條件 A/C/B+D/C+E;W-2 全獨立答;W-6 部分→A、部分獨立答)
     + AC condition checklist 表 + 四位 reviewer opener/Net + P5/P6/P7/P9
-[ ] AC checklist 表的 B/C 兩列目前寫「in the revision」:E3B/E2 落地後改填實數
-    (絕不在未跑前貼數字)
+[x] AC checklist B 列 ✅ 已填實數(E3 定稿:size-invariant sd<0.001 + regularizer
+    −48~−51%);C 列仍寫「in the revision」,E2 落地後改填(絕不在未跑前貼數字)
 [ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
