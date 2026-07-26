@@ -68,7 +68,7 @@ method, x, seed, task, model, steps = sys.argv[1:7]
 tag = f"top{x}" if method == "layer_freeze" else f"lam{float(x):g}"
 p = os.path.join("rebuttal_exp", "out", "E2", method, tag, f"seed{seed}",
                  model.split("/")[-1].lower(), task,
-                 f"prism_forgetting_metrics_{task}.json")
+                 "prism_forgetting_metrics.json")   # trainer saves this exact name (no _task suffix)
 try:
     cks = json.load(open(p)).get("checkpoints", [])
     sys.exit(0 if any(c.get("step") == int(steps) for c in cks) else 1)
