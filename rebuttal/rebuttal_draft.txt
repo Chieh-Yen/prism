@@ -152,17 +152,36 @@ B. Demonstrate benchmark-independent use: PRISM predictive on a small
    benchmark-independent reference set, incl. sensitivity to size and domain.
 
 Response:
-(1) Benchmark-independent reference (no new training or compute): we compute the
-bound from the same per-example features our pipeline already extracts, on two
-held-out generic corpora (WikiText, FineWeb-Edu) that are deliberately outside
-the reported benchmark set. The bound computed on the WikiText reference ranks
-each benchmark's |dR| with mean Spearman +0.506 (FineWeb-Edu: +0.330), vs +0.725
-for benchmark-specific references, pooled over 11 families x 5 benchmarks (55
-cells). Rankings are substantially preserved but attenuated, as expected for an
-input-conditioned diagnostic; the revision reports both modes: generic
-reference for label-free screening, benchmark-conditioned for per-deployment
-diagnosis.
-(2) Size sensitivity (diagnostic side). Two takeaways. (i) The ranking is
+We demonstrate benchmark-independent use, and set out the reference-set recipe
+in three layers, since how the reference is chosen is the crux of this question.
+(1) The guarantee is per-instance, so validity does not depend on the reference.
+Theorem 1 is proved at the level of individual paired samples (z_T, z_P) and
+then averaged (proved in App. A), so it applies to ANY feature rows whatever
+their origin (App. D): the bound is valid on whatever distribution the reference
+is drawn from, be it a benchmark, a generic corpus, or a mix. Benchmark-
+independent VALIDITY is thus built into the theorem (proved), not something we
+hope transfers. Choosing the reference only sets WHICH distribution the bound
+characterizes; using a generic reference to rank a benchmark's degradation is
+then a transfer question, quantified empirically in (3).
+(2) This is not an extra burden, and it is not circular. Any evaluation or
+model-selection already presumes representative held-out data; PRISM's reference
+set IS that data, with two advantages: it is UNLABELED (one teacher-forced
+forward pass, no gold answers, no decoding) and TINY (the size ablation below
+shows 8 sequences already reproduce the full variant ranking). Even the
+benchmark-conditioned mode uses only the benchmark's inputs, never its labels,
+so PRISM never pays the scoring step that makes benchmarking expensive; its data
+requirement is strictly weaker than running the benchmark.
+(3) Even so, we report the EMPIRICAL benchmark-independent transfer requested: a
+held-out WikiText reference (outside the reported benchmark set) ranks each
+benchmark's |dR| at mean Spearman +0.506 (FineWeb-Edu +0.330), vs +0.725 for
+benchmark-specific references, over 55 (family, benchmark) cells. The ranking is
+substantially preserved though attenuated, exactly as (1) predicts. We report
+two modes and scope them honestly: benchmark-conditioned for per-deployment
+diagnosis, and generic for label-free screening when no deployment data exists
+at all.
+
+Size ablation (diagnostic side; the empirical evidence for layer (2) above).
+Two takeaways. (i) The ranking is
 SIZE-INVARIANT: rs against each benchmark's |dR| is identical (to four decimals)
 across sizes {8, 16, 32, 64, 128} and 3 draws per size, so even 8 sequences
 reproduce the full ranking and 32 is not a lucky draw. (ii) The across-draw
@@ -186,7 +205,7 @@ so the per-draw order is preserved in all 15 settings. Bound_I, mean +- sd over
 | Q3_K_M | 130.1 ± 2.6 | 132.6 ± 3.4 | 134.8 ± 2.5 | 134.4 ± 3.5 | 134.3 ± 1.1 |
 | GPTQ | 139.5 ± 2.9 | 140.2 ± 5.0 | 141.3 ± 1.9 | 141.6 ± 3.9 | 141.7 ± 1.2 |
 | Q2_K | 222.7 ± 5.4 | 231.0 ± 5.4 | 233.8 ± 4.7 | 234.0 ± 4.0 | 232.7 ± 1.1 |
-(3) Regularizer-side sensitivity (trace, lambda = 0.5, a point in the paper's
+Regularizer-side sensitivity (trace, lambda = 0.5, a point in the paper's
 swept range; Llama-TruthfulQA, lr 1e-5; measured in the extended forgetting
 round of App. H, kept separate from the Table 2 headline). The effect is
 size-insensitive and only mildly domain-sensitive: mean downstream |dR| is
@@ -196,12 +215,13 @@ higher). Relative to this round's own no-reg baseline the reduction is
 essentially constant across all four settings, so the penalty needs neither a
 large nor an in-task reference set. Full grid in the appendix.
 
-Note: (1) ✅ Part A(論文輪 pooled +0.506/+0.725);(2) ✅ Part B(排序恆定:
-      bound 值變 ~5% 但 12 variants 差 40× 永不翻序;只講 stability 不並排 level,
-      E3.md §8.1 輪次 caveat);(3) ✅ Part C(lr=1e-5;task |dR| 0.725/0.736/0.724、
-      wiki32 0.773;E3.md §8.2)。⚠️ Part C 的 −51% 是 **extended round vs 其自身
-      no-reg 1.483**,≠ 論文 Table 2 的 −19%(no-reg 0.843);貼文只講 robustness/
-      spread、不並排 % 以免與 P9 的 −19% 撞。舊 lr=2e-4 partC 勿引。
+Note: 框架 = 三層(2026-07-26):Layer1 per-instance validity(App A 證明 / App D
+      any-rows,proved,回應「off-benchmark 是否 valid」)→ Layer2 非循環+tiny/unlabeled
+      (指向 size 表)→ Layer3 empirical transfer +0.506(Part A 論文輪 pooled,數字不變、
+      只換框架)。general-ML transfer 只留一句尾巴(輕帶)。size 表 = Part B;
+      regularizer = Part C。⚠️ Part C 的 −51% 是 extended round vs 自身 no-reg 1.483,
+      ≠ 論文 Table 2 −19%(no-reg 0.843);貼文只講 robustness/spread 不並排 %。
+      舊 lr=2e-4 partC 勿引。
 
 --------------------------------------------------------------------------------
 C. Add stronger baselines: diagnostics (CKA, SVCCA, simpler feature-preserving
@@ -579,12 +599,13 @@ Note: 指路(L258–262, L249–257)+ E4 ✅ 定稿(26/26 bound holds,選擇性 
    reference-set ablation.
 
 Response:
-Three parts. (1) Benchmark-independent reference, no new compute, from the
-same per-example features our pipeline already extracts, on a held-out generic
-corpus (WikiText) outside the reported benchmark set: the bound so computed
-ranks each benchmark's |dR| with mean Spearman +0.506 (FineWeb-Edu +0.330) vs
-+0.725 for benchmark-specific references (55 cells, 11 families). Rankings are
-substantially preserved but attenuated; we report both modes (generic =
+Three parts. (1) Benchmark-independent reference. The guarantee is per-instance, so it is
+valid on ANY reference set by construction (proved in App. A; App. D), not only
+on benchmark inputs; and PRISM's reference is unlabeled and tiny (8 sequences
+suffice). Generic-vs-benchmark is then an empirical transfer question: a
+held-out WikiText reference ranks each benchmark's |dR| at mean Spearman +0.506
+(FineWeb-Edu +0.330) vs +0.725 for benchmark-specific references (55 cells).
+Substantially preserved but attenuated; we report both modes (generic =
 label-free screening, benchmark-conditioned = per-deployment diagnosis) and
 state this honestly.
 (2) Sample efficiency: the diagnostic bound's variant ranking is size-invariant.
