@@ -341,15 +341,15 @@ The identity gauge B_I, for instance, leads on extraction-QA (SQuAD
 score cannot see. (c) A DIFFERENTIABLE REGULARIZER (Sec. 5.4). App. B proves
 CKA >= Omega_F^2 and that CKA is not alignment-derived, so it cannot even
 define the attribution, let alone the bound or the training signal.
-Regularization: as the meta-review suggests, we added LAYER-FREEZING (LoRA
-restricted to the top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher),
-L2-SP, and feature distillation, all under the paper's exact protocol, each at
-its sweep-best setting with 3 seeds, with target-task performance reported:
-[TBD-E2, baseline table]. SLoRA, two-phase CIT, CLAIM, and ArMA target the
-SEQUENTIAL multi-task continual-instruction setting (a stream of tasks), whereas
-our regularizer targets single-adapter shape drift diagnosed by the bound; a
-matched comparison requires their sequential benchmarks, which we add in the
-revision. All four are now cited.
+Regularization: the shape regularizer is a demonstration that the framework's diagnosed
+axis is actionable, so its matched baselines are general forgetting methods in our
+single-task setting. As the meta-review suggests, we add layer-freezing (LoRA on the
+top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher), L2-SP, and feature
+distillation, all under the paper's exact protocol, 3 seeds at sweep-best, with
+target-task performance reported: [TBD-E2]. SLoRA, two-phase CIT, CLAIM, and ArMA are
+specialized for the sequential continual-instruction setting (a task stream), a
+different problem than our single fine-tuning; we cite all four and leave a matched
+comparison there to future work.
 
 Note: ✅ E1 GPTQ 全補齊(12/12、11/11)。框架改為 **tie + containment**
       (Procrustes²=feature arm,App A.1/Eq23;不再賣 B_N「贏 +0.008」——CI 蓋 0,
@@ -427,23 +427,22 @@ flag rather than contradicting the aggregate. Table 22 is, by construction, that
 diagnostic-gating analysis: its "gating verdict" column already marks Llama-BBQ
 "cell-level mixed" and both Qwen settings "at noise floor => skip"; trace still
 yields per-benchmark wins on shape-driven cells (BBQ-FT TriviaQA -88%, GSM8K
--79%) and lifts Omega 0.93->0.98 where replay leaves it flat. We promote this from
-App. H to the main text and extend it with an independent rerun on 10
-(model, FT-task) cells (5 tasks x 2 models): the trace benefit tracks the
-unregularized shape drift within model (Spearman +1.00 Qwen / +0.40 Llama),
-and the failure cells are exactly those PRISM diagnoses as not shape-driven
-(Llama-BBQ: 20% scale share; Qwen-LIMA: 1-Omega ~ 7e-4, nothing to repair).
-The regularizer is presented as axis-targeted, with the gating rule stated
-explicitly.
+-79%) and lifts Omega 0.93->0.98 where replay leaves it flat. We promote this gating
+analysis from App. H to the main text; the failure cells are exactly those PRISM flags
+as not shape-driven (Llama-BBQ: 20% scale share, rho_P < rho_T; Qwen-BBQ: 1-Omega at
+the ~7e-4 noise floor, nothing to repair). The regularizer is presented as
+axis-targeted, with the gating rule stated explicitly.
 
-Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E10 已跑 + E13 的 20-cell 聚合)。
+Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E13 的 20-cell 聚合)。
       by-task 數字全部來自論文,可直接引:ARC |dR|0.288/TriviaQA 0.0035(App G.1
       L775)、Fig 3/7 per-subplot rs(TruthfulQA→GSM8K Llama +0.97)、BBQ vs
       TruthfulQA baseline Ω0.932/0.906 + mean|dR|0.179/0.843(App H L792–797)。
       ⚠️ 框架 = by-(task,benchmark) 而非「gsm8k/BBQ 是弱點」;誠實保留 noise-floor
       caveat(~1e-2 nats)但不認栽成 benchmark/reasoning limitation。
-      ⚠️ E10 的 10-cell 數字與論文 Table 18–22 屬不同輪次,分開呈現(E10.md §4);
-      E13 的 λ=0 相關矩陣則 checksum 命中論文輪次(0.831/−0.34/−0.66),可直接引用。
+      ⚠️ 2026-07-26 定案:E10(5-task SocialIQA/No-Robots/LIMA)不揭露,已從 (4)
+      regularizer 移除;gating 改靠論文 Table 22(2-task)+ Table 19 per-benchmark
+      wins(BBQ-FT TriviaQA −88%/GSM8K −79%)。E13 的 λ=0 相關矩陣 checksum 命中
+      論文輪次(0.831/−0.34/−0.66),可直接引用。
 
 --------------------------------------------------------------------------------
 Condition-by-condition summary (each answered with a measurement, not a
@@ -997,15 +996,29 @@ Note: ✅ 指路 App C.3 L678–679 + App I + E11 定稿已填(10/10 holds;
    base model to SFT models, or when fine-tuning jointly on heterogeneous datasets.
 
 Response:
-Since submission we extended the forgetting study from 2 to 5 fine-tuning
-tasks (adding SocialIQA, No-Robots, LIMA) x 2 models, 10 (model, task) cells.
-The diagnostic pattern holds: the trace regularizer's benefit tracks the
-unregularized shape drift within each model (Spearman +1.00 on Qwen, +0.40 on
-Llama at lambda = 0.5, the setting with full 10/10-cell coverage), and the
-cells where regularization does not help are those PRISM itself flags as not
-shape-driven. Genuinely
-heterogeneous mixed-data SFT remains untested; we state this scope explicitly
-and flag it as future work rather than claim coverage we do not have.
+PRISM's bound is recipe-agnostic: it reads a variant's features and head and does not
+depend on HOW the variant was produced, so mixed, multi-task, and joint heterogeneous
+fine-tuning are in scope by construction (Theorem 1 holds for any matched-dimension
+model pair, App. C.1/D; nothing in the derivation assumes single-task data or a frozen
+head).
+The reviewer's most demanding case is in fact already a data point. An
+instruction-tuned model IS the product of large-scale, heterogeneous, multi-task SFT
+(and RLHF), and our base-vs-instruct experiment (Q1) applies PRISM from the base model
+to exactly such a model: the bound is valid in 10/10 (pair, benchmark) cells and the
+head term engages as predicted (median 50% of the bound, versus a structural 0% in
+every frozen-head setting of the paper). So the decomposition and its patterns stay
+meaningful when the variant comes from heterogeneous joint post-training, which is the
+base-to-SFT direction asked about.
+What changes as the recipe gets heavier is predictable from the mechanism and already
+visible there: (i) the head unfreezes, so the head term carries more of the bound
+(gamma = 0 under a frozen head -> ~50% for instruct); (ii) the variant drifts farther,
+so the orthogonal alignment is less optimal and the ABSOLUTE bound loosens (App. C.3).
+The rank signal is expected to persist wherever drift exceeds the noise floor, the same
+SNR regime that governs correlation strength throughout. We therefore give a grounded
+prediction rather than a deferral: under joint/heterogeneous SFT, validity is intact,
+the head term becomes dominant, and ranking is preserved above the noise floor, with
+absolute tightness the quantity that degrades. Calibrated tightness for arbitrary joint
+SFT is the single piece we do not yet claim.
 
 Note: ✅ 已有(E10 rerun,5 任務 × 2 模型)。mixed-data 誠實劃界。
 
@@ -1371,24 +1384,34 @@ gating verdict flags as NOT shape-driven (Llama-BBQ: 20% scale share,
 rho_P < rho_T; Qwen-BBQ: 1-Omega at the ~7e-4 noise floor, nothing to repair).
 Where the axis IS shape-driven, trace wins per-benchmark (BBQ-FT: TriviaQA
 -88%, GSM8K -79%) and lifts Omega 0.93 -> 0.98 while replay stays flat. We
-promote this gating analysis to the main text and extend it with an independent
-10-cell rerun (5 FT tasks x 2 models): benefit tracks unregularized shape drift
-within model (Spearman +1.00 Qwen / +0.40 Llama). The regularizer is presented
+promote this gating analysis to the main text. The regularizer is presented
 as axis-targeted with the gating rule explicit, not a universal win.
-(3) Baselines: EWC, L2-SP, feature distillation, and layer-freezing added under
-the identical protocol, >= 3 seeds at sweep-best, source-task performance
-reported: [TBD-E2]. On the four cited methods (SLoRA, two-phase CIT, CLAIM,
-ArMA): all target SEQUENTIAL multi-task continual-instruction tuning, whereas
-our regularizer targets single-adapter shape drift diagnosed by the bound; a
-matched comparison requires porting to their sequential benchmarks, which we
-add in the revision (all four are now cited). Reference-set sensitivity for the
+(3) Baselines and scope. A framing point first, because it fixes which baselines are
+the right ones: the paper's contribution is the diagnostic FRAMEWORK (the closed-form
+bound and its scale/shape/head decomposition); the shape regularizer (Sec. 5.4) is a
+demonstration that the diagnosed shape axis is ACTIONABLE, a corollary of the bound, not
+a bid to be a new state-of-the-art continual-learning method. The relevant bar is
+therefore whether acting on the diagnosis helps against general, matched baselines. On
+replay: it was not a weak or arbitrary control but the most general and most widely used
+forgetting baseline, and in our SINGLE-adapter, single-task setting it is the matched
+comparison (same reference data, schedule, and compute as the shape penalty). We agree
+more baselines strengthen the case and add the ones matched to this setting, across all
+three families: EWC and L2-SP (weight-space), feature distillation (feature-space), and
+layer-freezing (the meta-review's suggestion), all under the identical protocol, >= 3
+seeds at sweep-best, source-task performance reported: [TBD-E2]. On the four cited
+methods (SLoRA, two-phase CIT, CLAIM, ArMA): these are specialized for the SEQUENTIAL
+continual-instruction setting (a task stream), whereas our experiment mitigates
+forgetting during a single LoRA fine-tuning; they address a different problem, so a fair
+comparison means moving to their sequential benchmarks rather than adding a baseline. We
+cite all four and flag a large-scale continual-learning study as future work. Reference-set sensitivity for the
 regularizer (size x domain): the shape penalty is size-insensitive (mean
 downstream |dR| 0.725 / 0.736 / 0.724 at sizes 8 / 32 / 128) and only mildly
 domain-sensitive (0.773 with a generic WikiText reference at n=32), so it needs
 neither a large nor an in-task reference set (E3-C, extended forgetting round,
 lambda = 0.5).
 
-Note: (1)(2) ✅ 已有(E4 定稿 26/26 + selectivity 表已填;App H 指路 + E10);(3) ⏳ E2/E3-C。
+Note: (1)(2) ✅ 已有(E4 定稿 26/26 + selectivity 表已填;gating 靠論文 Table 22/19,
+      E10 5-task 不揭露);(3) ⏳ E2/E3-C。
 
 4) W4 / Q2 [原文]:
    [W4] Some conclusions are broader than the evidence. The reported LoRA mean correlation
@@ -1502,13 +1525,15 @@ Note: ✅ E3-C 定稿(lr=1e-5;task |dR| 0.725/0.736/0.724、wiki32 0.773;
 8) Q4: comparison to stronger forgetting baselines?
 
 Response:
-Added: EWC (diagonal Fisher), L2-SP, feature distillation, and layer-freezing
-(meta-review suggestion), all under the identical LoRA-forgetting protocol,
-each at sweep-best with 3 seeds, reporting downstream forgetting AND
-target-task performance: [TBD-E2, table; honest win/tie/loss summary].
-SLoRA/two-phase/CLAIM/ArMA are sequential continual-instruction methods; we
-discuss them in Related Work and will compare under matched settings in the
-revision.
+The shape regularizer is a demonstration that the framework's diagnosed axis is
+actionable, not a bid for state-of-the-art continual learning, so the matched bar is
+general forgetting baselines in our single-task setting. We add EWC (diagonal Fisher),
+L2-SP, feature distillation, and layer-freezing (the meta-review's suggestion), all
+under the identical protocol, >= 3 seeds at sweep-best, reporting downstream forgetting
+AND target-task performance: [TBD-E2]. SLoRA, two-phase CIT, CLAIM, and ArMA are
+specialized for the SEQUENTIAL continual-instruction setting (a task stream), a
+different problem than our single LoRA fine-tuning; we cite all four and flag a
+large-scale continual-learning study as future work.
 
 Note: ⏳ E2。
 
@@ -1539,7 +1564,9 @@ Global assembly checklist (post 前逐項核對)
     −48~−51%);C 列仍寫「in the revision」,E2 落地後改填(絕不在未跑前貼數字)
 [ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
-[ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
+[x] E10(5-task SocialIQA/No-Robots/LIMA)不揭露——已從 G3T9-Q2 / AC-E / 8VrD-W3
+    移除;G3T9-Q2 改用 recipe-agnostic + base-vs-instruct(E11);gating 改靠論文
+    Table 22(2-task)+ Table 19 per-benchmark wins
 [ ] E13 的 20-cell 聚合已 inline(checksum REPRODUCED 論文輪次,可與 0.831 同句)
 [x] E12 成本表 ✅ 定稿已填(G3T9-W1 + 8VrD-Lim(iv) + AC-ii + G3T9-opener + Net 全部
     改 GSM8K-only 純實測:TF 8.9 s vs greedy decode 556.7 s = 62.6×,maj@8 501×;
