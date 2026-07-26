@@ -262,11 +262,11 @@ All pairwise differences among {B_N, CKA, SVCCA} are within Spearman noise
 (bootstrap 95% CIs cover 0): the certified bound cedes NOTHING on ranking. That
 is the point: the tie comes bundled with three things no similarity score
 provides. (a) A RISK BOUND: none of CKA/SVCCA/Procrustes bounds |dR|. (b) AXIS
-ATTRIBUTION (Sec. 5.3): e.g. on GSM8K the similarity core saturates into ties
-(1-Omega_N +0.480/+0.661 on full features) yet B_N still ranks (+0.965/+0.964)
-through its scale and gamma_N arms (the Omega/Omega_N gap App. C.2 designates
-as signal); the identity gauge B_I additionally leads on extraction-QA (SQuAD
-+0.811/+0.955). (c) A DIFFERENTIABLE REGULARIZER (Sec. 5.4). App. B proves
+ATTRIBUTION (Sec. 5.3): the bound separates scale, shape, and head, so it
+localizes WHICH axis drove a variant's degradation, not merely that it drifted.
+The identity gauge B_I, for instance, leads on extraction-QA (SQuAD
++0.811/+0.955), where its scale arm carries the ranking signal a similarity
+score cannot see. (c) A DIFFERENTIABLE REGULARIZER (Sec. 5.4). App. B proves
 CKA >= Omega_F^2 and that CKA is not alignment-derived, so it cannot even
 define the attribution, let alone the bound or the training signal.
 Regularization: as the meta-review suggests, we added LAYER-FREEZING (LoRA
@@ -318,23 +318,36 @@ E. Analyze failures and mixed results: GSM8K, Qwen-BBQ weak correlations;
    cases where the regularizer does not help or worsens forgetting.
 
 Response:
-We agree these belong in the main text, and the analyses already exist; we
-promote and extend them.
-(1) GSM8K: the root cause is quantified in App. F.3/Table 10: long CoT answer
-spans dilute per-token loss, collapsing mean |dR| to 0.019 nats (Qwen3-8B-
-Instruct: 0.0033), an order of magnitude below other benchmarks (0.07-0.16).
-At that scale per-variant differences are measurement noise; ANY CE-based
-label-free proxy (including perplexity screening) inherits this. GSM8K becomes
-a first-class limitation with this SNR analysis in the main text.
-(2) Qwen-BBQ negative correlations (-0.34/-0.66, already plotted in Fig. 7):
-App. G.1 documents the same mechanism: at lambda=0, |dR| sits at ~1e-3 nats,
-two orders below where the bound is informative (0.0035 on TriviaQA vs 0.288
-on ARC within the SAME trajectory). The revised main text reports the full
-correlation matrix with all-cell aggregates, not the Llama-only mean: over
-all 20 (model, FT-task, benchmark) cells, mean rs = +0.71, median = +0.93,
-with exactly two negative cells, both Qwen-BBQ, both in the noise-floor
-regime above.
-(3) Regularizer: the paper's aggregate result stands (Table 2 / Fig. 4: on
+We agree these belong in the main text; the analyses already exist (App. G.1,
+App. H "task-dependence"). Rather than list GSM8K/BBQ as flat limitations we
+give the by-(task, benchmark) picture, which is both more accurate and more
+favorable: the weak and negative cells are exactly the pairs where the
+perturbation barely moved the model, so |dR| is at the noise floor and there is
+nothing to rank, a regime PRISM's own small bound flags.
+(1) Drift magnitude, not the benchmark, sets rankability. Within a SINGLE
+Qwen-BBQ fine-tuning run, ARC drifts (|dR| = 0.288, rs = +0.94) while TriviaQA
+barely moves (|dR| = 0.0035, rs = -0.66): an ~80x |dR| gap in one run, with the
+rank correlation tracking it. The near-zero |dR| is ground truth (BBQ
+fine-tuning genuinely does not degrade Qwen on TriviaQA), so the negative rs is
+checkpoint noise, not a bound failure.
+(2) Where drift exists, PRISM ranks it, GSM8K included. TruthfulQA fine-tuning
+drives broad shape drift (Llama mean |dR| = 0.84) and PRISM ranks its GSM8K
+forgetting at rs = +0.97 (Llama, Fig. 3). GSM8K is not intrinsically
+unrankable; it looks weak only where the perturbation leaves its loss nearly
+unchanged, as in PTQ, where quantization moves long-CoT per-token CE by only
+~0.019 nats (an SNR property of the CE target, inherited by any CE-based
+label-free proxy, perplexity screening included).
+(3) Why BBQ sits low. BBQ is a targeted bias-QA task; on Llama it is far less
+shape-disruptive than TruthfulQA (baseline Omega 0.932 vs 0.906) and induces
+much smaller downstream drift (mean |dR| 0.179 vs 0.843), so several
+BBQ->benchmark cells land at the floor while TruthfulQA cells do not. The
+precise, honest statement is therefore a resolving-power caveat, rank is
+informative above a |dR| floor of ~1e-2 nats, which the small bound itself
+signals, not a benchmark or reasoning-task limitation. The revised main text
+promotes App. G.1/H and reports the full 20-cell matrix: mean rs = +0.71,
+median = +0.93, 18/20 positive, the two negatives being the Qwen-BBQ
+noise-floor cells above.
+(4) Regularizer: the paper's aggregate result stands (Table 2 / Fig. 4: on
 Llama-TruthfulQA the trace penalty cuts mean downstream forgetting by 19% vs
 replay's 9%). The gating analysis explains the per-cell variation the reviewers
 flag rather than contradicting the aggregate. Table 22 is, by construction, that
@@ -351,6 +364,11 @@ The regularizer is presented as axis-targeted, with the gating rule stated
 explicitly.
 
 Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E10 已跑 + E13 的 20-cell 聚合)。
+      by-task 數字全部來自論文,可直接引:ARC |dR|0.288/TriviaQA 0.0035(App G.1
+      L775)、Fig 3/7 per-subplot rs(TruthfulQA→GSM8K Llama +0.97)、BBQ vs
+      TruthfulQA baseline Ω0.932/0.906 + mean|dR|0.179/0.843(App H L792–797)。
+      ⚠️ 框架 = by-(task,benchmark) 而非「gsm8k/BBQ 是弱點」;誠實保留 noise-floor
+      caveat(~1e-2 nats)但不認栽成 benchmark/reasoning limitation。
       ⚠️ E10 的 10-cell 數字與論文 Table 18–22 屬不同輪次,分開呈現(E10.md §4);
       E13 的 λ=0 相關矩陣則 checksum 命中論文輪次(0.831/−0.34/−0.66),可直接引用。
 
@@ -450,8 +468,16 @@ invisible to any Omega-only or CKA/SVCCA score). (2) The gain the machinery
 buys, quantified within a fixed gauge: as a pure ranker the similarity core
 alone (1-Omega_N) reaches mean rs +0.839/+0.773 (Llama/Qwen), while the full
 bound B_N reaches +0.927/+0.896, a +0.088/+0.123 gain from exactly the scale
-and gamma_N terms the reviewer calls heavy, concentrated where the core
-saturates (GSM8K 1-Omega_N +0.480/+0.661 -> B_N +0.965/+0.964). (3) And the
+and gamma_N terms the reviewer calls heavy. (3) The alignment gauge is itself a
+ranking lever, which answers the "modest gain" point head-on: the
+rotation-invariant W_N gauge lifts the full bound from mean rs 0.820 (B, W=I)
+to 0.912 (B_N, Table 3), by quotienting out the orthogonal rotation between the
+two feature spaces that does not affect risk but adds noise to the order. For
+RANKING variants we therefore recommend W_N; we keep W=I as the default for
+ANALYSIS and deployment, since it is the differentiable, frozen-lm_head-faithful
+gauge (H_T = H_P) that yields the Sec. 3.5 regularizer and remains Theorem 1's
+certified bound when the head itself is quantized (gamma > 0). Both alignments
+are certified (App. C.1); the choice is design-driven (Sec. 5.5). (4) And the
 machinery is what DERIVES Omega as the risk-relevant similarity (App. B, not
 CKA) and yields the differentiable regularizer; the bound is the justification
 for those two products, not overhead layered on a ranker.
@@ -464,8 +490,10 @@ Note: ✅ 指路即可成立(L278–285, L249–257, App B);E1 數字已填—�
 4) W4: GSM8K correlation notably lower; structural limitation for reasoning.
 
 Response:
-We agree it is structural and promote it to a first-class limitation. Three
-clarifications. (1) Root cause, quantified (App. F.3, Table 10): long
+We agree GSM8K's PTQ correlation is low and we analyze it rather than wave it
+away; the analysis reframes it as a drift-MAGNITUDE effect on a specific
+(perturbation, benchmark) regime, not a structural failure on reasoning. Three
+points. (1) Root cause, quantified (App. F.3, Table 10): long
 teacher-forced CoT spans dilute per-token loss, collapsing GSM8K's mean |dR|
 to 0.019 nats (Qwen3-8B-Instruct 0.0033), an order of magnitude below other
 benchmarks (0.07-0.16). This is a property of the CE target itself, inherited
@@ -478,20 +506,25 @@ mechanical: that span is only about 3 tokens, so span-level |dR| becomes a
 high-variance, near-binary "did it emit the right final number" target, with
 clear inversions (Q2_K, the most-damaged variant by full |dR|, looks almost
 intact on the final token, while NF4 garbles it). We therefore keep GSM8K as a
-first-class limitation rather than claim a fix. (3) The ordering that matters is
-carried by the BOUND, not by shape similarity alone: computed on full,
-non-truncated reference features, the bound ranks GSM8K variants strongly
-through its scale and gamma arms even where the shape core saturates (see our
-CKA/SVCCA comparison, B_N +0.965/+0.964 on GSM8K; App. C.2). The limitation is
-the |dR| MAGNITUDE (an SNR property of the task), not the bound's ranking.
-Implications for reasoning-heavy models are added to the Limitations.
+first-class item rather than claim a fix. (3) The correct scope is by task, not
+"reasoning is a structural limitation": the weak PTQ correlation is a
+drift-MAGNITUDE / SNR effect (quantization moves GSM8K's long-CoT per-token CE
+by only ~0.019 nats, so variants are near-tied and any CE-based label-free proxy
+inherits it), NOT a failure of the geometry on reasoning. GSM8K is not
+intrinsically unrankable: under a perturbation that does move it, PRISM ranks it
+well, e.g. rs = +0.97 for Llama TruthfulQA-LoRA forgetting (Fig. 3). So the
+honest, precise statement is a noise-floor caveat on resolving power, which
+PRISM's own small bound signals; we do NOT claim a gauge or extraction that
+"rescues" the PTQ cells whose drift is genuinely at the floor. The Limitations
+state this as a |dR|-magnitude caveat, with GSM8K's PTQ cells as the example.
 
 Note: ✅ E9 定稿——mitigation **失敗**(span rs +0.566 < full-CoT +0.979;
-      span 僅 ~3 tokens,Q2_K 反轉)。採誠實負結果框架:維持 first-class
-      limitation,限制在 |dR| magnitude 非 ranking,排序交叉引用 CKA 表 B_N
-      +0.965。⚠️ full-CoT +0.979 獨立佐證論文 gsm8k 0.51 = 截斷 artifact
-      (E1.md §1c),de-risk E1 REDO;是否在貼文明講此 artifact = 策略叉路,
-      待 user 決定 + E1 REDO 官方 protocol 確認(E9.md §7.2)。
+      span 僅 ~3 tokens,Q2_K 反轉)。採誠實負結果:維持 first-class
+      limitation,限制在 |dR| magnitude / SNR。⚠️ 決定 NOT 宣稱任何 gauge 或
+      extraction「救回」gsm8k 排序——會與 (1) 的 noise-floor 讓步自相矛盾、
+      且 conf-4 會判 overselling。已移除舊的「B_N +0.965 rescues gsm8k」與
+      「full-CoT 0.979 = 截斷 artifact」框架(與論文 Table 3「gsm8k weakest」打架)。
+      W_N-for-ranking 的一般性論點統一放 pCi8-W3(不綁 gsm8k)。
 
 5) W5: EWC cited but never compared; only small-scale replay is a convenient
    choice.
@@ -661,10 +694,10 @@ the PRISM family. Mean Spearman rs over the five benchmarks:
 All pairwise differences among {B_N, CKA, SVCCA} are within Spearman noise
 (bootstrap 95% CIs cover 0): we cede nothing on ranking, and the tie comes
 bundled with what a similarity score cannot give. (a) A risk bound and axis
-attribution: where similarity saturates into ties (GSM8K, 1-Omega_N
-+0.480/+0.661 on full features), B_N still ranks (+0.965/+0.964) through its
-scale and gamma_N arms (App. C.2's Omega/Omega_N-gap signal), and B_I leads on
-extraction-QA (SQuAD +0.811/+0.955). (b) None of CKA/SVCCA/Procrustes bounds
+attribution: the bound localizes WHICH axis (scale / shape / head) drove a
+variant's degradation, e.g. the identity gauge B_I leads on extraction-QA
+(SQuAD +0.811/+0.955) where its scale arm carries the signal, an attribution no
+similarity score provides. (b) None of CKA/SVCCA/Procrustes bounds
 |dR| or attributes to an axis (App. B: CKA >= Omega_F^2, not alignment-
 derived), so they cannot produce Sec. 5.3's diagnoses even where correlations
 tie. (2) Regularizers: the new baseline table adds exactly the requested simple
@@ -1014,15 +1047,24 @@ Note: (1)(2) ✅ 已有(E4 定稿 26/26 + selectivity 表已填;App H 指路 + E
 Response:
 (1) Agreed on prominence. The 0.831 was explicitly scoped to the Llama grid
 (Sec. 5.2) and the negative Qwen-BBQ cells are plotted in Fig. 7, with App.
-G.1 diagnosing the mechanism: at lambda=0 those cells sit at |dR| ~ 1e-3 nats,
+G.1 (L770–782) diagnosing the mechanism: at lambda=0 those cells sit at |dR| ~ 1e-3 nats (the difference of risk ~ 0.001),
 two orders below where the bound is informative (0.0035 on TriviaQA vs
 0.288 on ARC within the SAME fine-tuning trajectory), so per-checkpoint
 rankings reflect trajectory noise rather than bound failure (the same effect
-appears in Llama BBQ->SQuAD, r_s ~ 0.30). The revised MAIN text reports the
+appears in Llama BBQ->SQuAD, r_s ~ 0.30). Conversely, where fine-tuning does
+drive drift the ranking is strong on every held-out benchmark including GSM8K
+(Llama TruthfulQA-FT, GSM8K r_s = +0.97): the weak cells are the low-drift
+pairs, not weak benchmarks, so this is a by-(task, benchmark) property, not a
+Qwen or BBQ deficiency. The revised MAIN text reports the
 full 20-cell correlation matrix with all-cell aggregates, mean rs = +0.71,
 median = +0.93 over all 20 (model, FT-task, benchmark) cells, with exactly
 the two negative Qwen-BBQ cells above and 18/20 positive, plus this SNR
-analysis; we will not present 0.831 without that context.
+analysis; we will not present 0.831 without that context. For ranking use we
+also note the rotation-invariant W_N gauge is the sharper instrument overall
+(mean rs 0.912 vs 0.820 under W=I, Table 3); under LoRA's frozen head gamma=0,
+so both gauges are certified and a practitioner ranking checkpoints can adopt
+W_N directly (this does not change the two noise-floor cells above, whose drift
+is simply too small to order).
 (2) Free-running: on a 100-prompt GSM8K subset, each of the 12 variants
 greedily generates its own continuations (mean 77.4 tokens/prompt;
 surrogate errors compound into its own context) and both models are scored
@@ -1149,8 +1191,10 @@ Global assembly checklist (post 前逐項核對)
     mmlu+triviaqa;E9 = gsm8k;E11 = 全 5 benchmarks)
 [x] E9 定稿(pCi8-W4):mitigation **失敗**(final-answer span rs +0.566 <
     full-CoT +0.979;span ~3 tokens 近二元,Q2_K 反轉)→ 誠實負結果,維持
-    limitation,限制在 |dR| magnitude 非 ranking,交叉引用 CKA 表 B_N +0.965;
-    ⚠️ full-CoT +0.979 佐證 gsm8k 弱 = 截斷 artifact,見下方 E1 REDO 項
+    limitation,限制在 |dR| magnitude / SNR。
+    ⚠️ 2026-07-26 定案:pCi8-W4 **不**宣稱任何 gauge/extraction 救回 gsm8k 排序
+    (會與 noise-floor 讓步自相矛盾);已刪「交叉引用 B_N +0.965」與
+    「full-CoT 0.979 = 截斷 artifact」框架(與論文 Table 3 gsm8k weakest 打架)
     (E11 ✅ G3T9-Q1:10/10 holds、head share 50%、1−Ω vs Q2_K 錨)
 [ ] 所有 E2/E3-C run 確認 lr=1e-5(paper-round 啟動值;首輪 2e-4 sweep 全部
     作廢,勿引 out/E3/partC_summary.md 的 lr-stress 數字;E2.md §4 勘誤)
@@ -1165,22 +1209,22 @@ Global assembly checklist (post 前逐項核對)
     across seeds 42-46(free +0.947±0.015、TF +0.958±0.011、agree +0.959±0.010、
     cross +0.958±0.011);gen 77.4;擋單子集質疑
 [ ] (選配)E7 多子集:SEED=43/44 各一輪(+5h)→ 四處改報 mean±sd
-[ ] E1 gsm8k 重跑(REDO="gsm8k",token_cap 65536 全量)後:以 n=12/11 完整集
-    一次重寫三處 E1 數字 + subgroup + bootstrap,**採 tie+containment 框架**
-    (2026-07-25 定案:不賣 B_N「贏 CKA」——CI 蓋 0,賣贏=overselling 會被 conf-4
-    反噬;改「Procrustes²=feature arm,CKA 已在家族內」+ 平手 + 額外三件事:risk
-    bound / attribution / regularizer)。gsm8k 全量 B_N +0.965/+0.964、B_I 在
-    extraction-QA 領先(SQuAD)、γ_W=isometry 訊號(App C.2)照舊;舊 gsm8k 對比
-    (B_I vs 16k-子抽樣 CKA)是 artifact 不可引(E1.md §1c);bootstrap「差距不顯著」
-    正是 tie 論證的支柱,務必入文;舊 spearman.md(n=11/10)stale。
-    **E9 已獨立 de-risk 此 REDO**:n=512 全量 full-CoT B rs = +0.979(遠高於論文
-    Fig 2 的 0.51),即乾淨特徵下 gsm8k B 排序其實很強;REDO 官方 protocol 若確認
-    ~+0.98,則「論文 0.51 = 截斷 artifact」可正式成立(策略叉路:是否貼文明講,
-    見 E9.md §7.2 + pCi8-W4 Note)
+[ ] E1 gsm8k 重跑(REDO="gsm8k",token_cap 65536 全量)+ run_redo_E1.sh(補
+    E1-native nuclear omega_W)後:以 n=12/11 完整集重寫 E1 數字 + subgroup +
+    bootstrap,**採 tie+containment 框架**(不賣 B_N「贏 CKA」——CI 蓋 0;改
+    「Procrustes²=feature arm,CKA 已在家族內」+ 平手 + 額外三件事:risk bound /
+    attribution / regularizer)。attribution 例改用 **SQuAD**(B_I +0.811/+0.955),
+    **不用 gsm8k**。bootstrap「差距不顯著」是 tie 論證支柱,務必入文;舊
+    spearman.md(n=11/10)stale。
+    ⚠️ 2026-07-26 定案:全篇**移除 gsm8k B_N +0.965 rescue**——與 pCi8-W4/AC-E/
+    8VrD 的 gsm8k noise-floor 讓步自相矛盾,且和論文 Table 3「gsm8k weakest」打架;
+    「full-CoT 0.979 = 截斷 artifact」框架一併退役(不貼文、不當賣點)。gsm8k 一律
+    誠實 SNR limitation;W_N-for-ranking 一般性論點放 pCi8-W3(不綁 gsm8k)
 [x] Global response 開場 = 三支柱敘事(operational/cheaper+actionable/⊃CKA)+
     "Claims we narrow" 顯眼區塊 + "we address each of the five points";結尾定位句 ✓
 [ ] CKA 比較全篇口徑統一 = tie+containment(AC-C / pCi8-W3 / G3T9-W3 已改;
-    貼文前 grep 確認無殘留 "tops both families" / 粗體 B_N「贏」/ "+0.008")
+    貼文前 grep 確認無殘留 "tops both families" / 粗體 B_N「贏」/ "+0.008" /
+    gsm8k「B_N +0.965 rescues」/「saturates ... B_N still ranks」)
 [ ] significance 相關 thread(pCi8-W1/W2/W3、G3T9-W1)都 ladder up 到三支柱之一
 [ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)
 [ ] 字數:每則 comment 壓到 NeurIPS 限制內(規則待確認)後再貼——共享項目
