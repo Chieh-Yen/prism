@@ -14,14 +14,30 @@ Meta Review (AC)
 AC LN7U (17 Jul 2026, modified 24 Jul 2026), Preliminary: Borderline Reject, "What could change the recommendation?"
 
 --------------------------------------------------------------------------------
-Global framing (opens the response to the meta-review)
+GLOBAL RESPONSE TO THE META-REVIEW
 
-We thank the AC and reviewers. Since submission we ran new experiments; below
-we address each of the five points with concrete evidence and narrow the claims
-where asked. One framing first, because it organizes everything: PRISM has
-moved from a ranking heuristic to an operational, label-free instrument that
-does three things benchmark evaluation and representation similarity (CKA/SVCCA)
-cannot.
+We thank the reviewers and the Area Chair for a careful and constructive
+assessment, and for recognizing the paper's core contributions: the exact,
+closed-form scale/shape decomposition, the vocabulary-independent Lipschitz
+constant that keeps the bound informative at LLM scale, the principled link
+between representation geometry and cross-entropy risk, and the shape term as a
+differentiable training-time regularizer. The reviews converge on a fair and
+useful message: the framework is technically sound, but its practical
+significance and the completeness of its evaluation should be demonstrated
+rather than asserted. We have taken this to heart.
+
+Since submission we added a calibration analysis, a same-features CKA/SVCCA
+comparison, controlled single-axis interventions, a free-running-generation
+experiment, and a measured GPU-cost table, and we narrow the claims exactly
+where the meta-review asks. Below we (1) state one framing that organizes the
+response, (2) map the meta-review's six weak points to this new evidence, (3)
+answer the five recommendation conditions in the meta-review's own order, and
+(4) respond to each reviewer individually. We have tried throughout to concede
+what is genuinely limited and to substantiate what is not.
+
+One framing first, because it organizes everything: PRISM has moved from a
+ranking heuristic to an operational, label-free instrument that does three
+things benchmark evaluation and representation similarity (CKA/SVCCA) cannot.
 
 (i) OPERATIONAL: after a one-time per-family calibration, PRISM answers "is
 this variant within epsilon of the base?" with quantified uncertainty (LOO MAE
@@ -53,6 +69,41 @@ Claims we narrow in the revision (as the meta-review suggests):
   - validated claims scoped to PTQ and frozen-head LoRA; full SFT/RLHF is the
     joint-alignment regime (App. C.3) we leave to future work, with a first
     base-vs-instruct data point verifying validity there.
+
+--------------------------------------------------------------------------------
+The meta-review's six weak points, and where each is addressed.
+
+Four of the six map directly onto the five recommendation conditions below; we
+note the mapping so the correspondence is explicit. The two that fall outside
+the five conditions are answered here.
+
+W-1. Loose risk bound. -> Condition A. We restate the bound as empirical (with a
+     population corollary), quantify the looseness (median slack 1597x, and
+     where it comes from), and add an isotonic calibration that yields an
+     operational threshold (LOO MAE 0.055 nats).
+W-2. Questionable diagnostic utility (does the decomposition guide mitigation?).
+     This is not among the five conditions, so we answer it here: controlled
+     single-axis interventions show each axis is causally separable (>= 2.6e5x
+     selectivity, bound holds 26/26); the GGUF case is an end-to-end
+     diagnose -> act -> verify loop (head axis diagnosed, lm_head kept in FP16,
+     bound 76.95 -> 3.81); and Sec. 5.4 turns the shape axis into a working
+     regularizer. Full detail in the response to G3T9-W1.
+W-3. Incomplete empirical comparisons. -> Condition C. CKA/SVCCA on identical
+     features (diagnostics) and EWC / L2-SP / feature-distillation /
+     layer-freezing (regularization), all under the paper's protocol.
+W-4. Narrow experimental setting. -> Conditions B and D. A benchmark-independent
+     reference (B) and a free-running-generation experiment (D), plus a
+     base-vs-instruct data point for variants that drift farther (G3T9-Q1).
+W-5. Unconvincing regularization results. -> Conditions C and E. Stronger
+     baselines (C) and an honest gating analysis of where the regularizer helps
+     and where it does not (E), while the aggregate Llama-TruthfulQA result
+     stands (-19% forgetting vs replay's -9%).
+W-6. Clarity and theoretical framing. The empirical-vs-population framing maps to
+     Condition A. The remainder (notation used before definition; motivation for
+     orthogonal alignment) is presentation, not experiment, and we answer it
+     here: a notation table with first-use definitions, the key Section 5
+     results promoted to the main text, and an explicit gauge argument for
+     restricting alignment to O(d). Full detail in the responses to eQL6-W1/W2.
 
 --------------------------------------------------------------------------------
 A. Clarify usefulness of the bound: state explicitly whether the result is an
@@ -112,7 +163,7 @@ input-conditioned diagnostic; the revision reports both modes: generic
 reference for label-free screening, benchmark-conditioned for per-deployment
 diagnosis.
 (2) Size sensitivity: reference sets of {8, 16, 32, 64, 128} wikitext
-sequences x 3 independent draws per size, all Llama variants: [TBD-E3B, 
+sequences x 3 independent draws per size, all Llama variants: [TBD-E3B,
 rank-correlation-vs-size table, mean +/- sd across draws; the sd doubles as
 a stability check that the paper's 32-sequence reference is not a lucky
 draw].
@@ -162,9 +213,11 @@ Regularization: as the meta-review suggests, we added LAYER-FREEZING (LoRA
 restricted to the top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher),
 L2-SP, and feature distillation, all under the paper's exact protocol, each at
 its sweep-best setting with 3 seeds, with target-task performance reported:
-[TBD-E2, baseline table]. SLoRA, two-phase CIT, CLAIM, and ArMA address
-sequential continual-instruction settings; we discuss all four in Related Work
-and will add matched-setting comparisons in the revision.
+[TBD-E2, baseline table]. SLoRA, two-phase CIT, CLAIM, and ArMA target the
+SEQUENTIAL multi-task continual-instruction setting (a stream of tasks), whereas
+our regularizer targets single-adapter shape drift diagnosed by the bound; a
+matched comparison requires their sequential benchmarks, which we add in the
+revision. All four are now cited.
 
 Note: ✅ E1 GPTQ 全補齊(12/12、11/11)。框架改為 **tie + containment**
       (Procrustes²=feature arm,App A.1/Eq23;不再賣 B_N「贏 +0.008」——CI 蓋 0,
@@ -221,11 +274,14 @@ correlation matrix with all-cell aggregates, not the Llama-only mean: over
 all 20 (model, FT-task, benchmark) cells, mean rs = +0.71, median = +0.93,
 with exactly two negative cells, both Qwen-BBQ, both in the noise-floor
 regime above.
-(3) Regularizer failures: Table 22 is, by construction, our diagnostic-gating
-analysis: its "gating verdict" column already marks Llama-BBQ "cell-level
-mixed" and both Qwen settings "at noise floor => skip"; trace still yields
-per-benchmark wins on shape-driven cells (BBQ-FT TriviaQA -88%, GSM8K -79%)
-and lifts Omega 0.93->0.98 where replay leaves it flat. We promote this from
+(3) Regularizer: the paper's aggregate result stands (Table 2 / Fig. 4: on
+Llama-TruthfulQA the trace penalty cuts mean downstream forgetting by 19% vs
+replay's 9%). The gating analysis explains the per-cell variation the reviewers
+flag rather than contradicting the aggregate. Table 22 is, by construction, that
+diagnostic-gating analysis: its "gating verdict" column already marks Llama-BBQ
+"cell-level mixed" and both Qwen settings "at noise floor => skip"; trace still
+yields per-benchmark wins on shape-driven cells (BBQ-FT TriviaQA -88%, GSM8K
+-79%) and lifts Omega 0.93->0.98 where replay leaves it flat. We promote this from
 App. H to the main text and extend it with an independent rerun on 10
 (model, FT-task) cells (5 tasks x 2 models): the trace benefit tracks the
 unregularized shape drift within model (Spearman +1.00 Qwen / +0.40 Llama),
@@ -239,7 +295,18 @@ Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E10 已跑 + E13 的 20-cell
       E13 的 λ=0 相關矩陣則 checksum 命中論文輪次(0.831/−0.34/−0.66),可直接引用。
 
 --------------------------------------------------------------------------------
-Summary, positioning sentence to close the global response:
+Condition-by-condition summary (each answered with a measurement, not a
+restatement):
+
+| condition | new evidence | headline |
+|---|---|---|
+| A. usefulness | isotonic calibration + slack decomposition | LOO MAE 0.055 nats; the two cited cells calibrate to 0.003 / 0.193 nats |
+| B. benchmark-independent | generic-reference ranking + size/domain ablation | WikiText rs +0.506 vs +0.725; size/stability in the revision |
+| C. stronger baselines | CKA/SVCCA on identical features; EWC/L2-SP/KD/layer-freeze | bound ties CKA (CIs cover 0) and does strictly more; baseline table in the revision |
+| D. free-running | greedy self-generation subset | rs +0.944 free vs +0.958 teacher-forced; TF bound predicts free-run at +0.951 |
+| E. failures | full 20-cell matrix + GSM8K SNR + honest span-fix negative | mean +0.71 / median +0.93; only 2 negative cells, both at the noise floor |
+
+Positioning sentence to close the global response:
 "We believe these results, together with the narrowed framing (PRISM as a
 calibrated, label-free ranking-and-attribution instrument with an explicitly
 empirical-risk guarantee), directly address the five points of the
@@ -249,6 +316,14 @@ light of the new evidence."
 ================================================================================
 Reviewer #1, pCi8 (3: Borderline reject, conf 4), Q3/C3/S2/O3
 ================================================================================
+
+We thank the reviewer for the generous account of the paper's strengths. Summary
+of what we added for the points raised: a calibration analysis that answers "is
+Q4 good enough" on the exact looseness flagged (W2); a same-features CKA/SVCCA
+comparison quantifying what the machinery buys (W3); EWC / L2-SP /
+feature-distillation / layer-freezing baselines (W5); and a direct measurement
+of isometry violation vs bit-width (W6). We also report, candidly, one
+mitigation that did NOT work (GSM8K final-answer span, W4).
 
 1) W1: three diagnostic conclusions already known; contribution is a unified
    framework, not a new discovery.
@@ -276,13 +351,13 @@ Note: 純措辭,零實驗。Strengths 已承認 simplex polarization/exact decom
    say whether Q4 is good enough.
 
 Response:
-The reviewer's exact question, "is Q4 good enough, not just better than Q2", 
-is now answerable. Take the two Llama-3.1-8B/MMLU cells that most dramatize the
-looseness: Q8_0 (raw bound 23.24 vs true |dR| 0.0002, slack ~10^5x) and Q2_K
-(266.09 vs 0.366, ~727x). A one-time per-(family, benchmark) leave-one-out
-isotonic calibration B -> |dR| maps those same bounds to 0.003 and 0.193 nats, 
-correctly placing Q8_0 well within an epsilon = 0.1 tolerance and Q2_K clearly
-outside it, despite the raw bounds being uninformative in absolute scale.
+"Is Q4 good enough", not just "better than Q2", is now answerable. Take the two
+Llama-3.1-8B/MMLU cells that most dramatize the looseness: Q8_0 (raw bound 23.24
+vs true |dR| 0.0002, slack ~10^5x) and Q2_K (266.09 vs 0.366, ~727x). A one-time
+per-(family, benchmark) leave-one-out isotonic calibration B -> |dR| maps those
+same bounds to 0.003 and 0.193 nats, correctly placing Q8_0 well within an
+epsilon = 0.1 tolerance and Q2_K clearly outside it, despite the raw bounds
+being uninformative in absolute scale.
 Aggregate LOO MAE is 0.055 nats (vs 0.082 predict-the-mean, -33%). Workflow:
 calibrate once per family (~10 benchmarked variants), then screen every new
 variant label-free with quantified uncertainty (zero labels per new variant
@@ -404,6 +479,11 @@ and 57% (Q2_K) relative residual remains on MMLU. Under aggressive
 quantization most feature damage is not linearly alignable at all, so the
 isometry-aligned residual is genuine degradation, not gauge artifact.
 
+Net: the calibration (W2) shows the bound supports an absolute tolerance, not
+only ranking, and the same-features comparison (W3) shows the decomposition buys
+a risk certificate and an axis attribution that a similarity score cannot. We
+hope these speak directly to the practical-significance concern.
+
 Note: ✅ 指路(L112–115, App C.1/C.2)+ E8 定稿已填(控制組 0.084;Q8/Q4/Q2/NF4
       = 0.130/0.165/0.183/0.189;oracle 線性後 Q2_K 仍餘 57%;E8.md §3)。
       ⚠️ E1 內建的首版 iso_dev 欄已作廢(n_tokens<d 病態;E1.md §7),勿引。
@@ -411,6 +491,14 @@ Note: ✅ 指路(L112–115, App C.1/C.2)+ E8 定稿已填(控制組 0.084;Q8/Q4
 ================================================================================
 Reviewer #2, G3T9 (3: Borderline reject, conf 4), Q3/C3/S2/O3
 ================================================================================
+
+We thank the reviewer for pressing on cost and actionability, the two questions
+that most sharpen the paper. Summary of what we added: a wall-clock cost table
+(PRISM 144 s/variant vs 1671 s to evaluate the suite, 12x, label-free; W1);
+controlled single-axis interventions showing each axis is causally separable and
+actionable (W1); a same-features CKA/SVCCA comparison (W3); a
+benchmark-independent reference and a free-running experiment (W2); and
+base-vs-instruct and multi-task extensions (Q1, Q2).
 
 1) W1: why not just run benchmarks? axes coarse / not actionable; needs cost
    analysis.
@@ -429,12 +517,10 @@ wall-clock measured on the same hardware. Benchmark-side cost per variant:
 measured forward time + MEASURED GSM8K decode + 64-token QA budgets) /
 9465.2 s with maj@8 on GSM8K, i.e., 2.5x / 12x / 66x PRISM's full
 diagnosis and 46x-261x its screening mode, before scoring, which
-additionally requires labels. The GSM8K component is measured, not assumed:
-one greedy decode to natural EOS vs PRISM's exact teacher-forced call on
-identical prompts, model, and batch = 556.7 s vs 8.9 s (>= 62.6x; 13% of
-generations were still running at the 1024-token ceiling, so the decode
-side is understated and the ratio is a lower bound; mean natural CoT length
-208.8 tokens/prompt vs 102 gold tokens).
+additionally requires labels. The GSM8K component is measured, not assumed: on
+identical prompts, one greedy decode costs 556.7 s vs 8.9 s for PRISM's exact
+teacher-forced call, at least 62.6x (a conservative lower bound; 13% of
+generations had not reached EOS at the cap).
 (2) Actionability: the concern is that the axes are "another layer of
 descriptive analysis". They are not: the axis -> action map closes into a
 DIAGNOSE -> ACT -> VERIFY loop. Sec. 5.3 maps scale -> per-channel outlier
@@ -449,8 +535,14 @@ and lm_head-only RTN each move ONLY their own term (own-axis response
 >= 2.6e5x the largest cross-axis leakage; rotation theta=0.4 rad lifts Shape to
 7.7e2 with Scale <= 1.3e-4 and gamma = 0; head-only RTN keeps Scale = Shape = 0
 exactly while gamma sweeps 10 -> 541 over 8 -> 3 bits), bound holds 26/26.
-(3) PRISM is label-free, so it applies where no benchmark exists
-(private domains). Positioning is made explicit in the Introduction.
+(3) PRISM is label-free, so it applies to proprietary or safety-sensitive
+deployments where no public benchmark exists. Positioning is made explicit in
+the Introduction.
+
+Net: the measured 12-66x cost gap and the causal single-axis interventions
+together answer "why not just run benchmarks": PRISM is materially cheaper AND
+tells you which axis to fix, which a benchmark score does not. We hope this
+addresses the significance concern.
 
 Note: 指路(L258–262, L249–257)+ E4 ✅ 定稿(26/26 bound holds,選擇性 ≥2.6e5×)
 + cost 表 ✅ E12 定稿(144.0 s vs 1671.0 s standard = 12×;E12b decode/TF ≥62.6×)。
@@ -582,6 +674,13 @@ Note: ✅ 已有(E10 rerun,5 任務 × 2 模型)。mixed-data 誠實劃界。
 Reviewer #3, eQL6 (3: Borderline reject, conf 3), Q2/C2/S3/O3
 ================================================================================
 
+We thank the reviewer, and we take the clarity feedback seriously: we treat it
+as our presentation to fix, not the reviewer's reading. Concretely: a notation
+table and first-use definitions, with the key Section 5 results moved into the
+main text (W1); an explicit gauge argument for orthogonal alignment (W2/Q1); and
+a demonstration on the paper's own data that the shape term is driven by
+1-Omega, not the norm prefactor (W3), which is the sharpest technical concern.
+
 1) W1: notation used before definition (rho_T rho_P (1-Omega) in the Intro);
    key Sec. 5 results in the appendix.
 
@@ -627,7 +726,7 @@ rho_T*rho_P*(1-Omega) is (up to constants) the aligned residual ENERGY
 ||Z_T - s Z_P O||^2_F: the prefactor carries physical units (logits scale with
 feature norm x head norm), 1-Omega is the dimensionless geometric part. Every
 comparison holds T fixed and varies P over the same backbone, so within a
-(family, benchmark) cell rho_T*rho_P varies with median CV 0.63% (p90 7.9%), 
+(family, benchmark) cell rho_T*rho_P varies with median CV 0.63% (p90 7.9%),
 essentially constant, while 1-Omega spans a median 366x dynamic range;
 Spearman(shape term, 1-Omega) has median 1.000 (min 0.988) over the 52 cells
 with Omega variance (of 55), and the two give IDENTICAL rank correlations
@@ -718,6 +817,13 @@ Note: ✅ 指路 caption(L196–200, Table 1/Fig 2);正文補一句。
 Reviewer #4, 8VrD (4: Borderline accept, conf 3), Q3/C3/S3/O3
 ================================================================================
 
+We thank the reviewer for the precise and technically careful reading. The
+response adds exactly what was asked: the empirical-risk restatement plus a
+McDiarmid corollary (W1); controlled single-axis interventions (W3); a
+calibration analysis worked out on the reviewer's own two example cells (W2/Q1);
+and a free-running experiment (W4/Q2). The negative cells are reported and
+explained, not hidden.
+
 1) W1: Eq. (1) defines population risk; proofs use finite-sample matrices;
    restate the theorem or add a finite-sample argument.
 
@@ -806,9 +912,12 @@ Shape follows theta^2 to within ~1%, and gamma rises monotonically with head
 quantization (10 -> 40 -> 210 -> 541 for 8/6/4/3 bits). The interventions
 cause real measured damage (|dR| up to 1.39 nats at alpha = 0.5, 0.42 at
 3-bit head), so the attribution is causal, not correlational.
-(2) Negative cells: we address the reviewer's exact figures. Table 22's
-increased forgetting on Llama-BBQ (+8.6%) and Qwen-TruthfulQA (+2.7%), and the
-near-zero change on Qwen-BBQ, are precisely the cells PRISM's
+(2) Negative cells: we address the reviewer's exact figures, and first note that
+the aggregate win on Llama-TruthfulQA stands (Table 2; trace -19% forgetting vs
+replay -9%); the negative cells below are the per-cell variation, not a
+reversal. Table 22's increased forgetting on Llama-BBQ (+8.6%) and
+Qwen-TruthfulQA (+2.7%), and the near-zero change on Qwen-BBQ, are precisely the
+cells PRISM's
 gating verdict flags as NOT shape-driven (Llama-BBQ: 20% scale share,
 rho_P < rho_T; Qwen-BBQ: 1-Omega at the ~7e-4 noise floor, nothing to repair).
 Where the axis IS shape-driven, trace wins per-benchmark (BBQ-FT: TriviaQA
@@ -941,6 +1050,11 @@ Note: (iii) 有 App C.3 指路;(iv) ✅ E12 定稿;(i)(ii) 隨 E3/E7 落地。
 ================================================================================
 Global assembly checklist (post 前逐項核對)
 ================================================================================
+[x] rebuttal.proposal.md 已整合(2026-07-26):general 致謝 + 六 weak-points
+    映射(W-1/3/4/5→條件 A/C/B+D/C+E;W-2 全獨立答;W-6 部分→A、部分獨立答)
+    + AC condition checklist 表 + 四位 reviewer opener/Net + P5/P6/P7/P9
+[ ] AC checklist 表的 B/C 兩列目前寫「in the revision」:E3B/E2 落地後改填實數
+    (絕不在未跑前貼數字)
 [ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [ ] E10 的 10-cell 數字與論文 Table 18–22 分開呈現(不同輪次;E10.md §4)
