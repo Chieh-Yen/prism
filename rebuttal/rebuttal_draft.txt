@@ -1067,12 +1067,14 @@ Note: 認錯 + 修訂清單,零實驗。
    transformations for proxy-target alignment is not very clear.
 
 Response:
-Three reasons, to be spelled out in Sec. 3. (1) Gauge: the head is linear, so
-any invertible feature map A can be absorbed into the head (W <- W A^-1);
-aligning over all invertible A would let the alignment absorb genuine
-degradation, making the residual meaningless. Restricting to rotations x scale
-(the isometry group up to scale) preserves the inner-product geometry the
-linear head reads out, so the residual measures true distortion. (2)
+We restrict alignment to a rotation and a global scale, not an arbitrary linear map,
+because an arbitrary map could be folded into the linear head and fit away the very
+degradation we are trying to measure, whereas rotation-and-scale leaves a meaningful
+residual and admits an exact scale/shape split. Three reasons make this precise (Sec. 3).
+(1) Gauge: because the head is linear, any invertible map A can be absorbed into it
+(W <- W A^-1), so aligning over all invertible A would let the alignment hide genuine
+degradation; restricting to rotation x scale (the isometry group up to scale) preserves
+the inner-product geometry the head reads out, so the residual measures true distortion. (2)
 Identifiability: over O(d) x scale, Procrustes has a closed-form solution
 yielding the EXACT scale/shape split (Prop. 1); no larger group admits this.
 (3) Empirical: the linear/platonic representation results indicate related
@@ -1142,16 +1144,13 @@ Note: ✅ 指路 Fig 4/8 第一欄(reviewer 沒看懂該欄意義)+ ⏳ E2 數�
    analyze target-proxy model risk?
 
 Response:
-They supply the EMPIRICAL leg of the argument: those results show related
-models' representations align well under linear maps that are in practice
-near-isometric, so a rotation suffices for alignment. The PRINCIPLED leg is
-the linear head: any invertible map can be absorbed into a linear head, so
-allowing general A would let alignment absorb true degradation; O(d) (x scale)
-is the largest group that preserves the inner-product geometry the head reads
-out while leaving the residual meaningful, and it is the group over which the
-exact scale/shape split exists (Prop. 1). Validity does not depend on the
-hypotheses: Theorem 1 holds for ANY W in O(d) (App. C.1); the hypotheses only
-govern tightness.
+The hypotheses are only the EMPIRICAL half of the motivation, and they affect only how
+TIGHT the bound is, not whether it holds. The linear/platonic results show related
+models' representations align well under near-isometric maps, so a rotation suffices;
+that is empirical support, not the core reason. The core, principled reason to restrict
+to rotation-and-scale is the linear head (W2's gauge argument: an arbitrary map would
+fold into the head and hide degradation). Validity, moreover, is hypothesis-free:
+Theorem 1 holds for ANY W in O(d) (App. C.1), so the hypotheses govern only tightness.
 
 Note: 與 W2 同素材,thread 內自包含重述。
 
