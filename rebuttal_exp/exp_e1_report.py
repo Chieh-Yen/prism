@@ -99,12 +99,12 @@ def main():
          "|---|---|---|---|",
          "| B_I(=Bound_I) | 論文 CSV,全量 | 座標敏感(W=I gauge) | ✅ Thm 1 |",
          "| B_W(=Bound_W) | 論文 CSV,全量 | **旋轉不變**(W=W_N gauge) | ✅ Thm 1(App C.1) |",
-         "| 1-Ω_I / 1-Ω_W(full) | 論文 CSV,全量 | 座標敏感 / 旋轉不變 | ✗(相似度) |",
-         "| 1-CKA / 1-SVCCA / Procr(pod) | 重抽特徵(cap 65536;gsm8k 舊列 16k,待 REDO) | 旋轉不變 | ✗ |",
-         "| 1-Ω_I(pod) | 重抽特徵(同上) | 座標敏感 | ✗ |",
+         "| 1-Ω_I / 1-Ω_W(full) | 論文 CSV,全量(paper pipeline) | 座標敏感 / 旋轉不變 | ✗(相似度) |",
+         "| 1-CKA / 1-SVCCA / Procr(pod) | 重抽特徵(cap 65536,gsm8k 已全量 REDO) | 旋轉不變 | ✗ |",
+         "| 1-Ω_I(pod) / 1-Ω_W(pod) | 重抽特徵(同上;OWp=nuclear,與 CKA/Procr 同一份特徵) | 座標敏感 / 旋轉不變 | ✗ |",
          ""]
 
-    KEYS = ("B_I", "B_W", "OIf", "OWf", "CK", "SV", "PR", "OIp")
+    KEYS = ("B_I", "B_W", "OIf", "OWf", "CK", "SV", "PR", "OIp", "OWp")
     data = {}
     for fam in ("llama", "qwen"):
         paper, rows = load(fam)
@@ -121,6 +121,10 @@ def main():
                 "SV": rs([1 - float(r["svcca"]) for r in sub], dr),
                 "PR": rs([float(r["procr_dist"]) for r in sub], dr),
                 "OIp": rs([1 - float(r["omega_I"]) for r in sub], dr),
+                # E1-native shape core (nuclear Omega_W on re-extracted
+                # features). NaN if the CSV predates the 2026-07-26 column.
+                "OWp": rs([1 - float(r.get("omega_W", "nan"))
+                           for r in sub], dr),
             }
             for k in KEYS:
                 cols[k].append(v[k])
@@ -131,8 +135,8 @@ def main():
     L += ["## 1. 主表(llama + qwen 合併):rs(score, |dR|)",
           "",
           "| family | bench | n | B_I | B_W | 1-Ω_I full | 1-Ω_W full "
-          "| 1-CKA | 1-SVCCA | Procr | 1-Ω_I pod |",
-          "|---|---|---|---|---|---|---|---|---|---|---|"]
+          "| 1-CKA | 1-SVCCA | Procr | 1-Ω_I pod | 1-Ω_W pod |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for fam in ("llama", "qwen"):
         _, _, cols, ns = data[fam]
         for i, b in enumerate(BENCH):
@@ -168,17 +172,31 @@ def main():
                      f"{rs([p['Sc'] for p in P], dr):+.3f} |")
         L.append("")
 
-        # gsm8k artifact evidence
+        # gsm8k: paper pipeline vs E1 re-extraction (full-cap REDO)
         sub, dr, P = bench_scores(paper, rows, "gsm8k")
-        L += ["### 3. gsm8k 全量 vs 子抽樣(artifact 證據)",
+        n_gsm = sub[0]["n_tokens"] if sub else "?"
+        owp = rs([1 - float(r.get("omega_W", "nan")) for r in sub], dr)
+        L += ["### 3. gsm8k:paper pipeline vs 重抽特徵(2026-07-26 全量 REDO)",
               "",
-              f"- 1-Ω_I:全量 {rs([1 - p['O_I'] for p in P], dr):+.3f} vs "
-              f"pod 子抽樣 {rs([1 - float(r['omega_I']) for r in sub], dr):+.3f}"
-              f"(同一統計量,估計特徵量不同)",
-              f"- B_W(全量)= {rs([p['B_W'] for p in P], dr):+.3f};"
-              f"γ_W(全量)= {rs([p['g_W'] for p in P], dr):+.3f}"
-              f" ← gsm8k 的排序訊號來源",
-              "- 1-CKA 的全量版待 REDO=gsm8k 重算後回填此節",
+              f"重抽 gsm8k 已用 cap 65536,實得 n_tokens={n_gsm}(全量,非 16k "
+              "子抽樣)。因此「paper full vs pod」的差距若仍在,就**不是**子抽樣 "
+              "artifact,而是 paper 與 E1 兩條抽特徵管線的差異。",
+              "",
+              "| 量 | paper full | pod(重抽,全量) |",
+              "|---|---|---|",
+              f"| 1-Ω_I | {rs([1 - p['O_I'] for p in P], dr):+.3f} "
+              f"| {rs([1 - float(r['omega_I']) for r in sub], dr):+.3f} |",
+              f"| 1-Ω_W(shape core) | {rs([1 - p['O_W'] for p in P], dr):+.3f} "
+              f"| {owp:+.3f} |",
+              f"| 1-CKA | (n/a paper) | {rs([1 - float(r['cka']) for r in sub], dr):+.3f} |",
+              f"| B_W(=Bound_W) | {rs([p['B_W'] for p in P], dr):+.3f} | (joined) |",
+              "",
+              "判讀:pod 的 1-Ω_W 是在**與 CKA/Procr 同一份重抽特徵**上算的 nuclear "
+              "shape core(draft 的 Omega_N)。若 pod 1-Ω_W ≈ pod 1-Ω_I ≈ 1-CKA "
+              "(皆高),則 gsm8k 的 shape core 在重抽管線上**不飽和**,draft "
+              "「Omega_N +0.48 saturates」與「machinery buys +0.088」需改寫成 "
+              "paper-pipeline 專屬敘述;若 pod 1-Ω_W 明顯低於 1-CKA,則 shape "
+              "核確有 gsm8k 專屬鬆弛,原敘述可在 pod gauge 下重述。",
               ""]
 
         # subgroups

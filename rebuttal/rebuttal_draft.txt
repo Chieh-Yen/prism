@@ -297,21 +297,21 @@ keeps the run deterministic and exactly reproducible); both models are then
 scored on those generated trajectories: per-token CE against the
 trajectory's own next tokens, so the risk gap needs no gold labels (the
 same label-free construction as every |dR| in the paper; the generated text
-is simply the conditioning sequence). rs(B, |dR|) free-running = +0.944 vs
-+0.958 teacher-forced on the same subset; bound-rank agreement rs(B_tf,
-B_free) = +0.972; and the teacher-forced bound predicts free-running
-degradation at rs(B_tf, |dR|_free) = +0.951 (variant-bootstrap 95% CIs all
-above +0.75). (2) Scope: we restate Corollary 1 as teacher-forced-only and list
+is simply the conditioning sequence). Across 5 independent 100-prompt subsets
+(seeds 42-46): rs(B, |dR|) free-running = +0.947 ± 0.015 vs +0.958 ± 0.011
+teacher-forced; bound-rank agreement rs(B_tf, B_free) = +0.959 ± 0.010; and the
+teacher-forced bound predicts free-running degradation at rs(B_tf, |dR|_free) =
++0.958 ± 0.011. The small sd across subsets shows the result is not a
+single-subset artifact. (2) Scope: we restate Corollary 1 as teacher-forced-only and list
 trajectory-distribution shift as an explicit limitation. We note the bound
 itself applies to any feature-matrix pair, whatever the origin of the rows
 (App. D); the restriction is evaluation protocol, not theory, and the new
 experiment probes exactly the trajectory-shift regime the corollary previously
 did not cover.
 
-Note: ✅ E7 定稿(12/12,gsm8k;CI 全 >+0.75,E7.md 頂部表)。robustness:
-      `SEEDS="42 43 44" DATASET=gsm8k bash script_E7.sh`(seed42 秒級 resume,
-      43/44 各 +~2h;自動輸出 mean±sd → E7_seed_aggregate;填後四處 rs 改報
-      mean±sd)。mmlu 舊輪退化已退役勿引。
+Note: ✅ E7 定稿 + 5-seed robustness 已填(seeds 42-46,out/E7/E7_seed_aggregate):
+      free +0.947±0.015、TF +0.958±0.011、agreement +0.959±0.010、cross
+      +0.958±0.011;sd 極小 ⇒ 擋「單子集挑過」。五處已改 mean±sd。mmlu 退役勿引。
 
 --------------------------------------------------------------------------------
 E. Analyze failures and mixed results: GSM8K, Qwen-BBQ weak correlations;
@@ -363,7 +363,7 @@ restatement):
 | A. usefulness | isotonic calibration + slack decomposition | LOO MAE 0.055 nats; the two cited cells calibrate to 0.003 / 0.193 nats |
 | B. benchmark-independent | generic-reference ranking + size/domain ablation | WikiText rs +0.506 vs +0.725; diagnostic ranking size-invariant (n>=8); regularizer size-invariant, mildly domain-sensitive (|dR| 0.72-0.77 across settings) |
 | C. stronger baselines | CKA/SVCCA on identical features; EWC/L2-SP/KD/layer-freeze | bound ties CKA (CIs cover 0) and does strictly more; baseline table in the revision |
-| D. free-running | greedy self-generation subset | rs +0.944 free vs +0.958 teacher-forced; TF bound predicts free-run at +0.951 |
+| D. free-running | greedy self-generation, 5 subsets | rs +0.947±0.015 free vs +0.958±0.011 TF; TF bound predicts free-run at +0.958±0.011 |
 | E. failures | full 20-cell matrix + GSM8K SNR + honest span-fix negative | mean +0.71 / median +0.93; only 2 negative cells, both at the noise floor |
 
 Positioning sentence to close the global response:
@@ -631,8 +631,9 @@ SPECIFICALLY because it is the generation-heaviest, reasoning-heavy benchmark
 where trajectory shift is most severe, the hardest case for a teacher-forced
 bound. On a 100-prompt subset each of the 12 variants greedily generates its
 own continuations (mean 77.4 tokens/prompt) and both models are scored on
-those trajectories: rs = +0.944 free-run vs +0.958 teacher-forced, rank
-agreement +0.972. Independently we restate Corollary 1 as teacher-forced-only
+those trajectories: across 5 subsets (seeds 42-46) rs = +0.947 ± 0.015 free-run
+vs +0.958 ± 0.011 teacher-forced, rank agreement +0.959 ± 0.010. Independently we
+restate Corollary 1 as teacher-forced-only
 and add trajectory shift as an explicit limitation (the bound applies to any
 feature rows, App. D; the restriction is protocol, not theory).
 
@@ -1025,8 +1026,9 @@ analysis; we will not present 0.831 without that context.
 (2) Free-running: on a 100-prompt GSM8K subset, each of the 12 variants
 greedily generates its own continuations (mean 77.4 tokens/prompt;
 surrogate errors compound into its own context) and both models are scored
-on those trajectories: rs = +0.944 free-running vs +0.958 teacher-forced,
-with bound-rank agreement rs(B_tf, B_free) = +0.972. Independently,
+on those trajectories: across 5 subsets rs = +0.947 ± 0.015 free-running vs
++0.958 ± 0.011 teacher-forced, with bound-rank agreement rs(B_tf, B_free) =
++0.959 ± 0.010. Independently,
 Corollary 1 is
 restated as teacher-forced-only with trajectory-distribution shift as an
 explicit limitation (the bound applies to any feature rows, App. D; the
@@ -1060,11 +1062,12 @@ enough for errors to compound); both models are scored on those
 trajectories (features + per-token CE on the generated region, with the
 generated tokens themselves as the next-token targets, so the risk GAP
 between the two models requires no gold labels, exactly like every
-teacher-forced |dR| in the paper). Result: rs(B, |dR|) free-running =
-+0.944 vs +0.958 teacher-forced on the same prompts; bound-rank agreement
-rs(B_tf, B_free) = +0.972; and the teacher-forced bound already predicts
-free-running degradation (rs(B_tf, |dR|_free) = +0.951; variant-bootstrap
-95% CIs all above +0.75). The practically useful reading: rank once on
+teacher-forced |dR| in the paper). Result, across 5 independent subsets
+(seeds 42-46): rs(B, |dR|) free-running = +0.947 ± 0.015 vs +0.958 ± 0.011
+teacher-forced; bound-rank agreement rs(B_tf, B_free) = +0.959 ± 0.010; and the
+teacher-forced bound already predicts free-running degradation (rs(B_tf,
+|dR|_free) = +0.958 ± 0.011). The small sd across subsets shows it is not a
+single-subset artifact. The practically useful reading: rank once on
 gold text, and the ordering carries over to self-generated trajectories.
 Independently, Corollary 1 is restated as teacher-forced-only and
 trajectory shift listed as an explicit limitation.
@@ -1158,8 +1161,9 @@ Global assembly checklist (post 前逐項核對)
     (樹內 k 混用 ≈ 2× 有效 λ 差;E10.md §4 caveat 3)
 [ ] Sec 5.4 正文 "32 pre-training sequences" 與程式碼不符(實為 FT 任務 test
     split,seed+1000)——rebuttal 描述 ref set 以程式碼為準,revision 勘誤該句
-[x] E7 定稿:12/12 gsm8k 數字已刷新四處(AC-D/G3T9-W2/8VrD-W4/Q2;
-    +0.958/+0.944/+0.972/+0.951,gen 77.4,CI 全 >+0.75)
+[x] E7 定稿 + 5-seed:五處(AC-D/G3T9-W2/8VrD-W4/Q2/checklist)已改 mean±sd
+    across seeds 42-46(free +0.947±0.015、TF +0.958±0.011、agree +0.959±0.010、
+    cross +0.958±0.011);gen 77.4;擋單子集質疑
 [ ] (選配)E7 多子集:SEED=43/44 各一輪(+5h)→ 四處改報 mean±sd
 [ ] E1 gsm8k 重跑(REDO="gsm8k",token_cap 65536 全量)後:以 n=12/11 完整集
     一次重寫三處 E1 數字 + subgroup + bootstrap,**採 tie+containment 框架**

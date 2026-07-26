@@ -126,6 +126,22 @@ def omega_trace(X: torch.Tensor, Y: torch.Tensor) -> float:
     return ((X * Y).sum() / denom.clamp(min=1e-12)).item()
 
 
+def omega_nuclear(X: torch.Tensor, Y: torch.Tensor) -> float:
+    """W_N-gauge shape core, computed on THESE re-extracted features.
+
+    Omega_W = ||X^T Y||_* / (||X||_F ||Y||_F): same denominator as
+    omega_trace, but the trace is replaced by the nuclear norm (sum of
+    singular values) = the optimal orthogonal alignment (Procrustes W_N).
+    Added 2026-07-26 so the shape core (draft's "Omega_N") lives on the
+    SAME features as CKA/SVCCA/Procr/omega_I, instead of being joined from
+    the paper CSV. The paper-CSV Omega_W and this re-extracted omega_W are
+    different pipelines; carrying both settles the gsm8k +0.48-vs-+0.94
+    question (whether it is a subsample artifact or a pipeline difference)."""
+    nuc = torch.linalg.svdvals(X.T @ Y).sum()
+    denom = torch.linalg.matrix_norm(X) * torch.linalg.matrix_norm(Y)
+    return (nuc / denom.clamp(min=1e-12)).item()
+
+
 # ----------------------------------------------------------------------
 def rankdata(v):
     order = sorted(range(len(v)), key=lambda i: v[i])
@@ -272,6 +288,13 @@ def main():
             except ValueError:
                 r["bound_W"] = bound_csv_W.get(
                     (r["label"], r["dataset"]), float("nan"))
+            # omega_W (E1-native shape core) added 2026-07-26 — older CSVs
+            # lack it; leave NaN so a resume run flags rows needing a redo
+            # (run_redo_E1.sh moves the CSV aside for a clean full recompute).
+            try:
+                r["omega_W"] = float(r.get("omega_W", ""))
+            except ValueError:
+                r["omega_W"] = float("nan")
             r["n_tokens"] = int(r["n_tokens"])
             rows.append(r)
             done.setdefault(r["label"], set()).add(r["dataset"])
@@ -314,6 +337,7 @@ def main():
                 "svcca": svcca(X, Y),
                 "procr_dist": procrustes_distance(X, Y),
                 "omega_I": omega_trace(X, Y),
+                "omega_W": omega_nuclear(X, Y),   # E1-native shape core (W_N)
                 "bound_I": bound_csv.get((label, b), float("nan")),
                 "bound_W": bound_csv_W.get((label, b), float("nan")),
                 "|MdR|": risk.get((label, b), float("nan")),
@@ -334,7 +358,8 @@ def main():
             w.writerows(rows)
 
     # ── Spearman table: degradation-score convention ────────────────────
-    METRICS = ("bound_I", "bound_W", "cka", "svcca", "procr_dist", "omega_I")
+    METRICS = ("bound_I", "bound_W", "cka", "svcca", "procr_dist",
+               "omega_I", "omega_W")
     AS_IS = {"bound_I", "bound_W", "procr_dist"}   # degradation-oriented
     md = [f"# E1 — similarity-baseline ranking, family {args.family}", "",
           "Score convention: rs( degradation-score, |dR| ), where the "
@@ -344,8 +369,8 @@ def main():
           "computed over the IDENTICAL variant subset (same n), so the "
           "comparison stays fair even if a proxy fails to load.", ""]
     md.append("| benchmark | n | PRISM B_I | PRISM B_W | 1-CKA | 1-SVCCA "
-              "| Procrustes dist | 1-Omega_I |")
-    md.append("|---|---|---|---|---|---|---|---|")
+              "| Procrustes dist | 1-Omega_I | 1-Omega_W |")
+    md.append("|---|---|---|---|---|---|---|---|---|")
     per_metric = {m: [] for m in METRICS}
     for b in BENCHMARKS:
         sub = [r for r in rows if r["dataset"] == b
