@@ -6,7 +6,7 @@
 # Three stages, run in order (each is resumable; individual run
 # failures are recorded and the loop continues, per repo contract):
 #
-#   STAGE=sweep      4 methods (layer_freeze/ewc/l2sp/feature_kd) x 3-4
+#   STAGE=sweep      3 methods (layer_freeze/ewc/l2sp) x 3-4
 #                    grid points x 2 tasks x seed 42
 #                    28 runs x ~25 min  ~= 12 h
 #   STAGE=seeds      best-setting x seeds {43,44} for new methods (16 runs)
@@ -105,7 +105,7 @@ run_one () {  # method lambda seed task model [extra trainer args...]
 # boundary-hitting sweep-best would force a rerun.
 L2SP_LAMS="1e-4 1e-3 1e-2 1e-1"
 EWC_LAMS="1e-4 1e-3 1e-2 1e-1"
-KD_LAMS="0.1 1.0 10"
+# KD_LAMS unused: feature_kd dropped from the reported set (2026-07-27).
 FREEZE_TOPS="4 8 16"     # layer_freeze: LoRA on top-K layers (AC-named baseline)
 
 run_freeze () {  # topK seed task model
@@ -134,35 +134,36 @@ case "$STAGE" in
         for top in $FREEZE_TOPS; do run_freeze "$top" 42 "$task" "$MODEL"; done
         for lam in $EWC_LAMS;  do run_one ewc        "$lam" 42 "$task" "$MODEL"; done
         for lam in $L2SP_LAMS; do run_one l2sp       "$lam" 42 "$task" "$MODEL"; done
-        for lam in $KD_LAMS;   do run_one feature_kd "$lam" 42 "$task" "$MODEL"; done
+        # feature_kd dropped from the reported set (2026-07-27) — not run.
     done
     python rebuttal_exp/exp_e2_aggregate.py --with-paper-runs \
         2>&1 | tee -a "$LOG" || true
     ;;
 
   seeds)
-    # Best lambdas from the sweep (fall back to grid mid-points).
-    [[ -f "$OUT/best_lambdas.env" ]] && source "$OUT/best_lambdas.env"
+    # Multi-seed (43/44) at the MATCHED-TARGET-LOSS sweep-best per method (from
+    # the seed-42 sweep; see exp_e2_local_table.py). We deliberately do NOT read
+    # best_lambdas.env: the aggregator selects min-|dR| (-> the UNDER-TRAINING
+    # layer_freeze top4 and the invalid l2sp lam0.1) and writes model-raw keys
+    # this loop cannot read. Hardcoding per task pins 43/44 to the SAME operating
+    # point as the reported seed-42 numbers. feature_kd dropped (2026-07-27).
     for task in $TASKS; do
-        TU="$(echo "$task" | tr '[:lower:]' '[:upper:]')"
-        var="BEST_LAYER_FREEZE_LLAMA_${TU}"
-        top="${!var:-8}"
+        case "$task" in
+            # TruthfulQA: final, from the seed-42 matched-target sweep.
+            truthfulqa) FREEZE_TOP=16; EWC_LAM=1e-1; L2SP_LAM=1e-2 ;;
+            # BBQ: PLACEHOLDER — its sweep is not done. Update from the BBQ
+            # matched-target sweep BEFORE running BBQ seeds.
+            bbq)        FREEZE_TOP=8;  EWC_LAM=1e-3; L2SP_LAM=1e-3 ;;
+            *) echo "!! seeds: no matched-target config for task=$task" | tee -a "$LOG"; exit 1 ;;
+        esac
         for seed in 43 44; do
-            run_freeze "$top" "$seed" "$task" "$MODEL"
+            run_freeze "$FREEZE_TOP" "$seed" "$task" "$MODEL"
+            run_one ewc  "$EWC_LAM"  "$seed" "$task" "$MODEL"
+            run_one l2sp "$L2SP_LAM" "$seed" "$task" "$MODEL"
         done
-        for m in L2SP EWC FEATURE_KD; do
-            var="BEST_${m}_LLAMA_${TU}"
-            lam="${!var:-1e-3}"
-            for seed in 43 44; do
-                run_one "$(echo "$m" | tr '[:upper:]' '[:lower:]')" \
-                        "$lam" "$seed" "$task" "$MODEL"
-            done
-        done
-        # Paper-config anchors, multi-seed. Default TRACE_LAM=0.5: the only
-        # operating point with a complete step-300 paper-round run (the old
-        # "lam=1.0 -> 0.618" quote was a step-150 misread of an aborted run;
-        # E2.md §4 erratum). If the lam=1.0 backfill turns out sweep-best,
-        # rerun with TRACE_LAM=1.0. lr comes from the trainer's 1e-5 default.
+        # Paper-config anchors, multi-seed (none/trace/replay x 42,43,44).
+        # TRACE_LAM=0.5 default (the paper-round step-300 operating point;
+        # E2.md §4 erratum on the old lam=1.0 -> 0.618 step-150 misread).
         for seed in 42 43 44; do
             run_one none   0            "$seed" "$task" "$MODEL"
             run_one trace  "$TRACE_LAM" "$seed" "$task" "$MODEL"
@@ -177,7 +178,7 @@ case "$STAGE" in
         TU="$(echo "$task" | tr '[:lower:]' '[:upper:]')"
         var="BEST_LAYER_FREEZE_LLAMA_${TU}"
         run_freeze "${!var:-8}" 42 "$task" "$QWEN_MODEL"
-        for m in L2SP EWC FEATURE_KD; do
+        for m in L2SP EWC; do
             var="BEST_${m}_LLAMA_${TU}"
             run_one "$(echo "$m" | tr '[:upper:]' '[:lower:]')" \
                     "${!var:-1e-3}" 42 "$task" "$QWEN_MODEL"
