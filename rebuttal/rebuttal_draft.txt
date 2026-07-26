@@ -220,6 +220,10 @@ B [原文]: Demonstrate benchmark-independent use: The authors should show that 
    sensitivity to reference-set size and domain.
 
 Response:
+The reference set is just a small, unlabeled slice of the evaluation task's own
+validation data, which any evaluation already has; PRISM reads it once, with no labels
+and no decoding, so it adds no data requirement and needs very little (size ablation
+below).
 We report benchmark-independent use in three points.
 (1) The bound is input-conditioned: computed on a reference set, it bounds the
 risk on that same data, with the feature and the risk PAIRED on one distribution
@@ -227,12 +231,10 @@ risk on that same data, with the feature and the risk PAIRED on one distribution
 origin, App. D). Using a generic reference to rank a benchmark's degradation
 UNPAIRS the feature from the risk, an empirical transfer question quantified in
 (3).
-(2) Requiring a reference set is not an extra burden: any evaluation already
-presumes held-out validation data, and PRISM, as a diagnostic, needs only a
-small, unlabeled slice of it, read once through a forward pass with no decoding
-(the ranking is stable across reference sizes; ablation below). That is strictly
-less than a benchmark run, which must generate outputs and grade them against
-gold labels.
+(2) That single reference pass is strictly less work than a benchmark run: PRISM
+reads the slice once with no decoding, whereas a benchmark run must generate outputs
+and grade them against gold labels (the ranking is also stable across reference
+sizes; ablation below).
 (3) The guarantee requires the feature and the risk to be computed on the SAME
 data (a per-instance bound, (1)); benchmark-independence deliberately UNPAIRS
 them, taking the bound from generic text while the risk is measured on the
@@ -864,6 +866,9 @@ generation 比倍數;數字出自 out/E12/gsm8k_measured.md)。
    efficiency and robustness of the method.
 
 Response:
+The reference set is just a small, unlabeled slice of the evaluation task's own
+validation data, which any evaluation already has, read once with no labels and no
+decoding.
 Three parts. (1) Benchmark-independent reference. The bound is input-conditioned:
 its guarantee holds when the feature and the risk are PAIRED on the same data (a
 per-instance bound, App. A/D), and as a diagnostic PRISM needs only a small,
