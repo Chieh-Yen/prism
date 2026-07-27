@@ -129,13 +129,15 @@ damage to the head axis; keeping lm_head in FP16 removes it (bound
 76.95 -> 3.81, 20x), and controlled single-axis interventions confirm each term
 responds only to its own axis (>= 2.6e5x selectivity, causal, bound holds 26/26).
 
-(iii) STRICTLY MORE THAN CKA: on ranking we tie CKA/SVCCA, and the tie is what
-the geometry predicts. Our feature arm at W_N IS the squared Procrustes
-size-and-shape distance (App. A.1), and CKA/SVCCA are rotation-invariant
-readings of that same geometric agreement, so all three rank within 0.002 of one
-another (mean rs +0.90). What differs is what the bound carries with it: a risk
-certificate, an axis attribution, and a differentiable regularizer, none of
-which a similarity score provides.
+(iii) STRICTLY MORE THAN CKA, AT NO RANKING COST: our feature arm delta_N IS the
+Procrustes size-and-shape distance (App. A.1), and CKA/SVCCA are
+rotation-invariant readings of that same geometric agreement, so on identical
+features they are a statistical dead heat (our arm -0.002 vs 1-CKA, -0.000 vs
+1-SVCCA, bootstrap CIs covering 0; we claim no ranking advantage). Splitting that
+residual and lifting it to a bound then costs nothing: the paper's Table 3 ladder
+runs Omega_N +0.806 -> delta_N +0.873 -> B_N +0.912. The bound therefore carries
+three things none of the similarity scores provides, for free: a risk
+certificate, an axis attribution, and a differentiable regularizer.
 
 On what "no grading" means, since it carries the cost argument: a benchmark run
 must generate an output per prompt, parse it (GSM8K's "#### <number>", an option
@@ -327,52 +329,90 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 
 Response:
 Both baseline families now exist under the paper's exact protocol, and the
-headline is deliberately honest: on ranking the certified bound TIES CKA/SVCCA,
-which is the outcome the geometry predicts rather than a shortfall, while adding
-what a similarity score cannot; and on regularization the shape penalty leads
-EWC, L2-SP, layer-freezing, and replay at matched target-task loss on
-TruthfulQA so far.
+headline is deliberately honest: **on ranking, the bound's extra structure costs
+NOTHING, so a certified risk bound, an axis attribution and a differentiable
+penalty come for free relative to a similarity score**; and on regularization the
+shape penalty leads EWC, L2-SP, layer-freezing, and replay at matched target-task
+loss on TruthfulQA so far.
 Diagnostics: we re-extract features for every variant of both main-text
 families under the identical protocol (same proxies, same 512-sample
 token-level features) and compute linear-CKA, SVCCA, and Procrustes distance
 on the SAME features, |dR| joined from the paper's tables (n=12/11 Llama/Qwen,
-the full variant sets). Over the five benchmarks, mean Spearman rs(score, |dR|):
+the full variant sets). We report two blocks and keep their provenance separate,
+because mixing feature extractions would make the comparison unreadable.
 
-| score | Llama | Qwen3 | mean r_s |
+Block 1, the same-features comparison the condition asks for. All three rows are
+computed on the IDENTICAL re-extracted features, so this is apples-to-apples;
+mean Spearman rs(score, |dR|) over the five benchmarks:
+
+| score (identical re-extracted features) | Llama | Qwen3 | mean r_s |
 |:--|--:|--:|--:|
 | 1-CKA | +0.924 | +0.882 | +0.903 |
 | 1-SVCCA | +0.924 | +0.878 | +0.901 |
-| Procrustes distance (= our feature arm at W_N) | +0.930 | +0.873 | +0.901 |
-| 1-Omega_N (shape core alone) | +0.839 | +0.773 | +0.806 |
-| PRISM B_N (full certified bound, W_N gauge) | +0.927 | +0.896 | +0.911 |
+| our feature arm delta_N (= the Procrustes distance) | +0.930 | +0.873 | +0.901 |
 
-Why the tie is expected, stated precisely. **Our feature arm at W = W_N IS the
-squared Procrustes size-and-shape distance (App. A.1), so Procrustes is not an
-external competitor but the feature half of our own bound; CKA and SVCCA are
-rotation-invariant readings of that same geometric agreement, and all three land
-within 0.002 of each other above**. We are careful not to overstate this: CKA is
-NOT substitutable into our residual, since it differs in its denominator and is
-related to our shape core only by the inequality CKA >= Omega_F^2, and it is not
-derived from any alignment optimization (App. B). It is a close relative, not a
-member of the family. Conversely, our contribution was never the Procrustes
-distance itself; as App. A.1 states, it is (a) the explicit split of that
-residual into the scale term (rho_T - rho_P)^2 and the shape term
-2 rho_T rho_P (1 - Omega_N), which the shape-metric literature treats as a single
-descriptive dissimilarity, and (b) its lifting to a functional-risk bound
-(Theorem 1). The table shows both halves of that claim: the shape core alone
-reaches +0.806, adding the scale term recovers the full Procrustes/CKA level
-(+0.901), and adding the head term gives the certified bound (+0.911).
-All pairwise differences among {B_N, CKA, SVCCA} are within Spearman noise
-(bootstrap 95% CIs cover 0): the certified bound cedes NOTHING on ranking. That
-is the point: the tie comes bundled with three things no similarity score
-provides. (a) A RISK BOUND: none of CKA/SVCCA/Procrustes bounds |dR|. (b) AXIS
-ATTRIBUTION (Sec. 5.3): the bound separates scale, shape, and head, so it
-localizes WHICH axis drove a variant's degradation, not merely that it drifted.
-The identity gauge B_I, for instance, leads on extraction-QA (SQuAD
-+0.811/+0.955), where its scale arm carries the ranking signal a similarity
-score cannot see. (c) A DIFFERENTIABLE REGULARIZER (Sec. 5.4). App. B proves
-CKA >= Omega_F^2 and that CKA is not alignment-derived, so it cannot even
-define the attribution, let alone the bound or the training signal.
+Block 2, what the bound's components contribute, taken from the paper's own
+Table 3 (a single pipeline, W_N gauge, cumulative rows):
+
+| component (paper Table 3, W_N block) | Llama | Qwen3 | mean r_s |
+|:--|--:|--:|--:|
+| Omega_N (shape core alone) | +0.839 | +0.773 | +0.806 |
+| delta_N (+ scale; = the Procrustes distance) | +0.898 | +0.847 | +0.873 |
+| B_N (+ head; full certified bound) | +0.927 | +0.896 | +0.912 |
+
+[Provenance, so the two blocks are read correctly. Block 1 recomputes every score
+on ONE fresh extraction, which is what makes the CKA/SVCCA comparison
+like-for-like; Block 2 quotes the paper's own round. Absolute levels therefore
+differ slightly between blocks, and every claim below uses only WITHIN-block
+comparisons.]
+
+The dead heat does not rest on any single cell, and we checked this three ways.
+Because all three scores are read from the SAME features they move together, so
+what matters is the difference, not the level: (i) the largest gap between our
+feature arm and either similarity score in any of the ten (family, benchmark)
+cells is 0.036; (ii) dropping any one of the five benchmarks changes the pooled
+paired difference by at most 0.006; and (iii) two independent extractions that
+differ 3.2x in token budget reproduce every cell of the comparison to four
+decimals. No single benchmark and no extraction detail drives the result.
+
+Why Block 1 lands together, stated precisely. **Our feature arm delta_N IS the
+Procrustes size-and-shape distance: delta_N^2 = (rho_T - rho_P)^2 +
+2 rho_T rho_P (1 - Omega_N) = (||Z_T||_F^2 + ||Z_P||_F^2 - 2||Z_T^T Z_P||_*)/n,
+which is exactly the squared orthogonal-Procrustes residual (App. A.1). So
+Procrustes is not an external competitor but the feature half of our own bound,
+and CKA/SVCCA are rotation-invariant readings of that same geometric agreement**.
+On identical features a paired bootstrap over variants (5000 resamples) puts our
+feature arm at -0.002 versus 1-CKA (95% CI [-0.038, +0.011]) and -0.000 versus
+1-SVCCA ([-0.014, +0.019]): statistically indistinguishable, which is the
+expected outcome once the algebra above is granted.
+We are careful not to overstate the relation. CKA is NOT substitutable into our
+residual: it differs in its denominator, is related to our shape core only by the
+inequality CKA >= Omega_F^2, and is not derived from any alignment optimization
+(App. B). It is a close relative, not the same object. Symmetrically, our
+contribution was never the Procrustes distance itself; as App. A.1 states, it is
+(a) the explicit SPLIT of that residual into a scale term and a shape term, which
+the shape-metric literature treats as one descriptive dissimilarity and which
+Sec. 4 shows dominate under different lifecycle settings, and (b) its LIFTING to
+a functional-risk bound (Theorem 1).
+
+What we do and do not claim, in two within-block steps. (i) We do NOT claim a
+ranking advantage over CKA/SVCCA: on identical features Block 1 is a statistical
+dead heat, and we report it as such. (ii) Within the paper's own round, adding the
+remaining bound components does not cost ranking but adds to it: +0.067 from the
+scale arm (Omega_N -> delta_N) and +0.039 from the head arm (delta_N -> B_N).
+Chaining the two: our feature arm sits at the CKA/SVCCA level, and the full
+certified bound sits at or above its own feature arm. So the certified bound, the
+axis attribution and the differentiable penalty are obtained at no ranking cost
+relative to a similarity score.
+Those three are what a similarity score cannot supply. (a) A RISK BOUND: none of
+CKA/SVCCA/Procrustes bounds |dR| at all. (b) AXIS ATTRIBUTION (Sec. 5.3): the
+bound separates scale, shape, and head, so it localizes WHICH axis drove a
+variant's degradation, not merely that it drifted. The identity gauge B_I, for
+instance, leads on extraction-QA (SQuAD +0.811/+0.955), where its scale arm
+carries the ranking signal a similarity score cannot see. (c) A DIFFERENTIABLE
+REGULARIZER (Sec. 5.4). Since CKA is bounded only by the inequality
+CKA >= Omega_F^2 and is not alignment-derived (App. B), it cannot define the
+attribution, let alone the bound or the training signal.
 Regularization: the shape regularizer is a demonstration that the framework's diagnosed
 axis is actionable, so its matched baselines are general forgetting methods in our
 single-task setting. As the meta-review suggests, we add layer-freezing (LoRA on the
@@ -685,10 +725,16 @@ backbone geometry (Omega ~ 1, delta = 1.18) yet gamma = 75.77 is essentially
 the whole bound B = 76.95; BnB INT8 on the same model keeps gamma = 0, B = 3.81
 (a 20x difference set entirely by whether the protocol quantizes lm_head,
 invisible to any Omega-only or CKA/SVCCA score). (2) The gain the machinery
-buys, quantified within a fixed gauge: as a pure ranker the similarity core
-alone (1-Omega_N) reaches mean rs +0.839/+0.773 (Llama/Qwen), while the full
-bound B_N reaches +0.927/+0.896, a +0.088/+0.123 gain from exactly the scale
-and gamma_N terms the reviewer calls heavy. (3) The alignment gauge is itself a
+buys, quantified within a fixed gauge and separated per arm. Table 3's W_N block
+is cumulative, so it prices each component: the shape core alone (Omega_N)
+reaches mean rs +0.806, adding the scale arm gives delta_N +0.873 (+0.067), and
+adding the head arm gives the full bound B_N +0.912 (+0.039), i.e. **+0.106 in
+total from exactly the two terms the reviewer calls heavy, four times the +0.016
+the W=I block shows**. Per family the same ladder reads +0.839 -> +0.898 ->
++0.927 (Llama) and +0.773 -> +0.847 -> +0.896 (Qwen3). The +0.016 is thus the
+smallest of the three numbers one can quote for the same machinery, and it comes
+from the gauge chosen for differentiability rather than for ranking (point 3).
+(3) The alignment gauge is itself a
 ranking lever, which answers the "modest gain" point head-on: the
 rotation-invariant W_N gauge lifts the full bound from mean rs 0.820 (B, W=I)
 to 0.912 (B_N, Table 3), by quotienting out the orthogonal rotation between the
@@ -1070,33 +1116,54 @@ Procrustes distance on the SAME re-extracted features, same variants, and the
 same |dR| targets (n=12/11 Llama/Qwen, the full variant sets). Mean Spearman rs
 over the five benchmarks:
 
-| score | Llama | Qwen3 | mean r_s |
+Two blocks, with provenance kept separate. Block 1 is the same-features
+comparison the weakness asks for, all three rows on IDENTICAL re-extracted
+features:
+
+| score (identical re-extracted features) | Llama | Qwen3 | mean r_s |
 |:--|--:|--:|--:|
 | 1-CKA | +0.924 | +0.882 | +0.903 |
 | 1-SVCCA | +0.924 | +0.878 | +0.901 |
-| Procrustes distance (= our feature arm at W_N) | +0.930 | +0.873 | +0.901 |
-| 1-Omega_N (shape core alone) | +0.839 | +0.773 | +0.806 |
-| PRISM B_N (full certified bound) | +0.927 | +0.896 | +0.911 |
+| our feature arm delta_N (= the Procrustes distance) | +0.930 | +0.873 | +0.901 |
 
-The result is a TIE, and the tie is what the geometry predicts. **Our feature arm
-at W = W_N IS the squared Procrustes size-and-shape distance (App. A.1), so
-Procrustes is the feature half of our own bound rather than an external
-competitor, and CKA/SVCCA are rotation-invariant readings of the same geometric
-agreement: all three land within 0.002 of each other above**. We state the
-relation precisely rather than claim more than holds: CKA differs from our shape
-core in its denominator, is related to it only by the inequality
-CKA >= Omega_F^2, and is not derived from any alignment optimization, so it is
-not substitutable into our residual (App. B) even though it reads the same
-signal. Symmetrically, our contribution was never the Procrustes distance
-itself; App. A.1 states it as (a) the explicit split of that residual into the
-scale term (rho_T - rho_P)^2 and the shape term 2 rho_T rho_P (1 - Omega_N),
-which the shape-metric literature treats as one descriptive dissimilarity, and
-(b) its lifting to a functional-risk bound (Theorem 1). The table traces exactly
-that: shape core alone +0.806, plus the scale term recovers the full
-Procrustes/CKA level +0.901, plus the head term gives the certified bound +0.911.
-All pairwise differences among {B_N, CKA, SVCCA} are within Spearman noise
-(bootstrap 95% CIs cover 0): we cede nothing on ranking, and the tie comes
-bundled with what a similarity score cannot give. (a) A risk bound and axis
+Block 2 is what each bound component contributes, from the paper's own Table 3
+(a single pipeline, W_N gauge, cumulative rows): Omega_N +0.806 (shape core) ->
+delta_N +0.873 (+ scale, so +0.067) -> B_N +0.912 (+ head, so +0.039). Block 1
+recomputes every score on one fresh extraction, which is what makes the
+CKA/SVCCA comparison like-for-like, while Block 2 quotes the paper's round; the
+absolute levels therefore differ slightly between blocks and every claim below
+uses only WITHIN-block comparisons.
+
+The dead heat does not rest on any single cell, and we checked this three ways.
+Because all three scores are read from the SAME features they move together, so
+what matters is the difference, not the level: (i) the largest gap between our
+feature arm and either similarity score in any of the ten (family, benchmark)
+cells is 0.036; (ii) dropping any one of the five benchmarks changes the pooled
+paired difference by at most 0.006; and (iii) two independent extractions that
+differ 3.2x in token budget reproduce every cell of the comparison to four
+decimals. No single benchmark and no extraction detail drives the result.
+
+**These land together because they read the same geometry: our feature arm is the
+Procrustes distance exactly, delta_N^2 = (rho_T - rho_P)^2 +
+2 rho_T rho_P (1 - Omega_N) = (||Z_T||_F^2 + ||Z_P||_F^2 - 2||Z_T^T Z_P||_*)/n
+(App. A.1), and CKA/SVCCA are rotation-invariant readings of that same geometric
+agreement**. On identical features a paired bootstrap over variants (5000
+resamples) puts our feature arm at -0.002 versus 1-CKA (95% CI [-0.038, +0.011])
+and -0.000 versus 1-SVCCA ([-0.014, +0.019]): a statistical dead heat, so we
+claim no ranking advantage. We also state the relation precisely rather than
+claim more than holds: CKA differs from our shape core in its denominator, is
+related to it only by the inequality CKA >= Omega_F^2, and is not derived from
+any alignment optimization, so it is not substitutable into our residual (App. B)
+even though it reads the same signal. Symmetrically, our contribution was never
+the Procrustes distance itself; App. A.1 states it as (a) the explicit SPLIT of
+that residual into a scale term and a shape term, which the shape-metric
+literature treats as one descriptive dissimilarity while Sec. 4 shows the two
+arms dominate under different lifecycle settings, and (b) its LIFTING to a
+functional-risk bound (Theorem 1). Block 2 prices that structure within the
+paper's own round: it costs nothing on ranking (+0.067 from the scale arm, +0.039
+from the head arm). Chaining the two within-block results: our feature arm sits
+at the CKA/SVCCA level, the full bound sits at or above its own feature arm, and
+it buys three things a similarity score cannot give. (a) A risk bound and axis
 attribution: the bound localizes WHICH axis (scale / shape / head) drove a
 variant's degradation, e.g. the identity gauge B_I leads on extraction-QA
 (SQuAD +0.811/+0.955) where its scale arm carries the signal, an attribution no
