@@ -264,9 +264,16 @@ def loader_fingerprint(loader):
 
     ds = loader.dataset
     ids = ds.encodings["input_ids"]
+    # Hash only the REAL tokens. The loader pads with padding=True, i.e. to the
+    # longest text in whatever set was passed, so the same example is padded to a
+    # different width at n=8 than at n=512. Hashing the padded row would then
+    # report the nested draws as unrelated (observed: every size flagged as "not
+    # a subset" although select(range(n)) is provably a prefix).
+    mask = ds.encodings.get("attention_mask")
     h = set()
-    for row in ids:
-        h.add(hashlib.blake2b(row.numpy().tobytes(), digest_size=8).hexdigest())
+    for i, row in enumerate(ids):
+        real = row[mask[i] == 1] if mask is not None else row
+        h.add(hashlib.blake2b(real.numpy().tobytes(), digest_size=8).hexdigest())
     return {"n_selected": int(ids.shape[0]), "hashes": h}
 
 
@@ -451,6 +458,7 @@ def run(args) -> None:
     H_T = torch.load(cache / "H_T.pt").float()
 
     # ── proxies: ONE load each, inner loops over seed x benchmark ──
+    failed_loads = []
     for spec in specs:
         label = spec["label"]
         todo = [s for s in seeds if missing_for(s, label)]
@@ -461,7 +469,14 @@ def run(args) -> None:
         try:
             proxy = load_proxy(spec, args.device)
         except Exception as exc:                             # noqa: BLE001
-            print(f"  [FAIL load] {exc}")
+            # Print the traceback, not just str(exc): a bare message like
+            # "name 'QuantizeConfig' is not defined" says nothing about WHICH
+            # package raised it, and the variant is then silently absent from
+            # every table.
+            import traceback
+            print(f"  [FAIL load] {type(exc).__name__}: {exc}")
+            traceback.print_exc()
+            failed_loads.append((label, f"{type(exc).__name__}: {exc}"))
             continue
         try:
             H_P = ex.extract_head(proxy).float()
@@ -508,6 +523,13 @@ def run(args) -> None:
         del proxy, H_P
         free_cuda()
 
+    if failed_loads:
+        print(f"\n!! {len(failed_loads)} of {len(specs)} proxies never loaded, so "
+              f"they are ABSENT from every table below:")
+        for lab, why in failed_loads:
+            print(f"   {lab}: {why}")
+        print("   Fix the environment or state the reduced variant set "
+              "explicitly; --report will refuse the incomplete grid.")
     print("\nNext: python3 rebuttal_exp/exp_e1d_fresh_round.py --report")
 
 
@@ -596,24 +618,47 @@ def report(args) -> None:
 
     # ── completeness gate: a partially written seed file would silently give a
     #    Spearman over fewer variants, which is not comparable across rows ──
+    # Expected variant count comes from the proxy list, not from the file itself:
+    # a file that is UNIFORMLY short (say 10 of 12 proxies, because two failed to
+    # load) is internally consistent and would otherwise sail through.
+    expected = {}
+    try:
+        from common_quant import variants_from_csv
+        for fam in files:
+            expected[fam] = len(variants_from_csv(fam))
+    except Exception as exc:                                 # noqa: BLE001
+        print(f"(could not read the expected proxy count: {exc})")
+
     incomplete = []
     for fam, ps in files.items():
         for p in ps:
             rows = list(csv.DictReader(open(p)))
             per = defaultdict(set)
+            sz = defaultdict(set)
             for r in rows:
                 per[r["dataset"].lower()].add(r["label"])
+                sz[r["dataset"].lower()].add(int(r.get("n_samples", 512) or 512))
             counts = {ds: len(v) for ds, v in per.items()}
             if not counts:
                 incomplete.append((p.name, "empty"))
                 continue
+            why = []
             nmax = max(counts.values())
             short = {ds: c for ds, c in counts.items() if c < nmax}
+            if short:
+                why.append(f"ragged variant counts {counts}")
             miss = [ds for ds in PAPER5 if ds not in counts]
-            if short or miss:
-                incomplete.append((p.name,
-                                   f"variants/benchmark {counts}"
-                                   + (f", missing benchmarks {miss}" if miss else "")))
+            if miss:
+                why.append(f"missing benchmarks {miss}")
+            exp = expected.get(fam)
+            if exp and nmax < exp:
+                why.append(f"only {nmax} of {exp} proxies present "
+                           f"(uniformly short: some proxies never loaded)")
+            nsz = {len(v) for v in sz.values()}
+            if len(nsz) > 1:
+                why.append(f"size coverage differs across benchmarks: {dict(sz)}")
+            if why:
+                incomplete.append((p.name, "; ".join(why)))
     if incomplete:
         print("!! INCOMPLETE seed files -- the table below is NOT final:")
         for name, why in incomplete:
