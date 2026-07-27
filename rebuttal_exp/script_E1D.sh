@@ -23,7 +23,11 @@
 #             seeds, versus ~75 min for the naive seed-outer order. Loading a
 #             GGUF/GPTQ 8B proxy is 1-2 min and dominates; a 5-benchmark forward
 #             pass is ~5-8 s and the float64 metric ~2 s.
+#     probe   zero GPU. Times the metric on random tensors and extrapolates the
+#             wall clock for the whole grid. RUN THIS BEFORE `run`.
 #     report  zero GPU. Builds out/E1D/table.md (+ diagnostics.md).
+#     study   zero GPU. E14 size study only -> out/E14/{family}_size_study.md
+#             (`run` already calls it per family).
 #
 #   usage
 #     bash rebuttal_exp/script_E1D.sh dry
@@ -31,7 +35,9 @@
 #     FAMILIES=llama SEEDS="43 44 45" bash rebuttal_exp/script_E1D.sh run
 #     bash rebuttal_exp/script_E1D.sh report
 #
-#   knobs: CUDA_GPU (0), FAMILIES ("llama qwen"), SEEDS ("43 44 45"), FORCE=1
+#   knobs: CUDA_GPU (0), FAMILIES ("llama qwen"), SEEDS ("43 44 45"),
+#          SIZES ("8 32 128 512") reference-slice sizes; the largest is the paper
+#                 protocol and doubles as the main table, FORCE=1
 #          CHUNK (8192) tokens per float64 accumulation chunk. Lower it if the
 #          metric OOMs next to the model; it does not change the result.
 #
@@ -55,6 +61,7 @@ STAGE="${1:-dry}"
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 FAMILIES="${FAMILIES:-llama qwen}"
 SEEDS="${SEEDS:-43 44 45}"
+SIZES="${SIZES:-8 32 128 512}"
 PY=rebuttal_exp/exp_e1d_fresh_round.py
 OUT=rebuttal_exp/out/E1D
 mkdir -p "$OUT"
@@ -67,7 +74,12 @@ step () { echo "=== [E1D $(date '+%m-%d %H:%M')] $* ===" | tee -a "$LOG"; }
 case "$STAGE" in
   dry)
     step "dry-run (zero GPU)"
-    python3 "$PY" --dry-run 2>&1 | tee -a "$LOG"
+    python3 "$PY" --dry-run --sizes $SIZES --seeds $SEEDS 2>&1 | tee -a "$LOG"
+    ;;
+
+  probe)
+    step "probe (no model load): time the metric, extrapolate the whole grid"
+    python3 "$PY" --probe --sizes $SIZES --seeds $SEEDS 2>&1 | tee -a "$LOG"
     ;;
 
   run)
@@ -75,8 +87,11 @@ case "$STAGE" in
     for fam in $FAMILIES; do
       step "family=$fam"
       # shellcheck disable=SC2086
-      python3 "$PY" --family "$fam" --seeds $SEEDS --chunk "${CHUNK:-8192}" \
-              $FORCE_FLAG 2>&1 | tee -a "$LOG"
+      python3 "$PY" --family "$fam" --seeds $SEEDS --sizes $SIZES \
+              --chunk "${CHUNK:-8192}" $FORCE_FLAG 2>&1 | tee -a "$LOG"
+      step "E14 size study (zero GPU) for $fam"
+      python3 rebuttal_exp/exp_e14_size_study.py --family "$fam" 2>&1 \
+              | tail -20 | tee -a "$LOG"
     done
     step "building table"
     python3 "$PY" --report 2>&1 | tee -a "$LOG"
@@ -87,8 +102,15 @@ case "$STAGE" in
     python3 "$PY" --report 2>&1 | tee -a "$LOG"
     ;;
 
+  study)
+    step "E14 size study only (zero GPU)"
+    for fam in $FAMILIES; do
+      python3 rebuttal_exp/exp_e14_size_study.py --family "$fam" 2>&1 | tee -a "$LOG"
+    done
+    ;;
+
   *)
-    echo "usage: $0 {dry|run|report}" >&2
+    echo "usage: $0 {dry|probe|run|report|study}" >&2
     exit 2
     ;;
 esac

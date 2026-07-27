@@ -715,11 +715,18 @@ not tuned to the benchmark):
 | reference size | 8 | 32 (paper) | 128 |
 |:--|--:|--:|--:|
 | mean r_s over the 5 benchmarks | +0.926 | +0.926 | +0.926 |
-| sd across the 3 draws | 0.000 | 0.000 | 0.000 |
 | per benchmark (arc / mmlu / squad / triviaqa / gsm8k) | .944 / .944 / .811 / .965 / .965 | identical | identical |
+| draws in which any adjacent pair changed order | 0 of 3 | 0 of 3 | 0 of 3 |
 
-Eight sequences therefore give the same ordering as 128, and the zero spread
-across draws says the paper's 32 is not a lucky draw.
+Eight sequences therefore give the same ordering as 128. An exactly zero spread
+deserves an explanation rather than trust, so here is the mechanism: at 8
+sequences, ten of the eleven adjacent pairs are separated by more than the
+draw-to-draw jitter in the bound (for instance 25.1 apart against a 5.8 jitter),
+so no rank can move. The remaining pair, BnB-INT8 against Q5_K_M, is 3.7 apart
+with a 4.5 jitter and came within 1.1 in one draw, so it would reorder with more
+draws. **That pair is the resolution limit of the ranking, and we state it as
+such: the ordering is stable except between tiers whose bounds differ by less than
+the sampling jitter.**
 Teacher forcing is also not a different question: when each variant generates its
 OWN continuations and both models are scored on those, the ranking is
 +0.947 ± 0.015 against +0.958 ± 0.011 teacher-forced, with rank agreement

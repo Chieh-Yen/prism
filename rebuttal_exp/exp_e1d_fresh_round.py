@@ -45,6 +45,38 @@ SEEDS
     it: the resulting numbers are a fresh replication, NOT an attempt to
     reproduce Table 3, and they should be reported as such.
 
+PRE-REGISTERED SCOPE (fixed before running; the whole grid gets reported)
+    families    : llama + qwen           (the paper's two main-text families)
+    benchmarks  : all five
+    sizes       : 8, 32, 128, 512        (512 = the paper protocol, so it is the
+                                          main table and the sweep's upper end)
+    seeds       : 43, 44, 45
+    -> 2 x 5 x 4 x 3 cells, ALL reported.  Deciding after the fact which cells to
+    show would be selection on the outcome; --report therefore emits the complete
+    grid and refuses to run on a partial one.
+
+WHAT A SMALL SLICE ACTUALLY CHANGES (read before interpreting the size table)
+    gamma is ||Sigma_P^{1/2} (W H_T - H_P)||_F with Sigma_P = Z_P^T Z_P / n, a
+    d x d matrix of rank at most the TOKEN count. Tokens, not sequences, are what
+    matter: at 512 sequences GSM8K gives ~52k tokens (full rank at d = 4096) while
+    MMLU gives ~511 and ARC ~527, so Sigma_P is already rank-deficient in the
+    paper's own MMLU/ARC cells. Sigma_P^{1/2} then only measures the head
+    discrepancy inside the sampled subspace.
+    This is not an error: Theorem 1 restated is a bound on the EMPIRICAL gap over
+    that slice, and gamma is the correct quantity for that slice. But it does mean
+    the size table's B_N row is not "the same quantity measured more noisily" at
+    small n; it is the bound for a smaller slice, which sees fewer head
+    directions. Read the B_N row as "does a small slice still ORDER the variants
+    like the full protocol", never as "gamma converges".
+
+SIZE ABLATION, AND WHY THE TARGET IS HELD FIXED
+    At size n both the bound and the measured gap could be computed on the same n
+    sequences, but that conflates two questions.  The decision-relevant one is
+    "can a SMALL slice order the variants correctly with respect to the gap on the
+    FULL protocol?", so the primary table correlates B(n) against |dR|(512), a
+    fixed target.  The diagonal B(n) vs |dR|(n) is reported alongside as the
+    fully-self-contained-at-n reading.
+
 WHAT COULD COME OUT DIFFERENTLY FROM THE PAPER (read before running)
     Fixing (a) RAISES the Omega/delta ranking on long-token benchmarks, because
     the corrupted cells were the ones dragging Omega down.  The paper's Table 3
@@ -265,7 +297,7 @@ def run(args) -> None:
     seeds = list(args.seeds)
     ex = LLMExtractor()
 
-    COLS = ["family", "seed", "label", "dataset", "n_tokens",
+    COLS = ["family", "seed", "n_samples", "label", "dataset", "n_tokens",
             "cka", "svcca", "omega_I", "omega_W", "omega_W_raw",
             "clamp_would_fire", "rho_T", "rho_P", "delta_W", "gamma_W",
             "K_feat", "K_pred", "bound_W", "loss_T", "loss_P", "|MdR|"]
@@ -274,32 +306,64 @@ def run(args) -> None:
     def csv_path(seed):
         return OUT_DIR / f"{args.family}_seed{seed}.csv"
 
-    done = set()
+    # Resume at CELL granularity, not (seed, proxy) granularity. Coarse resume
+    # would re-extract every size whenever the size list grows and APPEND, so the
+    # rows already on disk would appear twice and silently double n in every
+    # Spearman. Here a cell is skipped iff that exact
+    # (seed, size, label, benchmark) row already exists.
+    have = set()
+    if args.force:
+        # --force must TRUNCATE, not merely ignore the resume set: rows are
+        # appended, so recomputing on top of an existing file would duplicate
+        # every cell and silently double n in each Spearman.
+        for seed in seeds:
+            fp_ = csv_path(seed)
+            if fp_.exists():
+                bak = fp_.with_suffix(".csv.bak")
+                fp_.rename(bak)
+                print(f"[force] {fp_.name} moved aside to {bak.name}")
     if not args.force:
         for seed in seeds:
             p = csv_path(seed)
             if not p.exists():
                 continue
-            per = defaultdict(set)
             for r in csv.DictReader(open(p)):
-                per[r["label"]].add(r["dataset"].lower())
-            for label, dss in per.items():
-                if set(benches) <= dss:            # every benchmark present
-                    done.add((seed, label))
-        if done:
-            print(f"[resume] {len(done)} (seed, proxy) pairs already complete")
+                have.add((seed, int(r.get("n_samples", 512) or 512),
+                          r["label"], r["dataset"].lower()))
+        if have:
+            print(f"[resume] {len(have)} cells already on disk; they will be "
+                  f"skipped, not re-appended")
+    need_cells = {(n, b) for n in sorted(args.sizes) for b in benches}
+
+    def missing_for(seed, label):
+        return sorted(c for c in need_cells
+                      if (seed, c[0], label, c[1]) not in have)
 
     tok = AutoTokenizer.from_pretrained(target_id, trust_remote_code=True)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
-    loaders = {s: {b: load_task_data(b, split="test",
-                                     num_samples=args.num_samples,
-                                     batch_size=args.batch_size, tokenizer=tok,
-                                     max_length=args.max_length, seed=s)
-                   for b in benches} for s in seeds}
+    sizes = sorted(args.sizes)
+    loaders = {(s, n, b): load_task_data(b, split="test", num_samples=n,
+                                         batch_size=args.batch_size,
+                                         tokenizer=tok,
+                                         max_length=args.max_length, seed=s)
+               for s in seeds for n in sizes for b in benches}
 
     # ── what did the seed actually change?  Measure, do not assume. ──
-    fp = {(s, b): loader_fingerprint(loaders[s][b]) for s in seeds for b in benches}
+    nmax = max(sizes)
+    fp = {(s, b): loader_fingerprint(loaders[(s, nmax, b)])
+          for s in seeds for b in benches}
+    # sanity: select(range(n)) after a fixed shuffle must make the small draws
+    # PREFIXES of the large one, so the sizes are nested rather than independent.
+    for s in seeds:
+        for b in benches:
+            big = loader_fingerprint(loaders[(s, nmax, b)])["hashes"]
+            for n in sizes[:-1]:
+                small = loader_fingerprint(loaders[(s, n, b)])["hashes"]
+                if not small <= big:
+                    print(f"  [warn] seed{s} {b}: size {n} is NOT a subset of "
+                          f"size {nmax}; the sizes are independent draws, not "
+                          f"nested, so read the ablation accordingly")
     draw_lines = ["# E1-D seed draw overlap (what the seed changed)", "",
                   f"family {args.family}; seeds {seeds}; num_samples "
                   f"{args.num_samples}", "",
@@ -356,40 +420,40 @@ def run(args) -> None:
         try:
             loss_T = {tuple(k.split("|")): v
                       for k, v in json.loads(lossfile.read_text()).items()}
-            loss_T = {(int(s), b): v for (s, b), v in loss_T.items()}
+            loss_T = {(int(s), int(n), b): v for (s, n, b), v in loss_T.items()}
         except Exception:                                    # noqa: BLE001
             loss_T = {}
 
-    def zt_path(seed, b):
-        return cache / f"seed{seed}_{b}.pt"
+    def zt_path(seed, n, b):
+        return cache / f"seed{seed}_n{n}_{b}.pt"
 
-    missing = [(s, b) for s in seeds for b in benches
-               if not zt_path(s, b).exists() or (s, b) not in loss_T]
+    missing = [(s, n, b) for s in seeds for n in sizes for b in benches
+               if not zt_path(s, n, b).exists() or (s, n, b) not in loss_T]
     if missing:
-        print(f"[target] one load, extracting {len(missing)} (seed, benchmark) cells")
+        print(f"[target] one load, extracting {len(missing)} (seed, size, benchmark) cells")
         tgt = load_target(target_id, args.device)
         H_T = ex.extract_head(tgt).float().cpu()
         torch.save(H_T, cache / "H_T.pt")
-        for s, b in missing:
-            Z, l = feats_and_loss(tgt, loaders[s][b])
-            tmp = zt_path(s, b).with_suffix(".pt.tmp")
+        for s, n, b in missing:
+            Z, l = feats_and_loss(tgt, loaders[(s, n, b)])
+            tmp = zt_path(s, n, b).with_suffix(".pt.tmp")
             torch.save(Z, tmp)
-            tmp.rename(zt_path(s, b))
-            loss_T[(s, b)] = l
-            print(f"  seed{s} {b}: Z{tuple(Z.shape)} answer-CE {l:.5f}")
+            tmp.rename(zt_path(s, n, b))
+            loss_T[(s, n, b)] = l
+            print(f"  seed{s} n{n} {b}: Z{tuple(Z.shape)} answer-CE {l:.5f}")
             del Z
-        lossfile.write_text(json.dumps({f"{s}|{b}": v
-                                        for (s, b), v in loss_T.items()}))
+        lossfile.write_text(json.dumps({f"{s}|{n}|{b}": v
+                                        for (s, n, b), v in loss_T.items()}))
         del tgt
         free_cuda()
     else:
-        print("[target] all (seed, benchmark) features cached")
+        print("[target] all (seed, size, benchmark) features cached")
     H_T = torch.load(cache / "H_T.pt").float()
 
     # ── proxies: ONE load each, inner loops over seed x benchmark ──
     for spec in specs:
         label = spec["label"]
-        todo = [s for s in seeds if (s, label) not in done]
+        todo = [s for s in seeds if missing_for(s, label)]
         if not todo:
             print(f"\n=== {label}: complete for all seeds, not loaded ===")
             continue
@@ -409,26 +473,26 @@ def run(args) -> None:
 
         for seed in todo:
             rows = []
-            for b in benches:
+            for n, b in missing_for(seed, label):
                 try:
-                    Z_P, loss_P = feats_and_loss(proxy, loaders[seed][b])
+                    Z_P, loss_P = feats_and_loss(proxy, loaders[(seed, n, b)])
                 except Exception as exc:                     # noqa: BLE001
-                    print(f"  [FAIL extract seed{seed} {b}] {exc}")
+                    print(f"  [FAIL extract seed{seed} n{n} {b}] {exc}")
                     continue
-                Z_Tb = torch.load(zt_path(seed, b)).float()
+                Z_Tb = torch.load(zt_path(seed, n, b)).float()
                 Xc, Yc = subsample_tokens(Z_Tb, Z_P, TOKEN_CAP, seed=seed)
                 m = fresh_metrics(Xc.to(args.device), Yc.to(args.device),
                                   H_T.to(args.device), H_P.to(args.device),
                                   chunk=args.chunk)
-                m.update({"family": args.family, "seed": seed, "label": label,
-                          "dataset": b, "loss_T": loss_T[(seed, b)],
-                          "loss_P": loss_P,
-                          "|MdR|": abs(loss_T[(seed, b)] - loss_P)})
+                m.update({"family": args.family, "seed": seed, "n_samples": n,
+                          "label": label, "dataset": b,
+                          "loss_T": loss_T[(seed, n, b)], "loss_P": loss_P,
+                          "|MdR|": abs(loss_T[(seed, n, b)] - loss_P)})
                 rows.append(m)
-                print(f"  seed{seed} {b}: 1-CKA={1-m['cka']:.4f} "
-                      f"1-Om_N={1-m['omega_W']:.6f} d_N={m['delta_W']:.3f} "
-                      f"B_N={m['bound_W']:.2f} |dR|={m['|MdR|']:.5f}"
-                      + ("  [clamp would fire]" if m["clamp_would_fire"] else ""))
+                print(f"  seed{seed} n{n:<4} {b:<9} 1-Om_N={1-m['omega_W']:.6f} "
+                      f"d_N={m['delta_W']:.3f} B_N={m['bound_W']:.2f} "
+                      f"|dR|={m['|MdR|']:.5f}"
+                      + ("  [clamp]" if m["clamp_would_fire"] else ""))
                 del Z_P, Z_Tb, Xc, Yc
                 free_cuda()
             # append this (seed, proxy) block immediately: a kill costs one proxy
@@ -471,19 +535,43 @@ def spearman(x, y) -> float:
     return num / den if den else float("nan")
 
 
-def family_mean(path: Path, row: str) -> float:
-    """mean r_s over the 5 benchmarks for one metric row in one seed file."""
+def family_mean(path: Path, row: str, n_bound=None, n_target=None) -> float:
+    """mean r_s over the 5 benchmarks for one metric row in one seed file.
+
+    n_bound  : take the METRIC from rows at this reference size (None = largest).
+    n_target : take |dR| from rows at this size (None = same as n_bound).
+
+    Keeping the two separate is the point of the size ablation: the useful
+    question is whether a SMALL slice orders the variants correctly against the
+    gap measured on the FULL protocol, so the primary table uses n_target = the
+    largest size while n_bound varies.
+    """
     col, inv = ROW_COL[row]
     rows = list(csv.DictReader(open(path)))
+    ns = sorted({int(r.get("n_samples", 512) or 512) for r in rows})
+    nb = n_bound if n_bound is not None else ns[-1]
+    nt = n_target if n_target is not None else nb
     per = []
     for ds in PAPER5:
-        rs = [r for r in rows if r["dataset"].lower() == ds]
-        if not rs:
+        met = {r["label"]: r for r in rows
+               if r["dataset"].lower() == ds
+               and int(r.get("n_samples", 512) or 512) == nb}
+        tgt = {r["label"]: r for r in rows
+               if r["dataset"].lower() == ds
+               and int(r.get("n_samples", 512) or 512) == nt}
+        shared = sorted(set(met) & set(tgt))
+        if len(shared) < 3:
             continue
-        dr = [abs(float(r["|MdR|"])) for r in rs]
-        v = [(1 - float(r[col])) if inv else float(r[col]) for r in rs]
-        per.append(spearman(v, dr))
+        v = [(1 - float(met[k][col])) if inv else float(met[k][col])
+             for k in shared]
+        y = [abs(float(tgt[k]["|MdR|"])) for k in shared]
+        per.append(spearman(v, y))
     return statistics.mean(per) if per else float("nan")
+
+
+def sizes_in(path: Path):
+    return sorted({int(r.get("n_samples", 512) or 512)
+                   for r in csv.DictReader(open(path))})
 
 
 def fmt(vals) -> str:
@@ -540,6 +628,7 @@ def report(args) -> None:
              "same pass. Accumulation in float64, no omega clamp. These seeds are",
              "disjoint from the paper's round, so the numbers are a fresh",
              "replication and not a reproduction of Table 3.", "",
+             "## Main table (paper reference size)", "",
              "| method | Llama | Qwen3 | mean r_s |", "|:--|--:|--:|--:|"]
     pooled = {}
     for row in ROWS:
@@ -552,6 +641,39 @@ def report(args) -> None:
         both = [statistics.mean([a, b]) for a, b in zip(lv, qv)] if lv and qv else (lv or qv)
         lines.append(f"| {row} | {cells[0]} | {cells[1]} | {fmt(both)} |")
     lines.append("")
+
+    # ── size ablation: does a small slice give the same ordering? ──
+    anyf = next(iter(files.values()))[0]
+    sizes = sizes_in(anyf)
+    if len(sizes) > 1:
+        nmax = sizes[-1]
+        lines += [f"## Reference-slice size (paired: the slice is the diagnosed",
+                  f"task's own validation data)", "",
+                  f"Primary column holds the TARGET fixed at n={nmax} (the paper",
+                  f"protocol) and varies only the size the BOUND is computed on, so it",
+                  f"answers \"can a small slice order the variants correctly?\". The",
+                  f"diagonal column recomputes the target at the same size too.", "",
+                  "| size | " + " | ".join(f"{r} vs target n={nmax}" for r in ROWS)
+                  + " |", "|---" * (len(ROWS) + 1) + "|"]
+        for n in sizes:
+            cells = [str(n)]
+            for row in ROWS:
+                vals = [family_mean(p, row, n_bound=n, n_target=nmax)
+                        for ps in files.values() for p in ps]
+                cells.append(fmt(vals))
+            lines.append("| " + " | ".join(cells) + " |")
+        lines += ["", "| size | " + " | ".join(f"{r} (diagonal)" for r in ROWS)
+                  + " |", "|---" * (len(ROWS) + 1) + "|"]
+        for n in sizes:
+            cells = [str(n)]
+            for row in ROWS:
+                vals = [family_mean(p, row, n_bound=n, n_target=n)
+                        for ps in files.values() for p in ps]
+                cells.append(fmt(vals))
+            lines.append("| " + " | ".join(cells) + " |")
+        lines += ["", "Read the primary block first: if the n=8 row matches the "
+                  f"n={nmax} row, a slice of 8 sequences already orders the "
+                  "variants as the full protocol does.", ""]
 
     # paired differences, the load-bearing quantity
     lines += ["## Paired differences (per seed, then mean +- sd)", ""]
@@ -636,7 +758,13 @@ def dry_run(args) -> None:
     print(f"  seeds       : {args.seeds}   (paper round = 42, so disjoint)")
     print(f"  benchmarks  : {args.benchmarks or PAPER5}")
     print(f"  token cap   : {TOKEN_CAP}  (> gsm8k 52184 llama / 63056 qwen, so no truncation)")
-    print(f"  num_samples : {args.num_samples}   max_length: {args.max_length}")
+    print(f"  sizes       : {sorted(args.sizes)}  (largest = paper protocol, "
+          f"doubles as the main table)")
+    print(f"  max_length  : {args.max_length}")
+    ncell = (len(args.seeds) * len(args.sizes)
+             * len(args.benchmarks or PAPER5))
+    print(f"  per family  : 1 target load + ~12 proxy loads; "
+          f"{ncell} forward passes per model")
     print(f"  rows        : {ROWS}")
     print("\n[dry-run] clamp present in the paper's metric path: "
           f"{'YES  prism/core/metrics.py' if m else 'NOT FOUND'}")
@@ -647,6 +775,71 @@ def dry_run(args) -> None:
     print("  the table is internally paired and needs no provenance caveat.")
 
 
+def probe(args) -> None:
+    """Time the metric on random tensors, no model load, then extrapolate.
+
+    The metric cost is dominated by a 4096x4096 float64 SVD whose cost does NOT
+    depend on the slice size, so 720 calls per family can outweigh the model
+    loads. Measuring beats guessing: this runs in a couple of minutes and prints
+    the projected wall clock for the pre-registered grid.
+    """
+    import time
+
+    import torch
+
+    dev = args.device if torch.cuda.is_available() else "cpu"
+    if dev == "cpu":
+        print("[probe] no CUDA visible: timings below are CPU and will not "
+              "reflect the run; use this only to check the code path.")
+    d = 4096
+    V = 128256                     # llama vocab, for the head shapes
+    H_T = torch.randn(d, 2048, device=dev)      # narrow stand-in for the head:
+    H_P = torch.randn(d, 2048, device=dev)      # K_feat's diameter scan is O(C^2)
+    print(f"[probe] device={dev}  d={d}  (head width reduced to 2048 so the probe "
+          f"isolates the SVD, not the diameter scan)")
+    # tokens per (size, benchmark) roughly scale with the slice; use the observed
+    # gsm8k-dominated totals
+    per_size = {8: 900, 32: 3600, 128: 14000, 512: 57000}
+    tot = 0.0
+    for n in sorted(args.sizes):
+        ntok = per_size.get(n, n * 110)
+        X = torch.randn(ntok, d, device=dev)
+        Y = X + 0.01 * torch.randn_like(X)
+        if dev != "cpu":
+            torch.cuda.synchronize()
+        t0 = time.time()
+        try:
+            fresh_metrics(X, Y, H_T, H_P, chunk=args.chunk)
+        except RuntimeError as exc:
+            # macOS/Accelerate errors on a 4096x4096 eigh; time the two dominant
+            # primitives instead so the probe still produces a number.
+            print(f"    (full metric failed here: {str(exc)[:60]}...; timing the "
+                  f"two dominant primitives instead)")
+            t0 = time.time()
+            cr = torch.zeros((d, d), dtype=torch.float64, device=dev)
+            for i in range(0, X.shape[0], args.chunk):
+                xc = X[i:i + args.chunk].double()
+                cr += xc.T @ xc
+            torch.linalg.svd(cr, full_matrices=False)
+        if dev != "cpu":
+            torch.cuda.synchronize()
+        dt = time.time() - t0
+        # one call per (proxy, seed, benchmark) at this size
+        calls = 12 * len(args.seeds) * len(args.benchmarks or PAPER5)
+        tot += dt * calls
+        print(f"  n={n:<5} {ntok:>6} tokens  metric {dt:6.2f} s  "
+              f"x {calls} calls = {dt*calls/60:6.1f} min")
+        del X, Y
+        if dev != "cpu":
+            torch.cuda.empty_cache()
+    print(f"\n[probe] metric total per family: {tot/60:.0f} min")
+    print(f"[probe] + 13 model loads at 60-120 s each: 13-26 min")
+    fwd = 13 * len(args.seeds) * len(args.sizes) * len(args.benchmarks or PAPER5)
+    print(f"[probe] + {fwd} forward passes (cheap, ~1-8 s each): 10-25 min")
+    print(f"[probe] => per family roughly {tot/60+20:.0f}-{tot/60+50:.0f} min, "
+          f"both families {2*(tot/60+20)/60:.1f}-{2*(tot/60+50)/60:.1f} h")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -654,7 +847,11 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, nargs="*", default=[43, 44, 45],
                     help="fresh seeds, disjoint from the paper's 42")
     ap.add_argument("--benchmarks", nargs="*", default=None)
-    ap.add_argument("--num_samples", type=int, default=512, help="paper: 512")
+    ap.add_argument("--sizes", type=int, nargs="*", default=[8, 32, 128, 512],
+                    help="reference-slice sizes; 512 is the paper protocol and "
+                         "doubles as the main table")
+    ap.add_argument("--num_samples", type=int, default=512,
+                    help="paper: 512 (ignored when --sizes is used)")
     ap.add_argument("--max_length", type=int, default=512, help="paper: 512")
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--device", default="cuda:0")
@@ -668,11 +865,16 @@ def main() -> None:
                     action="store_true",
                     help="emit the table even if some (seed, proxy) cells are "
                          "missing (marked NOT final)")
+    ap.add_argument("--probe", action="store_true",
+                    help="no model load: time the metric on random tensors and "
+                         "extrapolate the wall clock for the whole grid")
     ap.add_argument("--dry-run", dest="dry", action="store_true",
                     help="no GPU: show the plan + the clamp diagnosis")
     args = ap.parse_args()
 
-    if args.dry:
+    if args.probe:
+        probe(args)
+    elif args.dry:
         dry_run(args)
     elif args.report:
         report(args)
