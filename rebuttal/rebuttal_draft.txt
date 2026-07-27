@@ -708,16 +708,55 @@ three axes, not as the discovery of the phenomena themselves.
 > enough, so benchmarks are still needed for that.
 
 Response:
-We dispute neither half: the raw bound is loose (median slack 1597x over 570
-cells) and the paper claims ranking, not absolute risk (Abstract, Sec. 6). We do
-not dispute the last sentence either. What we would sharpen is what measuring
-costs once ranking has narrowed the field, because the reviewer's own Strengths
-name the workflow: "choosing between a dozen quantization variants and don't want
-to run full benchmarks on all of them".
-**Screening is not the standard benchmark protocol, and that is where the time
-goes.** A benchmark run generates text and grades it; PRISM reads a small
-reference slice under teacher forcing, and the risk gap it is checked against
-comes out of that same pass.
+We agree the bound is loose, and instead of defending the number we can say where
+the looseness comes from. Slack B/|dR| has median 1597x over 570 cells, and it
+decomposes into identifiable worst-case steps (numbers for Llama-3.1-8B):
+
+* **K_feat is a worst case twice over.** It is the largest pairwise distance
+  between lm_head columns, 2.6137 here. The largest per-token sensitivity actually
+  observed is 1.645 (1.6x smaller), and the MEAN observed sensitivity is 0.413 (a
+  further 4.0x), so K_feat sits 6.3x, or 0.80 dex, above the sensitivity the risk
+  gap actually experiences.
+* **The shape term carries a large scale prefactor.** delta^2 contains
+  2 rho_T rho_P (1 - Omega), and 2 rho_T rho_P is about 3.9e4 on Llama/MMLU, so a
+  dimensionless residual of 1 - Omega = 0.024 for Q4_K_M becomes a shape term of
+  919 and a delta of 30.4. The prefactor is physical, since logits scale with
+  feature norm times head norm, but it means B is measured in nats times a large
+  constant rather than in nats.
+* **The inequality chain sums two legs instead of letting them cancel.** Target to
+  hybrid and hybrid to proxy are bounded separately and added, then averaged over
+  samples, so every token is charged the worst-case direction. This dominates: per
+  tier, the K step accounts for 0.13-0.40 dex of the slack while this remainder
+  accounts for 2.15-3.48 dex.
+
+**Two of those three are constant within a cell, and that is precisely why the paper
+reports an ordering and computes rank correlations rather than absolute risk.**
+K_feat and K_pred depend only on the target head, so they are identical for every
+variant of one target model (2.6137 and sqrt(2) for Llama-3.1-8B; the Instruct
+checkpoint is a different target with 2.6003, and Qwen3-8B-Base is 3.4583).
+rho_T is fixed once the target model and the benchmark are fixed (134.24 on GSM8K
+up to 140.93 on TriviaQA for the same Llama), and rho_T rho_P then varies over the
+variants of that cell with a median CV of 0.52%.
+**So within one cell, meaning a fixed (target model, benchmark) pair, these factors
+INFLATE every variant's bound by essentially the same multiple: they move the value
+and cannot move the order.** That cell is exactly the unit at which the paper
+computes its rank correlations, which is why the design and the looseness are two
+sides of one fact rather than a coincidence. What can still move the order is only
+the third source, the alignment and triangle remainder, which does vary per
+variant; that is both why the rank correlations are near 0.9 rather than 1.0 and
+why no fixed multiplicative correction exists (log10 sd of the slack ~0.76). The
+ranking claim is therefore not a retreat from an absolute one; it is the claim the
+construction supports.
+We do not dispute the last sentence either, and two separate things reduce what
+measuring costs once the ranking has narrowed the field. The reviewer's own
+Strengths name the first: "choosing between a dozen quantization variants and don't
+want to run full benchmarks on all of them". **You run the benchmark once, on the
+variant the ranking selects, instead of twelve times to find it.** The second is
+that PRISM's own read is not a benchmark run at all.
+**A benchmark run generates text and grades it; PRISM reads a small reference slice
+under teacher forcing, and the risk gap it is checked against comes out of that
+same pass**, so the screening step avoids the autoregressive decoding and the
+answer grading entirely.
 
 | | standard benchmark run | PRISM screen |
 |:--|:--|:--|
@@ -752,12 +791,11 @@ OWN continuations and both models are scored on those, the ranking is
 cheaply, then run the full protocol once, on the finalist. We validate against the
 cross-entropy risk gap throughout rather than task accuracy, and keep the claim
 there.
-Why ranking is the well-posed output, structurally rather than as a fallback.
-B = K_feat * delta + K_pred * gamma has weights that are properties of the target
-head alone, hence identical for every variant of a family (K_feat = 2.6137 for
-every Llama-3.1-8B cell). The worst-case relaxation is therefore shared by the
-variants being compared: it survives in the VALUE and largely cancels in the
-ORDER. And an absolute nat threshold is not portable to begin with, since the
+One point from the slack attribution is in the reviewer's favour to know: the
+simplex-polarization step they credit is NOT where the looseness lives, and the
+median slack shrinks toward low bit-widths (3.65 -> 2.78 dex), so the bound is
+relatively tightest where the degradation is real.
+An absolute nat threshold is also not portable to begin with, since the
 target's own cross-entropy spans 0.34 to 3.44 across our (model, benchmark) grid,
 so 0.1 nats is 29% of the model's own loss in one cell and 2.9% in another.
 Ranking is not the only output either. The decomposition says WHICH axis to fix:
