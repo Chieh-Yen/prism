@@ -449,6 +449,27 @@ Note: ✅ 全部已有數字(App F.3/G.1/H 指路 + E13 的 20-cell 聚合)。
       論文輪次(0.831/−0.34/−0.66),可直接引用。
 
 --------------------------------------------------------------------------------
+Closing paragraph (vision/格局; posted immediately before the positioning
+sentence):
+
+"A closing word on the larger goal. All four reviews, and the meta-review,
+credit the same core: a timely problem, a decomposition more informative than
+any single similarity score, and a principled link between geometry and risk.
+The reason we pursue exactly that combination is practical: the ecosystem now
+produces post-trained variants far faster than it can afford to evaluate them,
+and PRISM is our attempt at the missing instrument, a label-free measurement
+that turns "re-run the benchmark suite for every variant" into one forward
+pass, three commensurable numbers, and a remediation direction (on GSM8K, a
+single greedy decode costs a measured 62.6x that pass), so that the
+community's time goes into building models rather than repeatedly grading
+them. This review process has made the instrument materially sharper: the
+calibration, the empirical-risk restatement, and the stronger baselines exist
+because the reviewers and the AC asked exactly the right questions. The
+directions we could not fully pursue within the rebuttal window (sequential
+continual learning, the joint-alignment regime of full SFT/RLHF, a
+trajectory-shift term for free-running generation) are stated in the revision
+as the explicit roadmap of this line of work."
+
 Positioning sentence to close the global response:
 "We believe these results, together with the narrowed framing (PRISM as a
 calibrated, label-free ranking-and-attribution instrument with an explicitly
@@ -458,6 +479,15 @@ light of the new evidence. The remaining runs (TruthfulQA seeds 43/44)
 complete during the discussion period and we will post the finished multi-seed
 table in this thread; if any condition appears only partially met, we would
 welcome the chance to complete it."
+
+Note: 2026-07-27 新增 closing paragraph(vision)。設計:放結尾、不放開頭(AC 履約
+      型,開頭必須 evidence-first;情感訴求在 measurement 之後才 earned)、不開新
+      comment(conf-4 會視為 padding)。素材 = AC 自己歸納的共識 strengths(timely
+      problem / decomposition > single score / geometry-risk link);「credit 反送
+      reviewers」(校準/重述/baselines 因你們的提問而存在)= 共同擁有感,最強調分
+      槓桿;future works 具體點名三方向(sequential CL / SFT-RLHF joint-alignment /
+      trajectory-shift term)= 8VrD 四引文 + G3T9-Q1 + 8VrD-W4 的意見入 roadmap,
+      非空泛承諾。62.6x 為全文已用實測數字,無新 claim。貼文時外層引號拿掉。
 
 ================================================================================
 Reviewer #1, pCi8 (3: Borderline reject, conf 4), Q3/C3/S2/O3
@@ -1632,6 +1662,9 @@ Global assembly checklist (post 前逐項核對)
     G3T9-W3/eQL6-W4/eQL6-Q3/8VrD-W3/8VrD-Q4/global close);論文既有 BBQ 數據
     (Table 22/19、Qwen-BBQ noise-floor 分析)不受影響照引;TQA 補「the paper's
     primary shape-drift setting」定位(pCi8-W5)
+[x] 2026-07-27 新增 global closing paragraph(vision/格局):共識 strengths →
+    工具使命(省社群評測時間)→ credit 反送 reviewers → 三項具體 future-work
+    roadmap;置於 positioning sentence 之前
 [ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [x] E10(5-task SocialIQA/No-Robots/LIMA)不揭露——已從 G3T9-Q2 / AC-E / 8VrD-W3
