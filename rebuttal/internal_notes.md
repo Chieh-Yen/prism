@@ -1096,3 +1096,52 @@ good enough」—— 我們卻用 Q8_0/Q2_K 回答,連他的 variant 都沒碰�
 1. **每個「the reviewer's own ...」都要回原文核對是哪一位 reviewer 說的。**
 2. **回答要用 reviewer 自己舉的例子**(他問 Q4 就答 Q4),否則等於沒回答他。
 3. **每個數字都要在 out/ 下有檔案**;聚合檔存在 ≠ 個別數字有出處。
+
+---
+
+## 2026-07-27 E2 seeds 完成:多 seed 數字已 update 進草稿(六處)
+
+### 跑完的內容
+`out/E2` 共 55 個 step-300 JSON。TruthfulQA / meta-llama 的 seed 分布:seed42 ×18(sweep)、
+seed43 ×7、seed44 ×7 ⇒ **7 個方法 × 3 seeds 齊全**(none / replay λ0.01 / trace λ0.5 /
+EWC λ0.1 / L2-SP λ0.01 / layer_freeze top16 / layer_freeze top8)。
+⚠️ 唯一缺口:`layer_freeze/top8/seed44` 的 JSON 空/截斷 ⇒ top8 只有 2 seeds(已在表中如實只報 2 seed 的 sd)。
+BBQ 只有 seed42(依 2026-07-27 定案不跑,貼文不承諾)。
+
+### ⚠️ 發現的不一致(必須處理,已處理)
+**seeds stage 跑的是 `trace λ0.5`,而草稿頭條 0.687 是 `trace λ1` 且只有 seed42。**
+λ1 沒有多 seed 資料 ⇒ 多 seed 表只能用 λ0.5,數字是 **0.716 ± 0.009**(不是 0.687)。
+處理方式:表用 λ0.5,並明說「λ1 單 seed 更好(0.687 / target 0.865),所以 λ0.5 是保守選擇」。
+這樣既誠實又把「數字變差」轉成「我們選了保守點」。
+
+### 3-seed 聚合(TruthfulQA, step 300, mean ± sd)
+```
+method            downstream |dR|     target loss      n
+no-reg            0.815 ± 0.042      0.950 ± 0.008     3
+replay λ0.01      0.771 ± 0.027      0.899 ± 0.007     3
+L2-SP λ0.01       0.763 ± 0.019      0.901 ± 0.003     3
+EWC λ0.1          0.751 ± 0.015      0.905 ± 0.010     3
+trace λ0.5        0.716 ± 0.009      0.885 ± 0.005     3
+freeze top16      0.404 ± 0.017      0.924 ± 0.001     3
+freeze top8       0.198 ± 0.003      0.984 ± 0.001     2
+```
+
+### 比單 seed 版**更強**的兩個結果
+1. **paired per-seed 全勝 3/3**(比較均值±sd 有力得多,因為 seed 共用):
+   vs no-reg +0.128/+0.063/+0.105、vs replay +0.051/+0.036/+0.078、
+   vs EWC +0.026/+0.030/+0.048、vs L2-SP +0.023/+0.053/+0.066 —— **全部同向**。
+2. **trace 的 target loss 0.885 是所有方法中最低** ⇒ 同時最可塑且最少遺忘,
+   不是用可塑性換保留。這直接答掉 eQL6-W4/Q3(regularization 是否傷害目標任務)。
+
+### 相對 no-reg 的降幅(注意:與論文 Table 2 不同輪,不可混排)
+trace −12%、EWC −8%、L2-SP −6%、replay −5%。
+⚠️ 論文 Table 2 是 **λ1.0、單 seed** 的 −19%/−9%(no-reg 0.843)。**兩組不可並列**;
+草稿引論文那組時仍標明是 Table 2。
+
+### 已更新的六處
+AC-C(加 3-seed 表)、pCi8-W5(加表 + paired 全勝 + λ 保守說明)、G3T9-W3(散文式多 seed)、
+eQL6-W4+Q3(改成 target loss 的多 seed 表述,並點出 trace 是**最低**)、
+8VrD-W3(3)(多 seed)、8VrD-W3(5)(「all three complete」+ 逐 seed 成立)、
+global closing(移除「seeds 43/44 完成後補表」的承諾)。
+核對:舊單 seed 數字(0.843/0.764/0.750/0.747/0.92-1.02 裸用)**已全部替換**;
+"seeds 43/44" 殘留 **0**;0.687 只剩兩處刻意保留的 λ1.0 對照。

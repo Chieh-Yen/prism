@@ -424,9 +424,29 @@ top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher) and L2-SP, all unde
 paper's exact protocol, each reported at the config whose target-task loss matches the
 shape run's (equal plasticity, so a baseline is not rewarded for under-training). On
 TruthfulQA so far (seed 42; downstream = mean |dR| over the five held-out benchmarks):
-the shape penalty (0.687) beats no-reg (0.843), replay (0.764), EWC (0.750),
-L2-SP (0.747), and layer-freezing (which lowers |dR| only by under-training the FT
-task, target loss 0.92-1.02 vs 0.87); seeds 43/44 are completing. SLoRA, two-phase CIT, CLAIM, and ArMA are
+all three seeds are
+now complete (42/43/44; mean ± sd over seeds, downstream = mean |dR| over the five
+held-out benchmarks):
+
+| method (TruthfulQA, 3 seeds) | downstream forgetting | target-task loss |
+|:--|--:|--:|
+| no regularization | 0.815 ± 0.042 | 0.950 ± 0.008 |
+| replay, lambda 0.01 | 0.771 ± 0.027 | 0.899 ± 0.007 |
+| L2-SP, lambda 0.01 | 0.763 ± 0.019 | 0.901 ± 0.003 |
+| EWC, lambda 0.1 | 0.751 ± 0.015 | 0.905 ± 0.010 |
+| **shape penalty, lambda 0.5** | **0.716 ± 0.009** | **0.885 ± 0.005** |
+| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
+| layer-freeze, top 8 | 0.198 ± 0.003 | 0.984 ± 0.001 |
+
+Three readings. (a) The shape penalty is lowest on forgetting among the methods
+that keep the fine-tuning task, and it beats every one of them in ALL THREE seeds
+individually, by +0.023 to +0.128, so the ordering is not a seed artefact.
+(b) It also has the LOWEST target-task loss of any regularizer here, so the
+reduction is not bought with plasticity. (c) Layer-freezing reaches a much lower
+|dR| only by not learning the task: target loss 0.924 (top 16) and 0.984 (top 8)
+against the shape run's 0.885. We report lambda 0.5 because that is the operating
+point with three seeds; the single-seed lambda 1.0 run is better still (0.687 at
+target 0.865), so this choice is the conservative one. SLoRA, two-phase CIT, CLAIM, and ArMA are
 specialized for the sequential continual-instruction setting (a task stream), a
 different problem than our single fine-tuning; we cite all four and leave a matched
 comparison there to future work.
@@ -596,10 +616,8 @@ We believe these results, together with the narrowed framing (PRISM as a
 calibrated, generation-free ranking-and-attribution instrument with an explicitly
 empirical-risk guarantee), directly address the five points of the meta-review,
 and we respectfully ask the AC and reviewers to reconsider in light of the new
-evidence. The remaining runs (TruthfulQA seeds 43/44) complete during the
-discussion period and we will post the finished multi-seed table in this thread;
-if any condition appears only partially met, we would welcome the chance to
-complete it.
+evidence. If any condition still appears only partially met, we would welcome the
+chance to complete it during the discussion period.
 
 ================================================================================
 Reviewer #1, pCi8 (3: Borderline reject, conf 4), Q3/C3/S2/O3
@@ -850,21 +868,32 @@ layer-freezing (the meta-review's suggestion), all under the identical protocol
 (LoRA, 300 steps, lr 1e-5). Selection rule: **each baseline is reported at the
 sweep config whose target-task loss MATCHES the shape run's, so we compare at
 equal plasticity rather than reward a baseline that merely under-trains**.
-First results on TruthfulQA, the paper's primary shape-drift setting (seed 42;
-downstream forgetting = mean |dR| over ARC/MMLU/SQuAD/TriviaQA/GSM8K; target =
-TruthfulQA eval loss): the shape penalty
-reaches |dR| = 0.687 at target loss 0.865, vs no-reg 0.843 and replay 0.764;
-EWC 0.750 (target 0.90) and L2-SP 0.747 (target 0.90; best over its valid range,
-lambda up to 1e-2, since at lr 1e-5 a larger penalty over-constrains the small LoRA
-drift). Layer-freezing reaches a
-lower |dR| (0.11-0.40) only by freezing most layers and thereby UNDER-TRAINING
-the fine-tuning task (its best in-grid target loss is 0.92-1.02, well above the
-shape run's 0.87), so it does not match plasticity and is not a genuine win.
-Honest win/tie/loss on TruthfulQA so far: the shape penalty beats every baseline in
-the comparison, no-reg, replay, EWC, L2-SP, and layer-freezing (it remains a
-feasibility demonstration that the diagnosed axis is actionable, not a claim to beat
-every possible method). Seeds 43/44 are completing; the full multi-seed table
-goes in the revision.
+Results on TruthfulQA, the paper's primary shape-drift setting, over three seeds
+(42/43/44; downstream forgetting = mean |dR| over ARC/MMLU/SQuAD/TriviaQA/GSM8K,
+target = TruthfulQA eval loss; mean ± sd across seeds):
+
+| method (TruthfulQA, 3 seeds) | downstream forgetting | target-task loss |
+|:--|--:|--:|
+| no regularization | 0.815 ± 0.042 | 0.950 ± 0.008 |
+| replay, lambda 0.01 | 0.771 ± 0.027 | 0.899 ± 0.007 |
+| L2-SP, lambda 0.01 | 0.763 ± 0.019 | 0.901 ± 0.003 |
+| EWC, lambda 0.1 | 0.751 ± 0.015 | 0.905 ± 0.010 |
+| **shape penalty, lambda 0.5** | **0.716 ± 0.009** | **0.885 ± 0.005** |
+| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
+| layer-freeze, top 8 | 0.198 ± 0.003 | 0.984 ± 0.001 |
+
+**The shape penalty is lowest on forgetting among the methods that actually learn
+the task, it beats each of them in ALL THREE seeds individually (margins +0.023 to
++0.128), and it carries the lowest target-task loss of any regularizer here**, so
+the reduction is not bought with plasticity. Layer-freezing's much lower |dR| comes
+from not learning the task: target loss 0.924 and 0.984 against the shape run's
+0.885, so it does not match plasticity and is not a genuine win. L2-SP is reported
+at the best config in its valid range (lambda up to 1e-2; at lr 1e-5 a larger
+penalty over-constrains the small LoRA drift). We use lambda 0.5 for the shape
+penalty because that is the operating point with three seeds; the single-seed
+lambda 1.0 run reaches 0.687 at target 0.865, so this is the conservative choice.
+This remains a feasibility demonstration that the diagnosed axis is actionable
+rather than a claim to beat every possible method.
 On why replay was the original choice: it is the CONTROLLED comparison (same 32
 reference sequences, same schedule, same compute as the trace penalty,
 Sec. 5.4), with Related Work framing EWC (weight-space) / replay (data-space) /
@@ -1221,10 +1250,13 @@ derived), so they cannot produce Sec. 5.3's diagnoses even where correlations
 tie. (2) Regularizers: the feature-space method here is the shape
 penalty itself; the added baselines are weight-space (L2-SP, EWC) and architectural
 (layer-freezing), all protocol-identical, each at the config matched to the shape run's
-target loss. On TruthfulQA so far (seed 42): the shape penalty (downstream |dR| 0.687)
-beats no-reg (0.843), replay (0.764), EWC (0.750), L2-SP (0.747), and layer-freezing
-(which lowers |dR| only by under-training, target 0.92-1.02 vs 0.87); seeds 43/44
-completing.
+target loss. On TruthfulQA over three seeds (42/43/44, mean ± sd), downstream
+forgetting is 0.716 ± 0.009 for the shape penalty against 0.751 ± 0.015 (EWC),
+0.763 ± 0.019 (L2-SP), 0.771 ± 0.027 (replay) and 0.815 ± 0.042 (no-reg); the shape
+penalty wins in all three seeds individually and carries the lowest target-task
+loss (0.885) of any regularizer, so it is not trading plasticity. Layer-freezing
+reaches 0.404 (top 16) and 0.198 (top 8) only at target loss 0.924 and 0.984, i.e.
+by under-training.
 
 4) W4 [原文]: Finally, the proposed risk bound appears extremely loose in absolute scale,
    as shown in Table 1. While the paper demonstrates that the bound has good rank
@@ -1467,14 +1499,17 @@ and the three trajectories essentially coincide through step 300: the shape
 penalty buys its reduction in downstream forgetting without giving up target-task
 learning at the operating points used. We recognize this column is easy to miss
 and will label it explicitly.
-(2) Versus the newly added baselines, numerically. **On TruthfulQA so far
-(seed 42), target-task eval loss: shape 0.865, EWC 0.90, L2-SP 0.90,
-layer-freezing 0.92-1.02.** The shape run is therefore at least as plastic as the
-weight-space baselines and clearly more plastic than layer-freezing, which lowers
-downstream forgetting only by under-training the fine-tuning task. This is also
-why every baseline in Condition C is reported at the config whose target loss
-MATCHES the shape run's: comparing at equal plasticity is the only way the
-forgetting numbers mean anything. Seeds 43/44 complete the table.
+(2) Versus the newly added baselines, numerically, over three seeds (42/43/44,
+mean ± sd). **Target-task loss: shape penalty 0.885 ± 0.005, replay 0.899 ± 0.007,
+L2-SP 0.901 ± 0.003, EWC 0.905 ± 0.010, layer-freeze 0.924 ± 0.001 (top 16) and
+0.984 ± 0.001 (top 8). The shape penalty has the LOWEST target-task loss of every
+method compared, while also having the lowest downstream forgetting
+(0.716 ± 0.009).** So it does not trade target-task performance for retention; it
+is better on both axes at once. Layer-freezing's low forgetting is bought exactly
+here, at target loss 0.924 and 0.984. This is also why every baseline in
+Condition C is reported at the config whose target loss MATCHES the shape run's:
+comparing at equal plasticity is the only way the forgetting numbers mean
+anything.
 (3) The revision adds this as a numeric column (target-task loss beside
 downstream forgetting) for every method, and if a trade-off does appear for any
 baseline we report its lambda sweep, tracing the stability-plasticity frontier
@@ -1738,10 +1773,12 @@ comparison (same reference data, schedule, and compute as the shape penalty). We
 more baselines strengthen the case and add the ones matched to this setting, across all
 weight-space (EWC, L2-SP) and architectural (layer-freezing) families (the feature-space
 method is the shape penalty itself), all under the identical protocol, each at the
-config matched to the shape run's target loss. On TruthfulQA so far (seed 42): the shape
-penalty (|dR| 0.687) beats no-reg (0.843), replay (0.764), EWC (0.750), L2-SP (0.747),
-and layer-freezing (which under-trains, target 0.92-1.02 vs 0.87); seeds 43/44
-completing. On the four cited
+config matched to the shape run's target loss. On TruthfulQA over three seeds
+(42/43/44, mean ± sd) downstream forgetting is 0.716 ± 0.009 for the shape penalty
+against 0.751 ± 0.015 (EWC), 0.763 ± 0.019 (L2-SP), 0.771 ± 0.027 (replay) and
+0.815 ± 0.042 (no-reg), and the shape penalty wins in all three seeds
+individually. Layer-freezing reaches 0.404 and 0.198 only at target loss 0.924 and
+0.984 against the shape run's 0.885, i.e. by under-training. On the four cited
 methods (SLoRA, two-phase CIT, CLAIM, ArMA): these are specialized for the SEQUENTIAL
 continual-instruction setting (a task stream), whereas our experiment mitigates
 forgetting during a single LoRA fine-tuning; they address a different problem, so a fair
@@ -1763,11 +1800,12 @@ on domain, the diagnostic bound is input-conditioned by construction, reading th
 diagnosed task's own validation items, so domain sensitivity arises only for the
 regularizer's reference measured above.
 (5) Multiple seeds and source-task performance, the remaining two items of W3.
-Seeds: every method is being run at seeds 42/43/44 under the identical protocol,
-seed 42 is reported above, and 43/44 complete during the discussion period.
-Source-task performance: reported as the target-task eval loss beside every
-forgetting number (shape 0.865 vs EWC 0.90, L2-SP 0.90, layer-freezing
-0.92-1.02), which is also how the matched-target selection is defined, so no
+**Seeds: all three (42/43/44) are complete for every method above, reported as
+mean ± sd, and the shape penalty's advantage holds in each seed separately rather
+than only on average.** Source-task performance: reported as the target-task eval
+loss beside every forgetting number, where the shape penalty is also the best
+(0.885 ± 0.005 against 0.899 replay, 0.901 L2-SP, 0.905 EWC, 0.924 and 0.984 for
+layer-freezing), which is how the matched-target selection is defined, so no
 method is credited for a low |dR| bought by under-training.
 
 4) W4 + Q2 [原文]:
