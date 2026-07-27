@@ -442,8 +442,8 @@ Three readings. (a) The shape penalty is lowest on forgetting among the methods
 that keep the fine-tuning task, and it beats every one of them in ALL THREE seeds
 individually, by +0.023 to +0.128, so the ordering is not a seed artefact.
 (b) It also has the LOWEST target-task loss of any regularizer here, so the
-reduction is not bought with plasticity. (c) Layer-freezing reaches a much lower
-|dR| only by not learning the task: target loss 0.924 (top 16) and 0.984 (top 8)
+reduction is not bought with plasticity. (c) Layer-freezing reaches a much
+lower |dR| only by not learning the task: target loss 0.924 (top 16) and 0.984 (top 8)
 against the shape run's 0.885. We report lambda 0.5 because that is the operating
 point with three seeds; the single-seed lambda 1.0 run is better still (0.687 at
 target 0.865), so this choice is the conservative one. SLoRA, two-phase CIT, CLAIM, and ArMA are
@@ -950,34 +950,36 @@ canonical baselines should be shown, not only argued.
 
 Response:
 The assumption affects only how LOOSE the bound is, never whether it holds.
-**Theorem 1 is a family of bounds indexed by W: any W in O(d) gives a valid
-inequality, with no condition on W at all (App. C.1; Sec. 3.1 states it as holding
-"for any such W, with alignment quality determining how tight the bound is in
-practice").** The two gauges we use are both unconditionally constructible, which is
-the concrete form of that statement: W = I is the identity, so there is nothing to
-compute or satisfy, and W_N is the orthogonal-Procrustes solution U V^T taken from
-the SVD of Z_P^T Z_T. An SVD exists for every real matrix and U V^T is orthogonal by
-construction, so W_N needs no invertibility or full-rank condition. When Z_P^T Z_T
-IS singular, which happens whenever the slice has fewer tokens than d, the minimiser
-is not unique, but the minimum value is: it depends only on the nuclear norm
-||Z_T^T Z_P||_*, so delta is well defined either way. So near-isometry is not a
-precondition. It is one more entry in the
-looseness itemized under W2: restricting the alignment to rotation-and-scale leaves
-the feature residual, and therefore delta, larger than an unrestricted linear map
-would, and that excess is measurable rather than assumed.
-We measure it at the bit-widths the reviewer asks about. In the features' top-r
-principal subspace we compute the residual after the best rotation-and-scale and
-after the best arbitrary linear map, and report iso_gain = 1 - res_linear /
-res_orthogonal, where 0 means the restriction costs nothing. Means over MMLU and
-SQuAD on Llama-3.1-8B: **the FP16 dtype control sits at 0.084, which is this
-metric's own noise level, and the quantized variants reach only 0.130 (Q8_0), 0.165
-(Q4_K_M), 0.183 (Q2_K) and 0.189 (NF4). So even at 2 bits, dropping orthogonality
-entirely would shrink the residual by under a fifth.**
-The complement answers the "already severely distorted" half directly: after an
-ORACLE arbitrary-linear alignment, 26% (Q4_K_M) and 57% (Q2_K) of the relative
-residual still remains on MMLU. Most of what aggressive quantization does to the
-features is not linearly alignable at all, so what the bound charges is genuine
-degradation rather than a gauge artefact.
+**Theorem 1 is a family of bounds indexed by W, and the only condition is that W be
+orthogonal: every W in O(d) gives a valid inequality (Sec. 3.3, App. C.1).** The
+geometry is why: an orthogonal W only RE-ORIENTS the proxy's feature cloud against
+the target's, preserving every norm, distance and angle inside it, so the choice of W
+changes how the mismatch is split between the feature arm (delta) and the head arm
+(gamma), never the geometry being split. Nothing about the models has to be
+near-isometric for that to hold.
+The gauge is therefore, in the paper's own words, "primarily design-driven", and our
+two sit at opposite ends of that split. W = I is the identity: compare the features
+in their own coordinates, keep gamma at its minimum, and stay differentiable, which
+is what the Sec. 3.5 regularizer needs. W_N = V U^T from the SVD Z_T^T Z_P = U S V^T
+is the orthogonal-Procrustes solution, the best rigid re-orientation: it minimizes
+delta instead, paying a per-step SVD and a nonzero gamma. A W optimized under any
+other objective over O(d) is equally admissible and moves only the tightness.
+Near-isometry is not a precondition, only one more entry in the looseness itemized
+under W2.
+We measure that cost at the bit-widths the reviewer asks about. We align the features
+twice in their top-r principal subspace, once with the best rotation-and-scale and
+once with the best arbitrary linear map, which can stretch and shear and so is not an
+admissible gauge but only an oracle ceiling, and report iso_gain = 1 - res_linear /
+res_orthogonal, the fraction of residual the restriction costs, 0 meaning free. Means
+over MMLU and SQuAD on Llama-3.1-8B, excluding noise-floor rows: **the FP16 dtype
+control sits at 0.084, this metric's own noise level, and quantization reaches only
+0.130 (Q8_0), 0.165 (Q4_K_M), 0.183 (Q2_K) and 0.189 (NF4). Even at 2 bits, dropping
+orthogonality entirely would shrink the residual by under a fifth.**
+The same measurement answers "already severely distorted" from the other side: even
+after the oracle linear alignment, 26% (Q4_K_M) and 57% (Q2_K) of the relative
+residual remains on MMLU. Most of what aggressive quantization does is not linearly
+alignable at all, so the bound is charging genuine degradation, not a gauge
+artefact.
 
 **In sum:** the three answers share one shape. We locate the looseness instead of
 disputing it, and two of its three sources are cell constants, which is why the
