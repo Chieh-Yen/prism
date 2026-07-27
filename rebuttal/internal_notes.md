@@ -1010,3 +1010,89 @@ if num_samples is not None and num_samples < len(hf_dataset):
 "three draws of the evaluation subset (seeds 43/44/45; draws overlap on the smaller
 splits, so the spread is a lower bound on sampling variability)"。
 實際重疊率跑完看 out/E1D/{family}_seed_draws.md 再填。
+
+---
+
+## 2026-07-27 追加 10:pCi8-W1 的 "ranking without benchmarks" 不精確,已修
+
+### 問題
+W1 原寫「This is exactly what enables (i) **ranking without benchmarks**, ...」。
+但 PRISM 讀的 reference set 就是**該 benchmark 自己的 validation 切片(prompt + gold
+answer)**,所以「without benchmarks」是 overclaim —— 與 "label-free" 同一類錯誤:
+把「不需要**跑** benchmark」講成「不需要 benchmark」。
+pCi8 是 conf-4,而且 W2 就緊接著說「You still need to run benchmarks for that」,
+他對這條界線特別敏感。
+
+### 修法(與全篇口徑一致)
+> (i) ranking variants from one teacher-forced pass over a small reference slice,
+> with no decoding and no answer grading (**the reference is the task's own
+> validation data, so this replaces RUNNING the benchmark, not having it**)
+
+括號那句是關鍵:主動把界線畫出來,而不是讓 reviewer 自己發現。
+
+### 全篇同類措辭複查結果(其餘皆已精確,不需改)
+- L234 AC-B「does not need, and does not claim, a benchmark-independent reference」= 刻意劃界 ✓
+- L1038 G3T9-W1(3)「needs no benchmark harness, no scorer, and no correctness labels,
+  **only reference text**」= 明寫需要 reference text ✓
+- L448 / L1768 free-running「so **here** the risk gap needs no reference answers」
+  = 有 "here" 限定,只適用 free-running 模式 ✓
+- L1013「screens all K **without decoding or grading**」✓
+- L691 AC-A「without benchmarking it (no decoding, no grading; the benchmark is run
+  once per family to fit the calibration, not once per variant)」✓
+- L54 / L608 / L620 / L632 = AC 與 pCi8 的**原文**(他們自己的用字),不動
+
+### 順帶收緊 closing paragraph
+「into one forward pass」→「into **one forward pass per variant**」——
+原句可能被讀成「總共一次 forward」。
+
+### 教訓(寫給後續檢查用)
+這是本次第三個同型錯誤(label-free → generation/grading-free、containment →
+identity-only、without benchmarks → without running)。共同 pattern:
+**把「省掉某個步驟」寫成「不需要某個東西」**。貼文前用這個 pattern 再掃一次:
+凡是 without / no / free 開頭的主張,都要問「省掉的是步驟還是資料?」
+
+---
+
+## 2026-07-27 追加 11:pCi8-W2 的 "own two cells" 歸屬錯誤 + 0.003/0.193 無出處 + 一個誠實性問題
+
+使用者質疑 pCi8-W2 的「the reviewer's own two cells」。查證後發現**三件事**。
+
+### (1) 歸屬錯誤(已修)
+pCi8 的 W2 原文只提 **Q2 和 Q4**,而且**沒有給任何數字**。
+「B=266.09 / B=23.24」是 **8VrD** 引的(8VrD-W2 原文)。
+⇒ 在 pCi8 thread 寫「the reviewer's own two cells」是錯的,而且會讓他覺得我們在
+   跨 reviewer 套用罐頭回答(最傷信用的一種印象)。
+⇒ 8VrD thread 的同一句話**是正確的**,保留。
+
+### (2) 更該答的是 Q4(已改)
+pCi8 問的是「it tells you Q2 is worse than Q4, but not whether **Q4** is actually
+good enough」—— 我們卻用 Q8_0/Q2_K 回答,連他的 variant 都沒碰到。
+已重算補上:**Q4_K_M:B_I 96.75、true |dR| 0.0356、LOO 校準預測 0.0554**
+⇒ 預測 in / 真值 in,ε=0.1 判對。現在直接用他的 variant 回答他的問句。
+(slack = 96.75/0.0356 ≈ 2718×,已一併填入 8VrD 的表。)
+
+### (3) ⚠️ 0.003 / 0.193 原本**沒有出處**,且該格 precision 只有 0.75
+- `out/E6/calibration.csv` 只存逐 cell 聚合(MAE、prec、rec),**沒有逐 variant 預測**。
+  草稿的 0.003/0.193 在 out/ 下查無實據 —— 違反「絕不虛構 / 只填 out/ 的真數字」。
+- 已實際重算並**新建 artifact**:`out/E6/llama_mmlu_loo_predictions.md`
+  (輸入 = 論文 CSV 的 Bound_I + |MdR|,LOO isotonic,sklearn)。
+  **完全重現 E6 記錄的該格:MAE 0.0401(E6: 0.0401)、prec@0.1 0.75、rec@0.1 0.75** ✓
+  且 Q8_0 → 0.0028(草稿 0.003 ✓)、Q2_K → 0.1933(草稿 0.193 ✓)。數字是真的,只是沒存檔。
+- **但重算暴露一個誠實性問題**:這一格 12 個 variant 有 **4 個判錯**
+  (Q3_K_M / NF4 誤報 out、FP4 / GPTQ 漏報 in),precision 0.75 —— **正是 E6 說的
+  「六個低於 0.8」之一**。我們卻挑這一格、且只挑判對的兩列當 demo。8VrD 會逐格核對,
+  被抓到比不提更慘。
+
+### 處理:把弱點轉成可陳述的操作特性
+重算發現一個漂亮的事實:**4 個判錯的 variant,正好就是 true |dR| 落在門檻
+0.1 ± 1 MAE(0.040)帶內的那 4 個**(集合完全相同,已在 artifact 中驗證
+`identical set: True`)。所有離門檻更遠的 variant 全部判對。
+⇒ 敘述改為「**a screen with a known ambiguous band, not an oracle**」:
+   pCi8-W2 與 8VrD-W2 兩處都主動揭露該格 MAE 0.040 / precision 0.75 / 六格之一,
+   並說明所有錯誤都在 ±1 MAE 帶內。這是 Li et al. 的 openness 正向因子,
+   且把「有 4 格判錯」從醜聞變成一個有原則的精度陳述。
+
+### 教訓(加入貼文前檢查清單)
+1. **每個「the reviewer's own ...」都要回原文核對是哪一位 reviewer 說的。**
+2. **回答要用 reviewer 自己舉的例子**(他問 Q4 就答 Q4),否則等於沒回答他。
+3. **每個數字都要在 out/ 下有檔案**;聚合檔存在 ≠ 個別數字有出處。

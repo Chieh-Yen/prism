@@ -578,9 +578,9 @@ similarity score, and a principled link between geometry and risk. The reason we
 pursue exactly that combination is practical: **the ecosystem now produces
 post-trained variants far faster than it can afford to evaluate them, and PRISM
 is our attempt at the missing instrument, a measurement that turns "re-run the
-benchmark suite for every variant" into one forward pass, three commensurable
-numbers, and a remediation direction**, so that the community's time goes into
-building models rather than repeatedly grading them. This review process has made
+benchmark suite for every variant" into one forward pass per variant, three
+commensurable numbers, and a remediation direction**, so that the community's
+time goes into building models rather than repeatedly grading them. This review process has made
 the instrument materially sharper: the calibration, the empirical-risk
 restatement, and the stronger baselines exist because the reviewers and the AC
 asked exactly the right questions. The directions we could not fully pursue
@@ -663,12 +663,19 @@ our claimed contribution is not the discovery of the three phenomena but the
 three axes are expressed in the same units (contribution to a certified
 CE-risk-gap bound)**, so for a given variant one can compute WHICH axis dominates
 and by how much, which qualitative prior knowledge cannot. This is exactly what
-enables (i) ranking without benchmarks, (ii) attribution (Sec. 5.3), and (iii)
-the differentiable intervention (Sec. 5.4). These are the strengths the reviewer
-credits. The phenomena were known much as fever was known before the
-thermometer: real, but not measurable, comparable, or triageable until an
-instrument existed. We sharpen the contribution statement in the Introduction
-accordingly.
+enables (i) ranking variants from one teacher-forced pass over a small reference
+slice (sampled from the task's own validation data), with no decoding and no
+answer grading, (ii) decomposing a variant's drift into the three axes and
+mapping each to a remediation direction (Sec. 5.3), and (iii) turning the shape
+axis into a differentiable training objective (Sec. 5.4).
+Concretely, what did not exist before is a COMMON SCALE:
+prior work could say that low-bit quantization distorts geometry and that LoRA
+shifts activation scale, but not, for one given variant, which axis accounts for
+its degradation and by how much. Sec. 5.3's Q6_K case is that statement in
+practice: the head axis alone is 75.77 of a bound of 76.95, so the backbone
+geometry is demonstrably not what to fix there. In the revision the Introduction
+states the contribution as this commensurable, per-variant attribution across the
+three axes, not as the discovery of the phenomena themselves.
 
 2) W2 [原文]: The bound is loose by orders of magnitude against actual risk gap, and the
    paper admits it's only calibrated for ranking. So it tells you Q2 is worse than Q4, but
@@ -679,25 +686,41 @@ accordingly.
 > enough, so benchmarks are still needed for that.
 
 Response:
-"Is Q4 good enough", not just "better than Q2", is now answerable. Take the two
-Llama-3.1-8B/MMLU cells that most dramatize the looseness: Q8_0 (raw bound 23.24
-vs true |dR| 0.0002, slack ~10^5x) and Q2_K (266.09 vs 0.366, ~727x). A one-time
-per-(family, benchmark) leave-one-out isotonic calibration B -> |dR| **maps those
-same bounds to 0.003 and 0.193 nats, correctly placing Q8_0 well within an
-epsilon = 0.1 tolerance and Q2_K clearly outside it**, despite the raw bounds
-being uninformative in absolute scale.
-Aggregate LOO MAE is 0.055 nats (vs 0.082 predict-the-mean, -33%). Workflow:
-calibrate once per family (~10 benchmarked variants), then screen every new
-variant with quantified uncertainty and without benchmarking it (no decoding,
-no grading; the benchmark is run once per family to fit the calibration, not
-once per variant).
-We do not dispute the looseness; we quantify it: across 570 cells (the paper's
-five benchmarks) slack B/|dR| has median 1597x, IQR [673, 3966], non-constant
-(log10 sd ~0.76), so no fixed multiplicative correction exists; this is
-precisely why the RAW bound is scoped to ranking (Abstract, Sec. 6). Slack attribution (new
-appendix): the Lipschitz step contributes only 0.13-0.40 dex; slack shrinks at
-low bit-widths (Q8_0 3.65 -> Q2_K 2.78 dex median), i.e. tightest where
-degradation is real.
+The reviewer is right on both counts, and we quantify the first rather than
+dispute it: slack B/|dR| has median 1597x over 570 cells and is NOT constant
+(log10 sd ~0.76), so no fixed multiplicative correction exists. That is exactly
+why the submitted paper scopes the raw bound to ranking (Abstract, Sec. 6).
+What we add is not a tighter bound but a calibration step, and it is worth saying
+why that can work at all. The tool is ISOTONIC REGRESSION: fit a monotone map from
+the bound to the measured risk gap, per (family, benchmark), leave-one-out so no
+variant helps predict itself. It assumes nothing about the SIZE of the slack,
+which is the part that varies; it needs only a larger bound to go with a larger
+gap, which is precisely the rank property the paper does establish. Its purpose is
+to re-express the bound in nats, so the ranking claim is preserved and an absolute
+question becomes askable.
+On the reviewer's own example, Q4 against Q2 (Llama-3.1-8B/MMLU, 12 variants):
+
+| variant | raw bound | calibrated (nats) | true gap (nats) | at eps = 0.1 | margin |
+|:--|--:|--:|--:|:--:|--:|
+| `Q4_K_M` | 96.75 | 0.055 | 0.036 | within ✓ | 1.1 MAE |
+| `Q2_K` | 266.09 | 0.193 | 0.366 | outside ✓ | 2.3 MAE |
+
+(margin = distance from the tolerance in units of this cell's MAE.) Aggregate LOO
+MAE is 0.055 nats, versus 0.082 for predicting the cell mean, with precision
+>= 0.8 in 49/55 cells.
+**We report the limit with the result, because it sets how the tool should be
+used.** This cell has MAE 0.040 nats and precision 0.75, one of the six cells below
+0.8. All four of its errors lie within 1.2 MAE of the tolerance, and all seven
+calls further away are correct; Q4_K_M sits at 1.1 MAE, just inside that band. So
+the honest verdict for Q4 is "within tolerance, worth confirming", not a
+certificate. The calibrated bound therefore triages rather than replaces, which
+answers the reviewer's last sentence quantitatively: fit the map once per family
+from ~10 benchmarked variants, then measure only the variants that land near the
+tolerance, not all of them.
+On the looseness itself, the attribution is also informative: the
+simplex-polarization step the reviewer credits contributes only 0.13-0.40 dex of
+it, and the median slack shrinks toward low bit-widths (3.65 -> 2.78 dex), i.e.
+the bound is tightest where the degradation is real.
 
 3) W3 [原文]: Table 3 shows the gap between using shape similarity Ω alone versus the full
    PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
@@ -1593,10 +1616,17 @@ land on the correct side of an epsilon = 0.1 nat tolerance:**
 | Variant | $\mathcal{B}$ | $\lvert\Delta\mathcal{R}\rvert$ | Slack $\mathcal{B}/\lvert\Delta\mathcal{R}\rvert$ | $\hat{r}$ (nats) | $\hat{r}<\varepsilon$ / truth |
 |:--|--:|--:|:--:|--:|:--:|
 | `Q8_0` | 23.24 | 0.0002 | $\sim 10^{5}\times$ | 0.003 | within / within ✓ |
+| `Q4_K_M` | 96.75 | 0.036 | $\sim 2718\times$ | 0.055 | within / within ✓ |
 | `Q2_K` | 266.09 | 0.366 | $\sim 727\times$ | 0.193 | outside / outside ✓ |
 
-Both analyses become a new section/table, and uncalibrated B is
-explicitly scoped to ranking.
+We add that cell's operating characteristic rather than only its favourable rows,
+since the reviewer is likely to check it: LOO MAE 0.040 nats and precision 0.75 at
+eps = 0.1, one of the six cells of 55 below 0.8. All four of its errors lie within
+1.2 MAE of the tolerance and all seven calls further than that are correct, so the
+failure mode is a bounded ambiguous band rather than an arbitrary error: the
+calibrated bound decides the clear variants and flags the borderline ones for
+measurement. Both analyses become a new section/table, the band is stated with
+them, and uncalibrated B is explicitly scoped to ranking.
 
 3) W3 + Q3 + Q4 [原文]:
    [W3] The evidence for actionability is mixed. The three proposed failure modes are
