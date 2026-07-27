@@ -951,21 +951,21 @@ canonical baselines should be shown, not only argued.
 Response:
 The assumption affects only how LOOSE the bound is, never whether it holds.
 **Theorem 1 is a family of bounds indexed by W, and the only condition is that W be
-orthogonal: every W in O(d) gives a valid inequality (Sec. 3.3, App. C.1).** The
-geometry is why: an orthogonal W only RE-ORIENTS the proxy's feature cloud against
-the target's, preserving every norm, distance and angle inside it, so the choice of W
-changes how the mismatch is split between the feature arm (delta) and the head arm
-(gamma), never the geometry being split. Nothing about the models has to be
-near-isometric for that to hold.
-The gauge is therefore, in the paper's own words, "primarily design-driven", and our
-two sit at opposite ends of that split. W = I is the identity: compare the features
-in their own coordinates, keep gamma at its minimum, and stay differentiable, which
-is what the Sec. 3.5 regularizer needs. W_N = V U^T from the SVD Z_T^T Z_P = U S V^T
-is the orthogonal-Procrustes solution, the best rigid re-orientation: it minimizes
-delta instead, paying a per-step SVD and a nonzero gamma. A W optimized under any
-other objective over O(d) is equally admissible and moves only the tightness.
-Near-isometry is not a precondition, only one more entry in the looseness itemized
-under W2.
+orthogonal: every W in O(d) gives a valid inequality (Thm. 1, L132; proof App.
+C.1).** The geometry is why: an orthogonal W only RE-ORIENTS the proxy's feature
+cloud against the target's, preserving every norm, distance and angle inside it, so
+the choice of W changes how the mismatch is split between the feature arm (delta)
+and the head arm (gamma), never the geometry being split. Nothing about the models
+has to be near-isometric for that to hold.
+The gauge is therefore, in the paper's own words, "primarily design-driven"
+(L145-152), and our two sit at opposite ends of that split. W = I is the identity:
+compare the features in their own coordinates, keep gamma at its minimum, and stay
+differentiable, which is what the Sec. 3.5 regularizer needs. W_N = V U^T from the
+SVD Z_T^T Z_P = U S V^T is the orthogonal-Procrustes solution, the best rigid
+re-orientation: it minimizes delta instead, paying a per-step SVD and a nonzero
+gamma. A W optimized under any other objective over O(d) is equally admissible and
+moves only the tightness. Near-isometry is not a precondition, only one more entry
+in the looseness itemized under W2.
 We measure that cost at the bit-widths the reviewer asks about. We align the features
 twice in their top-r principal subspace, once with the best rotation-and-scale and
 once with the best arbitrary linear map, which can stretch and shear and so is not an
@@ -1295,8 +1295,8 @@ attribution: the bound localizes WHICH axis (scale / shape / head) drove a
 variant's degradation, e.g. the identity gauge B_I leads on extraction-QA
 (SQuAD +0.811/+0.955) where its scale arm carries the signal, an attribution no
 similarity score provides. (b) None of CKA/SVCCA/Procrustes bounds |dR| or
-attributes to an axis (App. B: CKA >= Omega_F^2, not alignment-
-derived), so they cannot produce Sec. 5.3's diagnoses even where correlations
+attributes to an axis (App. B: CKA >= Omega_F^2, not
+alignment-derived), so they cannot produce Sec. 5.3's diagnoses even where correlations
 tie. (2) Regularizers: the feature-space method here is the shape
 penalty itself; the added baselines are weight-space (L2-SP, EWC) and architectural
 (layer-freezing), all protocol-identical, each at the config matched to the shape run's
