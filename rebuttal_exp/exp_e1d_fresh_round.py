@@ -82,6 +82,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 import statistics
 import sys
@@ -113,12 +114,27 @@ ROW_COL = {
 # ----------------------------------------------------------------------
 # metrics, all in float64, no clamp (the clamp is only DIAGNOSED)
 # ----------------------------------------------------------------------
-def fresh_metrics(Z_T, Z_P, H_T, H_P):
-    """All five quantities on one feature pair, accumulated in float64.
+def fresh_metrics(Z_T, Z_P, H_T, H_P, chunk: int = 8192):
+    """All five quantities on one feature pair.
 
-    Returns the raw dict; `omega_W_raw` may exceed 1 by float noise, in which
-    case `clamp_would_fire` is 1 -- that is exactly the paper-round artefact we
-    are avoiding, so we record it rather than silently clamping.
+    Precision and memory, both load-bearing:
+
+    * The omega path accumulates in FLOAT64, CHUNKED over tokens.  Chunking is
+      not a shortcut: the alternative (a full float64 copy of a 52184x4096
+      feature matrix) costs 1.7 GB per side, and at 8 GB of transient buffers
+      the metric would have to run with the model unloaded.  Chunked
+      accumulation is the same arithmetic at ~700 MB peak.
+    * Both sides are normalised by their Frobenius norm BEFORE the cross
+      product, so omega is read off directly as a nuclear norm of an O(1)
+      matrix instead of as a ratio of two ~1e9 quantities.  That is what makes
+      1 - omega ~ 1e-5 resolvable; the paper round computed the ratio in float32
+      and the clamp at prism/core/metrics.py:244 then stored a literal 1.0.
+    * TF32 is pinned off for these matmuls.  TF32 keeps 10 mantissa bits, i.e.
+      ~1e-3 relative, which would destroy the cross product outright.  The
+      default is already off in torch 2.5, but it is environment-dependent
+      (torch.set_float32_matmul_precision can flip it), so we set it here.
+
+    `clamp_would_fire` records whether the paper's clamp WOULD have triggered.
     """
     import torch
 
@@ -126,43 +142,62 @@ def fresh_metrics(Z_T, Z_P, H_T, H_P):
     from prism.core.bounds import UnifiedBound
     from prism.core.metrics import PRISMMetrics
 
-    # --- similarity baselines: float32, bit-identical to E1 so the numbers are
-    #     comparable with the E1 round they are meant to replace ---
-    cka = linear_cka(Z_T, Z_P)
-    sv = svcca(Z_T, Z_P)
+    prev_tf32 = torch.backends.cuda.matmul.allow_tf32
+    torch.backends.cuda.matmul.allow_tf32 = False
+    try:
+        # --- similarity baselines: unchanged E1 code path, so these numbers are
+        #     produced by exactly the same function as the round they replace ---
+        cka = linear_cka(Z_T, Z_P)
+        sv = svcca(Z_T, Z_P)
 
-    # --- PRISM side in float64 ---
-    X = Z_T.double()
-    Y = Z_P.double()
-    n = X.shape[0]
-    nx = X.norm("fro")
-    ny = Y.norm("fro")
-    den = (nx * ny).clamp(min=1e-30)
+        # --- chunked float64 accumulation ---
+        n, d = Z_T.shape
+        dev = Z_T.device
+        nx2 = torch.zeros((), dtype=torch.float64, device=dev)
+        ny2 = torch.zeros((), dtype=torch.float64, device=dev)
+        dot = torch.zeros((), dtype=torch.float64, device=dev)
+        cross = torch.zeros((d, d), dtype=torch.float64, device=dev)
+        sig_p = torch.zeros((d, d), dtype=torch.float64, device=dev)
+        for i in range(0, n, chunk):
+            xc = Z_T[i:i + chunk].double()
+            yc = Z_P[i:i + chunk].double()
+            nx2 += (xc * xc).sum()
+            ny2 += (yc * yc).sum()
+            dot += (xc * yc).sum()
+            cross += yc.T @ xc
+            sig_p += yc.T @ yc
+            del xc, yc
+        nx = nx2.sqrt()
+        ny = ny2.sqrt()
 
-    # W_N = argmin ||Z_T - Z_P W||_F over O(d): from the SVD of Z_P^T Z_T
-    cross = Y.T @ X
-    U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
-    W_N = U @ Vt
+        # normalise: omega is then the nuclear norm of an O(1) matrix
+        cross_hat = cross / (nx * ny).clamp(min=1e-300)
+        U, S, Vt = torch.linalg.svd(cross_hat, full_matrices=False)
+        W_N = U @ Vt
+        omega_raw = S.sum().item()                 # = ||Z_T^T Z_P||_* / (nx*ny)
+        omega_i = (dot / (nx * ny).clamp(min=1e-300)).item()
+        clamp_fire = int(omega_raw > 1.0)
+        omega_N = min(omega_raw, 1.0)              # only for the delta formula
 
-    omega_raw = ((W_N * cross).sum() / den).item()       # = ||Z_T^T Z_P||_* / (..)
-    clamp_fire = int(omega_raw > 1.0)
-    omega_N = min(omega_raw, 1.0)                        # for delta only
+        rho_T = (nx / math.sqrt(n)).item()
+        rho_P = (ny / math.sqrt(n)).item()
+        delta_N = math.sqrt(max((rho_T - rho_P) ** 2
+                                + 2 * rho_T * rho_P * (1 - omega_N), 0.0))
 
-    rho_T = (nx / math.sqrt(n)).item()
-    rho_P = (ny / math.sqrt(n)).item()
-    delta_N = math.sqrt(max((rho_T - rho_P) ** 2
-                            + 2 * rho_T * rho_P * (1 - omega_N), 0.0))
-
-    # --- head term at W_N, and the Lipschitz constants ---
-    Sigma_P = (Y.T @ Y) / n
-    gamma_N = PRISMMetrics.head_discrepancy_covariance(
-        H_T.float(), H_P.float(), W_N.float(), Sigma_P.float())
-    K = UnifiedBound.theoretical_K(H_T.float())
-    bound_N = K["K_feat"] * delta_N + K["K_pred"] * gamma_N
+        # --- head term at W_N, and the paper's own Lipschitz constants ---
+        Sigma_P = (sig_p / n).float()
+        gamma_N = PRISMMetrics.head_discrepancy_covariance(
+            H_T.float(), H_P.float(), W_N.float(), Sigma_P)
+        K = UnifiedBound.theoretical_K(H_T.float())
+        bound_N = K["K_feat"] * delta_N + K["K_pred"] * float(gamma_N)
+        del cross, cross_hat, sig_p, U, S, Vt, W_N, Sigma_P
+    finally:
+        torch.backends.cuda.matmul.allow_tf32 = prev_tf32
 
     return {
         "n_tokens": n,
         "cka": cka, "svcca": sv,
+        "omega_I": omega_i,
         "omega_W": omega_N, "omega_W_raw": omega_raw,
         "clamp_would_fire": clamp_fire,
         "rho_T": rho_T, "rho_P": rho_P,
@@ -175,7 +210,47 @@ def fresh_metrics(Z_T, Z_P, H_T, H_P):
 # ----------------------------------------------------------------------
 # GPU pass
 # ----------------------------------------------------------------------
+def loader_fingerprint(loader):
+    """Hash of every selected example, so we can MEASURE what the seed changed.
+
+    The seed's only effect in this script is which examples are drawn:
+    prism/data/loaders.py does `shuffle(seed)` then `select(range(num_samples))`.
+    (The other seed use, subsample_tokens, is a no-op here because TOKEN_CAP sits
+    above every observed token count.)
+
+    Two failure modes this catches, both of which would make "three seeds"
+    meaningless without saying so:
+      * num_samples >= len(split): `select` never fires, so all seeds see the SAME
+        examples in a different order -- and every metric here (CKA, omega,
+        Procrustes, Sigma_P) is row-permutation invariant, so the three seeds
+        would return bit-identical numbers and a spurious sd of 0.000.
+      * a small split (GSM8K test and ARC test are ~1.2-1.3k rows): two draws of
+        512 then share ~40% of their examples, so the seeds are CORRELATED draws
+        and the sd understates true sampling variability.
+    """
+    import hashlib
+
+    ds = loader.dataset
+    ids = ds.encodings["input_ids"]
+    h = set()
+    for row in ids:
+        h.add(hashlib.blake2b(row.numpy().tobytes(), digest_size=8).hexdigest())
+    return {"n_selected": int(ids.shape[0]), "hashes": h}
+
+
 def run(args) -> None:
+    """One target load + one load per proxy, for ALL seeds.
+
+    The naive order (seed outer, proxy inner) reloads every proxy once per seed.
+    Loading a GGUF/GPTQ 8B proxy costs 1-2 min, i.e. 36 loads/family at 3 seeds,
+    which dominates everything else (a 5-benchmark forward pass is ~5-8 s and the
+    float64 metric ~2 s).  Hoisting the proxy loop outside the seed loop makes it
+    13 loads/family: same arithmetic, same rows, ~3-4x less wall clock.
+
+    Target features are extracted once per (seed, benchmark) and cached to disk
+    atomically, so they are shared across proxies and survive a kill.  Rows are
+    appended per (seed, proxy) so an interrupted run resumes instead of redoing.
+    """
     import torch
     from common_quant import (FAMILIES, free_cuda, load_proxy, load_target,
                               subsample_tokens, variants_from_csv)
@@ -187,17 +262,84 @@ def run(args) -> None:
     target_id = FAMILIES[args.family]
     specs = variants_from_csv(args.family)
     benches = args.benchmarks or PAPER5
+    seeds = list(args.seeds)
     ex = LLMExtractor()
+
+    COLS = ["family", "seed", "label", "dataset", "n_tokens",
+            "cka", "svcca", "omega_I", "omega_W", "omega_W_raw",
+            "clamp_would_fire", "rho_T", "rho_P", "delta_W", "gamma_W",
+            "K_feat", "K_pred", "bound_W", "loss_T", "loss_P", "|MdR|"]
+
+    # ── resume: which (seed, label) pairs are already complete? ──
+    def csv_path(seed):
+        return OUT_DIR / f"{args.family}_seed{seed}.csv"
+
+    done = set()
+    if not args.force:
+        for seed in seeds:
+            p = csv_path(seed)
+            if not p.exists():
+                continue
+            per = defaultdict(set)
+            for r in csv.DictReader(open(p)):
+                per[r["label"]].add(r["dataset"].lower())
+            for label, dss in per.items():
+                if set(benches) <= dss:            # every benchmark present
+                    done.add((seed, label))
+        if done:
+            print(f"[resume] {len(done)} (seed, proxy) pairs already complete")
 
     tok = AutoTokenizer.from_pretrained(target_id, trust_remote_code=True)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
+    loaders = {s: {b: load_task_data(b, split="test",
+                                     num_samples=args.num_samples,
+                                     batch_size=args.batch_size, tokenizer=tok,
+                                     max_length=args.max_length, seed=s)
+                   for b in benches} for s in seeds}
+
+    # ── what did the seed actually change?  Measure, do not assume. ──
+    fp = {(s, b): loader_fingerprint(loaders[s][b]) for s in seeds for b in benches}
+    draw_lines = ["# E1-D seed draw overlap (what the seed changed)", "",
+                  f"family {args.family}; seeds {seeds}; num_samples "
+                  f"{args.num_samples}", "",
+                  "| benchmark | selected | pairwise example overlap |",
+                  "|---|--:|--:|"]
+    degenerate = []
+    for b in benches:
+        nsel = fp[(seeds[0], b)]["n_selected"]
+        ovs = []
+        for i in range(len(seeds)):
+            for j in range(i + 1, len(seeds)):
+                a, c = fp[(seeds[i], b)]["hashes"], fp[(seeds[j], b)]["hashes"]
+                ovs.append(len(a & c) / max(len(a), 1))
+        lo, hi = (min(ovs), max(ovs)) if ovs else (float("nan"),) * 2
+        draw_lines.append(f"| {b} | {nsel} | {100*lo:.0f}-{100*hi:.0f}% |")
+        if ovs and min(ovs) > 0.999:
+            degenerate.append(b)
+        print(f"  [draw] {b}: {nsel} examples, seed-pair overlap "
+              f"{100*lo:.0f}-{100*hi:.0f}%")
+    if degenerate:
+        msg = ("!! seeds are DEGENERATE for " + ", ".join(degenerate) +
+               ": the selected example set is identical across seeds (num_samples "
+               ">= split size), and every metric here is row-permutation "
+               "invariant, so those benchmarks will show sd = 0 for a reason that "
+               "has nothing to do with stability. Lower --num_samples for them or "
+               "report them as single-draw.")
+        print(msg)
+        draw_lines += ["", msg]
+    draw_lines += ["", "Overlap is expected to be high on small splits (a 512-draw "
+                   "from a ~1.2k-row split shares ~40% with another draw), so the "
+                   "seeds are CORRELATED draws and the sd is a lower bound on "
+                   "sampling variability. Report it that way."]
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / f"{args.family}_seed_draws.md").write_text("\n".join(draw_lines) + "\n")
 
     def feats_and_loss(model, loader):
-        """One forward pass -> (concat answer-region features, mean answer CE).
+        """One forward pass -> (answer-region concat features, mean answer CE).
 
-        loss_mode "answer" matches the paper: Z comes from the answer region and
-        the CE is averaged over the same tokens, so the pair is aligned.
+        loss_mode "answer" matches the paper: Z and the CE come from the same
+        gold-span tokens, so score and risk are paired by construction.
         """
         Z, stats = ex.extract_features_and_loss_per_sample(
             model, loader, args.device, z_mode="concat")
@@ -205,75 +347,102 @@ def run(args) -> None:
         loss = float(al.mean()) if al is not None else float(stats["losses"].mean())
         return Z.float().cpu(), loss
 
-    for seed in args.seeds:
-        out_csv = OUT_DIR / f"{args.family}_seed{seed}.csv"
-        if out_csv.exists() and not args.force:
-            print(f"[skip] {out_csv.name} exists (use --force to redo)")
-            continue
-        print(f"\n########## seed {seed} ##########")
-        loaders = {b: load_task_data(b, split="test", num_samples=args.num_samples,
-                                     batch_size=args.batch_size, tokenizer=tok,
-                                     max_length=args.max_length, seed=seed)
-                   for b in benches}
+    # ── target: ONE load, all (seed, benchmark), disk-cached atomically ──
+    cache = OUT_DIR / f"{args.family}_ZT"
+    cache.mkdir(exist_ok=True)
+    loss_T = {}
+    lossfile = cache / "target_loss.json"
+    if lossfile.exists():
+        try:
+            loss_T = {tuple(k.split("|")): v
+                      for k, v in json.loads(lossfile.read_text()).items()}
+            loss_T = {(int(s), b): v for (s, b), v in loss_T.items()}
+        except Exception:                                    # noqa: BLE001
+            loss_T = {}
 
-        print("[target] extracting features + loss")
+    def zt_path(seed, b):
+        return cache / f"seed{seed}_{b}.pt"
+
+    missing = [(s, b) for s in seeds for b in benches
+               if not zt_path(s, b).exists() or (s, b) not in loss_T]
+    if missing:
+        print(f"[target] one load, extracting {len(missing)} (seed, benchmark) cells")
         tgt = load_target(target_id, args.device)
         H_T = ex.extract_head(tgt).float().cpu()
-        Z_T, loss_T = {}, {}
-        for b in benches:
-            Z_T[b], loss_T[b] = feats_and_loss(tgt, loaders[b])
-            print(f"  {b}: Z{tuple(Z_T[b].shape)} answer-CE {loss_T[b]:.5f}")
+        torch.save(H_T, cache / "H_T.pt")
+        for s, b in missing:
+            Z, l = feats_and_loss(tgt, loaders[s][b])
+            tmp = zt_path(s, b).with_suffix(".pt.tmp")
+            torch.save(Z, tmp)
+            tmp.rename(zt_path(s, b))
+            loss_T[(s, b)] = l
+            print(f"  seed{s} {b}: Z{tuple(Z.shape)} answer-CE {l:.5f}")
+            del Z
+        lossfile.write_text(json.dumps({f"{s}|{b}": v
+                                        for (s, b), v in loss_T.items()}))
         del tgt
         free_cuda()
+    else:
+        print("[target] all (seed, benchmark) features cached")
+    H_T = torch.load(cache / "H_T.pt").float()
 
-        rows = []
-        for spec in specs:
-            label = spec["label"]
-            print(f"\n=== [seed {seed}] {label} ===")
-            try:
-                proxy = load_proxy(spec, args.device)
-            except Exception as exc:                     # noqa: BLE001
-                print(f"  [FAIL load] {exc}")
-                continue
-            try:
-                H_P = ex.extract_head(proxy).float().cpu()
-            except Exception as exc:                     # noqa: BLE001
-                print(f"  [FAIL head] {exc}")
-                del proxy
-                free_cuda()
-                continue
-            for b in benches:
-                try:
-                    Z_P, loss_P = feats_and_loss(proxy, loaders[b])
-                except Exception as exc:                 # noqa: BLE001
-                    print(f"  [FAIL extract {b}] {exc}")
-                    continue
-                Xc, Yc = subsample_tokens(Z_T[b], Z_P, TOKEN_CAP, seed=seed)
-                m = fresh_metrics(Xc.to(args.device), Yc.to(args.device),
-                                  H_T.to(args.device), H_P.to(args.device))
-                m.update({"family": args.family, "seed": seed, "label": label,
-                          "dataset": b,
-                          "loss_T": loss_T[b], "loss_P": loss_P,
-                          "|MdR|": abs(loss_T[b] - loss_P)})
-                rows.append(m)
-                print(f"  {b}: 1-CKA={1-m['cka']:.4f} 1-Om_N={1-m['omega_W']:.5f} "
-                      f"d_N={m['delta_W']:.3f} B_N={m['bound_W']:.2f} "
-                      f"|dR|={m['|MdR|']:.5f}"
-                      + ("  [clamp would fire]" if m["clamp_would_fire"] else ""))
-                del Z_P
-                free_cuda()
+    # ── proxies: ONE load each, inner loops over seed x benchmark ──
+    for spec in specs:
+        label = spec["label"]
+        todo = [s for s in seeds if (s, label) not in done]
+        if not todo:
+            print(f"\n=== {label}: complete for all seeds, not loaded ===")
+            continue
+        print(f"\n=== {label}  (seeds {todo}) ===")
+        try:
+            proxy = load_proxy(spec, args.device)
+        except Exception as exc:                             # noqa: BLE001
+            print(f"  [FAIL load] {exc}")
+            continue
+        try:
+            H_P = ex.extract_head(proxy).float()
+        except Exception as exc:                             # noqa: BLE001
+            print(f"  [FAIL head] {exc}")
             del proxy
             free_cuda()
+            continue
 
-        cols = ["family", "seed", "label", "dataset", "n_tokens",
-                "cka", "svcca", "omega_W", "omega_W_raw", "clamp_would_fire",
-                "rho_T", "rho_P", "delta_W", "gamma_W", "K_feat", "K_pred",
-                "bound_W", "loss_T", "loss_P", "|MdR|"]
-        with open(out_csv, "w", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
-            w.writeheader()
-            w.writerows(rows)
-        print(f"\n[write] {out_csv}  ({len(rows)} rows)")
+        for seed in todo:
+            rows = []
+            for b in benches:
+                try:
+                    Z_P, loss_P = feats_and_loss(proxy, loaders[seed][b])
+                except Exception as exc:                     # noqa: BLE001
+                    print(f"  [FAIL extract seed{seed} {b}] {exc}")
+                    continue
+                Z_Tb = torch.load(zt_path(seed, b)).float()
+                Xc, Yc = subsample_tokens(Z_Tb, Z_P, TOKEN_CAP, seed=seed)
+                m = fresh_metrics(Xc.to(args.device), Yc.to(args.device),
+                                  H_T.to(args.device), H_P.to(args.device),
+                                  chunk=args.chunk)
+                m.update({"family": args.family, "seed": seed, "label": label,
+                          "dataset": b, "loss_T": loss_T[(seed, b)],
+                          "loss_P": loss_P,
+                          "|MdR|": abs(loss_T[(seed, b)] - loss_P)})
+                rows.append(m)
+                print(f"  seed{seed} {b}: 1-CKA={1-m['cka']:.4f} "
+                      f"1-Om_N={1-m['omega_W']:.6f} d_N={m['delta_W']:.3f} "
+                      f"B_N={m['bound_W']:.2f} |dR|={m['|MdR|']:.5f}"
+                      + ("  [clamp would fire]" if m["clamp_would_fire"] else ""))
+                del Z_P, Z_Tb, Xc, Yc
+                free_cuda()
+            # append this (seed, proxy) block immediately: a kill costs one proxy
+            if rows:
+                p = csv_path(seed)
+                new = not p.exists()
+                with open(p, "a", newline="") as fh:
+                    w = csv.DictWriter(fh, fieldnames=COLS, extrasaction="ignore")
+                    if new:
+                        w.writeheader()
+                    w.writerows(rows)
+                print(f"  [append] {p.name}  +{len(rows)} rows")
+        del proxy, H_P
+        free_cuda()
 
     print("\nNext: python3 rebuttal_exp/exp_e1d_fresh_round.py --report")
 
@@ -336,6 +505,34 @@ def report(args) -> None:
 
     seeds = sorted({p.name.split("_seed")[1].split(".")[0]
                     for ps in files.values() for p in ps})
+
+    # ── completeness gate: a partially written seed file would silently give a
+    #    Spearman over fewer variants, which is not comparable across rows ──
+    incomplete = []
+    for fam, ps in files.items():
+        for p in ps:
+            rows = list(csv.DictReader(open(p)))
+            per = defaultdict(set)
+            for r in rows:
+                per[r["dataset"].lower()].add(r["label"])
+            counts = {ds: len(v) for ds, v in per.items()}
+            if not counts:
+                incomplete.append((p.name, "empty"))
+                continue
+            nmax = max(counts.values())
+            short = {ds: c for ds, c in counts.items() if c < nmax}
+            miss = [ds for ds in PAPER5 if ds not in counts]
+            if short or miss:
+                incomplete.append((p.name,
+                                   f"variants/benchmark {counts}"
+                                   + (f", missing benchmarks {miss}" if miss else "")))
+    if incomplete:
+        print("!! INCOMPLETE seed files -- the table below is NOT final:")
+        for name, why in incomplete:
+            print(f"   {name}: {why}")
+        if not args.allow_incomplete:
+            raise SystemExit("refusing to emit a table from incomplete data; "
+                             "finish the run or pass --allow-incomplete")
     lines = ["# E1-D fresh round (seeds " + ", ".join(seeds) + ")", "",
              "Every column computed on the SAME features from one forward pass:",
              "similarity baselines, the shape core, the feature arm and the full",
@@ -461,8 +658,16 @@ def main() -> None:
     ap.add_argument("--max_length", type=int, default=512, help="paper: 512")
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--device", default="cuda:0")
-    ap.add_argument("--force", action="store_true", help="redo existing seed CSVs")
+    ap.add_argument("--chunk", type=int, default=8192,
+                    help="tokens per float64 accumulation chunk (memory knob; "
+                         "does not change the result)")
+    ap.add_argument("--force", action="store_true",
+                    help="ignore the resume set and recompute everything")
     ap.add_argument("--report", action="store_true", help="no GPU: build the table")
+    ap.add_argument("--allow-incomplete", dest="allow_incomplete",
+                    action="store_true",
+                    help="emit the table even if some (seed, proxy) cells are "
+                         "missing (marked NOT final)")
     ap.add_argument("--dry-run", dest="dry", action="store_true",
                     help="no GPU: show the plan + the clamp diagnosis")
     args = ap.parse_args()

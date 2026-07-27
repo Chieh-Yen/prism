@@ -16,8 +16,13 @@
 #   stages
 #     dry     zero GPU. Prints the plan and proves the clamp is in the paper's
 #             metric path. Run this first.
-#     run     GPU. One family x 3 seeds. Target + 12 proxies per seed, one
-#             forward pass each (features and CE together). ~75 min/family.
+#     run     GPU. Loads the target ONCE and each proxy ONCE, then loops seeds x
+#             benchmarks inside. Resumable: rows are appended per (seed, proxy),
+#             and a completed pair is never reloaded.
+#             ~13 model loads/family instead of 39 -> ~20-30 min/family at 3
+#             seeds, versus ~75 min for the naive seed-outer order. Loading a
+#             GGUF/GPTQ 8B proxy is 1-2 min and dominates; a 5-benchmark forward
+#             pass is ~5-8 s and the float64 metric ~2 s.
 #     report  zero GPU. Builds out/E1D/table.md (+ diagnostics.md).
 #
 #   usage
@@ -27,6 +32,14 @@
 #     bash rebuttal_exp/script_E1D.sh report
 #
 #   knobs: CUDA_GPU (0), FAMILIES ("llama qwen"), SEEDS ("43 44 45"), FORCE=1
+#          CHUNK (8192) tokens per float64 accumulation chunk. Lower it if the
+#          metric OOMs next to the model; it does not change the result.
+#
+#   safe to re-launch after any interruption: the (seed, proxy) pairs already in
+#   out/E1D/*_seed*.csv are skipped without loading the proxy, and the target
+#   features are cached per (seed, benchmark) with atomic writes.
+#   `report` REFUSES to emit a table if any cell is missing (pass
+#   --allow-incomplete to override, which marks the table NOT final).
 #
 #   BEFORE YOU RUN, note the one real risk (also in the script docstring):
 #   fixing the omega artefact RAISES the shape-core ranking, so the Table 3
@@ -62,7 +75,8 @@ case "$STAGE" in
     for fam in $FAMILIES; do
       step "family=$fam"
       # shellcheck disable=SC2086
-      python3 "$PY" --family "$fam" --seeds $SEEDS $FORCE_FLAG 2>&1 | tee -a "$LOG"
+      python3 "$PY" --family "$fam" --seeds $SEEDS --chunk "${CHUNK:-8192}" \
+              $FORCE_FLAG 2>&1 | tee -a "$LOG"
     done
     step "building table"
     python3 "$PY" --report 2>&1 | tee -a "$LOG"

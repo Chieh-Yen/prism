@@ -927,3 +927,86 @@ bash rebuttal_exp/script_E1D.sh report   # 零 GPU → out/E1D/table.md + diagno
 - pCi8-W3:ladder 數字換成 fresh 版;若 ladder 變平,改用 four-outputs 框架。
 - ⛔ 仍**不可**貼 per-benchmark 或 ex-gsm8k levels(反推 gsm8k 那格 ⇒ 撞 pCi8-W4 的
   noise-floor 讓步)。fresh round 的 gsm8k 若又排得高,更要只報聚合與差值。
+
+---
+
+## 2026-07-27 追加 8:E1-D 加速(保證結果相同且完整)
+
+使用者問能否加速 `script_E1D.sh run`。先量測瓶頸,再只做**確定安全**的優化。
+
+### 瓶頸量測
+| 項目 | 每次 | 原設計次數/family |
+|---|---|---|
+| **proxy load(GGUF 反量化 / GPTQ)** | ~60–120 s | **36**(12 proxy × 3 seed) |
+| target load | ~30 s | 3 |
+| forward pass(5 benchmarks ≈57k tokens) | ~5–8 s | 195 |
+| fp64 SVD 4096² + 2×eigh | ~3–6 s | 180 |
+⇒ **load 完全主導**,而同一 proxy 被載入 3 次是純浪費。
+
+### 已實作的四項(皆不改變任何數值)
+1. **迴圈外提**:proxy 外層、seed×benchmark 內層 ⇒ load 次數 **39 → 13**(target 也只載 1 次,
+   一次抽完 3 seeds × 5 benchmarks)。**~75 min → ~20–30 min /family**。
+2. **target features 逐 (seed,benchmark) 磁碟快取 + atomic rename**(被殺不會留半截 .pt),
+   proxy 迴圈間共用;`H_T` 也快取。
+3. **逐 (seed, proxy) 增量 append 到 CSV** + resume:已完成的 (seed,proxy) **完全不載入 proxy**。
+   中斷最多損失一個 proxy 的工作量。
+4. **completeness gate**:`--report` 若發現任何 (seed,benchmark) 的 variant 數不齊,
+   **拒絕輸出表格**(需 `--allow-incomplete` 才會出、並標記 NOT final)。已用假資料端到端測過:
+   完整→正常出表;刪一格→拒絕。
+
+### 順帶修掉的兩個正確性風險(比加速更重要)
+- **TF32**:`torch.backends.cuda.matmul.allow_tf32` 只有 10 bit mantissa(~1e-3 相對),
+  cross 矩陣量級 1e9 會被毀掉,ω 完全不可靠。torch 2.5.1 預設是 False,但這是**環境相依**
+  (`torch.set_float32_matmul_precision` 會翻轉),故在 `fresh_metrics` 內明確 pin 為 False
+  並在 finally 還原。
+- **記憶體/精度兩難**:原版對 52184×4096 做完整 fp64 copy = 每側 1.7 GB,兩側 3.4 GB,
+  加上 8B 模型會爆。改為 **chunked fp64 累加**(預設 8192 tokens/chunk):同樣的算術,
+  峰值 ~700 MB,且不必卸載模型。`--chunk` 可調(不改結果)。
+- 另加 **normalize-before-cross**:X̂=X/‖X‖、Ŷ=Y/‖Y‖ ⇒ ω 直接等於 X̂ᵀŶ 的 nuclear norm
+  (O(1) 量級),不再是兩個 ~1e9 量的比值。這正是讓 1−ω ~ 1e-5 可解析的關鍵,也是論文
+  那一輪(fp32 比值 + clamp)失敗的地方。順便免費得到 ω_I(給 erratum 用)。
+
+### 沒做的(刻意)
+- **不重寫 linear_cka / svcca**:雖然可以複用 cross 省一次大 matmul,但重寫有微小數值差異
+  風險。維持呼叫 E1 的同一函式 ⇒ 正確性由建構保證。反正它們不是瓶頸(~0.05 s)。
+- **不用 fp32 SVD 換速度**:1−ω 落在 1e-5 量級,fp32 的 ~2e-5 相對誤差正好在會出事的邊緣
+  (就是原 bug 的成因)。fp64 SVD 保留。
+
+---
+
+## 2026-07-27 追加 9:seed 到底改變什麼?(已查證 + 加入 runtime 量測)
+
+### 查證結果:seed 唯一的作用是「抽哪 512 個 examples」
+`prism/data/loaders.py`(load_task_data 內):
+```python
+if seed is not None:
+    hf_dataset = hf_dataset.shuffle(seed=seed)          # 打亂整個 split
+if num_samples is not None and num_samples < len(hf_dataset):
+    hf_dataset = hf_dataset.select(range(num_samples))  # 取前 512
+```
+⇒ 換 seed = 換抽到的 512 筆 examples。**不是**換 token 子抽樣:E1D 的另一處 seed 用途
+`subsample_tokens(..., seed=seed)` 在 TOKEN_CAP=131072 下**永不觸發**(觀測最大 63056),
+所以變異來源單一、不混淆。這也再次確認 |dR| 必須重算(examples 換了)。
+
+### ⚠️ 兩個會讓「3 seeds」失去意義的失敗模式(已加 runtime 偵測)
+1. **degenerate**:若 `num_samples >= len(split)`,`select` 不觸發 ⇒ 三個 seed 看到**同一批**
+   examples,只有順序不同。而本腳本所有 metric(CKA、ω、Procrustes、Σ_P)都只依賴
+   XᵀY / XᵀX / YᵀY 這些**對列置換不變**的量 ⇒ 三 seed 會給出**逐位元相同**的數字,
+   sd = 0.000 卻與穩定性毫無關係。
+2. **correlated draws**:小 split 上兩次 512 抽樣會大量重疊。GSM8K test ≈1319、
+   ARC-Challenge test ≈1172(記憶值,未離線驗證)⇒ 重疊 ≈ 512²/n ≈ **39% / 44%**。
+   所以三個 seed 是**相關**抽樣,±sd 是真實抽樣變異的**下界**,不可宣稱 independent
+   replications。
+
+### 已實作:`loader_fingerprint()` + `{family}_seed_draws.md`
+在 loaders 建好後,對每個 (seed, benchmark) 把每筆 example 的 input_ids 做 blake2b 雜湊,
+輸出逐 benchmark 的 **selected 數量與 seed 兩兩重疊率**;若任一 benchmark 重疊 >99.9%
+就印出 degenerate 警告(建議降 --num_samples 或改報單次抽樣)。
+零 GPU 邏輯測試已過:1319 取 512 → 量到 38%(理論 39% ✓);全取僅換順序 → 量到 100%
+且 degenerate 觸發 ✓。
+
+### 貼文用語要跟著改
+表格 caption 不可寫 "three independent seeds",要寫成
+"three draws of the evaluation subset (seeds 43/44/45; draws overlap on the smaller
+splits, so the spread is a lower bound on sampling variability)"。
+實際重疊率跑完看 out/E1D/{family}_seed_draws.md 再填。
