@@ -75,7 +75,7 @@ meta-review invites:
 | condition | new evidence | headline |
 |---|---|---|
 | A. usefulness of the bound | isotonic calibration + slack decomposition | LOO MAE 0.055 nats; the two cells cited for looseness calibrate to 0.003 / 0.193 nats, each on the correct side of a 0.1-nat tolerance |
-| B. benchmark-independent use | explicit scope narrowing + reference-set size ablation | the bound is input-conditioned by design: it needs only a small unlabeled slice of the diagnosed task's own validation inputs (no labels, no decoding); ranking size-invariant from 8 to 128 sequences; regularizer reference size-insensitive, mildly domain-sensitive (downstream 0.72-0.77) |
+| B. benchmark-independent use | explicit scope narrowing + reference-set size ablation | the bound is input-conditioned by design: it needs only a small slice of the diagnosed task's own validation data, read once with no decoding and no grading; ranking size-invariant from 8 to 128 sequences; regularizer reference size-insensitive, mildly domain-sensitive (downstream 0.72-0.77) |
 | C. stronger baselines | CKA/SVCCA on identical features; EWC / L2-SP / layer-freezing | bound ties CKA/SVCCA (CIs cover 0) and does strictly more; shape penalty ahead of EWC, L2-SP, layer-freezing, and replay at matched target-task loss (TruthfulQA so far) |
 | D. free-running generation | greedy self-generation, 5 subsets | rs +0.947±0.015 free vs +0.958±0.011 teacher-forced; the teacher-forced bound predicts free-running degradation at +0.958±0.011 |
 | E. failures and mixed results | full 20-cell matrix + GSM8K SNR analysis + an honestly reported failed mitigation | mean rs +0.71 / median +0.93, 18/20 positive; both negative cells sit at the noise floor |
@@ -86,9 +86,13 @@ is genuinely limited and substantiating what is not:
     with a concentration corollary for the population version;
   - the RAW bound is scoped to ranking; only the CALIBRATED bound is claimed to
     answer absolute thresholds;
-  - the reference set is the diagnosed task's own unlabeled inputs; predicting
-    one distribution's degradation from another distribution's features
-    (unpaired use) is outside the derivation and not claimed;
+  - the reference set is a small slice of the diagnosed task's own validation
+    data; predicting one distribution's degradation from another
+    distribution's features (unpaired use) is outside the derivation and not
+    claimed;
+  - "label-free" -> GENERATION-FREE and GRADING-FREE (no decoding, no accuracy
+    scoring), stated precisely below: the reference text does include reference
+    answers, which PRISM reads rather than grades;
   - Corollary 1 (autoregressive) -> teacher-forced-only, with trajectory shift
     an explicit limitation (and a new free-running experiment probing it);
   - validated claims scoped to PTQ and frozen-head LoRA; full SFT/RLHF is the
@@ -96,8 +100,8 @@ is genuinely limited and substantiating what is not:
     base-vs-instruct data point verifying validity there.
 
 What remains after this narrowing is the significance case: PRISM is an
-operational, label-free instrument that does three things benchmark evaluation
-and representation similarity (CKA/SVCCA) cannot.
+operational, generation-free instrument that does three things benchmark
+evaluation and representation similarity (CKA/SVCCA) cannot.
 
 (i) OPERATIONAL: after a one-time per-family calibration, PRISM answers "is
 this variant within epsilon of the base?" with quantified uncertainty (LOO MAE
@@ -106,7 +110,7 @@ dramatize looseness (Llama-MMLU Q8_0 B=23.24, Q2_K B=266.09) map to 0.003 and
 0.193 nats after calibration, on the correct sides of an epsilon = 0.1
 tolerance.
 
-(ii) CHEAPER AND ACTIONABLE: one label-free teacher-forced pass, no decoding and no
+(ii) CHEAPER AND ACTIONABLE: one teacher-forced pass, no decoding and no
 grading. On GSM8K, the generation-heaviest benchmark, a single greedy decode of the
 same prompts costs a measured 62.6x that pass (501x with self-consistency). The
 diagnosis also closes into an act-and-verify loop: PRISM attributes Q6_K SQuAD
@@ -119,6 +123,40 @@ the Procrustes distance is algebraically our feature arm (App. A.1, Eq. 23), so
 the similarity metrics already live inside the PRISM family. The tie therefore
 comes bundled with a risk bound, an axis attribution, and a differentiable
 regularizer, none of which a similarity score provides.
+
+One term used above deserves a precise definition, since the revision tightens
+it. We call PRISM GENERATION-FREE and GRADING-FREE, and we are explicit about
+what that does and does not mean. It does NOT mean the reference text is
+unlabeled: in the paper's protocol each reference sequence is a validation
+item's prompt followed by its reference answer, and both the features and the
+per-token CE are read from that answer region (Sec. 5.1). It means three
+things, and the two adjectives sit at different levels, which we state
+carefully.
+(a) NO GRADING, in every mode, and this follows from WHAT PRISM MEASURES: its
+target quantity is the CE GAP between two models on identical tokens, and
+correctness plays no part in that definition. Consequently none of the
+operations a benchmark harness performs on outputs is needed: no output parsing
+(extracting GSM8K's "#### <number>", an option letter, or a span), no answer
+matching or normalization, no per-benchmark scorer, and no accuracy
+computation. This is a property of the quantity rather than of the protocol, so
+it holds equally in the free-running variant, where the scored tokens are the
+model's OWN generations. The one text-level operation we do perform is locating
+the answer REGION of the reference text, a model-independent offset computed
+once from the dataset: bookkeeping about which tokens to read, not a judgment
+about what a model produced.
+(b) NO DECODING, in the default protocol: one teacher-forced pass instead of
+O(generated tokens) autoregressive steps, which is where the measured 62.6x
+comes from. Unlike (a), this one is protocol-level, and we are explicit that
+the free-running variant of Condition D deliberately DOES decode: it spends
+that cost to remove the reference-answer requirement and to probe trajectory
+shift, so it is the answer-availability fallback, not the cheap path.
+(c) NO NEW ANNOTATION: PRISM reads the validation data an evaluation already
+assumes, and very little of it (8 sequences suffice, Condition B). Where
+reference answers are unavailable altogether, the free-running variant replaces
+them with the model's own generated continuations and still ranks variants at
+rs +0.947 (Condition D).
+We therefore say generation-free and grading-free rather than label-free
+throughout the revision, with the scope of each as stated above.
 
 --------------------------------------------------------------------------------
 The meta-review's six weak points, and where each is addressed.
@@ -215,9 +253,10 @@ epsilon = 0.5. (We lead with MAE, which is base-rate-free; the six weaker
 precision cells are all multiple-choice benchmarks, ARC/MMLU, where the |dR|
 dynamic range is compressed.) The calibration is one-time per family and
 transfers across bit-widths; thereafter PRISM answers "is Q4 within epsilon of
-the base?" for every new variant with quantified uncertainty and no labels. We
-do not claim zero labels ever; we claim zero labels per new variant after a
-one-time anchor, and even uncalibrated the ranking is already useful.
+the base?" for every new variant with quantified uncertainty and without
+running the benchmark on it. We do not claim a benchmark is never needed; we
+claim it is needed once per family to fit the calibration, not once per
+variant, and even uncalibrated the ranking is already useful.
 Uncalibrated B is explicitly scoped to ranking.
 
 Note: ✅ 全部已有數字(E5 tex 已備 / E6 已跑)。55/55 cells(11 families × 5
@@ -232,8 +271,8 @@ B [原文]: Demonstrate benchmark-independent use: The authors should show that 
 Response:
 PRISM does not need, and does not claim, a benchmark-independent reference: the
 bound is input-conditioned by construction, so diagnosing a task means reading
-a small UNLABELED slice of that task's own validation inputs, data any
-evaluation already has. We therefore answer this condition in two parts, as the
+a small slice of that task's own validation data, which any evaluation already
+has, once, with no decoding and no grading. We therefore answer this condition in two parts, as the
 meta-review invites: the out-of-scope half (unpaired use) with an explicit
 narrowing of the claim, and the in-scope half (how small and stable the
 reference can be) with a measurement.
@@ -245,12 +284,17 @@ on generic text to predict a different benchmark's degradation would UNPAIR
 feature from risk, a distribution-transfer question the derivation does not
 cover, so we do not claim it; the revision states this scope in the
 Limitations.
-(2) The practical requirement behind the condition is minimal. The reference is
-not benchmark labels or a curated calibration corpus; it is a handful of the
-diagnosed task's own validation inputs. That single reference pass is strictly
-less work than a benchmark run: PRISM reads the slice once with no decoding,
-whereas a benchmark run must generate outputs and grade them against gold
-labels.
+(2) The practical requirement behind the condition is minimal, and we state it
+exactly. The reference is not a curated calibration corpus; it is a handful of
+the diagnosed task's own validation items, each read as its prompt followed by
+its reference answer (features and per-token CE come from that answer region,
+Sec. 5.1). What PRISM removes is therefore the decoding and the grading, not
+the validation data: it reads the slice once, whereas a benchmark run must
+generate an output per prompt, parse it, match it against the gold answer, and
+score an accuracy. Because PRISM's quantity is the CE GAP between two models on
+identical tokens, in which correctness plays no part, no parsing, matching or
+scoring is needed at any point; and in this default protocol nothing is
+generated either.
 (3) The in-scope measurement: sensitivity to reference-set size.
 Two takeaways. (i) The ranking is
 SIZE-INVARIANT: rs against each benchmark's |dR| is identical (to four decimals)
@@ -372,9 +416,10 @@ tokens per prompt), each of the 12 variants GREEDILY generates its own
 continuation (so surrogate errors compound into its own context; greedy
 keeps the run deterministic and exactly reproducible); both models are then
 scored on those generated trajectories: per-token CE against the
-trajectory's own next tokens, so the risk gap needs no gold labels (the
-same label-free construction as every |dR| in the paper; the generated text
-is simply the conditioning sequence). Across 5 independent 100-prompt subsets
+trajectory's own next tokens, so here the risk gap needs no reference answers
+at all (as everywhere in the paper the gap is a CE difference on tokens shared
+by both models, never a correctness judgment; the generated text simply
+replaces the reference answer as the scored region). Across 5 independent 100-prompt subsets
 (seeds 42-46): rs(B, |dR|) free-running = +0.947 ± 0.015 vs +0.958 ± 0.011
 teacher-forced; bound-rank agreement rs(B_tf, B_free) = +0.959 ± 0.010; and the
 teacher-forced bound predicts free-running degradation at rs(B_tf, |dR|_free) =
@@ -414,7 +459,7 @@ forgetting at rs = +0.97 (Llama, Fig. 3). GSM8K is not intrinsically
 unrankable; it looks weak only where the perturbation leaves its loss nearly
 unchanged, as in PTQ, where quantization moves long-CoT per-token CE by only
 ~0.019 nats (an SNR property of the CE target, inherited by any CE-based
-label-free proxy, perplexity screening included).
+proxy, perplexity screening included).
 (3) Why BBQ sits low. BBQ is a targeted bias-QA task; on Llama it is far less
 shape-disruptive than TruthfulQA (baseline Omega 0.932 vs 0.906) and induces
 much smaller downstream drift (mean |dR| 0.179 vs 0.843), so several
@@ -457,8 +502,8 @@ credit the same core: a timely problem, a decomposition more informative than
 any single similarity score, and a principled link between geometry and risk.
 The reason we pursue exactly that combination is practical: the ecosystem now
 produces post-trained variants far faster than it can afford to evaluate them,
-and PRISM is our attempt at the missing instrument, a label-free measurement
-that turns "re-run the benchmark suite for every variant" into one forward
+and PRISM is our attempt at the missing instrument, a generation-free
+measurement that turns "re-run the benchmark suite for every variant" into one forward
 pass, three commensurable numbers, and a remediation direction (on GSM8K, a
 single greedy decode costs a measured 62.6x that pass), so that the
 community's time goes into building models rather than repeatedly grading
@@ -472,7 +517,7 @@ as the explicit roadmap of this line of work."
 
 Positioning sentence to close the global response:
 "We believe these results, together with the narrowed framing (PRISM as a
-calibrated, label-free ranking-and-attribution instrument with an explicitly
+calibrated, generation-free ranking-and-attribution instrument with an explicitly
 empirical-risk guarantee), directly address the five points of the
 meta-review, and we respectfully ask the AC and reviewers to reconsider in
 light of the new evidence. The remaining runs (TruthfulQA seeds 43/44)
@@ -546,7 +591,7 @@ We're grateful the reviewer identifies the simplex-polarization Lipschitz
 constant and the exact scale/shape identity as real contributions: those are
 the technical core, and neither existed before this paper. Building on them,
 our claimed contribution is not the discovery of the three phenomena but the
-first quantitative, label-free instrument that makes them COMMENSURABLE: all
+first quantitative instrument that makes them COMMENSURABLE: all
 three axes are expressed in the same units (contribution to a certified
 CE-risk-gap bound), so for a given variant one can compute WHICH axis dominates
 and by how much, which qualitative prior knowledge cannot. This is exactly what
@@ -574,8 +619,9 @@ epsilon = 0.1 tolerance and Q2_K clearly outside it, despite the raw bounds
 being uninformative in absolute scale.
 Aggregate LOO MAE is 0.055 nats (vs 0.082 predict-the-mean, -33%). Workflow:
 calibrate once per family (~10 benchmarked variants), then screen every new
-variant label-free with quantified uncertainty (zero labels per new variant
-after a one-time anchor, not zero labels ever).
+variant with quantified uncertainty and without benchmarking it (no decoding,
+no grading; the benchmark is run once per family to fit the calibration, not
+once per variant).
 We do not dispute the looseness; we quantify it: across 570 cells (the paper's
 five benchmarks) slack B/|dR| has median 1597x, IQR [673, 3966], non-constant
 (log10 sd ~0.76), so no fixed multiplicative correction exists; this is
@@ -642,7 +688,7 @@ points. (1) Root cause, quantified (App. F.3, Table 10): long
 teacher-forced CoT spans dilute per-token loss, collapsing GSM8K's mean |dR|
 to 0.019 nats (Qwen3-8B-Instruct 0.0033), an order of magnitude below other
 benchmarks (0.07-0.16). This is a property of the CE target itself, inherited
-by ANY CE-based label-free proxy (perplexity screening included), and PRISM
+by ANY CE-based proxy (perplexity screening included), and PRISM
 correctly reports that variants barely differ in CE on GSM8K. (2) We tested the
 obvious mitigation and report the outcome honestly: recomputing features AND
 losses on the FINAL-ANSWER span only ("#### <number>", where the graded content
@@ -654,7 +700,7 @@ intact on the final token, while NF4 garbles it). We therefore keep GSM8K as a
 first-class item rather than claim a fix. (3) The correct scope is by task, not
 "reasoning is a structural limitation": the weak PTQ correlation is a
 drift-MAGNITUDE / SNR effect (quantization moves GSM8K's long-CoT per-token CE
-by only ~0.019 nats, so variants are near-tied and any CE-based label-free proxy
+by only ~0.019 nats, so variants are near-tied and any CE-based proxy
 inherits it), NOT a failure of the geometry on reasoning. GSM8K is not
 intrinsically unrankable: under a perturbation that does move it, PRISM ranks it
 well, e.g. rs = +0.97 for Llama TruthfulQA-LoRA forgetting (Fig. 3). So the
@@ -790,7 +836,7 @@ mitigate catastrophic forgetting without relying on experience replay.
 We thank the reviewer for pressing on cost and actionability, the two questions
 that most sharpen the paper. Summary of what we added: a wall-clock cost table
 (on GSM8K, one greedy decode 556.7 s vs PRISM's 8.9 s teacher-forced pass on the
-same prompts, a measured 62.6x, label-free; W1);
+same prompts, a measured 62.6x, with no decoding and no grading; W1);
 controlled single-axis interventions showing each axis is causally separable and
 actionable (W1); a same-features CKA/SVCCA comparison (W3); a reference-set
 ablation with an explicit input-conditioned scope statement, plus a
@@ -835,22 +881,40 @@ Forward passes: one teacher-forced pass per model over the reference set; rankin
 variants is K+1 passes (the base extracted once and reused, then one per variant).
 Benchmark evaluation instead needs O(generated tokens) autoregressive passes per
 prompt.
-Reference data: a small set of UNLABELED input sequences the bound is evaluated on.
-The bound is input-conditioned (computed on a reference, it bounds the risk gap
-on that same data, App. A/D), so the reference is a small held-out slice of the
-task being diagnosed (512 sequences per benchmark for PTQ, 256 for LoRA
-forgetting), which any evaluation already has; the regularizer uses the
-fine-tuning task's held-out split. The reference is tiny and its size barely
-matters: the variant ranking is unchanged from 8 to 128 sequences (size
-ablation, W2). No gold answers are graded and no text is generated;
-"label-free" means the ranking needs no correctness labels, and a benchmark's
-answer tokens serve only as shared next-token targets for the model-vs-model
-CE gap (PRISM ranks with zero gold text at all when scored on the models' own
-generated trajectories: +0.947, W2).
+Reference data, stated exactly. Each reference sequence is one held-out
+validation item of the task being diagnosed, read as its prompt followed by its
+reference answer; the features and the per-token CE are both taken from that
+answer region (Sec. 5.1). The bound is input-conditioned (computed on a
+reference, it bounds the risk gap on that same data, App. A/D), so the
+reference is a small held-out slice of the diagnosed task (512 sequences per
+benchmark for PTQ, 256 for LoRA forgetting), which any evaluation already has;
+the regularizer uses the fine-tuning task's held-out split. The reference is
+tiny and its size barely matters: the variant ranking is unchanged from 8 to
+128 sequences (size ablation, W2).
+What PRISM removes is therefore the DECODING and the GRADING, not the
+validation data. Itemized, since it is what the cost comparison rests on: a
+benchmark run must (i) generate an output per prompt, (ii) parse it (extract
+GSM8K's "#### <number>", an option letter, or a span), (iii) match and
+normalize it against the gold answer, and (iv) aggregate an accuracy through a
+per-benchmark scorer. PRISM does none of (ii)-(iv) in ANY mode, because of what
+it measures: its target quantity is the CE GAP between two models on identical
+tokens, in which correctness plays no part, so there is nothing to parse, match
+or score. The reference answer tokens serve only as the shared region on which
+both models are evaluated. And in the default protocol it does not do (i)
+either, which is where the 62.6x comes from. Dropping (ii)-(iv) also removes
+the harness-dependent part of scoring (parsing rules, normalization, parse
+failures), though PRISM of course fixes its own extraction protocol (Sec. 5.1);
+the one text-level operation it performs is locating the answer REGION of the
+reference text, a model-independent offset computed once from the dataset. We
+accordingly say generation-free (default protocol) and grading-free (all
+modes) rather than label-free. When reference answers are unavailable they can
+be replaced by the models' own generated continuations, which still rank
+variants at rs +0.947 (W2); that variant does decode, so it trades the cost
+advantage for independence from reference answers.
 Forward/compute time on GSM8K, measured on identical prompts (E12b micro-benchmark,
 256 GSM8K prompts, RTX 5090; model load excluded from both sides):
 
-| pipeline (256 GSM8K prompts) | forward passes | autoregr. decoding? | grades vs gold labels? | determinism | compute (s) | x vs PRISM (full) |
+| pipeline (256 GSM8K prompts) | forward passes | autoregr. decoding? | parses + grades output? | determinism | compute (s) | x vs PRISM (full) |
 |---|---|---|---|---|---|---|
 | PRISM, teacher-forced (full)      | 1 TF over the prompts | no  | no  | deterministic          | 8.9    | 1x    |
 | PRISM, screening (32 prompts)     | 1 TF over the prompts | no  | no  | deterministic          | ~1.1   | -     |
@@ -868,9 +932,10 @@ Forward/compute time on GSM8K, measured on identical prompts (E12b micro-benchma
     reasoning protocol shown as the upper end; the 62.6x greedy-decode figure is the headline.
 
 So on GSM8K one greedy decode already costs a measured 62.6x PRISM's teacher-forced pass over the same
-prompts (501x with self-consistency), before any label scoring. The gap is STRUCTURAL, not a constant:
-PRISM avoids both autoregressive decoding and answer grading, so it widens with generation length. And
-under a realistic selection over K variants, PRISM screens all K label-free (a 32-prompt screen is
+prompts (501x with self-consistency), before any output parsing or scoring. The gap is STRUCTURAL, not
+a constant: PRISM avoids both autoregressive decoding and answer grading, so it widens with generation
+length. And
+under a realistic selection over K variants, PRISM screens all K without decoding or grading (a 32-prompt screen is
 ~1.1 s, about 1/8 of a full pass) while the full benchmark runs only on the one or two finalists (or not
 at all once the bound is calibrated, W2/AC-A).
 (2) Actionability and granularity. The reviewer's own strengths give the foothold:
@@ -895,9 +960,11 @@ and lm_head-only RTN each move ONLY their own term (own-axis response
 >= 2.6e5x the largest cross-axis leakage; rotation theta=0.4 rad lifts Shape to
 7.7e2 with Scale <= 1.3e-4 and gamma = 0; head-only RTN keeps Scale = Shape = 0
 exactly while gamma sweeps 10 -> 541 over 8 -> 3 bits), bound holds 26/26.
-(3) PRISM is label-free, so it applies to proprietary or safety-sensitive
-deployments where no public benchmark exists. Positioning is made explicit in
-the Introduction.
+(3) PRISM needs no benchmark harness, no scorer, and no correctness labels,
+only reference text, so it applies to proprietary or safety-sensitive
+deployments where no public benchmark exists; and where reference answers do
+not exist either, the models' own generated continuations serve instead
+(rs +0.947, W2). Positioning is made explicit in the Introduction.
 
 Net: the measured 62.6x cost gap on GSM8K (501x with self-consistency) and the causal single-axis interventions
 together answer "why not just run benchmarks": PRISM is materially cheaper AND
@@ -923,19 +990,23 @@ precisely rather than oversold: free-running generation (rs +0.947 ± 0.015 vs
 +0.958 ± 0.011 teacher-forced), a reference-sample ablation (the ranking is
 invariant from 8 to 128 sequences), and, on benchmark-independence, an
 explicit statement of what the bound licenses. The reference set is a small,
-unlabeled slice of the evaluation task's own validation data, which any
-evaluation already has, read once with no labels and no decoding.
+slice of the evaluation task's own validation data, which any
+evaluation already has, read once with no decoding and no grading.
 (1) Benchmark-independent reference. The bound is input-conditioned: its
 guarantee holds when the feature and the risk are PAIRED on the same data (a
 per-instance bound, App. A/D). Computing the bound on generic text to predict
 a benchmark's degradation would UNPAIR them, a distribution-transfer question
 the derivation does not cover, so we do not claim benchmark-independent use;
 the revision states this scope in the Limitations. What the diagnostic does
-need is deliberately minimal: a small unlabeled slice of the diagnosed task's
-own validation inputs, read in one forward pass, with no generation and no
-grading against labels (sample efficiency in (2)). PRISM removes the labels,
-the decoding, and most of the data volume from evaluation, not the task's
-input distribution itself.
+need is deliberately minimal: a small slice of the diagnosed task's own
+validation items, each read as prompt plus reference answer (features and CE
+come from the answer region, Sec. 5.1), in one forward pass. What it removes is
+the DECODING and the GRADING, not the validation data: the quantity used is the
+CE gap between the two models on identical tokens, in which correctness plays
+no part, so nothing needs to be parsed, matched against gold, or scored for
+accuracy; and in this default protocol nothing is generated either. We
+therefore say generation-free (default protocol) and grading-free (all modes,
+including the free-running one below) rather than label-free.
 (2) Sample efficiency: the diagnostic bound's variant ranking is size-invariant.
 Across sizes {8, 16, 32, 64, 128} and 3 draws, rs against each benchmark's |dR|
 is identical (to four decimals) and the across-draw coefficient of variation
@@ -1598,7 +1669,7 @@ the full grid is in the appendix. For the DIAGNOSTIC side, the corresponding siz
 ablation {8..128} shows the bound's variant ranking is invariant to reference
 size (rs changes by < 0.001, 8 sequences suffice); on domain, the diagnostic
 bound is input-conditioned by construction (it reads the diagnosed task's own
-unlabeled inputs), so domain sensitivity arises only for the regularizer's
+validation items), so domain sensitivity arises only for the regularizer's
 reference, measured above.
 
 Note: ✅ E3-C 定稿(lr=1e-5;task |dR| 0.725/0.736/0.724、wiki32 0.773;
@@ -1634,9 +1705,20 @@ head-varying variants (full SFT/RLHF), already identified in App. C.3 as the
 joint-alignment regime we scope out and list as future work; the revision
 adds a first base-vs-instruct data point verifying bound validity in that
 regime; (iv) feature-extraction cost, quantified in the new cost table (one
-forward pass per variant over the reference set; no labels, no decoding;
+forward pass per variant over the reference set; no decoding, no grading;
 measured on GSM8K on identical prompts, one greedy decode 556.7 s vs PRISM's 8.9 s
 teacher-forced pass, a 62.6x gap, with model load excluded from both sides).
+We add a fifth item the reviewer's careful reading prompts us to state
+explicitly: the reference sequences are validation items read as prompt plus
+reference answer, with features and CE taken from the answer region, so what
+the method removes is the decoding and the grading, not the validation data
+itself. Grading is unnecessary in every mode because the quantity is a
+model-vs-model CE gap on identical tokens, in which correctness plays no part
+(nothing to parse, match against gold, or score); decoding is absent in the
+default protocol specifically, while the free-running variant does decode in
+exchange for needing no reference answers at all. We accordingly call the
+method generation-free (default protocol) and grading-free (all modes) rather
+than label-free.
 
 Net: each point above is answered with a measurement rather than a
 clarification (the restated theorem, the calibration on the reviewer's own two
@@ -1665,6 +1747,34 @@ Global assembly checklist (post 前逐項核對)
 [x] 2026-07-27 新增 global closing paragraph(vision/格局):共識 strengths →
     工具使命(省社群評測時間)→ credit 反送 reviewers → 三項具體 future-work
     roadmap;置於 positioning sentence 之前
+[x] 2026-07-27 定案:**"label-free" 全面改為 "generation-free / grading-free"**。
+    查證 supplementary code:reference sequence = prompt + gold answer
+    (loaders.py:21–68);loss_mode="answer" ⇒ features 與 per-token CE **都只取
+    answer region**(extractors.py:411–425;train_forgetting_multitask.py:712–714)。
+    故舊稿「a small UNLABELED slice」與自家 code 矛盾,且 supplementary 已提交、
+    reviewer 可查 ⇒ 必須修。已查證確實**無任何 grading**(全樹無 accuracy/
+    exact_match/.generate() 於 diagnostic path;唯一 generate 在 E7 free-run)。
+    新口徑三支:(a) **no grading = 量的性質,所有模式成立**,四項具名:no output
+    parsing(GSM8K "#### <number>"/選項字母/span)、no answer matching+normalization、
+    no per-benchmark scorer、no accuracy。根因 = **目標量是「兩模型在相同 token 的
+    CE gap」,correctness 不在定義裡**(b) **no decoding = 協議層性質,只有 default
+    TF 模式**(62.6× 來源)(c) no new annotation(讀評估本就有的 validation data)。
+    ⚠️ 2026-07-27 二次修正(邏輯):舊根因寫「PRISM 不產生 output」是**錯的**——
+    free-running 確實 generate 卻同樣不需 parse/match/score ⇒ 根因應是「量的定義
+    不含 correctness」。故 grading-free(intrinsic,全模式)與 generation-free
+    (protocol,僅 default)必須分層敘述;且引用 free-running 當 fallback 時要明說
+    它 **does decode**,是「無 gold answer 時的 fallback,不是更便宜的路」,否則
+    與 62.6× 敘事打架。四處已同步(定義段/G3T9-W1 itemized/AC-B(2)/G3T9-W2/
+    8VrD-Lim(v))。
+    ⚠️ 誠實 carve-out:PRISM 確實會定位 reference text 的 answer region
+    (model-independent offset,loaders.py:344–413 offset-mapping/LCP)——已明說這是
+    「讀哪些 token 的 bookkeeping,不是對模型輸出的判斷」,免得被說「你也 parse」。
+    附帶收益(已加、有 hedge):移除 grading 端的 harness-dependence(parsing rules/
+    normalization/parse failures),但明說 PRISM 自有 extraction protocol。
+    Fallback 證據 = E7 free-running 完全不需 gold answer(+0.947)。
+    全域定義段置於三支柱之後;G3T9-W1(他直問 what reference data)與 AC-B 給
+    精確版;8VrD Limitations 主動加第五項。⚠️ pCi8 原文區 L539/551 的「no labels
+    needed」是他自己的話,不動;定義段已隱性更正,不單獨點名他。
 [ ] 每個 [TBD-E#] 都已用 rebuttal_exp/out/E#/ 的真數字替換(絕不虛構)
 [ ] 跑不完的 E# 改用該 E#.md「風險與 fallback」節的 narrow-concession 句
 [x] E10(5-task SocialIQA/No-Robots/LIMA)不揭露——已從 G3T9-Q2 / AC-E / 8VrD-W3
