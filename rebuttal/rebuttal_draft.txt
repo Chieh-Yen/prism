@@ -5,7 +5,15 @@ Legend:
   [TBD-E#]   = number pending from experiment E# (rebuttal_exp/, scripts ready;
                fill from rebuttal_exp/out/E#/ before posting, NEVER post a TBD)
   (Lxxx)     = line number in the submitted PDF; (App X) = appendix section
-  Note 欄    = internal status,不會貼上 OpenReview
+
+  ── 貼 / 不貼(貼文時照這個判斷,不要憑標籤長相猜)──
+  貼:  "Response:" 之後的全部內文,含結尾的 "In sum:" 收尾句
+        (In sum = 該 thread 的總結,給只掃結尾的 reviewer 看,務必保留)
+  不貼:"Note:" 開頭的段落        = 內部狀態/實驗出處/決策理由
+        "···· ORIGINAL ... ····" = reviewer/AC 原文備查(已標 DO NOT POST)
+        "[原文]" 標頭的引文       = 一一對應檢查用;貼文時視字數限制決定是
+                                    全文引用或縮成一行摘要(見結尾 checklist)
+        本 Legend 與檔尾 checklist
 All numbers already present below are REAL (computed from existing repo data;
 sources: rebuttal_exp/out/{E6,E10,E13,E3,eql6w3}/ and the submitted PDF).
 ================================================================================
@@ -762,7 +770,7 @@ and 57% (Q2_K) relative residual remains on MMLU. Under aggressive
 quantization most feature damage is not linearly alignable at all, so the
 isometry-aligned residual is genuine degradation, not gauge artifact.
 
-Net: the calibration (W2) shows the bound supports an absolute tolerance, not
+In sum: the calibration (W2) shows the bound supports an absolute tolerance, not
 only ranking, and the same-features comparison (W3) shows the decomposition buys
 a risk certificate and an axis attribution that a similarity score cannot. We
 hope these speak directly to the practical-significance concern, and we are
@@ -939,7 +947,7 @@ deployments where no public benchmark exists; and where reference answers do
 not exist either, the models' own generated continuations serve instead
 (rs +0.947, W2). Positioning is made explicit in the Introduction.
 
-Net: the measured 62.6x cost gap on GSM8K (501x with self-consistency) and the causal single-axis interventions
+In sum: the measured 62.6x cost gap on GSM8K (501x with self-consistency) and the causal single-axis interventions
 together answer "why not just run benchmarks": PRISM is materially cheaper AND
 tells you which axis to fix, which a benchmark score does not. We hope this
 addresses the significance concern.
@@ -1124,7 +1132,7 @@ the head term becomes dominant, and ranking is preserved above the noise floor, 
 absolute tightness the quantity that degrades. Calibrated tightness for arbitrary joint
 SFT is the single piece we do not yet claim.
 
-Net: the measured cost table, the causal single-axis interventions, the
+In sum: the measured cost table, the causal single-axis interventions, the
 same-features CKA/SVCCA comparison, and the base-vs-instruct data point are
 measurements, not restatements; we hope they resolve the motivation and
 evaluation concerns, and we are glad to follow up on anything that remains
@@ -1321,7 +1329,7 @@ term and |dR| across all variants within a (family, benchmark) cell; Table 3
 aggregates over the 10 cells. We will state this explicitly in the Sec. 5.5
 text and every table caption.
 
-Net: the three substantive changes are the notation and presentation fixes
+In sum: the three substantive changes are the notation and presentation fixes
 (W1), the gauge argument for orthogonal alignment (W2/Q1), and the prefactor
 analysis on the paper's own data showing the shape term is driven by 1-Omega,
 not feature magnitude (W3). We hope these resolve the quality and clarity
@@ -1685,7 +1693,7 @@ with features and CE taken from that gold span (Sec. 5.1), so what the
 measurement removes relative to a benchmark run is the decoding and the grading,
 not the validation data itself.
 
-Net: each point above is answered with a measurement rather than a
+In sum: each point above is answered with a measurement rather than a
 clarification (the restated theorem, the calibration on the reviewer's own two
 cells, the 26/26 causal interventions, the free-running result, the matched
 baselines). The reviewer's careful reading materially improved the paper; if
@@ -1800,4 +1808,8 @@ Global assembly checklist (post 前逐項核對)
 [ ] 每個 reviewer thread 自包含(不寫 see Reviewer X / see AC)
 [ ] 字數:每則 comment 壓到 NeurIPS 限制內(規則待確認)後再貼——共享項目
     (校準、成本、CKA 表)在非主場 thread 只留 2 句 + 數字,不重述全套
+[ ] 貼文前決定 "[原文]" 標頭的處理:字數寬鬆 → 保留完整引文(對應最清楚);
+    字數緊 → 縮成一行摘要(如 "W2 (bound looseness / operational threshold):"),
+    但**務必保留編號與順序**,讓 AC/reviewer 能一一對應。"In sum:" 收尾句
+    在任何情況下都保留(它是唯一的 thread 級總結)
 [ ] 引用論文內容時用「promote to main text」語氣,不用防禦性句式
