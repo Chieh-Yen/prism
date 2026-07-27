@@ -88,7 +88,7 @@ meta-review invites:
 
 | condition | new evidence | headline |
 |---|---|---|
-| A. usefulness of the bound | isotonic calibration + slack decomposition | LOO MAE 0.055 nats; the two cells cited for looseness calibrate to 0.003 / 0.193 nats, each on the correct side of a 0.1-nat tolerance |
+| A. usefulness of the bound | isotonic calibration + slack decomposition | held-out error 0.055 nats; the two cells cited for looseness calibrate to 0.003 / 0.193 nats, each on the correct side of a 0.1-nat tolerance |
 | B. benchmark-independent use | explicit scope narrowing + reference-set size ablation | the bound is input-conditioned by design: it needs only a small slice of the diagnosed task's own validation data, read once with no decoding and no grading; ranking size-invariant from 8 to 128 sequences; regularizer reference size-insensitive, mildly domain-sensitive (downstream 0.72-0.77) |
 | C. stronger baselines | CKA/SVCCA on identical features; EWC / L2-SP / layer-freezing | bound ties CKA/SVCCA (CIs cover 0) and does strictly more; shape penalty ahead of EWC, L2-SP, layer-freezing, and replay at matched target-task loss (TruthfulQA so far) |
 | D. free-running generation | greedy self-generation, 5 subsets | rs +0.947±0.015 free vs +0.958±0.011 teacher-forced; the teacher-forced bound predicts free-running degradation at +0.958±0.011 |
@@ -115,8 +115,9 @@ operational, generation-free instrument that does three things benchmark
 evaluation and representation similarity (CKA/SVCCA) cannot.
 
 (i) OPERATIONAL: after a one-time per-family calibration, PRISM answers "is
-this variant within epsilon of the base?" with quantified uncertainty (LOO MAE
-0.055 nats), not merely "which is worse". The two cells reviewers cite to
+this variant within epsilon of the base?" with quantified uncertainty (a typical
+0.055 nats on a variant the calibration was not fitted on), not merely "which is
+worse". The two cells reviewers cite to
 dramatize looseness (Llama-MMLU Q8_0 B=23.24, Q2_K B=266.09) map to 0.003 and
 0.193 nats after calibration, on the correct sides of an epsilon = 0.1
 tolerance.
@@ -196,8 +197,11 @@ contributes only 0.13-0.40 dex; the remainder comes from the alignment/triangle
 steps. Median slack SHRINKS toward low bit-widths (Q8_0: 3.65 dex -> Q2_K: 2.78
 dex), i.e., the bound is relatively tightest where degradation is real.
 (3) Operational threshold. **Per-(family, benchmark) leave-one-out isotonic
-calibration B -> |dR| gives aggregate LOO MAE 0.055 nats, versus 0.082 for a
-predict-the-mean baseline (-33%)**; the rule "calibrated prediction < 0.1 nats"
+calibration B -> |dR| gives aggregate Leave-one-out MAE 0.055 nats, versus 0.082 for a
+predict-the-mean baseline (-33%)**. Leave-one-out means the map is fitted without
+the variant it is then asked to predict, so 0.055 is the error on a variant the
+calibration has never seen, which is the deployment case; in units of each cell's
+own risk range it is a median 15%; the rule "calibrated prediction < 0.1 nats"
 reaches precision >= 0.8 in 49/55 cells (21 at 1.0), and >= 0.8 in all 55 at
 epsilon = 0.5. (We lead with MAE, which is base-rate-free; the six weaker
 precision cells are all multiple-choice benchmarks, ARC/MMLU, where the |dR|
@@ -689,38 +693,43 @@ Response:
 The reviewer is right on both counts, and we quantify the first rather than
 dispute it: slack B/|dR| has median 1597x over 570 cells and is NOT constant
 (log10 sd ~0.76), so no fixed multiplicative correction exists. That is exactly
-why the submitted paper scopes the raw bound to ranking (Abstract, Sec. 6).
+why we claim only ordering from the raw bound (Abstract, Sec. 6).
 What we add is not a tighter bound but a calibration step, and it is worth saying
-why that can work at all. The tool is ISOTONIC REGRESSION: fit a monotone map from
-the bound to the measured risk gap, per (family, benchmark), leave-one-out so no
-variant helps predict itself. It assumes nothing about the SIZE of the slack,
-which is the part that varies; it needs only a larger bound to go with a larger
-gap, which is precisely the rank property the paper does establish. Its purpose is
-to re-express the bound in nats, so the ranking claim is preserved and an absolute
-question becomes askable.
-On the reviewer's own example, Q4 against Q2 (Llama-3.1-8B/MMLU, 12 variants):
+why that can work at all. The tool is ISOTONIC REGRESSION: a monotone map from the
+bound to the measured risk gap, fitted per (family, benchmark) and leave-one-out,
+i.e. never using a variant to predict itself. It assumes nothing about the SIZE of
+slack, the part that varies; it needs only a larger bound to go with a larger gap,
+which is precisely the rank property the paper establishes. Its purpose is to
+re-express the bound in nats, keeping the ranking claim and making an absolute
+question askable. On the reviewer's own example, Q4 against Q2
+(Llama-3.1-8B/MMLU, 12 variants):
 
 | variant | raw bound | calibrated (nats) | true gap (nats) | at eps = 0.1 | margin |
 |:--|--:|--:|--:|:--:|--:|
 | `Q4_K_M` | 96.75 | 0.055 | 0.036 | within ✓ | 1.1 MAE |
 | `Q2_K` | 266.09 | 0.193 | 0.366 | outside ✓ | 2.3 MAE |
 
-(margin = distance from the tolerance in units of this cell's MAE.) Aggregate LOO
-MAE is 0.055 nats, versus 0.082 for predicting the cell mean, with precision
->= 0.8 in 49/55 cells.
-**We report the limit with the result, because it sets how the tool should be
-used.** This cell has MAE 0.040 nats and precision 0.75, one of the six cells below
-0.8. All four of its errors lie within 1.2 MAE of the tolerance, and all seven
-calls further away are correct; Q4_K_M sits at 1.1 MAE, just inside that band. So
-the honest verdict for Q4 is "within tolerance, worth confirming", not a
-certificate. The calibrated bound therefore triages rather than replaces, which
-answers the reviewer's last sentence quantitatively: fit the map once per family
-from ~10 benchmarked variants, then measure only the variants that land near the
-tolerance, not all of them.
-On the looseness itself, the attribution is also informative: the
-simplex-polarization step the reviewer credits contributes only 0.13-0.40 dex of
-it, and the median slack shrinks toward low bit-widths (3.65 -> 2.78 dex), i.e.
-the bound is tightest where the degradation is real.
+(margin = distance from the tolerance, in units of this cell's MAE.) Aggregate
+error is 0.055 nats against 0.082 for predicting the cell mean, with precision
+>= 0.8 in 49/55 cells. Because the map is fitted leave-one-out, that 0.055 is the
+error on a variant the calibration has never seen, and it is a median 15% of each
+cell's own risk range.
+**We report the limit with the result, since it sets how the tool should be
+used.** This cell has MAE 0.040 nats and precision 0.75, one of the six below 0.8;
+all four of its errors lie within 1.2 MAE of the tolerance and all seven calls
+further away are correct. Q4_K_M sits at 1.1 MAE, just inside that band, so the
+honest verdict for Q4 is "within tolerance, worth confirming", not a certificate.
+The reviewer's last sentence is therefore correct, and we narrow it rather than
+contest it. Benchmarks are still needed, because the map is fitted on measured
+gaps; what changes is where they are spent. They are spent once on an anchor set
+for the family (~10 variants) instead of once on every new variant, and the
+borderline cases are still measured. That is AMORTISATION, not elimination: it
+pays off for a family that keeps producing variants, and it buys almost nothing
+for a family that will only ever have about ten. The uncalibrated ranking, which
+is what the paper claims, needs no anchors at all. On the
+looseness itself, the simplex-polarization step the reviewer credits contributes
+only 0.13-0.40 dex of it, and the median slack shrinks toward low bit-widths
+(3.65 -> 2.78 dex), i.e. the bound is tightest where degradation is real.
 
 3) W3 [原文]: Table 3 shows the gap between using shape similarity Ω alone versus the full
    PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
@@ -1218,7 +1227,8 @@ uncalibrated B (as the paper scopes: Abstract, Sec. 6). To move beyond a
 heuristic: (i) Theorem 1 is restated as an empirical-risk-gap bound with a
 concentration corollary to the population version (a guarantee, precisely
 scoped); (ii) **a one-time per-(family, benchmark) isotonic calibration turns B
-into a predictor of |dR| with LOO MAE 0.055 nats and precision >= 0.8 (at
+into a predictor of |dR| with a leave-one-out error of 0.055 nats, i.e. the error
+on a variant the map was not fitted on, and precision >= 0.8 (at
 epsilon = 0.1 nats) in 49/55 cells** (an operational threshold, not just an
 ordering). Slack attribution shows the Lipschitz step contributes only
 0.13-0.40 dex, and slack tightens at low bit-widths where degradation is real.
@@ -1603,8 +1613,9 @@ spectral-norm bound: that step is not where the looseness lives); the dominant
 slack is the alignment/triangle remainder; and median slack SHRINKS with bit-width
 (Q8_0: 3.65 dex -> Q2_K: 2.78 dex), relatively tightest where degradation is
 real. Operational threshold: per-(family, benchmark) leave-one-out isotonic
-calibration of B -> |dR| achieves aggregate LOO MAE 0.055 nats (vs 0.082
-predict-the-mean), and the rule "calibrated prediction < 0.1 nats" reaches
+calibration of B -> |dR| achieves aggregate leave-one-out MAE 0.055 nats, the
+error on a held-out variant (vs 0.082 predict-the-mean), and the rule
+"calibrated prediction < 0.1 nats" reaches
 precision >= 0.8 in 49/55 cells (21 at 1.0; the six weaker cells are all
 multiple-choice benchmarks, ARC/MMLU, where the |dR| dynamic range is
 compressed).
@@ -1620,7 +1631,7 @@ land on the correct side of an epsilon = 0.1 nat tolerance:**
 | `Q2_K` | 266.09 | 0.366 | $\sim 727\times$ | 0.193 | outside / outside ✓ |
 
 We add that cell's operating characteristic rather than only its favourable rows,
-since the reviewer is likely to check it: LOO MAE 0.040 nats and precision 0.75 at
+since the reviewer is likely to check it: Leave-one-out MAE 0.040 nats and precision 0.75 at
 eps = 0.1, one of the six cells of 55 below 0.8. All four of its errors lie within
 1.2 MAE of the tolerance and all seven calls further than that are correct, so the
 failure mode is a bounded ambiguous band rather than an arbitrary error: the
