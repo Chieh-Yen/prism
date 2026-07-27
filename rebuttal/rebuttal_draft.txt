@@ -949,34 +949,44 @@ canonical baselines should be shown, not only argued.
 > quantization, when feature geometry is already severely distorted.
 
 Response:
-Important distinction, already explicit in the paper and now promoted: **the
-bound's VALIDITY does not require near-isometry, only its TIGHTNESS does**.
-Sec. 3.1 states the bound "holds for any such W, with alignment quality
-determining how tight the bound is in practice", and App. C.1 derives the
-bound family for every W in O(d). When aggressive quantization distorts
-geometry, the bound loosens in the CONSERVATIVE direction (over-estimating the
-gap of the most-damaged variants), which preserves ranking, consistent with
-the observed 2-bit results. App. C.2 adds that the growing gap between the
-trace and nuclear similarities under aggressive quantization is itself signal:
-genuine asymmetric distortion that a rotation-invariant metric would mask.
-We also measure the isometry violation directly: the residual COST of
-restricting alignment to rotation x scale versus the best ARBITRARY linear
-map, in the features' top-r principal subspace (iso_gain = 1 -
-res_linear/res_orthogonal; ~0 means the O(d) restriction loses nothing),
-per variant vs bit-width. With the FP16 dtype-control at 0.08 (the metric's
-own noise scale), iso_gain rises only to 0.13 / 0.17 / 0.18 / 0.19 (Q8_0 /
-Q4_K_M / Q2_K / NF4; MMLU + SQuAD means): rotation x scale already achieves
-71-94% of the residual reduction ANY linear alignment can. The complement
-is decisive: even after an ORACLE arbitrary-linear alignment, 26% (Q4_K_M)
-and 57% (Q2_K) relative residual remains on MMLU. Under aggressive
-quantization most feature damage is not linearly alignable at all, so the
-isometry-aligned residual is genuine degradation, not gauge artifact.
+The assumption affects only how LOOSE the bound is, never whether it holds.
+**Theorem 1 is a family of bounds indexed by W: any W in O(d) gives a valid
+inequality, with no condition on W at all (App. C.1; Sec. 3.1 states it as holding
+"for any such W, with alignment quality determining how tight the bound is in
+practice").** The two gauges we use are both unconditionally constructible, which is
+the concrete form of that statement: W = I is the identity, so there is nothing to
+compute or satisfy, and W_N is the orthogonal-Procrustes solution U V^T taken from
+the SVD of Z_P^T Z_T. An SVD exists for every real matrix and U V^T is orthogonal by
+construction, so W_N needs no invertibility or full-rank condition. When Z_P^T Z_T
+IS singular, which happens whenever the slice has fewer tokens than d, the minimiser
+is not unique, but the minimum value is: it depends only on the nuclear norm
+||Z_T^T Z_P||_*, so delta is well defined either way. So near-isometry is not a
+precondition. It is one more entry in the
+looseness itemized under W2: restricting the alignment to rotation-and-scale leaves
+the feature residual, and therefore delta, larger than an unrestricted linear map
+would, and that excess is measurable rather than assumed.
+We measure it at the bit-widths the reviewer asks about. In the features' top-r
+principal subspace we compute the residual after the best rotation-and-scale and
+after the best arbitrary linear map, and report iso_gain = 1 - res_linear /
+res_orthogonal, where 0 means the restriction costs nothing. Means over MMLU and
+SQuAD on Llama-3.1-8B: **the FP16 dtype control sits at 0.084, which is this
+metric's own noise level, and the quantized variants reach only 0.130 (Q8_0), 0.165
+(Q4_K_M), 0.183 (Q2_K) and 0.189 (NF4). So even at 2 bits, dropping orthogonality
+entirely would shrink the residual by under a fifth.**
+The complement answers the "already severely distorted" half directly: after an
+ORACLE arbitrary-linear alignment, 26% (Q4_K_M) and 57% (Q2_K) of the relative
+residual still remains on MMLU. Most of what aggressive quantization does to the
+features is not linearly alignable at all, so what the bound charges is genuine
+degradation rather than a gauge artefact.
 
-**In sum:** the calibration (W2) shows the bound supports an absolute tolerance, not
-only ranking, and the same-features comparison (W3) shows the decomposition buys
-a risk certificate and an axis attribution that a similarity score cannot. We
-hope these speak directly to the practical-significance concern, and we are
-glad to engage further on any point that remains.
+**In sum:** the three answers share one shape. We locate the looseness instead of
+disputing it, and two of its three sources are cell constants, which is why the
+paper reports an ordering (W2). On identical features the bound cedes nothing to
+CKA or SVCCA while carrying a risk certificate, an axis attribution and a
+trainable objective that they cannot (W3). And the near-isometry assumption is
+measured rather than assumed: it affects only tightness, by under a fifth of the
+residual even at 2 bits (W6). We hope these speak to the practical-significance
+concern, and we are glad to engage further on any point that remains.
 
 ================================================================================
 Reviewer #2, G3T9 (3: Borderline reject, conf 4), Q3/C3/S2/O3
