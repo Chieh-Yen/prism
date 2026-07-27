@@ -690,46 +690,55 @@ three axes, not as the discovery of the phenomena themselves.
 > enough, so benchmarks are still needed for that.
 
 Response:
-The reviewer is right on both counts, and we quantify the first rather than
-dispute it: slack B/|dR| has median 1597x over 570 cells and is NOT constant
-(log10 sd ~0.76), so no fixed multiplicative correction exists. That is exactly
-why we claim only ordering from the raw bound (Abstract, Sec. 6).
-What we add is not a tighter bound but a calibration step, and it is worth saying
-why that can work at all. The tool is ISOTONIC REGRESSION: a monotone map from the
-bound to the measured risk gap, fitted per (family, benchmark) and leave-one-out,
-i.e. never using a variant to predict itself. It assumes nothing about the SIZE of
-slack, the part that varies; it needs only a larger bound to go with a larger gap,
-which is precisely the rank property the paper establishes. Its purpose is to
-re-express the bound in nats, keeping the ranking claim and making an absolute
-question askable. On the reviewer's own example, Q4 against Q2
-(Llama-3.1-8B/MMLU, 12 variants):
+We dispute neither half: the raw bound is loose (median slack 1597x over 570
+cells) and the paper claims ranking, not absolute risk (Abstract, Sec. 6). We do
+not dispute the last sentence either. What we would sharpen is what measuring
+costs once ranking has narrowed the field, because the reviewer's own Strengths
+name the workflow: "choosing between a dozen quantization variants and don't want
+to run full benchmarks on all of them".
+**Screening is not the standard benchmark protocol, and that is where the time
+goes.** A benchmark run generates text and grades it; PRISM reads a small
+reference slice under teacher forcing, and the risk gap it is checked against
+comes out of that same pass.
 
-| variant | raw bound | calibrated (nats) | true gap (nats) | at eps = 0.1 | margin |
-|:--|--:|--:|--:|:--:|--:|
-| `Q4_K_M` | 96.75 | 0.055 | 0.036 | within ✓ | 1.1 MAE |
-| `Q2_K` | 266.09 | 0.193 | 0.366 | outside ✓ | 2.3 MAE |
+| | standard benchmark run | PRISM screen |
+|:--|:--|:--|
+| protocol | free generation, then grading | one teacher-forced pass |
+| compute, 256 GSM8K prompts | 556.7 s | 8.9 s (62.6x less; 501x vs maj@8) |
+| data | the full benchmark set | a small reference slice; see the size ablation below |
 
-(margin = distance from the tolerance, in units of this cell's MAE.) Aggregate
-error is 0.055 nats against 0.082 for predicting the cell mean, with precision
->= 0.8 in 49/55 cells. Because the map is fitted leave-one-out, that 0.055 is the
-error on a variant the calibration has never seen, and it is a median 15% of each
-cell's own risk range.
-**We report the limit with the result, since it sets how the tool should be
-used.** This cell has MAE 0.040 nats and precision 0.75, one of the six below 0.8;
-all four of its errors lie within 1.2 MAE of the tolerance and all seven calls
-further away are correct. Q4_K_M sits at 1.1 MAE, just inside that band, so the
-honest verdict for Q4 is "within tolerance, worth confirming", not a certificate.
-The reviewer's last sentence is therefore correct, and we narrow it rather than
-contest it. Benchmarks are still needed, because the map is fitted on measured
-gaps; what changes is where they are spent. They are spent once on an anchor set
-for the family (~10 variants) instead of once on every new variant, and the
-borderline cases are still measured. That is AMORTISATION, not elimination: it
-pays off for a family that keeps producing variants, and it buys almost nothing
-for a family that will only ever have about ten. The uncalibrated ranking, which
-is what the paper claims, needs no anchors at all. On the
-looseness itself, the simplex-polarization step the reviewer credits contributes
-only 0.13-0.40 dex of it, and the median slack shrinks toward low bit-widths
-(3.65 -> 2.78 dex), i.e. the bound is tightest where degradation is real.
+How small: the variant ranking does not move at all between 8 and 128 reference
+sequences. Mean Spearman rs against each benchmark's measured gap, Llama, three
+independent draws per size (held-out generic reference, so the reference itself is
+not tuned to the benchmark):
+
+| reference size | 8 | 32 (paper) | 128 |
+|:--|--:|--:|--:|
+| mean r_s over the 5 benchmarks | +0.926 | +0.926 | +0.926 |
+| sd across the 3 draws | 0.000 | 0.000 | 0.000 |
+| per benchmark (arc / mmlu / squad / triviaqa / gsm8k) | .944 / .944 / .811 / .965 / .965 | identical | identical |
+
+Eight sequences therefore give the same ordering as 128, and the zero spread
+across draws says the paper's 32 is not a lucky draw.
+Teacher forcing is also not a different question: when each variant generates its
+OWN continuations and both models are scored on those, the ranking is
++0.947 ± 0.015 against +0.958 ± 0.011 teacher-forced, with rank agreement
++0.959 ± 0.010 (5 subsets). So the workflow we claim is: rank twelve candidates
+cheaply, then run the full protocol once, on the finalist. We validate against the
+cross-entropy risk gap throughout rather than task accuracy, and keep the claim
+there.
+Why ranking is the well-posed output, structurally rather than as a fallback.
+B = K_feat * delta + K_pred * gamma has weights that are properties of the target
+head alone, hence identical for every variant of a family (K_feat = 2.6137 for
+every Llama-3.1-8B cell). The worst-case relaxation is therefore shared by the
+variants being compared: it survives in the VALUE and largely cancels in the
+ORDER. And an absolute nat threshold is not portable to begin with, since the
+target's own cross-entropy spans 0.34 to 3.44 across our (model, benchmark) grid,
+so 0.1 nats is 29% of the model's own loss in one cell and 2.9% in another.
+Ranking is not the only output either. The decomposition says WHICH axis to fix:
+Sec. 5.3 attributes Q6_K's SQuAD degradation to the head axis (gamma = 75.77 of
+B = 76.95), and keeping lm_head in FP16 removes it (B = 3.81). A benchmark score
+does not do that.
 
 3) W3 [原文]: Table 3 shows the gap between using shape similarity Ω alone versus the full
    PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
