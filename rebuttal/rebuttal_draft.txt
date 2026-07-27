@@ -988,8 +988,9 @@ an oracle ceiling, and report iso_gain = 1 - res_linear / res_orthogonal, the
 fraction of residual the restriction costs, 0 meaning free. Means over MMLU and
 SQuAD on Llama-3.1-8B, excluding noise-floor rows: **the FP16 dtype control sits at
 0.084, this metric's own noise level, and quantization reaches only 0.130 (Q8_0),
-0.165 (Q4_K_M), 0.183 (Q2_K) and 0.189 (NF4). Even at 2 bits, dropping orthogonality
-entirely would shrink the residual by under a fifth.**
+0.165 (Q4_K_M), 0.183 (Q2_K) and 0.189 (NF4), the worst single cell reaching 0.29.
+Even at 2 bits, dropping orthogonality entirely would shrink the residual by under a
+fifth on average.**
 
 The same measurement answers "already severely distorted" from the other side: even
 after the oracle linear alignment, 26% (Q4_K_M) and 57% (Q2_K) of the relative
@@ -1487,32 +1488,47 @@ notation table. Thank you for flagging these.
 > transformations specifically when analyzing the target-proxy risk.
 
 Response:
-The principled reason is the linear head, not the hypotheses: we restrict
-alignment to a rotation and a global scale because an arbitrary linear map could
-be folded into the head and fit away the very degradation we are trying to
-measure, whereas rotation-and-scale leaves a meaningful residual and admits an
-exact scale/shape split. The linear/platonic hypotheses are only the empirical
-half of the motivation, and they govern tightness rather than validity (point 3).
-Three reasons make this precise (Sec. 3).
+The motivation is a requirement that arrived before any group was chosen. We needed
+to compare many quantized and fine-tuned variants of the same base model, to filter
+the clearly decayed ones without running a full benchmark suite on each, and then to
+be told WHICH axis to repair. **That asks two things of the quantity: the damage
+must not be fittable away, and whatever remains must divide into parts one can act
+on. Those two requirements are what single out O(d). The linear/platonic hypotheses
+only make the result tight.** Three steps make this precise (Sec. 3).
 
-(1) Gauge, the core reason: **because the head is linear, any invertible map A can
-be absorbed into it (W <- W A^-1), so aligning over all invertible A would let
-the alignment hide genuine degradation**; restricting to rotation x scale (the
-isometry group up to scale) preserves the inner-product geometry the head reads
-out, so the residual measures true distortion.
+(1) Gauge, the core reason. Because the head is linear, a model's features and head
+are only defined jointly, up to an invertible map: Z_P H_P and (Z_P A)(A^-1 H_P) are
+the same proxy model. **So a feature discrepancy measured after an unrestricted
+invertible alignment is not identifiable: the damage can always be pushed through A
+into the head and fitted away.** Restricting to O(d) removes exactly that freedom.
+An orthogonal W only RE-ORIENTS the proxy's feature cloud, preserving every norm,
+distance and angle inside it, so it can neither shrink nor shear the cloud, and what
+it leaves is distortion the head genuinely has to absorb. The restriction also costs
+little: on Llama-3.1-8B, an unrestricted linear map shrinks the residual by under a
+fifth on average even at 2 bits, and by at most 0.29 in any single cell, so
+identifiability is close to free.
 
-(2) Identifiability: over O(d) x scale, Procrustes has a closed-form solution
-yielding the EXACT scale/shape split (Prop. 1); no larger group admits this.
+(2) The two axes become separately readable. Over O(d) the mean squared feature
+residual splits with no approximation into `(rho_T - rho_P)^2` plus `2 rho_T rho_P
+(1 - Omega_W)` (Prop. 1, L125), and the rho are MEASURED RMS feature scales rather
+than fitted parameters, which is what lets scale mismatch and shape mismatch be
+attributed separately. Under a general linear map that identity is simply
+unavailable, because the map itself carries scale and shear, so there is nothing
+left to attribute. (Larger groups do have closed-form solutions; what they lack is a
+residual that still means anything.)
 
-(3) Empirical, which is where the hypotheses enter and all they are needed for.
-The linear/platonic results indicate that related models align well under maps
-that are in practice near-orthogonal, which we also observe; that makes a
-rotation SUFFICIENT in practice, i.e. it makes the bound tight, but it is not
-what makes the bound hold. Validity is hypothesis-free: Theorem 1 holds for ANY
-W in O(d) (App. C.1), so if the hypotheses were false the bound would merely
-loosen, never break. App. B further shows the resulting Omega_N is the
-alignment-grounded similarity (unlike CKA, which is not derived from any
-alignment optimization).
+(3) Where the hypotheses enter, and all they are needed for. The linear/platonic
+results say that related models tend to align well under near-orthogonal maps, which
+is why a single orthogonal W is SUFFICIENT in practice, i.e. why the bound is tight.
+They are not what makes it hold. **Validity is hypothesis-free: Theorem 1 holds for
+ANY W in O(d) (L132, App. C.1), so if the hypotheses were false the bound would
+merely loosen, never break.**
+
+One distinction may be worth stating explicitly, because the paper makes choices at
+two different levels. The GROUP is forced, by (1) and (2). Which MEMBER of it we use
+is not: we report W = I and the Procrustes W_N, and the paper calls that choice
+"primarily design-driven" (L145-152), since both give valid bounds and differ only
+in tightness and in which term carries the mismatch.
 
 3) W3 [原文]: In the experiments, to me it seems the shape mismatch term dominating the
    risk bound is due to the scale of the feature matrices themselves, rather than the actual
