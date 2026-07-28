@@ -963,11 +963,13 @@ Response:
 The assumption affects only how LOOSE the bound is, never whether it holds.
 **Theorem 1 is a family of bounds indexed by W, and the only condition is that W be
 orthogonal: every W in O(d) gives a valid inequality (Thm. 1, L132; proof App.
-C.1).** The geometry is why: an orthogonal W only RE-ORIENTS the proxy's feature
-cloud against the target's, preserving every norm, distance and angle inside it, so
-the choice of W changes how the mismatch is split between the feature arm (delta)
-and the head arm (gamma), never the geometry being split. Nothing about the models
-has to be near-isometric for that to hold.
+C.1).** The geometry is why: an orthogonal W is a rotation or a reflection and
+nothing more, so it re-orients the proxy's feature cloud against the target's
+without changing a single length, distance or angle inside it. **Our gauge is
+therefore an exact isometry BY CONSTRUCTION; what is empirical is only how well such
+a map can be made to match the two clouds.** The choice of W changes how the
+mismatch is split between the feature arm (delta) and the head arm (gamma), never
+the geometry being split.
 
 The gauge is therefore, in the paper's own words, "primarily design-driven"
 (L145-152), and our two sit at opposite ends of that split. W = I is the identity:
