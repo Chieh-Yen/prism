@@ -136,7 +136,7 @@ front.
 |:--|:--|
 | A | restated on the EMPIRICAL gap + concentration corollary; two of three looseness sources are cell constants and cannot reorder; calibrated to 0.055 nats vs 0.082 |
 | B | 8 sequences order the variants as 512 do, at 62.6x less compute than a benchmark run; unpaired claim dropped |
-| C | bound TIES CKA/SVCCA on identical features and our feature arm beats CKA; shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
+| C | bound TIES CKA/SVCCA on identical features, and adds what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
 | D | r_s +0.947 free-running vs +0.958 teacher-forced, on the generation-heaviest benchmark |
 | E | 18/20 LoRA cells positive; the two flagged cells lack a rankable signal (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is |
 
@@ -148,7 +148,6 @@ target gap at 512 and varies only the slice the score sees.
 |:--|--:|--:|
 | 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
 | 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
-
 | our feature arm delta_N (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
 | PRISM B_N (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
@@ -247,7 +246,7 @@ scope in the Limitations instead of leaving it implicit.
 (ii) What the diagnostic does need, measured. The reference is a small slice of the
 DIAGNOSED TASK's own validation data, read once, with no decoding and no grading: 512
 sequences per benchmark in the quantization study and 256 in the LoRA study, which any
-evaluation already has on hand. The five-score table above varies only the slice the
+evaluation already has on hand. The four-score table above varies only the slice the
 score is computed on, while holding the ground-truth gap at the full 512 sequences, so
 it answers the practical question directly. **Eight sequences already order the twelve
 variants exactly as 512 do (r_s 0.932 at both ends), and the three fresh seeds agree
@@ -288,14 +287,16 @@ Response:
 The condition has two halves, diagnostics and regularization, and we answer them in
 turn.
 
-(i) DIAGNOSTIC BASELINES, on identical features. The five-score table above is the
+(i) DIAGNOSTIC BASELINES, on identical features. The four-score table above is the
 like-for-like comparison the condition asks for: every score is computed on the same
 features from one forward pass, with the risk gap recomputed from that same pass, so
 no row enjoys a different extraction. The honest reading is that **the bound cedes
 NOTHING on ranking, but it does not beat the similarity scores either.** Paired over
 the 15 (seed, benchmark) cells, the full bound minus 1-CKA is +0.001 with a 95%
-bootstrap interval of [-0.004, +0.007], and the only paired difference whose interval
-excludes zero is our feature arm over CKA, at +0.013 [+0.004, +0.022]. They land
+bootstrap interval of [-0.004, +0.007]. The feature arm edges 1-CKA on this
+three-seed Llama rerun (+0.013 [+0.004, +0.022]), but pooled with Qwen on the
+paper's own round the same comparison is a statistical dead heat (-0.002 [-0.038,
++0.011]), so we claim parity, not an advantage. They land
 together for an algebraic reason rather than by accident: our feature arm IS the
 Procrustes size-and-shape distance, so Procrustes is the feature half of our own bound
 rather than an external competitor, and App. A.1 states that our contribution is not
@@ -400,9 +401,9 @@ separately. On GSM8K under quantization the correlation is genuinely low at the
 W = I default (0.41), but **the ORDERING is recoverable: at the Procrustes alignment
 the same cells rank at +0.698**, because W_N rotates the head and the head term then
 carries the backbone rotation that the near-tied shape term cannot pick up. The
-magnitude caveat stands either way, since the gaps there are only about 0.019 nats
-apart: **what W_N recovers is the ORDER of those variants, not the ability to say how
-far apart they are.**
+magnitude caveat stands either way, since the mean gap there is only about 0.019
+nats (Table 10): **what W_N recovers is the ORDER of those variants, not the
+ability to say how far apart they are.**
 
 (ii) WHERE THE REGULARIZER DOES NOT HELP, OR HURTS. Here we should clarify something
 our own caption made too easy to misread. **Table 22 is a gating-VALIDATION table, not
@@ -663,7 +664,8 @@ to order with (0.510). The feature arm delta is identical under both alignments
 (r_s +0.776), so the entire B_N gain is the head arm, which stays nonzero at W_N
 because it also measures how far the backbone rotated. The ordering signal
 therefore survives under W_N (0.965, the arm we recommend for ranking; W3), but the
-measured gaps behind it still average only ~0.03 nats, so we do not claim this
+measured gaps behind it still average only ~0.03 nats on this Llama cell (0.019
+across families), so we do not claim this
 makes the absolute drift readable. Provenance note: this is a recomputation on the
 paper's round; our fresh float64 round computed only the W_N arm.
 
@@ -708,7 +710,7 @@ target-task loss in the table.** Layer-freezing's much lower gap comes from not
 learning the task (0.924 against 0.872), which is exactly what matched plasticity is
 there to expose.
 
-On why replay was the original choice: it is the CONTROLLED comparison, same 32
+On why replay was the original choice: it is the controlled comparison, same 32
 reference sequences, same schedule, same compute as the trace penalty (Sec. 5.4).
 This remains a feasibility demonstration that the diagnosed axis is actionable, not
 a claim to beat every method.
@@ -916,7 +918,7 @@ under W1); nothing is parsed, matched against gold, or scored for accuracy, and
 in this default protocol nothing is generated either.
 
 (2) Reference-sample ablation, re-run for this rebuttal on the diagnosed task's own data:
-three new three seeds, sizes 8/32/128/512, 12 Llama variants, 5 benchmarks,
+three new seeds (43/44/45), sizes 8/32/128/512, 12 Llama variants, 5 benchmarks,
 720 cells. The decision-relevant question is whether a small slice orders the
 variants the way the full slice does, so we correlate the score computed at size n
 against the risk gap measured at n=512 for the same seed (the sizes are nested, so
@@ -1258,7 +1260,7 @@ certified and differ only in tightness and in which term carries the mismatch.
    i.e. "if feature energies blew up, Z-tilde = cZ, the shape/head terms would scale as
    c^2 and the prefactor would dominate.")
 
-> **W3.** The shape term may dominate because of feature MAGNITUDE rather than
+> **W3.** The shape term may dominate because of feature magnitude rather than
 > misalignment: scaling features and head weights by c scales both terms as c^2
 > while staying the same order before and after post-training (Tables 1, 18), so a
 > large bound would reflect a large rho_T rho_P product.
@@ -1329,9 +1331,9 @@ having the lowest downstream forgetting among the methods that keep the task
 (0.680 ± 0.016).** So it does not trade target-task performance for retention; it is
 better on both axes at once. Layer-freezing's low forgetting is bought exactly here,
 at target loss 0.924. This is also why every baseline in
-Condition C is reported at the sweep config whose target loss comes closest to the
-shape run's: comparing at matched plasticity is the only way the forgetting numbers
-mean anything.
+this comparison is reported at the sweep config whose target loss comes closest to
+the shape run's: comparing at matched plasticity is the only way the forgetting
+numbers mean anything.
 
 (3) The revision adds this as a numeric column (target-task loss beside
 downstream forgetting) for every method, and if a trade-off does appear for any
