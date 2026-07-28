@@ -138,7 +138,7 @@ front.
 | B | 8 sequences order the variants as 512 do, at 62.6x less compute than a benchmark run; unpaired claim dropped |
 | C | bound TIES CKA/SVCCA on identical features and our feature arm beats CKA; shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
 | D | r_s +0.947 free-running vs +0.958 teacher-forced, on the generation-heaviest benchmark |
-| E | 18/20 LoRA cells positive, both negatives at the noise floor; Table 22 read as the gating validation it is |
+| E | 18/20 LoRA cells positive; the two flagged cells are no-drift cells at the noise floor; Table 22 read as the gating validation it is |
 
 ONE TABLE ANSWERS MOST OF B AND C. Every score is computed on the SAME features from
 one forward pass, the risk gap recomputed from that pass. The n=8 column holds the
@@ -386,7 +386,8 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 Response:
 (i) THE WEAK CORRELATIONS. All 20 (model, fine-tuning task, benchmark) LoRA cells move
 into the main text with their aggregate: mean r_s +0.71, median +0.93, and 18 of 20
-positive. The two negative cells are Qwen-BBQ, and App. G.1 already gives the
+positive. The two flagged cells (Qwen-BBQ on MMLU and TriviaQA) are no-drift cells,
+and App. G.1 already gives the
 mechanism: their risk gap at lambda = 0 sits at about 1e-3 nats, two to three orders
 below the 1e-1 scale at which the bound is informative, because that fine-tune barely
 moves those benchmarks. **When a fine-tune leaves a benchmark essentially intact,
@@ -492,7 +493,21 @@ catastrophic forgetting.
   free from the bound, and it actually outperforms replay in the experiments.
 ···· END ORIGINAL REVIEW ····
 
-We thank the reviewer for a careful and specific review. We address these weaknesses as follows:
+We thank the reviewer for a careful and specific review. The strengths already
+credit the two technical cores (the simplex-polarization constant and the exact
+scale/shape identity); the responses below build the practical-significance case
+on them, with a measurement for each weakness rather than a restatement: the
+contribution restated as commensurable per-variant attribution (W1); the
+looseness located and then calibrated, so the bound answers "is Q4 actually good
+enough" directly, Q4_K_M predicting 0.055 nats against 0.036 measured, at 1/62.6
+the measured cost of one benchmark run on the same prompts (W2); the mixed head
+protocols behind the small Table 3 delta, with the GGUF-only correlation rising
+to 0.943 and 8 reference sequences already ranking as 512 do (W3); GSM8K kept as
+an honest limitation, including a mitigation we tested and report as failing
+(W4); EWC, L2-SP and layer-freezing added, the shape penalty leading in all
+three seeds at matched plasticity (W5); and near-isometry scoped to tightness
+alone, measured at under a fifth of the residual even at 2 bits (W6). We address
+each in turn:
 
 > **W1.** The three findings were already known; the contribution is unification, not discovery.
 
@@ -858,9 +873,9 @@ axis (the head term gamma = 75.77 of B = 76.95, Qwen3-8B-Base), the
 protocol acting on that diagnosis (BnB INT8, head unquantized) removes it, and the
 fix is verified at B = 3.81, a 20x reduction. **The attribution is causal rather
 than descriptive: on Llama-3.1-8B, final-norm rescaling, norm-preserving rotation
-and lm_head-only RTN each move only their own term, with own-axis response at
-least 2.6e5x the largest cross-axis leakage, and the bound holds in 26 of 26
-cells.**
+and lm_head-only RTN each move only their own term under the W = I default, with
+own-axis response at least 2.6e5x the largest cross-axis leakage, and the bound
+holds in 26 of 26 cells.**
 
 **In sum:** one teacher-forced pass per variant at 1/62.6 of a greedy-decode run,
 plus a causal axis attribution that a benchmark score cannot give.
@@ -1157,7 +1172,7 @@ Agreed on both counts. We will (i) define rho_T, rho_P (RMS feature scale of
 the reference feature matrices) and Omega (normalized Procrustes alignment,
 with 1-Omega the dimensionless shape residual) at first use in the
 Introduction, each with a one-line intuition; (ii) move the results Sec. 5
-argues from (the CKA/similarity comparison, the negative-cell matrix, and the
+argues from (the CKA/similarity comparison, the full 20-cell LoRA matrix, and the
 gating table, currently App. H Table 22) into the main text; (iii) add a
 notation table. Thank you for flagging these.
 
@@ -1401,8 +1416,8 @@ We thank the reviewer for the precise and technically careful reading. The
 response adds exactly what was asked: the empirical-risk restatement plus a
 McDiarmid corollary (W1); controlled single-axis interventions (W3); a
 calibration analysis worked out on the reviewer's own two example cells (W2/Q1);
-and a free-running experiment (W4/Q2). The negative cells are reported and
-explained, not hidden.
+and a free-running experiment (W4/Q2). The two cells the review flags turn out to
+be no-drift cells; they are reported and explained rather than hidden.
 
 1) W1 [原文]: Empirical Risk vs. Overall Risk: Formula (1) defines risk as the expectation
    of D, but subsequent proofs use a finite sample feature matrix without introducing a
@@ -1417,7 +1432,7 @@ explained, not hidden.
 Response:
 The reviewer is right, and we fix it exactly as suggested, both ways.
 
-(1) Theorem 1 is restated as a bound on the EMPIRICAL risk gap over the
+(1) Theorem 1 is restated as a bound on the empirical risk gap over the
 reference sample, also the quantity our diagnostic use case targets (all
 experiments evaluate on fixed reference sets; **every step of the proof (the
 per-sample triangle inequality, pointwise Lipschitz/simplex-polarization,
@@ -1428,9 +1443,10 @@ alignment residual, quantities PRISM already measures, with explicit constant
 `b <= K_feat*D_Z + sqrt(2)*C_z*||W H_T - H_P||_op`), McDiarmid's inequality
 yields `|population gap - empirical gap| <= b*sqrt(2 ln(2/delta)/N)` w.p.
 1-delta, giving the population version at an additive concentration cost. The
-constant b is finite by construction: hidden states are RMSNorm-bounded, so the
-feature diameter D_Z is finite and no unbounded-CE pathology arises. For
-sequences, N counts i.i.d. SEQUENCES (per-sequence token-averaged losses), not
+constant b is finite by construction: hidden states are RMSNorm-bounded, so D_Z
+(a bound on the aligned feature difference) and C_z are finite and no
+unbounded-CE pathology arises. For
+sequences, N counts i.i.d. sequences (per-sequence token-averaged losses), not
 tokens. The restated theorem and proof are written; we are happy to post them
 in this thread. No experimental conclusion changes, since all reported
 quantities were already empirical.
@@ -1445,12 +1461,12 @@ quantities were already empirical.
 
 > **W2 + Q1 (Q1 asks for the error analysis W2 wants).** Very loose, e.g. Llama-MMLU
 > Q2_K gives B = 266.09 against |dR| = 0.3658. Quantify the relaxation, analyse the
-> bound MAGNITUDES and not only the ordering, and say whether any operational
+> bound magnitudes and not only the ordering, and say whether any operational
 > threshold is supported.
 
 Response:
 Quantified directly, on all 570 (family, benchmark, variant) cells over the
-paper's five benchmarks. Slack B/|dR|: median 1597x, IQR [673, 3966], and NOT
+paper's five benchmarks. Slack B/|dR|: median 1597x, IQR [673, 3966], and not
 constant (log10 sd ~0.76; the reviewer's two cells, ~727x near the lower
 quartile and ~10^5x in the upper tail, are both within the observed range),
 which is exactly why we claim only ordering from the raw bound. Attribution by
@@ -1458,7 +1474,7 @@ derivation step: the Lipschitz-constant relaxation contributes only 0.13-0.40
 dex (simplex polarization already keeps K_feat tight, which bears out the
 reviewer's observation that the pairwise-diameter step improves on the
 spectral-norm bound: that step is not where the looseness lives); the dominant
-slack is the alignment/triangle remainder; and median slack SHRINKS with bit-width
+slack is the alignment/triangle remainder; and median slack shrinks with bit-width
 (Q8_0: 3.65 dex -> Q2_K: 2.78 dex), relatively tightest where degradation is
 real. Operational threshold: per-(family, benchmark) leave-one-out isotonic
 calibration of B -> |dR| achieves aggregate leave-one-out MAE 0.055 nats, the
@@ -1511,18 +1527,19 @@ them, and uncalibrated B is explicitly scoped to ranking.
 
 Response:
 Every item asked for is now measured: controlled single-axis interventions (1),
-the negative cells explained by the diagnostic's own gating analysis rather
-than hidden (2), and matched stronger baselines plus seeds, source-task
-performance, and reference-set sensitivity (3).
+the mixed Table 22 cells read through the gating analysis that table exists to
+validate, rather than hidden (2), and matched stronger baselines plus seeds,
+source-task performance, and reference-set sensitivity (3).
 
-(1) Controlled interventions (added): into ONE base model we inject (a) pure
+(1) Controlled interventions (added): into one base model we inject (a) pure
 scale change (final-norm rescale, alpha in {0.5..2}), (b) pure geometric
 distortion (norm-preserving rotation `expm(theta*A)`, token norms preserved
 exactly), (c) head-only perturbation (RTN-quantized lm_head at {8,6,4,3}
-bits, backbone untouched). Each intervention is a REAL forward-pass change, so
-the same run reports the measured |dR| and verifies the bound. Selectivity
-matrix (Llama-3.1-8B; max |term - control| within each family, MMLU /
-TriviaQA):
+bits, backbone untouched). Each intervention is a real forward-pass change, so
+the same run reports the measured |dR| and verifies the bound; all terms are
+read under the paper's W = I analysis default, the gauge in which a rotation
+against the fixed head is genuine functional damage. Selectivity matrix
+(Llama-3.1-8B; max |term - control| within each family, MMLU / TriviaQA):
 
 | intervention family | Scale term | Shape term | gamma |
 |---|---|---|---|
@@ -1538,11 +1555,12 @@ quantization (10 -> 40 -> 210 -> 541 for 8/6/4/3 bits). The interventions
 cause real measured damage (|dR| up to 1.39 nats at alpha = 0.5, 0.42 at
 3-bit head), so the attribution is causal, not correlational.
 
-(2) Negative cells: we would first note that the reviewer's own strengths already
+(2) The Table 22 cells: we would first note that the reviewer's own strengths already
 state the positive half of our gating thesis, that the shape objective "helps
 address the significant shape drift problem in Llama-TruthfulQA scenarios"; the
-gating analysis simply completes that observation by explaining the "only". One thing we should have made clearer in the paper, and the fault is ours: **Table 22
-is not a four-setting results table but a GATING-VALIDATION table.** Its rows are
+gating analysis simply completes that observation by explaining the "only". 
+One thing we should have made clearer in the paper, and the fault is ours: **Table 22
+is not a four-setting results table but a gating-validation table.** Its rows are
 ordered by decreasing 1-Omega-bar, the shape drift available to repair, and the claim
 it tests is a dose-response one: does our own diagnosis predict where the penalty will
 help? The verdict column carries that, and two of the four rows read "at noise floor
@@ -1552,8 +1570,8 @@ help? The verdict column carries that, and two of the four rows read "at noise f
 |:--|--:|--:|:--|
 | Llama TruthfulQA | 0.0937 | **-19.2%** | shape-driven, apply |
 | Llama BBQ | 0.0678 | +8.6% | cell-level mixed |
-| Qwen TruthfulQA | 0.0091 | +2.7% | at noise floor, SKIP |
-| Qwen BBQ | 0.0011 | -0.2% | at noise floor, SKIP |
+| Qwen TruthfulQA | 0.0091 | +2.7% | at noise floor, skip |
+| Qwen BBQ | 0.0011 | -0.2% | at noise floor, skip |
 
 So on the two Qwen rows the framework says not to apply the penalty at all, because
 their baseline Omega is already 0.991 and 0.999 (against Llama's 0.906 and 0.932),
@@ -1574,49 +1592,63 @@ regularizer as axis-targeted with the gating rule explicit rather than as a univ
 win. Adaptive per-cell deployment, driven by the per-benchmark decomposition online,
 is the natural next step.
 
-(3) Baselines and scope. A framing point first, because it fixes which baselines are
-the right ones: the paper's contribution is the diagnostic FRAMEWORK (the closed-form
-bound and its scale/shape/head decomposition); the shape regularizer (Sec. 5.4) is a
-demonstration that the diagnosed shape axis is ACTIONABLE, a corollary of the bound, not
-a bid to be a new state-of-the-art continual-learning method. The relevant bar is
-therefore whether acting on the diagnosis helps against general, matched baselines. On
-replay: it was not a weak or arbitrary control but the most general and most widely used
-forgetting baseline, and in our SINGLE-adapter, single-task setting it is the matched
-comparison (same reference data, schedule, and compute as the shape penalty). We agree
-more baselines strengthen the case and add the ones matched to this setting, across all
-weight-space (EWC, L2-SP) and architectural (layer-freezing) families (the feature-space
-method is the shape penalty itself), all under the identical protocol, each at the
-config matched to the shape run's target loss. On TruthfulQA over three seeds
-(42/43/44, mean ± sd) downstream forgetting is 0.680 ± 0.016 for the shape penalty
-against 0.751 ± 0.015 (EWC), 0.763 ± 0.019 (L2-SP), 0.771 ± 0.027 (replay) and
-0.815 ± 0.042 (no-reg), and the shape penalty wins in all three seeds
-individually. Layer-freezing reaches 0.404 only at target loss 0.924 against the
-shape run's 0.872, i.e. by under-training. On the four cited
-methods (SLoRA, two-phase CIT, CLAIM, ArMA): these are specialized for the SEQUENTIAL
-continual-instruction setting (a task stream), whereas our experiment mitigates
-forgetting during a single LoRA fine-tuning; they address a different problem, so a fair
-comparison means moving to their sequential benchmarks rather than adding a baseline. We
-cite all four and flag a large-scale continual-learning study as future work.
+(3) Baselines and scope, which is also Q4. A framing point first, because it fixes
+which baselines are the right ones: the paper's contribution is the diagnostic
+framework; the shape regularizer (Sec. 5.4) is a demonstration that the diagnosed
+shape axis is actionable, a corollary of the bound, not a bid to be a new
+state-of-the-art continual-learning method. The relevant bar is therefore whether
+acting on the diagnosis helps against general, matched baselines. Replay was not
+an arbitrary control: in our single-adapter, single-task setting it is the matched
+comparison (same reference data, schedule and compute as the shape penalty). We
+agree more baselines strengthen the case and add the families matched to this
+setting, weight-space (EWC, L2-SP) and architectural (layer-freezing), all
+protocol-identical, each at the sweep config closest to the shape run's target
+loss (matched plasticity). TruthfulQA, three seeds (42/43/44, mean ± sd);
+downstream forgetting is the mean risk gap over the five held-out benchmarks:
 
-(4) Reference-set sensitivity, which is Q3. On the REGULARIZER side the reference is
-the fine-tuning task's own held-out split at the paper's size, so neither its domain
-nor a domain transfer is a knob we exercise. On the DIAGNOSTIC side we re-ran the
-size ablation for this rebuttal on three new seeds and the task's own data: against
-the gap measured on the full 512-sequence slice, B_N reaches rs 0.932 ± 0.016 at 8
-sequences and 0.932 ± 0.011 at 512, and the three seeds agree on the ordering at
-0.981 (n=8) rising to 0.998 (n=512), so the 32-sequence choice the reviewer asks
-about is not load-bearing; on domain, the diagnostic bound is input-conditioned by
-construction, reading the diagnosed task's own validation items, so domain
-sensitivity arises only for the regularizer's reference measured above.
+| method | downstream forgetting | target-task loss |
+|:--|--:|--:|
+| no regularization | 0.815 ± 0.042 | 0.950 ± 0.008 |
+| replay, lambda 0.01 | 0.771 ± 0.027 | 0.899 ± 0.007 |
+| L2-SP, lambda 0.01 | 0.763 ± 0.019 | 0.901 ± 0.003 |
+| EWC, lambda 0.1 | 0.751 ± 0.015 | 0.905 ± 0.010 |
+| **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
+| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
-(5) Multiple seeds and source-task performance, the remaining two items of W3.
-**Seeds: all three (42/43/44) are complete for every method above, reported as
-mean ± sd, and the shape penalty's advantage holds in each seed separately rather
-than only on average.** Source-task performance: reported as the target-task eval
-loss beside every forgetting number, where the shape penalty is also the best
-(0.872 ± 0.005 against 0.899 replay, 0.901 L2-SP, 0.905 EWC, 0.924 for
-layer-freezing), which is how the matched-target selection is defined, so no
-method is credited for a low |dR| bought by under-training.
+The shape penalty forgets least among the methods that learn the task and wins in
+all three seeds individually; layer-freezing's lower gap is bought at target loss
+0.924, i.e. by under-training. On the four cited methods (SLoRA, two-phase CIT,
+CLAIM, ArMA): these are specialized for the sequential continual-instruction
+setting (a task stream), whereas our experiment mitigates forgetting within a
+single LoRA fine-tuning; they address a different problem, so a fair comparison
+means moving to their sequential benchmarks rather than adding a baseline here.
+App. I already lists continual learning among the paper's future directions
+("beyond LoRA forgetting: full SFT, distillation, continual learning"); the
+revision cites all four methods there, as the first concrete step of that item.
+
+(4) Reference-set sensitivity, which is Q3, measured on both sides. On the
+regularizer side we ran the size-and-domain ablation directly (Llama-TruthfulQA,
+trace at lambda 0.5, lr 1e-5, one seed, each config against its own
+no-regularization anchor): with task-domain references of 8/32/128 sequences the
+penalty cuts mean downstream forgetting by 51.1% / 50.4% / 51.2%, and swapping in
+a generic reference at n=32 still cuts it by 47.9%. **Size is not a knob
+(8 sequences already deliver the full benefit, so the 32-sequence choice the
+reviewer asks about is not load-bearing), and leaving the task's domain entirely
+costs about 2.5 points, so the regularizer does not require in-task reference
+data.** On the diagnostic side we re-ran the size ablation on three new seeds and
+the task's own data: against the gap measured on the full 512-sequence slice, B_N
+reaches rs 0.932 ± 0.016 at 8 sequences and 0.932 ± 0.011 at 512, with seed
+agreement on the ordering 0.981 (n=8) rising to 0.998 (n=512); on domain, the
+diagnostic bound is input-conditioned by construction, reading the diagnosed
+task's own validation items, a scope the revision states in the Limitations.
+
+(5) Multiple seeds and source-task performance, the remaining two items of W3;
+both live in the table of (3). **Every method is reported over all three seeds
+(mean ± sd), and the shape penalty's advantage holds in each seed
+separately rather than only on average.** Source-task performance is the
+target-task-loss column, where the shape penalty is also the best (0.872 ± 0.005);
+that column is how the matched-plasticity selection is defined, so no method is
+credited for a low forgetting number bought by under-training.
 
 4) W4 + Q2 [原文]:
    [W4] Some conclusions are broader than the evidence. The reported LoRA mean correlation
@@ -1638,17 +1670,22 @@ method is credited for a low |dR| bought by under-training.
 
 Response:
 
-(1) Agreed on prominence, and the two negative cells move into the main text with
-the mechanism App. G.1 (L770-779) already gives: **those cells are ones where the
-fine-tuned model is ROBUST, not ones where the bound fails.** At lambda=0, Qwen3-8B
-BBQ shows |dR| ~ 0.0035 nats on TriviaQA against ~0.288 on ARC inside the SAME
-fine-tuning trajectory (Table 21), two to three orders below the ~1e-1 scale at
-which the bound is informative. When a fine-tune barely moves a benchmark, ranking
-its checkpoints by that movement is uninformative by construction, and the paper
-says exactly this: the pattern is a property of the (model, task, benchmark) triple,
-Qwen3-8B BBQ on TriviaQA being robust to fine-tuning, rather than a property of the
-diagnostic. Thank you for pressing on prominence, this belongs in the main text
-rather than an appendix.
+(1) Agreed on prominence, and we move these two cells into the main text; we also
+want to be precise about what they record, because they are not failures of the
+diagnostic. The two cells are Qwen3-8B fine-tuned on BBQ, evaluated on MMLU
+(rs = -0.34) and on TriviaQA (rs = -0.66) in Fig. 7, and what those panels record
+is that **BBQ fine-tuning simply does not damage those two benchmarks: at
+lambda = 0 their |dR| sits at ~1e-3 nats (TriviaQA ~0.0035, against ~0.288 on ARC
+inside the same fine-tuning trajectory, Table 21), two to three orders of
+magnitude below the ~1e-1 scale at which the bound is informative.** With nothing
+forgotten, the checkpoints are statistical ties, and a rank correlation over ties
+is noise; a strongly positive rs there would mean the bound was fitting
+measurement noise. So those two numbers read "this model is robust to this
+fine-tune on these benchmarks": the diagnostic reporting no damage, which is the
+mechanism App. G.1 (L770-779) already states. Fig. 7's purpose is the
+cross-family replication of the drift-tracking claim, and its low-forgetting
+panels are the no-damage reading of the same instrument, not a scoreboard on
+which a negative entry is a failed case.
 
 We report it with the aggregate it qualifies: the revised main text carries the full
 20-cell matrix, **mean rs +0.71, median +0.93, and 18 of 20 cells positive**, with
@@ -1664,7 +1701,7 @@ the two cells above, whose drift is simply too small to order.
 rather than convenient: of the five benchmarks it is the only one whose answers are
 long enough for trajectory shift to exist at all, since ARC and MMLU answers are a
 single token and SQuAD and TriviaQA average about 3 to 4. Each of the 12 variants
-greedily generates its OWN continuation (mean 77.4 tokens per prompt, so its errors
+greedily generates its own continuation (mean 77.4 tokens per prompt, so its errors
 compound into its own context, exactly the regime the corollary did not cover) and
 both models are then scored on those trajectories, with the generated tokens as
 their own next-token targets, so the model-versus-model gap needs no reference
@@ -1674,9 +1711,9 @@ greedy decoding is deterministic, so a seed varies only the prompt subset):
 | statistic (12 variants, mean ± sd over 5 subsets) | value | per-subset range |
 |:--|--:|--:|
 | rs(bound, gap) teacher-forced | +0.958 ± 0.011 | 0.944 to 0.972 |
-| rs(bound, gap) FREE-RUNNING | +0.947 ± 0.015 | 0.923 to 0.965 |
+| rs(bound, gap) free-running | +0.947 ± 0.015 | 0.923 to 0.965 |
 | rank agreement, teacher-forced vs free-running bound | +0.959 ± 0.010 | 0.944 to 0.972 |
-| **cross: teacher-forced bound vs FREE-RUNNING gap** | **+0.958 ± 0.011** | 0.944 to 0.972 |
+| **cross: teacher-forced bound vs free-running gap** | **+0.958 ± 0.011** | 0.944 to 0.972 |
 
 **The last row is the operational one: the bound computed on reference text already
 predicts the degradation the variant shows on its own generated trajectories, at
@@ -1716,5 +1753,6 @@ not the validation data itself.
 **In sum:** each point above is answered with a measurement rather than a
 clarification (the restated theorem, the calibration on the reviewer's own two
 cells, the 26/26 causal interventions, the free-running result, the matched
-baselines). The reviewer's careful reading materially improved the paper; if
+baselines, and the size-and-domain reference ablations). 
+The reviewer's careful reading materially improved the paper; if
 any concern remains, we would be glad to address it during the discussion.
