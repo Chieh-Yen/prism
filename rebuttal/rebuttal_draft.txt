@@ -138,7 +138,7 @@ front.
 | B | 8 sequences order the variants as 512 do, at 62.6x less compute than a benchmark run; unpaired claim dropped |
 | C | bound TIES CKA/SVCCA on identical features and our feature arm beats CKA; shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
 | D | r_s +0.947 free-running vs +0.958 teacher-forced, on the generation-heaviest benchmark |
-| E | 18/20 LoRA cells positive; the two flagged cells are no-drift cells at the noise floor; Table 22 read as the gating validation it is |
+| E | 18/20 LoRA cells positive; the two flagged cells lack a rankable signal (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is |
 
 ONE TABLE ANSWERS MOST OF B AND C. Every score is computed on the SAME features from
 one forward pass, the risk gap recomputed from that pass. The n=8 column holds the
@@ -386,14 +386,16 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 Response:
 (i) THE WEAK CORRELATIONS. All 20 (model, fine-tuning task, benchmark) LoRA cells move
 into the main text with their aggregate: mean r_s +0.71, median +0.93, and 18 of 20
-positive. In the two flagged cells (Qwen-BBQ on MMLU and TriviaQA), one side of
-the correlation has no dynamic range left (Table 21): TriviaQA's risk gap at
-lambda = 0 is 0.0035 nats against 0.288 on ARC in the same trajectory (the target
-side has nothing to rank, App. G.1), and MMLU's backbone drift sits at the grid's
-numerical floor (1 - Omega = 0.0009, so the bound side has nothing to rank with).
-**Ranking over near-ties is uninformative by construction**, and the paper reads
-this as a property of the (model, task, benchmark) triple rather than of the
-diagnostic. On GSM8K under quantization the correlation is genuinely low at the
+positive. The two flagged cells (Qwen-BBQ on MMLU and TriviaQA) fail to rank for
+different, now-stated reasons (Table 21 plus a per-checkpoint recomputation on
+the paper's round): TriviaQA's gap sits at the noise floor (0.0035 at lambda = 0
+against 0.288 on ARC in the same trajectory, no trend across checkpoints), and
+MMLU's gap is real but non-monotone (it peaks near step 75 and partially recovers
+by step 300) while accumulated drift grows through training. **Ranking is
+uninformative there by construction, and the bound holds at every checkpoint in
+both cells**; the paper reads this as a property of the (model, task, benchmark)
+triple rather than of the diagnostic, and the revision states the two mechanisms
+separately. On GSM8K under quantization the correlation is genuinely low at the
 W = I default (0.41), but **the ORDERING is recoverable: at the Procrustes alignment
 the same cells rank at +0.698**, because W_N rotates the head and the head term then
 carries the backbone rotation that the near-tied shape term cannot pick up. The
@@ -937,7 +939,10 @@ has fewer rows than the feature dimension the two subspaces align perfectly and 
 variant scores the same. At n=8, 1-SVCCA is numerically zero on arc, mmlu, squad and
 triviaqa (median -6e-07), separating no variant at all; the exception is GSM8K, whose
 long answers give ample rows, where SVCCA works at every size. CKA degrades
-gracefully, and the bound does not degrade.
+gracefully, and the bound does not degrade. On the type of the samples: the
+reference is the diagnosed task's own validation split by construction (item 4),
+so size is the free parameter this ablation varies, and a different data type is
+not a knob but a different guarantee, the scope stated in item (4).
 
 (3) Free-running generation. We test on GSM8K specifically because it is the
 generation-heaviest, reasoning-heavy benchmark where trajectory shift is most
@@ -1009,10 +1014,15 @@ three-seed size run (table under W2), **B_N holds at r_s 0.932 from 8 sequences
 up while SVCCA collapses to 0.083 at n=8**, so the parity above is measured where
 SVCCA is at its best.
 
-(2) Regularizers: the feature-space method here is the shape
-penalty itself; the added baselines are weight-space (L2-SP, EWC) and architectural
-(layer-freezing), all protocol-identical, each at the config matched to the shape run's
-target loss. On TruthfulQA over three seeds (42/43/44, mean ± sd), downstream
+(2) Regularizers. On the "simpler feature-preserving regularizer" first: the
+simplest one, an L2 match of reference features, decomposes by Prop. 1 into
+exactly our scale arm plus our shape arm, and under frozen-head LoRA the scale
+arm is nearly inert (rho_0 ~ rho_t; Table 2 caption), so it is not a distinct
+method but approximately the shape penalty itself. The genuinely distinct
+families are therefore weight-space (L2-SP, EWC) and architectural
+(layer-freezing), which we add, all protocol-identical, each at the sweep config
+closest to the shape run's target loss. On TruthfulQA over three seeds
+(42/43/44, mean ± sd), downstream
 forgetting is 0.680 ± 0.016 for the shape penalty at lambda 1 against 0.751 ± 0.015
 (EWC), 0.763 ± 0.019 (L2-SP), 0.771 ± 0.027 (replay) and 0.815 ± 0.042 (no-reg); the
 shape penalty wins in all three seeds individually and carries the lowest target-task
@@ -1416,8 +1426,9 @@ We thank the reviewer for the precise and technically careful reading. The
 response adds exactly what was asked: the empirical-risk restatement plus a
 McDiarmid corollary (W1); controlled single-axis interventions (W3); a
 calibration analysis worked out on the reviewer's own two example cells (W2/Q1);
-and a free-running experiment (W4/Q2). The two cells the review flags turn out to
-be no-drift cells; they are reported and explained rather than hidden.
+and a free-running experiment (W4/Q2). The two cells the review flags lack a
+rankable signal, for two different reasons now stated; they are reported and
+explained rather than hidden.
 
 1) W1 [原文]: Empirical Risk vs. Overall Risk: Formula (1) defines risk as the expectation
    of D, but subsequent proofs use a finite sample feature matrix without introducing a
@@ -1671,24 +1682,24 @@ credited for a low forgetting number bought by under-training.
 Response:
 
 (1) Agreed on prominence, and we move these two cells into the main text; we also
-want to be precise about what they record, because they are not failures of the
-diagnostic. The two cells are Qwen3-8B fine-tuned on BBQ, evaluated on MMLU
-(rs = -0.34) and on TriviaQA (rs = -0.66) in Fig. 7, and Table 21 shows what each
-panel records: in both, one side of the correlation has no dynamic range left to
-rank with. **On TriviaQA it is the target side: the fine-tune barely moves the
-benchmark (|dR| = 0.0035 at lambda = 0, against 0.288 on ARC inside the same
-trajectory), two orders below the ~1e-1 scale at which per-checkpoint ranking is
-informative (App. G.1, L770-779), so the checkpoints are statistical ties. On
-MMLU it is the bound side: the backbone barely drifts geometrically (1 - Omega =
-0.0009 at step 300, at the grid's numerical floor), so the bound has almost no
-variation with which to order checkpoints, the same condition-(ii) signature
-App. H documents on Llama-BBQ.** A rank correlation over near-ties is noise, and
-a strongly positive rs on either cell would mean the score was fitting that
-noise. So the two panels read "benchmark robust to this fine-tune" and
-"fine-tune geometrically quiet on this benchmark", not "bound failure"; Fig. 7's
-purpose is the cross-family replication of the drift-tracking claim, and its
-low-signal panels are the same instrument reporting that there is nothing to
-rank, not a scoreboard on which a negative entry is a failed case.
+want to be precise about what they record, because the two mechanisms differ and
+neither is a bound failure. The cells are Qwen3-8B fine-tuned on BBQ, evaluated
+on MMLU (rs = -0.34) and on TriviaQA (rs = -0.66) in Fig. 7; Table 21 plus a
+per-checkpoint recomputation on the paper's round show what each panel records.
+**On TriviaQA the target side has nothing to rank: the fine-tune barely moves the
+benchmark (|dR| = 0.0035 at lambda = 0 against 0.288 on ARC inside the same
+trajectory, with per-checkpoint gaps within 0.002-0.03 and no trend), so the
+checkpoints are statistical ties, and a rank correlation over ties is noise
+(App. G.1). On MMLU the gap is real but non-monotone: it peaks near step 75 and
+partially recovers by step 300, while accumulated backbone drift, and with it the
+bound, grows through training, so a per-checkpoint rank correlation is
+structurally depressed; the bound holds at every checkpoint.** So the two panels
+read "benchmark robust to this fine-tune" and "forgetting that partially heals
+while drift accumulates", not "bound failure"; Fig. 7's purpose is the
+cross-family replication of the drift-tracking claim, and these panels are the
+same instrument meeting a no-signal cell and a non-monotone cell, not a
+scoreboard on which a negative entry is a failed case. The revision states the
+two mechanisms separately where App. G.1 currently groups them.
 
 We report it with the aggregate it qualifies: the revised main text carries the full
 20-cell matrix, **mean rs +0.71, median +0.93, and 18 of 20 cells positive**, with
@@ -1698,8 +1709,8 @@ floor and close to neutral elsewhere: recomputed per benchmark, three quarters o
 Table 3 gap (0.820 to 0.912) comes from GSM8K alone, the other four benchmarks moving
 by at most 0.06; LoRA freezes
 the head, so gamma = 0 at the W = I default and both alignments are certified,
-though this does not change the two cells above, whose rankable signal is simply
-too small on one side or the other.
+though this does not change the two cells above, whose rank signal is degenerate
+for the reasons already stated.
 
 (2) Free-running, which is also Q2. We test on GSM8K, and the choice is forced
 rather than convenient: of the five benchmarks it is the only one whose answers are
