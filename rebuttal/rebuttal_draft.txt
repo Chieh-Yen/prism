@@ -38,9 +38,9 @@ rather than asserted. We have taken this to heart.
 
 Claims we narrow in the revision (as the meta-review suggests), conceding what
 is genuinely limited and substantiating what is not:
-  - Theorem 1 -> a bound on the EMPIRICAL risk gap over the reference sample,
+  - Theorem 1 -> a bound on the empirical risk gap over the reference sample,
     with a concentration corollary for the population version;
-  - the RAW bound is scoped to ranking; only the CALIBRATED bound is claimed to
+  - the raw bound is scoped to ranking; only the calibrated bound is claimed to
     answer absolute thresholds;
   - the reference set is a small slice of the diagnosed task's own validation
     data; predicting one distribution's degradation from another
@@ -125,10 +125,12 @@ the strengths.
 --------------------------------------------------------------------------------
 GLOBAL RESPONSE TO THE META-REVIEW
 
-The strengths all four reviews credit, the claims we narrow, and a closing word are in
-our GENERAL RESPONSE. Every condition below is answered by a measurement run during
-the rebuttal, and the two experiments carrying most of the load are given once, up
-front.
+We thank the AC for distilling four reviews into five testable conditions: that
+structure is what allowed this rebuttal to answer with measurements rather than
+prose. The strengths all four reviews credit, the claims we narrow, and a closing
+word are in our GENERAL RESPONSE. Every condition below is answered by a
+measurement run during the rebuttal, and the two experiments carrying most of the
+load are given once, up front.
 
 **All five are met by measurement, not clarification.**
 
@@ -618,9 +620,9 @@ per variant is the alignment
 residual and the triangle slack, which is why the correlations sit near 0.9 rather
 than 1.0 and why no single multiplicative correction exists.
 
-To test whether the bound can say "good enough" and not only "worse than", we fit a
-monotone map from bound to measured gap inside each cell, holding out one variant
-at a time. **Q4_K_M on Llama-MMLU maps to a predicted 0.055 nats against a measured
+To test the reviewer's own question, whether Q4 is "actually good enough" and not
+only better than Q2, we fit a monotone map from bound to measured gap inside each
+cell, holding out one variant at a time. **Q4_K_M on Llama-MMLU maps to a predicted 0.055 nats against a measured
 0.036, both under the 0.1-nat tolerance**; over the 55 (model, benchmark) cells the
 held-out error runs 33% below predicting the cell mean, and read as an
 accept/reject rule at 0.1 nats, precision is 0.75 on this cell and 0.8 or better in
@@ -838,7 +840,10 @@ mitigate catastrophic forgetting without relying on experience replay.
 ···· END ORIGINAL REVIEW ····
 
 We thank the reviewer for pressing on cost and actionability, the two questions
-that most sharpen the paper. Summary of what we added: a measured wall-clock cost
+that most sharpen the paper. The four-part cost question in particular (forward
+passes, reference data, realistic comparison) is the checklist a practitioner
+would actually run, and answering it item by item is what produced the measured
+cost table below. Summary of what we added: a measured wall-clock cost
 table (one greedy decode 556.7 s vs PRISM's 8.9 s teacher-forced pass on the same
 GSM8K prompts, 62.6x) and controlled single-axis interventions showing each axis
 is causally actionable (W1); a reference-set ablation on three fresh seeds, an
@@ -1436,8 +1441,10 @@ explicitly in the Sec. 5.5 text and every table caption.
 scoped to tightness (W2 + Q1), the prefactor analysis on the paper's own data
 showing the shape term is driven by 1-Omega and not by feature magnitude (W3),
 and the target-task numbers showing the penalty costs no plasticity (W4 + Q3).
-We hope these resolve the quality and clarity concerns, and we are glad to
-clarify anything further.
+W3 in particular forced an analysis that made the paper better: the prefactor
+study it prompted now anchors how the shape term should be read, and the
+dimensionless variant it suggested enters the revision. We hope these resolve
+the quality and clarity concerns, and we are glad to clarify anything further.
 
 ================================================================================
 Reviewer #4, 8VrD (4: Borderline accept, conf 3), Q3/C3/S3/O3
