@@ -726,7 +726,9 @@ On the question you actually ask, whether Q4 is good enough: within a cell the b
 can be calibrated to nats. For Q4_K_M on Llama-MMLU a leave-one-out isotonic fit
 maps B = 96.75 to a predicted gap of 0.055 nats against a measured 0.036, both
 inside a 0.1-nat tolerance; in that cell its leave-one-out error is 0.040 nats
-against 0.080 for predict-the-mean, and over all 55 cells it cuts that error by 33%.
+against 0.080 for predict-the-mean, and over all 55 cells it cuts that error by 33%. The same
+procedure on three fresh seeds at the Procrustes gauge gives 0.076 against 0.104, a
+26% cut, so the calibration replicates rather than being a property of one round.
 **We will not oversell it: the fit needs a few already-measured variants in that
 cell, and in this cell precision at 0.1 nats is 0.75, one of six cells out of 55
 below 0.8, with four variants sitting within one MAE of the threshold.** So you are
@@ -771,29 +773,31 @@ is in the paper (Sec. 5.3, Table 12): Qwen3-Base Q6_K on SQuAD has near-perfect
 backbone geometry (Omega ~ 1, delta = 1.18) yet the head term 75.77 is essentially
 the whole bound B = 76.95; BnB INT8 on the same model keeps gamma = 0, B = 3.81
 (a 20x difference set entirely by whether the protocol quantizes lm_head,
-invisible to any Omega-only or CKA/SVCCA score). (2) The gain the machinery
-buys, quantified within a fixed gauge and separated per arm. Table 3's W_N block
-is cumulative, so it prices each component: the shape core alone (Omega_N)
-reaches mean rs +0.806, adding the scale arm gives delta_N +0.873 (+0.067), and
-adding the head arm gives the full bound B_N +0.912 (+0.039), i.e. **+0.106 in
-total from exactly the two terms the reviewer calls heavy, four times the +0.016
-the W=I block shows**. Per family the same ladder reads +0.839 -> +0.898 ->
-+0.927 (Llama) and +0.773 -> +0.847 -> +0.896 (Qwen3). The +0.016 is thus the
-smallest of the three numbers one can quote for the same machinery, and it comes
-from the gauge chosen for differentiability rather than for ranking (point 3).
+invisible to any Omega-only or CKA/SVCCA score). (2) What the machinery buys on RANKING, re-measured rather than quoted. We reran the
+whole comparison on three fresh seeds with float64 accumulation and no omega clamp,
+and we will not overstate the outcome: on Llama all five scores land within 0.01 of
+each other (1-CKA +0.931, 1-SVCCA +0.941, Omega_N +0.945, feature arm_N +0.944, B_N
++0.932), so the reviewer's +0.016 is the right order of magnitude and the paper's
+larger W_N ladder does not survive once the numerical artefact is removed. We say so
+rather than quote the more flattering round.
 
-(3) The alignment gauge is itself a
-ranking lever, which answers the "modest gain" point head-on: the
-rotation-invariant W_N gauge lifts the full bound from mean rs 0.820 (B, W=I)
-to 0.912 (B_N, Table 3), by quotienting out the orthogonal rotation between the
-two feature spaces that does not affect risk but adds noise to the order. For
-RANKING variants we therefore recommend W_N; we keep W=I as the default for
-ANALYSIS and deployment, since it is the differentiable, frozen-lm_head-faithful
-gauge (H_T = H_P) that yields the Sec. 3.5 regularizer and remains Theorem 1's
-certified bound when the head itself is quantized (gamma > 0). Both alignments
-are certified (App. C.1); the choice is design-driven (Sec. 5.5). (4) And the
-machinery is what DERIVES Omega as the risk-relevant similarity (App. B, not
-CKA) and yields the differentiable regularizer; the bound is the justification
+(3) Why B_N beats B_I, since the honest answer is the head term. The paper's W_N
+advantage (0.820 to 0.912, Table 3) is three quarters ONE benchmark: recomputed per
+benchmark on the paper's seven families, GSM8K goes +0.405 to +0.698 while the other
+four move by -0.02 to +0.06. The mechanism is the one Sec. 3.3 already flags. At W_N
+the head term is `||Sigma_P^(1/2) (W_N H_T - H_P)||_F`, which is nonzero even when
+H_P = H_T, so it absorbs the backbone ROTATION; at W = I the same term is exactly
+zero for every FP16-head variant (BnB, GPTQ) and therefore nearly two-valued on
+GSM8K, where it can order nothing. **On GSM8K the per-token CE differences sit at
+the noise floor and the shape term resolves nothing, so that absorbed rotation is
+the only surviving signal. That is precisely why the paper RANKS with W_N and
+ATTRIBUTES with W = I: on those cells the W_N head term is rotation, not head
+damage.** So the two gauges answer different questions by design, W = I additionally
+being the differentiable, frozen-head-faithful one that yields the Sec. 3.5
+regularizer. Both are certified for any W in O(d) (App. C.1).
+
+(4) And the machinery is what DERIVES Omega as the risk-relevant similarity (App. B,
+not CKA) and yields the differentiable regularizer; the bound is the justification
 for those two products, not overhead layered on a ranker.
 
 (5) The machinery is also what still works when the reference is SMALL. On a fresh
@@ -813,8 +817,9 @@ separated. CKA degrades gracefully, 0.903 to 0.931.
 > than an edge case, more relevant as models move toward reasoning.
 
 Response:
-We agree GSM8K's PTQ correlation is low and we analyze it rather than wave it
-away; the analysis reframes it as a drift-MAGNITUDE effect on a specific
+We agree GSM8K's PTQ correlation is low at the W=I default (W3 explains why
+W_N orders those cells better and why we still attribute at W=I), and we analyze it
+rather than wave it away; the analysis reframes it as a drift-MAGNITUDE effect on a specific
 (perturbation, benchmark) regime, not a structural failure on reasoning. Three
 points. (1) Root cause, quantified (App. F.3, Table 10): long
 teacher-forced CoT spans dilute per-token loss, collapsing GSM8K's mean |dR|
@@ -837,8 +842,9 @@ inherits it), NOT a failure of the geometry on reasoning. GSM8K is not
 intrinsically unrankable: under a perturbation that does move it, PRISM ranks it
 well, e.g. rs = +0.97 for Llama TruthfulQA-LoRA forgetting (Fig. 3). So the
 honest, precise statement is a noise-floor caveat on resolving power, which
-PRISM's own small bound signals; we do NOT claim a gauge or extraction that
-"rescues" the PTQ cells whose drift is genuinely at the floor. The Limitations
+PRISM's own small bound signals. W_N recovers the ORDER of those cells, not their
+magnitude; we do NOT claim an extraction that "rescues" the absolute drift of PTQ
+cells that sit at the floor. The Limitations
 state this as a |dR|-magnitude caveat, with GSM8K's PTQ cells as the example.
 
 5) W5 [原文]: The standard baseline for catastrophic forgetting is EWC, which the paper
@@ -1469,7 +1475,8 @@ comparison holds T fixed and varies P over the same backbone, so **within a
 essentially constant, while 1-Omega spans a median 366x dynamic range**;
 Spearman(shape term, 1-Omega) has median 1.000 (min 0.988) over the 52 cells
 with Omega variance (of 55), and the two give IDENTICAL rank correlations
-against |dR| (median 0.770). So the ordering and the diagnostic signal come
+against |dR| (median 0.770). Three fresh seeds reproduce this with room to spare
+(CV 0.53%, dynamic range 837x). So the ordering and the diagnostic signal come
 from 1-Omega; the prefactor sets units, not ranking. The divergent-norm limit
 would require feature energies blowing up relative to each other, which does
 not occur here, and would itself be a scale-axis pathology PRISM is designed to
