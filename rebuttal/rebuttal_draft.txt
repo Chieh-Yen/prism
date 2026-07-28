@@ -292,8 +292,8 @@ counterpart as diagnosed variant (proxy):
 | Qwen3-8B-Base -> Qwen3-8B | 5 / 5 | 48% | 14x beyond (0.254 vs 0.018) |
 
 Validity and decomposability persist at this distance, with the head term engaging
-at about half of B exactly as the open-head regime predicts; calibrated tightness
-there is App. C.3's regime and stays future work.
+at about half of B (pooled median 50%) exactly as the open-head regime predicts;
+calibrated tightness there is App. C.3's regime and stays future work.
 
 ------------------------------------------------------------------------------
 C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
@@ -1657,12 +1657,14 @@ rather than a shape-drift failure.** Its aggregate 1-Omega-bar = 0.0678 does exc
 noise floor, so condition (i) holds; but the drift is concentrated on ARC and MMLU,
 where substantial shape movement is NOT accompanied by proportional |dR| growth, so the
 penalty has no proportional target. On the two Llama-BBQ benchmarks where condition
-(ii) does hold, TriviaQA and GSM8K, trace yields **-88% and -79%**, which is why the
-appendix reads the aggregate +8.6% as mixed cell-level behaviour rather than a failure
-of the gating rule. We promote this analysis to the main text, and we present the
-regularizer as axis-targeted with the gating rule explicit rather than as a universal
-win. Adaptive per-cell deployment, driven by the per-benchmark decomposition online,
-is the natural next step.
+(ii) does hold, TriviaQA and GSM8K, trace yields **-88% and -79%**. The honest
+reading is therefore granular: at the setting level, where Table 22 applies the
+gate, this one row does mislead; at the per-benchmark level, where the two
+conditions are actually stated, the gate separates the cells correctly. We promote
+this analysis to the main text, present the regularizer as axis-targeted with the
+gating rule explicit rather than as a universal win, and per-benchmark gating
+(adaptive per-cell deployment, driven by the decomposition online) is the natural
+next step.
 
 (3) Baselines and scope, which is also Q4. A framing point first, because it fixes
 which baselines are the right ones: the paper's contribution is the diagnostic
