@@ -326,101 +326,78 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 > layer-freezing for the regularizer.
 
 Response:
-Both baseline families now exist under the paper's exact protocol, and the
-headline is deliberately honest: **on ranking, the bound's extra structure costs
-NOTHING, so a certified risk bound, an axis attribution and a differentiable
-penalty come for free relative to a similarity score**; and on regularization the
-shape penalty leads EWC, L2-SP, layer-freezing, and replay at matched target-task
-loss on TruthfulQA so far.
-Diagnostics: we re-extract features for every variant of both main-text
-families under the identical protocol (same proxies, same 512-sample
-token-level features) and compute linear-CKA, SVCCA, and Procrustes distance
-on the SAME features, |dR| joined from the paper's tables (n=12/11 Llama/Qwen,
-the full variant sets). We report two blocks and keep their provenance separate,
-because mixing feature extractions would make the comparison unreadable.
+Both baseline families are now RUN under the paper's exact protocol, not promised, and
+the headline is deliberately honest: **on ranking the bound TIES the similarity scores
+rather than beating them, and on regularization the shape penalty leads every baseline
+that keeps the fine-tuning task, in every seed, at matched plasticity.**
 
-Block 1, the same-features comparison the condition asks for. All three rows are
-computed on the IDENTICAL re-extracted features, so this is apples-to-apples;
-mean Spearman rs(score, |dR|) over the five benchmarks:
+(1) Diagnostic baselines, on identical features. We re-extracted features for all 12
+Llama variants over the 5 benchmarks with three fresh seeds (43/44/45, disjoint from
+the paper's), computed every score on the SAME features in one pass, and recomputed
+|dR| from the answer-span CE of that same pass. Accumulation is float64 with no omega
+clamp, so no numerical artefact is shared between rows. Mean Spearman rs(score, |dR|)
+over the five benchmarks, mean +- sd over seeds:
 
-| score (identical re-extracted features) | Llama | Qwen3 | mean r_s |
-|:--|--:|--:|--:|
-| 1-CKA | +0.924 | +0.882 | +0.903 |
-| 1-SVCCA | +0.924 | +0.878 | +0.901 |
-| our feature arm delta_N (= the Procrustes distance) | +0.930 | +0.873 | +0.901 |
+| score (identical features, 12 Llama variants) | mean r_s |
+|:--|--:|
+| 1-CKA | +0.931 ± 0.008 |
+| 1-SVCCA | +0.941 ± 0.014 |
+| 1-Omega_N (our shape core) | +0.945 ± 0.014 |
+| our feature arm delta_N (= the Procrustes distance) | +0.944 ± 0.012 |
+| PRISM B_N (full certified bound) | +0.932 ± 0.011 |
 
-Block 2, what the bound's components contribute, taken from the paper's own
-Table 3 (a single pipeline, W_N alignment, cumulative rows):
+(2) What that licenses, and what it does not. Paired over the 15 (seed, benchmark)
+cells with 95% bootstrap intervals: B_N minus 1-CKA is +0.001 [-0.004, +0.007], B_N
+minus 1-SVCCA is -0.008 [-0.021, +0.003], and our feature arm minus 1-CKA is +0.013
+[+0.004, +0.022]. **So we do NOT claim a ranking advantage for the full bound: against
+both scores it is a tie. The only paired difference whose interval excludes zero is
+our feature arm over CKA, at +0.013.** Within our own family the shape core alone
+ranks marginally highest (0.945) against the full bound's 0.932, so the head and scale
+terms buy validity and attribution rather than ranking, and we present them that way.
+The median per-cell gap between our arm and either score is 0.000 and the largest is
+0.056, so nothing rests on one cell. The Qwen re-extraction is running; the paper's
+own single-seed round over both families gives the same verdict.
 
-| component (paper Table 3, W_N block) | Llama | Qwen3 | mean r_s |
-|:--|--:|--:|--:|
-| Omega_N (shape core alone) | +0.839 | +0.773 | +0.806 |
-| delta_N (+ scale; = the Procrustes distance) | +0.898 | +0.847 | +0.873 |
-| B_N (+ head; full certified bound) | +0.927 | +0.896 | +0.912 |
+(3) Why they land together, and what our contribution actually is. **Our feature arm
+IS the Procrustes size-and-shape distance: delta_N^2 = (rho_T - rho_P)^2 + 2 rho_T
+rho_P (1 - Omega_N), which equals `(||Z_T||_F^2 + ||Z_P||_F^2 - 2||Z_T^T Z_P||_*)/n`,
+the squared orthogonal-Procrustes residual.** So Procrustes is not an external
+competitor but the feature half of our own bound, and CKA/SVCCA are rotation-invariant
+readings of the same geometric agreement. The paper draws the consequence itself (App.
+A.1, L467-473): the contribution "is not the Procrustes distance itself", it is "the
+explicit split of this residual into the scale term and the shape term, which the
+shape-metric literature treats jointly as a single descriptive dissimilarity", plus
+"its lifting to a functional-risk bound". CKA is not substitutable into that residual
+either: it differs in its denominator, relates to our shape core only by the
+inequality CKA >= Omega_F^2, and is not derived from any alignment optimisation (App.
+B).
 
-[Provenance, so the two blocks are read correctly. Block 1 recomputes every score
-on ONE fresh extraction, which is what makes the CKA/SVCCA comparison
-like-for-like; Block 2 quotes the paper's own round. Absolute levels therefore
-differ slightly between blocks, and every claim below uses only WITHIN-block
-comparisons.]
+(4) Where it is NOT a tie: small reference slices. Holding the target gap at n=512 and
+varying only the slice the score is computed on, **B_N holds at rs 0.932 from 8
+sequences upward while SVCCA collapses to 0.083 at n=8**; CKA degrades gracefully,
+0.903 to 0.931. The mechanism is identifiable: canonical correlation is invariant to
+invertible maps inside each subspace, so once the slice has fewer rows than the
+feature dimension the two subspaces align perfectly and no variant is separated. A
+practitioner screening on a handful of sequences gets an ordering from the bound and
+noise from SVCCA.
 
-The dead heat does not rest on any single cell, and we checked this three ways.
-Because all three scores are read from the SAME features they move together, so
-what matters is the difference, not the level: (i) the largest gap between our
-feature arm and either similarity score in any of the ten (family, benchmark)
-cells is 0.036; (ii) dropping any one of the five benchmarks changes the pooled
-paired difference by at most 0.006; and (iii) two independent extractions that
-differ 3.2x in token budget reproduce every cell of the comparison to four
-decimals. No single benchmark and no extraction detail drives the result.
+(5) And three things no similarity score supplies at any slice size. A RISK BOUND:
+none of CKA/SVCCA/Procrustes bounds |dR| at all. AXIS ATTRIBUTION (Sec. 5.3): the
+bound separates scale, shape and head, so it says WHICH axis drove the degradation.
+Qwen3-8B-Base Q6_K on SQuAD has near-perfect backbone geometry (Omega ~ 1, delta =
+1.18) yet its head term is 75.77 of B = 76.95, while BnB INT8 on the same model keeps
+gamma = 0 at B = 3.81; that 20x difference is set entirely by whether the protocol
+quantizes lm_head and is invisible to any similarity score. The identity alignment
+also leads on extraction-QA (SQuAD B_I +0.811 Llama, +0.955 Qwen3-Base), where the
+scale arm carries the signal. A DIFFERENTIABLE PENALTY (Sec. 5.4), which is what the
+second half of this condition tests.
 
-Why Block 1 lands together, stated precisely. **Our feature arm delta_N IS the
-Procrustes size-and-shape distance: delta_N^2 = (rho_T - rho_P)^2 +
-2 rho_T rho_P (1 - Omega_N) = (||Z_T||_F^2 + ||Z_P||_F^2 - 2||Z_T^T Z_P||_*)/n,
-which is exactly the squared orthogonal-Procrustes residual (App. A.1). So
-Procrustes is not an external competitor but the feature half of our own bound,
-and CKA/SVCCA are rotation-invariant readings of that same geometric agreement**.
-On identical features a paired bootstrap over variants (5000 resamples) puts our
-feature arm at -0.002 versus 1-CKA (95% CI [-0.038, +0.011]) and -0.000 versus
-1-SVCCA ([-0.014, +0.019]): statistically indistinguishable, which is the
-expected outcome once the algebra above is granted.
-We are careful not to overstate the relation. CKA is NOT substitutable into our
-residual: it differs in its denominator, is related to our shape core only by the
-inequality CKA >= Omega_F^2, and is not derived from any alignment optimization
-(App. B). It is a close relative, not the same object. Symmetrically, our
-contribution was never the Procrustes distance itself; as App. A.1 states, it is
-(a) the explicit SPLIT of that residual into a scale term and a shape term, which
-the shape-metric literature treats as one descriptive dissimilarity and which
-Sec. 4 shows dominate under different lifecycle settings, and (b) its LIFTING to
-a functional-risk bound (Theorem 1).
-
-What we do and do not claim, in two within-block steps. (i) We do NOT claim a
-ranking advantage over CKA/SVCCA: on identical features Block 1 is a statistical
-dead heat, and we report it as such. (ii) Within the paper's own round, adding the
-remaining bound components does not cost ranking but adds to it: +0.067 from the
-scale arm (Omega_N -> delta_N) and +0.039 from the head arm (delta_N -> B_N).
-Chaining the two: our feature arm sits at the CKA/SVCCA level, and the full
-certified bound sits at or above its own feature arm. So the certified bound, the
-axis attribution and the differentiable penalty are obtained at no ranking cost
-relative to a similarity score.
-Those three are what a similarity score cannot supply. (a) A RISK BOUND: none of
-CKA/SVCCA/Procrustes bounds |dR| at all. (b) AXIS ATTRIBUTION (Sec. 5.3): the
-bound separates scale, shape, and head, so it localizes WHICH axis drove a
-variant's degradation, not merely that it drifted. The identity alignment B_I, for
-instance, leads on extraction-QA (SQuAD +0.811/+0.955), where its scale arm
-carries the ranking signal a similarity score cannot see. (c) A DIFFERENTIABLE
-REGULARIZER (Sec. 5.4). Since CKA is bounded only by the inequality
-CKA >= Omega_F^2 and is not alignment-derived (App. B), it cannot define the
-attribution, let alone the bound or the training signal.
-Regularization: the shape regularizer is a demonstration that the framework's diagnosed
-axis is actionable, so its matched baselines are general forgetting methods in our
-single-task setting. As the meta-review suggests, we add layer-freezing (LoRA on the
-top-K layers, K in {4,8,16}) alongside EWC (diagonal Fisher) and L2-SP, all under the
-paper's exact protocol, each reported at the config whose target-task loss matches the
-shape run's (equal plasticity, so a baseline is not rewarded for under-training). On
-TruthfulQA so far (seed 42; downstream = mean |dR| over the five held-out benchmarks):
-all three seeds are
-now complete (42/43/44; mean ± sd over seeds, downstream = mean |dR| over the five
-held-out benchmarks):
+(6) Regularizer baselines, at matched plasticity. As the meta-review asks, we add
+layer-freezing (LoRA on the top-K layers, K in {4, 8, 16}) alongside EWC (diagonal
+Fisher) and L2-SP, all under the paper's exact protocol, each reported at the config
+whose target-task loss MATCHES the shape run's so that no baseline is rewarded for
+under-training. TruthfulQA, three seeds (42/43/44), downstream = mean |dR| over the
+five held-out benchmarks:
 
 | method (TruthfulQA, 3 seeds) | downstream forgetting | target-task loss |
 |:--|--:|--:|
@@ -433,13 +410,16 @@ held-out benchmarks):
 
 Three readings. (a) The shape penalty is lowest on forgetting among the methods that
 keep the fine-tuning task, and it beats every one of them in ALL THREE seeds
-individually, by +0.050 to +0.157, so the ordering is not a seed artefact. (b) It
-also carries the LOWEST target-task loss in the table (0.872), so the reduction is
-not bought with plasticity. (c) Layer-freezing reaches a much lower |dR| only by not
-learning the task: target loss 0.924 against the shape run's 0.872. SLoRA, two-phase CIT, CLAIM, and ArMA are
-specialized for the sequential continual-instruction setting (a task stream), a
-different problem than our single fine-tuning; we cite all four and leave a matched
-comparison there to future work.
+individually, by +0.050 to +0.157, so the ordering is not a seed artefact. (b) It also
+carries the LOWEST target-task loss in the table (0.872), so the reduction is not
+bought with plasticity. (c) Layer-freezing reaches a much lower |dR| only by not
+learning the task: target loss 0.924 against the shape run's 0.872.
+
+(7) The four named methods. SLoRA, two-phase CIT, CLAIM and ArMA are specialised for
+the sequential continual-instruction setting, a task stream, whereas this experiment
+mitigates forgetting inside a SINGLE LoRA fine-tuning. A fair comparison means moving
+to their sequential benchmarks rather than dropping them in here, so we cite all four
+and flag that study as future work.
 
 --------------------------------------------------------------------------------
 D + W-4b: free-running generation
