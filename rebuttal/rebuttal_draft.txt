@@ -651,7 +651,18 @@ small and stable.
 > chain-of-thought explanation makes it structural rather than an edge case, more
 > relevant as models move toward reasoning.
 
-Response: We agree GSM8K's PTQ correlation is low at the W=I default (W3 explains
+Response: We agree GSM8K's PTQ correlation is low at the W=I default 
+這點我們在 XXX 有討論. 
+而本文中有解釋使用 W=I 的原因, 是因為想要分析 YYY
+我們想展開 orthogonal alignment 的設定下, GSM8K 的狀況.
+
+[實驗 table]
+
+我們可以發現 GSM8K 的 score 提升了
+[開始解釋 head term 的部分]
+
+"""
+(W3 explains
 why W_N orders those cells better and why we still attribute at W=I), and we analyze
 it rather than wave it away; the analysis reframes it as a drift-MAGNITUDE effect on
 a specific (perturbation, benchmark) regime, not a structural failure on reasoning.
@@ -699,6 +710,8 @@ PRISM's own small bound signals. W_N recovers the ORDER of those cells, not thei
 magnitude; we do NOT claim an extraction that "rescues" the absolute drift of PTQ
 cells that sit at the floor. The Limitations
 state this as a |dR|-magnitude caveat, with GSM8K's PTQ cells as the example.
+"""
+
 
 > **W5.** EWC is the standard forgetting baseline, cited but never compared against;
 > comparing only to small-scale replay is convenient.
