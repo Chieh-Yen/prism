@@ -490,45 +490,48 @@ catastrophic forgetting.
   free from the bound, and it actually outperforms replay in the experiments.
 ···· END ORIGINAL REVIEW ····
 
-We thank the reviewer for the generous account of the paper's strengths 並提出值得澄清的內容.
-Summary of what we added for the points raised: 
- - the contribution of PRISM (W1)
- - the looseness and a calibration analysis that answers "is Q4 good enough" (W2)
- - ranking is only one of the machinery's outputs (W3)
- - the orthogonal alignment for GSM8K (W4) 
- - more baselines: EWC, L2-SP, layer-freezing (W5)
- - the orthogonal alignment affects only how LOOSE the bound is, never whether it holds (W6)
+We thank the reviewer for a careful and specific review. Every point below is
+answered with a measurement rather than a clarification. What we added:
+
+ - W1: what the contribution actually is, stated as per-variant attribution on a
+   COMMON SCALE rather than as discovery of the three phenomena;
+ - W2: the looseness decomposed into its sources, plus a calibration that answers
+   "is Q4 good enough";
+ - W3: what the machinery buys once ranking is set aside;
+ - W4: why GSM8K's ORDERING recovers under the Procrustes alignment, and what still
+   does not;
+ - W5: three added baselines (EWC, L2-SP, layer-freezing), each at matched
+   target-task loss;
+ - W6: a measurement of what the orthogonality restriction costs, which is tightness
+   only and never validity.
 
 > **W1.** The three findings (low-bit breaks feature geometry, LoRA shifts
 > activation scale, quantized lm_head diverges) were already known; the contribution
 > is unification, not discovery.
 
 Response:
-We're grateful the reviewer identifies the simplex-polarization Lipschitz
-constant and the exact scale/shape identity as real contributions: those are
-the technical core, and neither existed before this paper.
-Building on them, 如同 reviewer 說的 our claimed contribution 
-is not the discovery of the three phenomena but the
-**first quantitative instrument that makes them COMMENSURABLE: all
-three axes are expressed in the same units (contribution to a certified
-CE-risk-gap bound)**, so for a given variant one can compute WHICH axis dominates
-and by how much, which qualitative prior knowledge cannot. 
-This is exactly what enables 
- - (i) ranking variants from one teacher-forced pass over a small reference
-slice (sampled from the task's own validation data), with no decoding and no
-answer grading, 
- - (ii) decomposing a variant's drift into the three axes and mapping each to a remediation direction, and 
- - (iii) turning the shape axis into a differentiable training objective.
+We are grateful that the reviewer identifies the simplex-polarization Lipschitz
+constant and the exact scale/shape identity as real contributions: those are the
+technical core, and neither existed before this paper. Building on them, and
+agreeing with the reviewer's framing, our claimed contribution is not the discovery
+of the three phenomena but the **first quantitative instrument that makes them
+COMMENSURABLE: all three axes are expressed in the same units, namely each one's
+contribution to a certified CE-risk-gap bound.** Prior work could say that low-bit
+quantization distorts feature geometry and that LoRA shifts activation scale, but
+not, for one given variant, WHICH axis accounts for its degradation and by how much.
+That common scale is what did not exist.
 
-Concretely, what did not exist before is a COMMON SCALE:
-prior work could say that low-bit quantization distorts geometry and that LoRA
-shifts activation scale, but not, for one given variant, **which axis accounts for
-its degradation and by how much**. Sec. 5.3's Q6_K case is that statement in
-practice: the head axis alone is 75.77 of a bound of 76.95, so the backbone
-geometry is demonstrably not what to fix there.
-感謝 reviewer 的提醒, in the revision the Introduction will
-states the contribution as this commensurable, per-variant attribution across the
-three axes, not as the discovery of the phenomena themselves.
+Three things follow from it. (i) A variant's drift decomposes into three numbers
+that can be compared against each other and mapped to a remediation direction. (ii)
+Variants can be ranked from a single teacher-forced pass over a small reference
+slice drawn from the task's own validation data, with no decoding and no answer
+grading. (iii) The shape axis becomes a differentiable training objective.
+
+Sec. 5.3's Q6_K case is that statement in practice: on Qwen3-8B-Base the head axis
+alone accounts for 75.77 of a bound of 76.95, so the backbone geometry is
+demonstrably not what to fix there. Taking the reviewer's point, the revision states
+the contribution in the Introduction as this commensurable, per-variant attribution
+across the three axes, rather than as the discovery of the phenomena themselves.
 
 > **W2.** Loose by orders of magnitude and calibrated only for ranking: it says Q2
 > is worse than Q4, not whether Q4 is good enough. Benchmarks still needed for that.
