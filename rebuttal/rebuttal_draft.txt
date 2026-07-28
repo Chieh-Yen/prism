@@ -1175,11 +1175,11 @@ notation table. Thank you for flagging these.
 Response:
 The load-bearing reason is the linear head, not the representation hypotheses. Our
 own presentation hides that: L112-115 motivates the restriction by empirical
-isometry, **which says why orthogonality is CHEAP, not why it is NECESSARY.** The
-necessity came from a workflow we needed before we had any theory. We had to compare
-many quantized and fine-tuned variants of the same base model, filter the clearly
-decayed ones without running a full benchmark suite on each, and be told WHICH axis
-to repair. **That asks two things of the quantity: the damage must not be fittable
+isometry, **which says why orthogonality is cheap, not why it is necessary.** The
+necessity came from the workflow the tool serves. We need to compare many quantized
+and fine-tuned variants of one base quickly, from a single teacher-forced pass each
+rather than a benchmark suite, and be told which axis to repair when a variant
+decays. **That asks two things of the quantity: the damage must not be fittable
 away, and whatever remains must divide into parts one can act on.** Steps (1) and
 (2) are those two requirements; (3) is where the hypotheses come in.
 
@@ -1189,12 +1189,12 @@ and (Z_P A)(A^-1 H_P) are the same proxy model. **So a feature discrepancy measu
 after an unrestricted invertible alignment is not identifiable: the damage can
 always be pushed through A into the head and fitted away.** O(d) is exactly the set
 of linear maps that leaves the geometry the head reads out untouched: an orthogonal
-W only RE-ORIENTS the proxy's feature cloud, preserving every norm, distance and
+W only re-orients the proxy's feature cloud, preserving every norm, distance and
 angle inside it, so what it leaves is distortion the head genuinely has to absorb.
 
 (2) What the restriction buys: two axes that can be read separately. Over O(d) the
 mean squared feature residual splits with no approximation into `(rho_T - rho_P)^2`
-plus `2 rho_T rho_P (1 - Omega_W)` (Prop. 1, L125), and the rho are MEASURED RMS
+plus `2 rho_T rho_P (1 - Omega_W)` (Prop. 1, L125), and the rho are measured RMS
 feature scales rather than fitted parameters, which is what lets scale mismatch and
 shape mismatch be attributed separately. Under a general linear map the identity is
 unavailable, since the map itself carries scale and shear; larger groups do have
@@ -1202,19 +1202,21 @@ closed-form solutions, just not a residual that still means anything.
 
 (3) Where the hypotheses enter, and all they are needed for: they make the
 restriction cheap. The linear/platonic results say that related models tend to align
-well under near-orthogonal maps, which is why a single orthogonal W is SUFFICIENT in
+well under near-orthogonal maps, which is why a single orthogonal W is sufficient in
 practice, i.e. why the bound is tight rather than vacuous. Quantitatively: on
 Llama-3.1-8B, lifting the restriction to an unrestricted linear map shrinks the
 feature residual by under a fifth on average even at 2 bits, and by at most 0.29 in
-any single cell. **Validity does not depend on any of this: Theorem 1 holds for ANY
+any single cell. **Validity does not depend on any of this: Theorem 1 holds for any
 W in O(d) (L132, App. C.1), so if the hypotheses were false the bound would merely
 loosen, never break.**
 
 One distinction is worth making explicit, since it is the likeliest residue of the
-confusion: the paper chooses at two levels. The GROUP is forced, by (1) and (2).
-Which MEMBER of it we use is not: we report W = I and the Procrustes W_N, and the
-paper calls that choice "primarily design-driven" (L145-152), because both are valid
-and differ only in tightness and in which term carries the mismatch.
+confusion: the paper chooses at two levels. The group is forced, by (1) and (2).
+Which member of it we use is not; it is a design parameter the family hands us for
+free: W = I for analysis and the regularizer (differentiable, head term exactly
+zero when the head is untouched), W_N when the goal is a correct ordering. The
+paper calls that choice "primarily design-driven" (L145-152) because both are
+certified and differ only in tightness and in which term carries the mismatch.
 
 3) W3 [原文]: In the experiments, to me it seems the shape mismatch term dominating the
    risk bound is due to the scale of the feature matrices themselves, rather than the actual
@@ -1234,25 +1236,37 @@ and differ only in tightness and in which term carries the mismatch.
 > large bound would reflect a large rho_T rho_P product.
 
 Response:
-The reviewer's algebra is exactly right, if feature energies blew up
+The reviewer's algebra is exactly right: if feature energies blew up
 (Z-tilde = cZ, large c), the shape and head terms would scale as c^2 and the
 prefactor would dominate. We show, on the paper's own data, that this case does
-not arise among variants of a SHARED backbone. The shape term
-`rho_T*rho_P*(1-Omega)` is (up to constants) the aligned residual ENERGY
+not arise among variants of a shared backbone. The shape term
+`rho_T*rho_P*(1-Omega)` is (up to constants) the aligned residual energy
 `||Z_T - s Z_P O||^2_F`: the prefactor carries physical units (logits scale with
 feature norm x head norm), 1-Omega is the dimensionless geometric part. Every
 comparison holds T fixed and varies P over the same backbone, so **within a
 (family, benchmark) cell `rho_T*rho_P` varies with median CV 0.63% (p90 7.9%),
 essentially constant, while 1-Omega spans a median 366x dynamic range**;
 Spearman(shape term, 1-Omega) has median 1.000 (min 0.988) over the 52 cells
-with Omega variance (of 55), and the two give IDENTICAL rank correlations
+with Omega variance (of 55), and the two give identical rank correlations
 against |dR| (median 0.770). Three fresh seeds reproduce this with room to spare
 (CV 0.53%, dynamic range 837x). So the ordering and the diagnostic signal come
-from 1-Omega; the prefactor sets units, not ranking. The divergent-norm limit
-would require feature energies blowing up relative to each other, which does
-not occur here, and would itself be a scale-axis pathology PRISM is designed to
-flag. We additionally report the dimensionless `delta/(rho_T*rho_P)` alongside
-delta in the revision; rankings are unchanged.
+from 1-Omega; the prefactor sets units, not ranking. This is also why the
+inflation the reviewer worries about could not reorder even if it were larger:
+the cell's other constants are shared too (K_feat depends only on the target
+head, K_pred = 2 universally), and a factor common to every variant of a cell
+inflates all bounds together, which is exactly why the paper reports within-cell
+rank correlations rather than absolute values.
+
+Two boundary cases complete the answer. The premise that rho_T stays close to
+rho_P is model-dependent rather than guaranteed, and the paper itself contains
+the exception: Qwen3-Base Q2_K on GSM8K, where rho_P jumps from 267 to 313
+(|Delta rho| = 46), is called out in Sec. 5.3 as a scale-axis outlier, exactly
+the channel the decomposition separates so that it can be flagged. And the
+divergent-norm limit (feature energies blowing up relative to each other) is
+that same pathology taken to the extreme; RMSNorm-bounded hidden states keep
+feature energies finite in practice, so it cannot arise silently. We
+additionally report the dimensionless `delta/(rho_T*rho_P)` alongside delta in
+the revision; rankings are unchanged.
 
 4) W4 + Q3 [原文]:
    [W4] Although the proposed regularization helps close the pre-trained &
@@ -1263,25 +1277,27 @@ delta in the revision; rankings are unchanged.
    baselines (no regularization and replay-CE)?
 
 > **W4 + Q3 (Q3 = "See Weakness 4").** How does the shape regularization affect the
-> fine-tuned model on its OWN downstream task, and does it match the
-> no-regularization and replay-CE baselines there?
+> fine-tuned model on its own downstream task (the task it is fine-tuned on), and
+> does it match the no-regularization and replay-CE baselines there?
 
 Response:
 It does not degrade the target task, and the check is already in the paper: we
 will make it unmissable and add numbers.
 
-(1) Versus no-reg and replay-CE, the two baselines Q3 names. The FIRST column of
-Fig. 4 (Fig. 8 for Qwen), "Fine-tune Dataset", plots dR on the fine-tuning task
-itself for all three configurations (no-reg / replay / trace) across training,
-and the three trajectories essentially coincide through step 300: the shape
-penalty buys its reduction in downstream forgetting without giving up target-task
-learning at the operating points used. We recognize this column is easy to miss
-and will label it explicitly.
+(1) Versus no-reg and replay-CE, the two baselines Q3 names. The first column of
+Fig. 4 (Fig. 8 for Qwen), "Fine-tune Dataset", plots the signed risk change on
+the fine-tuning task itself for all three configurations (no-reg / replay /
+trace) across training. Since the y-axis is Delta R relative to the base, below
+zero means the model is improving on its own task, and all three trajectories
+descend below zero together and essentially coincide through step 300: the shape
+penalty buys its reduction in downstream forgetting without giving up
+target-task learning at the operating points used. We recognize this column is
+easy to miss and will label it explicitly.
 
 (2) Versus the newly added baselines, numerically, over three seeds (42/43/44,
 mean ± sd). **Target-task loss: shape penalty 0.872 ± 0.005, replay 0.899 ± 0.007,
 L2-SP 0.901 ± 0.003, EWC 0.905 ± 0.010, layer-freeze 0.924 ± 0.001 (top 16). The
-shape penalty has the LOWEST target-task loss of every method compared, while also
+shape penalty has the lowest target-task loss of every method compared, while also
 having the lowest downstream forgetting among the methods that keep the task
 (0.680 ± 0.016).** So it does not trade target-task performance for retention; it is
 better on both axes at once. Layer-freezing's low forgetting is bought exactly here,
@@ -1323,8 +1339,12 @@ quantity |dR|, the benchmark-measured CE gap between target and proxy under the 
 evaluation protocol (defined in Sec. 5.1; also stated in the captions of
 Table 1 and Fig. 2, "r_s(B, |dR|)"), and r_s is computed between each bound
 term and |dR| across all variants within a (family, benchmark) cell; Table 3
-aggregates over the 10 cells. We will state this explicitly in the Sec. 5.5
-text and every table caption.
+aggregates over the 10 cells. One nuance, since the reviewer asks precisely:
+Eq. (1) defines the population risk, and every reported quantity, the bound and
+|dR| alike, is its empirical counterpart on the fixed held-out subsets of Sec.
+5.1; the revision restates Theorem 1 at that empirical level, with a
+concentration corollary recovering the population version. We will state both
+explicitly in the Sec. 5.5 text and every table caption.
 
 **In sum:** the four substantive changes are the notation and presentation fixes
 (W1), the identifiability argument for orthogonal alignment with the hypotheses' role
