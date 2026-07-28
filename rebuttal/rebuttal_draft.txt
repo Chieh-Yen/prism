@@ -997,8 +997,8 @@ fifth on average.**
 The same measurement answers "already severely distorted" from the other side: even
 after the oracle linear alignment, 26% (Q4_K_M) and 57% (Q2_K) of the relative
 residual remains on MMLU. Most of what aggressive quantization does is not linearly
-alignable at all, so the bound is charging genuine degradation, not a gauge
-artefact.
+alignable at all, so the bound is charging genuine degradation, not an artefact of
+the orthogonal restriction.
 
 **In sum:** the three answers share one shape. We locate the looseness instead of
 disputing it, and two of its three sources are cell constants, which is why the
