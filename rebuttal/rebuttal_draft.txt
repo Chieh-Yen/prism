@@ -524,39 +524,39 @@ across the three axes, rather than as the discovery of the phenomena themselves.
 
 Response:
 
-We agree the bound is loose, and that is exactly why we claim an ordering rather
-than an absolute value. Rather than defend the number we located WHERE the looseness
-sits. Slack, the ratio of the bound to the risk gap it bounds, has median 1597x over
-570 cells and comes from three sources:
+We agree the bound is loose, and that is exactly why the paper claims an ordering
+rather than a value. Rather than defend the number, we measured where the looseness
+sits. Slack, the ratio of the bound to the risk gap it bounds, has a median of 1597x
+over 570 cells, and it separates into two measured steps. **Replacing the worst-case
+Lipschitz constant with the largest sensitivity actually observed accounts for a
+factor of under 2.5x. The triangle step, which bounds the target-to-hybrid and
+hybrid-to-proxy legs separately instead of letting them cancel, accounts for the
+remaining 140x to 3000x and is therefore the dominant term.** A third fact is about
+units rather than slack: delta carries the square root of the scale prefactor 2
+rho_T rho_P, about 200 on Llama/MMLU, which is why the bound reads in nats times a
+large constant rather than in nats.
 
- - the worst-case Lipschitz constant K_feat, which contributes a factor of only about
-   1.4x to 2.5x;
- - the scale prefactor 2 rho_T rho_P inside delta^2, about 3.9e4 on Llama/MMLU, so the
-   bound is measured in nats times a large constant;
- - the triangle step, which bounds the target-to-hybrid and hybrid-to-proxy legs
-   separately instead of letting them cancel, and which dominates at a factor of about
-   140x to 3000x.
+**What matters for the ranking claim is that those constants are fixed within a
+(model, benchmark) cell.** K_feat and K_pred depend only on the target model's head,
+and the prefactor rho_T rho_P varies across the variants of one cell with a median
+coefficient of variation of 0.63%, a standard deviation under one percent of its own
+mean. A factor that is the same for every variant inflates every bound by the same
+multiple and cannot reorder them, which is why the paper reports rank correlations
+inside a cell rather than absolute values. What does vary per variant is the
+alignment residual and the triangle slack, and that is both why the correlations sit
+near 0.9 rather than 1.0 and why no single multiplicative correction exists: in
+log10 units the slack has a standard deviation of 0.76, so slack itself varies by
+about a factor of six from cell to cell. It does shrink toward the low bit-widths,
+from about 4500x at Q8_0 to about 600x at Q2_K, so the bound is relatively tightest
+where the degradation is real.
 
-**The first two are constant within a cell. K_feat and K_pred depend only on the
-target head, and rho_T only on the target model and benchmark, so they inflate every
-variant's bound by nearly the same multiple and cannot reorder them.** Across the
-variants of one cell the prefactor rho_T rho_P has a median coefficient of variation
-of 0.63%, that is, a standard deviation less than one percent of its own mean. That
-is why the paper reports an ordering and computes rank correlations per (model,
-benchmark) cell: the ranking claim is not a retreat from an absolute one, it is the
-claim the construction supports. Only the third source varies per variant, which is
-both why the correlations sit near 0.9 rather than 1.0 and why no single
-multiplicative correction exists: in log10 units the slack has a standard deviation
-of 0.76, so slack itself varies by about a factor of six from cell to cell.
-
-On the question actually asked, whether Q4 is good enough: within a cell the bound
-can be calibrated to nats by a monotone fit, evaluated leave-one-out so that each
-variant is predicted by a map that never saw it. **For Q4_K_M on Llama-MMLU it takes
-B = 96.75 to a predicted 0.055 nats against a measured 0.036, both inside a 0.1-nat
-tolerance**, and across the 55 cells it cuts the held-out error by 33% against
-predicting the cell mean; three fresh seeds replicate that. **We will not oversell
-it: the map needs a few already-measured variants of the same cell, and precision at
-the 0.1-nat tolerance is 0.75 here against 0.8 or better in 49 of the 55 cells.**
+To test whether the bound can say "good enough" and not only "worse than", we fit a
+monotone map from bound to measured gap inside each cell, holding out one variant at
+a time. **Q4_K_M on Llama-MMLU maps to a predicted 0.055 nats against a measured
+0.036, both under the 0.1-nat tolerance**, and over the 55 cells the held-out error
+runs 33% below predicting the cell mean. In plain terms: once a few variants in a
+cell have been measured, the bound flags which of the rest are safe, at 0.75
+precision here and 0.8 or better in 49 of the 55 cells.
 
 So the last word does come from a benchmark run, as the reviewer says. What changes
 is the cost of getting there, and the reason is simply that PRISM reads text under
@@ -572,17 +572,6 @@ TEACHER FORCING while a benchmark must GENERATE it. On 256 GSM8K prompts, one RT
 The gap is structural rather than a fixed constant, since it grows with generation
 length, so a practitioner can screen every candidate under teacher forcing and spend
 the decoding budget only on the finalists.
-
-Two things are worth adding. The calibration transfers the NUMBER, not the
-tolerance: the 0.1 nats above is the operating point we report against, and what
-counts as acceptable has to be set per cell relative to that model's own loss on
-that benchmark, which PRISM measures in the same pass. And the simplex-polarization
-step the reviewer credits is NOT where the looseness lives: median slack actually
-shrinks toward low bit-widths, from about 4500x at Q8_0 to about 600x at Q2_K, so
-the bound is relatively tightest where the degradation is real. Finally, ranking is
-not the only output at all, which is the point of W1: the same decomposition says
-WHICH axis to fix, and a benchmark score does not.
-
 > **W3.** Table 3 shows only a small gap between Omega alone and the full bound: a
 > lot of machinery for a modest ranking gain.
 
