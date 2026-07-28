@@ -538,50 +538,68 @@ across the three axes, rather than as the discovery of the phenomena themselves.
 
 Response:
 
-我們同意這個 bound 很鬆, and it is why we claim an ordering racher an absolute value.
-We 具體分析 WHERE the looseness sits. Slack B/|dR|
-has median 1597x over 570 cells and comes from three sources: 
- - the worst-case Lipschitz constant K_feat, 
- - the scale prefactor 2 rho_T rho_P inside delta^2 (about 3.9e4 on Llama/MMLU, so B is measured in nats times a large constant), and 
- - the triangle step that bounds the target-to-hybrid and hybrid-to-proxy legs separately instead of letting them cancel.
-The third dominates: 2.15-3.48 dex of the slack against 0.13-0.40 dex for the K step.
+We agree the bound is loose, and that is exactly why we claim an ordering rather
+than an absolute value. Rather than defend the number we located WHERE the looseness
+sits. Slack, the ratio of the bound to the risk gap it bounds, has median 1597x over
+570 cells and comes from three sources:
+
+ - the worst-case Lipschitz constant K_feat, which contributes a factor of only about
+   1.4x to 2.5x;
+ - the scale prefactor 2 rho_T rho_P inside delta^2, about 3.9e4 on Llama/MMLU, so the
+   bound is measured in nats times a large constant;
+ - the triangle step, which bounds the target-to-hybrid and hybrid-to-proxy legs
+   separately instead of letting them cancel, and which dominates at a factor of about
+   140x to 3000x.
 
 **The first two are constant within a cell. K_feat and K_pred depend only on the
 target head, and rho_T only on the target model and benchmark, so they inflate every
-variant's bound by nearly the same multiple and cannot reorder them** (across one
-cell's variants rho_T rho_P varies with median CV 0.63%). That is why the paper
-reports an ordering and computes rank correlations per (model, benchmark) cell: the
-ranking claim is not a retreat from an absolute one, it is the claim the
-construction supports. Only the third source varies per variant, which is both why
-the correlations sit near 0.9 rather than 1.0 and why no single multiplicative
-correction exists (log10 sd of the slack 0.76).
+variant's bound by nearly the same multiple and cannot reorder them.** Across the
+variants of one cell the prefactor rho_T rho_P has a median coefficient of variation
+of 0.63%, that is, a standard deviation less than one percent of its own mean. That
+is why the paper reports an ordering and computes rank correlations per (model,
+benchmark) cell: the ranking claim is not a retreat from an absolute one, it is the
+claim the construction supports. Only the third source varies per variant, which is
+both why the correlations sit near 0.9 rather than 1.0 and why no single
+multiplicative correction exists: in log10 units the slack has a standard deviation
+of 0.76, so slack itself varies by about a factor of six from cell to cell.
 
-On the question the reviewer actually ask, whether Q4 is good enough: within a cell the bound
-can be calibrated to nats. For Q4_K_M on Llama-MMLU a leave-one-out isotonic fit
-maps B = 96.75 to a predicted gap of 0.055 nats against a measured 0.036, both
-inside a 0.1-nat tolerance; in that cell its leave-one-out error is 0.040 nats
-against 0.080 for predict-the-mean, and over all 55 cells it cuts that error by 33%.
-The same procedure on three fresh seeds under the Procrustes alignment gives 0.076
-against 0.104, a 26% cut, so the calibration replicates rather than being a property
-of one round. **We will not oversell it: the fit needs a few already-measured
-variants in that cell, and in this cell precision at 0.1 nats is 0.75, one of six
-cells out of 55 below 0.8, with four variants sitting within one MAE of the
-threshold.** So you are right that the last word comes from a benchmark run. What
-changes is how many: **you run it on the finalist the ranking selects, not on all
-twelve**, which is how your own Strengths put it. The screen is also 62.6x cheaper
-than one greedy-decoded GSM8K evaluation, since it reads a small reference slice
-under teacher forcing instead of generating and grading.
+On the question the reviewer actually asks, whether Q4 is good enough: within a cell
+the bound can be calibrated to nats. We fit a monotone (isotonic) map from bound to
+measured gap and evaluate it leave-one-out, so each variant is predicted by a map
+fitted without it. For Q4_K_M on Llama-MMLU the map takes B = 96.75 to a predicted
+gap of 0.055 nats against a measured 0.036, both inside a 0.1-nat tolerance; in that
+cell the held-out error is 0.040 nats against 0.080 for predicting the cell mean,
+and over all 55 cells it cuts that error by 33%. The same procedure on three fresh
+seeds gives 0.076 against 0.104, so the calibration replicates rather than being a
+property of one round. **We will not oversell it: the map has to be fitted on
+already-measured variants of the same cell, and in this cell precision at 0.1 nats
+is 0.75, one of six cells out of 55 below 0.8, with four variants sitting within one
+MAE of the threshold.**
+
+So the last word does come from a benchmark run, as the reviewer says. What changes
+is the cost of getting there, and the reason is simply that PRISM reads text under
+TEACHER FORCING while a benchmark must GENERATE it. On 256 GSM8K prompts, one RTX
+5090, model load excluded from both sides:
+
+| pipeline, same 256 GSM8K prompts | what it actually runs | compute |
+|:--|:--|--:|
+| PRISM | one teacher-forced pass, no decoding, no grading | **8.9 s** |
+| benchmark, greedy decode | ~77 autoregressive passes per prompt, then parse and score | 556.7 s (**62.6x**) |
+| benchmark, self-consistency maj@8 | eight times the above | 4453.6 s (501x) |
+
+The gap is structural rather than a fixed constant, since it grows with generation
+length, so a practitioner can screen every candidate under teacher forcing and spend
+the decoding budget only on the finalists.
 
 Two things are worth adding. The calibration transfers the NUMBER, not the
 tolerance: the 0.1 nats above is the operating point we report against, and what
 counts as acceptable has to be set per cell relative to that model's own loss on
 that benchmark, which PRISM measures in the same pass. And the simplex-polarization
-step you credit is NOT where the looseness lives; median slack shrinks toward low
-bit-widths (3.65 to 2.78 dex), so the bound is relatively tightest where the
-degradation is real. Finally, ranking is not the only output: the decomposition says
-which axis to fix, attributing Q6_K's SQuAD degradation to the head axis (its head
-term K_pred x gamma is 75.77 of B = 76.95 on Qwen3-8B-Base), and keeping lm_head in
-FP16 removes it at B = 3.81 (Sec. 5.3). A benchmark score does not do that.
+step the reviewer credits is NOT where the looseness lives: median slack actually
+shrinks toward low bit-widths, from about 4500x at Q8_0 to about 600x at Q2_K, so
+the bound is relatively tightest where the degradation is real. Finally, ranking is
+not the only output at all, which is the point of W1: the same decomposition says
+WHICH axis to fix, and a benchmark score does not.
 
 3) W3 [原文]: Table 3 shows the gap between using shape similarity Ω alone versus the full
    PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
