@@ -171,9 +171,8 @@ A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
    should be framed more carefully as applying to empirical risk on calibration samples
    rather than population risk. (The presentation half of W-6 is answered after Condition E.)
 
-> **Condition A (with Weak Points 1 and 6a).** Is the bound an
-> empirical/calibration-set statement or a population-risk one, how loose is it, and
-> can it support any operational threshold beyond ranking?
+> **Condition A (+ Weak Points 1, 6a).** Empirical or population bound? How loose?
+> Any operational threshold beyond ranking?
 
 Response:
 We have done all three.
@@ -228,11 +227,10 @@ B + W-4a: benchmark-independent use and reference-set sensitivity
    (Quoted in full here; its free-running half is answered under Condition D, and its
    last two items at the end of this response.)
 
-> **Condition B (with Weak Point 4).** Show PRISM stays predictive on a small
-> benchmark-independent reference set, with size and domain sensitivity. The current
-> teacher-forced, benchmark-aligned setting leaves transfer to independent
-> calibration sets, free-running generation, reasoning-heavy tasks and
-> farther-drifting variants unclear.
+> **Condition B (+ Weak Point 4).** Does PRISM stay predictive on a small
+> benchmark-independent reference set, and how sensitive is it to reference size and
+> domain? Transfer to free-running generation, reasoning-heavy tasks and
+> farther-drifting variants is unclear.
 
 Response:
 PRISM does not need, and does not claim, a benchmark-independent reference: the
@@ -323,10 +321,9 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
    tradeoff between reducing forgetting and preserving new-task performance.
    (Quoted in full here; its "mixed results" half is answered under Condition E.)
 
-> **Condition C (with Weak Points 3 and 5).** Add stronger baselines on both sides:
-> CKA, SVCCA and simpler feature-preserving scores for the diagnostic, and stronger
-> continual-learning baselines (EWC, SLoRA, CLAIM, ArMA, layer-freezing/replay) for
-> the regularizer.
+> **Condition C (+ Weak Points 3, 5).** Stronger baselines on both sides: CKA/SVCCA
+> and simpler feature scores for the diagnostic; EWC, SLoRA, CLAIM, ArMA,
+> layer-freezing for the regularizer.
 
 Response:
 Both baseline families now exist under the paper's exact protocol, and the
@@ -452,9 +449,8 @@ D + W-4b: free-running generation
 [原文 W-4b]: ... It remains unclear how well the method transfers to ... free-running
    generation ... (W-4 quoted in full under Condition B.)
 
-> **Condition D (with Weak Point 4, free-running half).** Either provide
-> free-running generation experiments or limit the claims to teacher-forced
-> comparisons.
+> **Condition D (+ Weak Point 4, free-running half).** Free-running experiments, or
+> limit the claims to teacher forcing.
 
 Response:
 Both. (1) Experiment: on a 100-prompt GSM8K subset (mean 77.4 generated
@@ -487,9 +483,9 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
    clearly establish the tradeoff between reducing forgetting and preserving new-task
    performance. (W-5 quoted in full under Condition C.)
 
-> **Condition E (with Weak Point 5, mixed-results half).** Discuss the weaker
-> correlations (GSM8K, Qwen-BBQ), the cases where the regularizer does not help or
-> worsens forgetting, and the tradeoff against new-task performance.
+> **Condition E (+ Weak Point 5, mixed results).** Discuss the weak correlations
+> (GSM8K, Qwen-BBQ), the cases where the regularizer does not help, and the
+> forgetting-versus-plasticity tradeoff.
 
 Response:
 We agree these belong in the main text, and the promoted analysis is
@@ -546,10 +542,8 @@ W-2 [原文]: Questionable diagnostic utily: The scale/shape/head decomposition 
    expected, and stronger evidence is needed to show that the decomposition reliably
    guides mitigation.
 
-> **Weak Point 2 (outside the five conditions).** Does the scale/shape/head
-> decomposition identify actionable mechanisms beyond coarse descriptive categories?
-> Some failure modes are already expected, so stronger evidence is needed that it
-> guides mitigation.
+> **Weak Point 2.** Are the scale/shape/head axes actionable, or coarse descriptive
+> categories? Some failure modes are already expected.
 
 Response:
 The decomposition now has causal, not descriptive, evidence. Controlled
@@ -571,10 +565,9 @@ W-6b [原文]: Clarity and theoretical-framing issues: Reviewers eQL6 and 8VrD r
    about notation, the motivation for orthogonal alignment ... (the empirical-vs-population
    half is answered under Condition A.)
 
-> **Weak Point 6b (outside the five conditions).** Clarity and theoretical framing:
-> notation used before definition, and unclear motivation for restricting alignment
-> to orthogonal transformations. (The empirical-versus-population half is answered
-> under Condition A.)
+> **Weak Point 6b.** Clarity: notation used before definition, and unclear
+> motivation for restricting alignment to orthogonal maps.
+> (Empirical-versus-population half: Condition A.)
 
 Response:
 Both are presentation, and both are fixed. On notation: we define rho_T, rho_P
@@ -667,10 +660,9 @@ mitigation that did NOT work (GSM8K final-answer span, W4).
    already known before this paper. The contribution is putting them in a unified framework,
    not discovering anything new about how these operations fail.
 
-> **W1.** The three diagnostic conclusions (low-bit quantization breaks feature
-> geometry, LoRA shifts activation scale, quantizing lm_head causes head divergence)
-> were already known; the contribution is unifying them, not a new finding about how
-> these operations fail.
+> **W1.** The three findings (low-bit breaks feature geometry, LoRA shifts
+> activation scale, quantized lm_head diverges) were already known; the contribution
+> is unification, not discovery.
 
 Response:
 We're grateful the reviewer identifies the simplex-polarization Lipschitz
@@ -699,9 +691,8 @@ three axes, not as the discovery of the phenomena themselves.
    paper admits it's only calibrated for ranking. So it tells you Q2 is worse than Q4, but
    not whether Q4 is actually good enough. You still need to run benchmarks for that.
 
-> **W2.** The bound is loose by orders of magnitude and calibrated only for ranking:
-> it says Q2 is worse than Q4 but not whether Q4 is good enough, so benchmarks are
-> still needed.
+> **W2.** Loose by orders of magnitude and calibrated only for ranking: it says Q2
+> is worse than Q4, not whether Q4 is good enough. Benchmarks still needed for that.
 
 Response:
 Agreed on both counts, and the useful part is WHERE the looseness sits. Slack B/|dR|
@@ -752,8 +743,8 @@ FP16 removes it at B = 3.81 (Sec. 5.3). A benchmark score does not do that.
 3) W3 [原文]: Table 3 shows the gap between using shape similarity Ω alone versus the full
    PRISM bound is very small. A lot of theoretical machinery for a modest ranking improvement.
 
-> **W3.** Table 3 shows only a small gap between the shape similarity Omega alone
-> and the full PRISM bound: a lot of machinery for a modest ranking improvement.
+> **W3.** Table 3 shows only a small gap between Omega alone and the full bound: a
+> lot of machinery for a modest ranking gain.
 
 Response: Ranking is only ONE of the machinery's four outputs, so the small pooled
 gap measures one output, not the machinery's worth: the other three (the risk bound,
@@ -803,9 +794,9 @@ separated. CKA degrades gracefully, 0.903 to 0.931.
    attributes this to long chain-of-thought spans diluting per-token loss. This isn't an edge
    case — it's a structural limitation that gets more relevant as models move toward reasoning.
 
-> **W4.** GSM8K's correlation is noticeably lower than every other benchmark, and
-> the long chain-of-thought explanation makes this a structural limitation rather
-> than an edge case, more relevant as models move toward reasoning.
+> **W4.** GSM8K's correlation is far lower than every other benchmark, and the long
+> chain-of-thought explanation makes it structural rather than an edge case, more
+> relevant as models move toward reasoning.
 
 Response: We agree GSM8K's PTQ correlation is low at the W=I default (W3 explains
 why W_N orders those cells better and why we still attribute at W=I), and we analyze
@@ -860,9 +851,8 @@ state this as a |dR|-magnitude caveat, with GSM8K's PTQ cells as the example.
    cites in related work but never actually compares against. Only comparing against a
    small-scale experience replay is a convenient choice.
 
-> **W5.** EWC is the standard forgetting baseline; the paper cites it but never
-> compares against it, and comparing only to small-scale experience replay is a
-> convenient choice.
+> **W5.** EWC is the standard forgetting baseline, cited but never compared against;
+> comparing only to small-scale replay is convenient.
 
 Response:
 Agreed, the canonical comparison belongs in the paper, and it now exists: EWC
@@ -906,10 +896,9 @@ canonical baselines should be shown, not only argued.
    doesn't discuss whether the assumption still holds after aggressive quantization, when
    feature geometry is already severely distorted.
 
-> **W6.** The orthogonal-alignment setup relies on near-isometric representations.
-> Two citations are given, but the paper never discusses whether that still holds
-> after aggressive quantization, when feature geometry is already severely
-> distorted.
+> **W6.** Does near-isometry still hold after aggressive quantization, when feature
+> geometry is already severely distorted? Two citations are given, with no
+> discussion.
 
 Response:
 The assumption affects only how LOOSE the bound is, never whether it holds.
@@ -1016,11 +1005,10 @@ free-running experiment (W2); and base-vs-instruct and multi-task extensions
    required, what reference data are used, and how the cost compares to standard benchmark
    evaluation under realistic settings.
 
-> **W1.** Why not simply evaluate the variants on the relevant benchmarks? The
-> scale/shape/head axes are interpretable but relatively coarse and may not identify
-> actionable root causes. If the advantage is computational efficiency, give a
-> careful cost analysis: how many forward passes, what reference data, and how the
-> cost compares to standard benchmark evaluation under realistic settings.
+> **W1.** Why not just evaluate the variants on the benchmarks? The axes may be too
+> coarse for actionable root causes. If the advantage is efficiency, give a cost
+> analysis: forward passes, reference data, and comparison with standard benchmark
+> evaluation under realistic settings.
 
 Response:
 Measured headline first: on GSM8K, one benchmark evaluation by greedy decoding costs
@@ -1103,11 +1091,10 @@ you which axis to fix, which a benchmark score does not.
    number and type of reference samples would be important to understand the sample
    efficiency and robustness of the method.
 
-> **W2.** The evaluation is incomplete in three dimensions: it relies on
-> teacher-forced extraction, so it is unclear whether the conclusions hold under
-> free-running generation; the bound appears computed on the benchmark inputs
-> themselves, so it is unclear how a small benchmark-independent reference set would
-> do; and an ablation over the number and type of reference samples is needed.
+> **W2.** Three gaps: teacher-forced extraction only, so does it hold under
+> free-running generation? The bound is computed on the benchmark inputs, so how
+> would a small benchmark-independent reference set do? And an ablation over the
+> number and type of reference samples.
 
 Response:
 Two of the three dimensions are now tested directly, and the third is scoped
@@ -1178,10 +1165,9 @@ feature rows, App. D; the restriction is protocol, not theory).
    be useful to compare the proposed shape regularizer against simpler feature-preserving
    regularizers or other representation regularization methods, not only experience replay.
 
-> **W3.** The baseline comparison is limited. Since PRISM is positioned against
-> representation-similarity methods, compare it directly with CKA and SVCCA in the
-> same ranking and diagnostic settings, and compare the shape regularizer against
-> simpler feature-preserving regularizers, not only experience replay.
+> **W3.** Compare directly against CKA and SVCCA in the same ranking and diagnostic
+> settings, and compare the shape regularizer against simpler feature-preserving
+> regularizers, not only replay.
 
 Response:
 Agreed on both, and both now exist. (1) Ranking: linear-CKA, SVCCA, and
@@ -1261,9 +1247,8 @@ reaches 0.404 (top 16) only at target loss 0.924, i.e. by under-training.
    correlation with empirical degradation, this mainly supports its use as a heuristic
    ranking score, not necessarily as a practically meaningful upper bound.
 
-> **W4.** The bound is extremely loose in absolute scale (Table 1): good rank
-> correlation supports a heuristic ranking score, but not a practically meaningful
-> upper bound.
+> **W4.** Extremely loose in absolute scale (Table 1): good rank correlation
+> supports a heuristic ranking score, not a practically meaningful upper bound.
 
 Response:
 The raw bound is indeed loose in absolute scale; we quantify it rather than
@@ -1291,12 +1276,10 @@ ordering). Slack attribution shows the Lipschitz step contributes only
    similar correlations and diagnostic patterns hold when applying PRISM from the original
    base model to SFT models, or when fine-tuning jointly on heterogeneous datasets.
 
-> **Q1 + Q2 (answered together, since one experiment speaks to both).** Q1: does the
-> decomposition stay meaningful beyond PTQ and frozen-head LoRA, e.g. under full
-> fine-tuning or RLHF where drift is far larger and both backbone and head change?
-> Q2: how does PRISM behave under mixed or multi-task fine-tuning, and do the
-> correlations and diagnostic patterns hold from the original base model to an SFT
-> model?
+> **Q1 + Q2 (one experiment answers both).** Q1: does the decomposition stay
+> meaningful beyond PTQ and frozen-head LoRA, e.g. full fine-tuning or RLHF where
+> both backbone and head change and drift is far larger? Q2: under mixed or
+> multi-task fine-tuning, and from the base model to an SFT model?
 
 Response:
 **Validity extends to all of these settings by construction; what degrades is
@@ -1385,10 +1368,9 @@ a demonstration on the paper's own data that the shape term is driven by
    Section 5, results that are central to the authors' arguments are left to the appendix,
    making it slightly difficult to verify the written claims there.
 
-> **W1.** The writing is sometimes unclear: notation is used before it is defined
-> (the contributions list calls a quantity "shape" without saying what its symbols
-> mean), and Section 5 leaves results central to the argument in the appendix, which
-> makes the claims hard to verify.
+> **W1.** Unclear writing: notation used before it is defined ("shape" in the
+> contributions list), and Section 5 leaves results central to the argument in the
+> appendix.
 
 Response:
 Agreed on both counts. We will (i) define rho_T, rho_P (RMS feature scale of
@@ -1406,10 +1388,9 @@ notation table. Thank you for flagging these.
    representation hypotheses motivates studying orthogonal transformations specifically to
    analyze target-proxy model risk?
 
-> **W2 + Q1 (the reviewer marks Q1 as "See Weakness 2").** The motivation for
-> restricting proxy-target alignment to orthogonal transformations is unclear, and
-> in particular why the linear / platonic representation hypotheses should motivate
-> orthogonal transformations specifically.
+> **W2 + Q1 (Q1 = "See Weakness 2").** Why restrict proxy-target alignment to
+> orthogonal transformations, and why should the linear / platonic representation
+> hypotheses motivate that specifically?
 
 Response:
 The load-bearing reason is the linear head, not the representation hypotheses. Our
@@ -1467,11 +1448,10 @@ and differ only in tightness and in which term carries the mismatch.
    i.e. "if feature energies blew up, Z-tilde = cZ, the shape/head terms would scale as
    c^2 and the prefactor would dominate.")
 
-> **W3.** The shape term may dominate the bound because of the MAGNITUDE of the
-> feature matrices rather than any actual misalignment: if features and head weights
-> were scaled by c while staying the same order before and after post-training (as
-> Tables 1 and 18 suggest), both terms would scale as c^2, so a large bound would
-> reflect a large rho_T * rho_P product rather than genuine distortion.
+> **W3.** The shape term may dominate because of feature MAGNITUDE rather than
+> misalignment: scaling features and head weights by c scales both terms as c^2
+> while staying the same order before and after post-training (Tables 1, 18), so a
+> large bound would reflect a large rho_T rho_P product.
 
 Response:
 The reviewer's algebra is exactly right, if feature energies blew up
@@ -1502,10 +1482,9 @@ delta in the revision; rankings are unchanged.
    fine-tuned model perform just as well on the original downstream task compared to the
    baselines (no regularization and replay-CE)?
 
-> **W4 + Q3 (the reviewer marks Q3 as "See Weakness 4").** How does the shape
-> regularization affect the fine-tuned model's performance on its own downstream
-> task, and does the regularized model match the no-regularization and replay-CE
-> baselines there?
+> **W4 + Q3 (Q3 = "See Weakness 4").** How does the shape regularization affect the
+> fine-tuned model on its OWN downstream task, and does it match the
+> no-regularization and replay-CE baselines there?
 
 Response:
 It does not degrade the target task, and the check is already in the paper: we
@@ -1540,8 +1519,8 @@ rather than a single point.
    lifecycle-specific instances: Hessian-aware reconstruction at PTQ time, and ... " from
    Section 5.3?
 
-> **Q2.** Please clarify the Section 5.3 sentence "Shape preservation admits two
-> lifecycle-specific instances: Hessian-aware reconstruction at PTQ time, and ...".
+> **Q2.** Clarify Section 5.3's "Shape preservation admits two lifecycle-specific
+> instances: Hessian-aware reconstruction at PTQ time, and ...".
 
 Response:
 Apologies, the sentence compresses too much. Intended meaning: the same
@@ -1555,8 +1534,8 @@ its equation.
 6) Q4 [原文]: In Section 5.5, the Spearman [r_s] is computed between each risk gap bound
    term, and what other variable? Is it the empirical risk gap?
 
-> **Q4.** In Section 5.5, the Spearman correlation is computed between each bound
-> term and what other variable? The empirical risk gap?
+> **Q4.** In Section 5.5, Spearman is computed between each bound term and what? The
+> empirical risk gap?
 
 Response:
 Against the empirical cross-entropy risk gap: for each variant we compute the
@@ -1633,8 +1612,7 @@ explained, not hidden.
 
 > **W1.** Eq. (1) defines risk as an expectation, but the proofs use a finite-sample
 > feature matrix with no generalization term, so the guarantee appears to cover only
-> empirical risk on the calibration samples. Restate the theorem accordingly, or add
-> a finite-sample argument.
+> empirical risk. Restate the theorem, or add a finite-sample argument.
 
 Response:
 The reviewer is right, and we fix it exactly as suggested, both ways.
@@ -1665,11 +1643,10 @@ quantities were already empirical.
    [Q1] Besides the ordering, could the authors provide an error analysis regarding the
    magnitude of the bounds?
 
-> **W2 + Q1 (answered together: Q1 asks for exactly the error analysis W2
-> requests).** The bound is very loose, e.g. Llama-MMLU Q2_K gives B = 266.09
-> against |dR| = 0.3658 and Q8_0 gives B = 23.24 against |dR| = 0.0002. Quantify the
-> relaxation, give an error analysis of the bound MAGNITUDES and not only the
-> ordering, and say whether it supports any operational threshold.
+> **W2 + Q1 (Q1 asks for the error analysis W2 wants).** Very loose, e.g. Llama-MMLU
+> Q2_K gives B = 266.09 against |dR| = 0.3658. Quantify the relaxation, analyse the
+> bound MAGNITUDES and not only the ordering, and say whether any operational
+> threshold is supported.
 
 Response:
 Quantified directly, on all 570 (family, benchmark, variant) cells over the
@@ -1725,15 +1702,12 @@ them, and uncalibrated B is explicitly scoped to ranking.
    domain?
    [Q4] Can this regularizer be compared to stronger forgetting baseline methods?
 
-> **W3 + Q3 + Q4 (answered together: Q3 and Q4 restate two of W3's items).**
-> Actionability rests on selected cases, with no controlled interventions that
-> change ONLY activation scale, backbone geometry, or the output head. The
-> regularizer clearly beats no-regularization only on Llama-TruthfulQA, while Table
-> 22 reports more forgetting on Llama-BBQ (+8.6%) and Qwen-TruthfulQA (+2.7%) and
-> almost no change on Qwen-BBQ, so replay alone is too weak a sole baseline: SLoRA,
-> two-phase continual fine-tuning, CLAIM and ArMA would be more convincing (Q4).
-> Multiple training seeds, source-task performance, and sensitivity to the
-> 32-sequence reference set are also needed (Q3).
+> **W3 + Q3 + Q4 (Q3 and Q4 restate two of W3's items).** Actionability rests on
+> selected cases, with no controlled interventions isolating scale, geometry or the
+> head. The regularizer clearly wins only on Llama-TruthfulQA, and Table 22 shows
+> more forgetting on Llama-BBQ (+8.6%) and Qwen-TruthfulQA (+2.7%), so replay alone
+> is too weak a sole baseline: SLoRA, two-phase CIT, CLAIM, ArMA (Q4). Also multiple
+> seeds, source-task performance, and 32-sequence reference sensitivity (Q3).
 
 Response:
 Every item asked for is now measured: controlled single-axis interventions (1),
@@ -1837,14 +1811,11 @@ method is credited for a low |dR| bought by under-training.
    [Q2] How does PRISM perform on generated trajectories when surrogate errors affect
    subsequent context?
 
-> **W4 + Q2 (answered together: Q2 asks for exactly the free-running evidence W4
-> requires).** Two conclusions are broader than the evidence. The LoRA mean rs =
-> 0.831 rests on the Llama cells while the Qwen-BBQ appendix contains correlations
-> of -0.34 and -0.66, which should be visible in the main discussion; and the
-> autoregressive corollary scores both models on the same teacher-forced prefixes,
-> so it does not cover models that generate different early tokens and then meet
-> different later contexts (Q2). A free-running experiment or a trajectory-shift
-> term is needed.
+> **W4 + Q2 (Q2 asks for the free-running evidence W4 needs).** Two claims outrun
+> the evidence: the LoRA mean rs = 0.831 rests on the Llama cells while Qwen-BBQ
+> contains -0.34 and -0.66, which belong in the main discussion; and the
+> autoregressive corollary scores both models on shared teacher-forced prefixes, so
+> it misses models that diverge early and meet different later contexts (Q2).
 
 Response:
 
@@ -1892,9 +1863,8 @@ generation, head-varying variants, and feature-extraction cost, as suggested.
    risk, as well as the teacher-enforced approach. It should also discuss reference set
    sensitivity, free-run generation, head variation variants, and feature computation costs.
 
-> **Limitations.** The Limitations section should also discuss reference-set
-> sensitivity, free-running generation, head-varying variants, and feature
-> computation costs.
+> **Limitations.** Should also discuss reference-set sensitivity, free-running
+> generation, head-varying variants, and feature computation cost.
 
 Response:
 Agreed, all four are added to the Limitations: (i) reference-set sensitivity
