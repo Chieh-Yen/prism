@@ -1072,125 +1072,75 @@ free-running experiment (W2); and base-vs-instruct and multi-task extensions
 > benchmark evaluation under realistic settings.
 
 Response:
-The measured headline first: on GSM8K, one benchmark evaluation by greedy
-decoding costs 62.6x PRISM's single teacher-forced pass over the same prompts
-(501x with self-consistency), and each sub-question asked (forward passes,
-reference data, realistic comparison) is itemized below. We answer the cost
-analysis (1), the actionability and coarseness concern (2), and where PRISM
-uniquely applies (3). Because the cost comparison depends on it, we first fix
-the terminology.
+Measured headline first: on GSM8K, one benchmark evaluation by greedy decoding costs
+62.6x PRISM's single teacher-forced pass over the same prompts, 501x with
+self-consistency. Below we answer the three cost items the reviewer lists (1), the
+coarse-and-descriptive concern (2), and the settings where benchmarking is not
+available at all (3).
 
-How PRISM works. PRISM's diagnosis is ONE teacher-forced forward pass per model over
-a small set of REFERENCE SEQUENCES (a handful of input sequences, e.g. held-out
-examples from the task being diagnosed, that both models are run over). In that
-single pass the model reads the whole sequence at once; we record its hidden features
-and per-token cross-entropy, and PRISM's score is a closed-form geometric bound on
-the cross-entropy gap between the base model and the variant on those same sequences.
-This is NOT text generation: generation is autoregressive, one forward pass per
-emitted token (a GSM8K solution runs ~77 tokens, hence ~77 sequential passes per
-prompt), whereas PRISM emits nothing and grades nothing.
+(1) Cost analysis, itemized as asked. Model loading is excluded from both sides, being
+a one-time cost both pay.
 
-(1) Cost analysis, itemized as the reviewer asks. We compare FORWARD/compute time;
-model loading is a one-time cost both methods pay once and is excluded from both
-sides.
-Forward passes: one teacher-forced pass per model over the reference set; ranking K
-variants is K+1 passes (the base extracted once and reused, then one per variant).
-Benchmark evaluation instead needs O(generated tokens) autoregressive passes per
-prompt.
-Reference data, stated exactly. Each reference sequence is one held-out
-validation item of the task being diagnosed, read as its prompt followed by its
-reference answer; the features and the per-token CE are both taken from that
-answer region, i.e. the gold span the paper's protocol specifies (Sec. 5.1:
-"prompt c and targets y scored in a single forward pass over the gold span").
-The bound is input-conditioned (computed on a
-reference, it bounds the risk gap on that same data, App. A/D), so the
-reference is a small held-out slice of the diagnosed task (512 sequences per
-benchmark for PTQ, 256 for LoRA forgetting), which any evaluation already has;
-the regularizer uses the fine-tuning task's held-out split. The reference is
-tiny and its size barely matters: the variant ranking is unchanged from 8 to
-128 sequences (size ablation, W2).
-What PRISM removes is therefore the DECODING and the GRADING, not the
-validation data. Itemized, since it is what the cost comparison rests on: a
-benchmark run must (i) generate an output per prompt, (ii) parse it (extract
-GSM8K's "#### <number>", an option letter, or a span), (iii) match and
-normalize it against the gold answer, and (iv) aggregate an accuracy through a
-per-benchmark scorer. PRISM does none of (ii)-(iv) in ANY mode, because of what
-it measures: its target quantity is the CE GAP between two models on identical
-tokens, in which correctness plays no part, so there is nothing to parse, match
-or score. The reference answer tokens serve only as the shared region on which
-both models are evaluated. And in the default protocol it does not do (i)
-either, which is where the 62.6x comes from. Dropping (ii)-(iv) also removes
-the harness-dependent part of scoring (parsing rules, normalization, parse
-failures), though PRISM of course fixes its own extraction protocol (Sec. 5.1);
-the one text-level operation it performs is locating the answer REGION of the
-reference text, a model-independent offset computed once from the dataset. Two
-scopes are worth separating: skipping (ii)-(iv) follows from the quantity and so
-holds in every mode, whereas skipping (i) is a property of the default
-teacher-forced protocol. The free-running variant (W2) does decode, trading that
-cost for independence from reference answers: it scores the models on their own
-generated continuations and still ranks variants at rs +0.947.
-Forward/compute time on GSM8K, measured on identical prompts (256 GSM8K prompts,
-one RTX 5090, two independent runs agreeing to 0.02%; model load excluded from
-both sides):
+FORWARD PASSES. One teacher-forced pass per model over the reference set, in which the
+model reads the whole sequence at once; ranking K variants costs K+1 passes, since the
+base is extracted once and reused. A benchmark run instead needs O(generated tokens)
+autoregressive passes per prompt, and a GSM8K solution runs about 77 tokens, so about
+77 sequential passes for a single prompt.
 
-| pipeline (256 GSM8K prompts) | forward passes | autoregr. decoding? | parses + grades output? | determinism | compute (s) | x vs PRISM (full) |
+REFERENCE DATA. Each reference sequence is one held-out validation item of the task
+being diagnosed, read as its prompt followed by its reference answer, with the
+features and the per-token CE both taken from that answer region (Sec. 5.1, L198:
+"prompt c and targets y scored in a single forward pass over the gold span"). We use
+512 sequences per benchmark for PTQ and 256 for LoRA forgetting, a slice any
+evaluation already has, and the ranking is unchanged from 8 to 128 sequences (W2).
+**PRISM never parses, matches or scores those tokens, because its target quantity is
+the CE gap between two models on identical tokens, in which correctness plays no part.
+What it removes is the DECODING and the GRADING, not the validation data.**
+
+COMPUTE, measured on identical prompts (256 GSM8K prompts, one RTX 5090, two
+independent runs agreeing to 0.02%):
+
+| pipeline (256 GSM8K prompts) | forward passes | autoregr. decoding? | parses + grades output? | determinism | compute (s) | x vs PRISM |
 |---|---|---|---|---|---|---|
 | PRISM, teacher-forced (full)      | 1 TF over the prompts | no  | no  | deterministic          | 8.9    | 1x    |
 | PRISM, screening (32 prompts)     | 1 TF over the prompts | no  | no  | deterministic          | ~1.1   | -     |
 | Benchmark, greedy decode          | O(tokens) AR / prompt | yes | yes | deterministic (greedy) | 556.7  | 62.6x |
 | Benchmark, self-consistency maj@8 | 8x greedy decode      | yes | yes | stochastic (sampled)   | 4453.6 | 501x  |
 
-[a] All rows are teacher-forced / decode COMPUTE, measured on the SAME 256 prompts, load excluded (a
-    one-time cost both pay). GSM8K is the generation-heaviest benchmark, so this is the high end; the gap
-    scales with generation length, so shorter benchmarks give a smaller gap.
-[b] Screening on 32 prompts is a single ~1.1 s pass, about 1/8 of the full teacher-forced pass (ranking
-    is size-invariant down to 8 sequences, W2). It is a reference-size point, NOT a term in the cost
-    multiple: the 62.6x and 501x compare like-for-like the SAME 256 prompts under teacher-forcing vs
-    generation.
-[c] maj@8 = self-consistency (8 sampled solutions, majority vote): a common but heavier, OPTIONAL
-    reasoning protocol shown as the upper end; the 62.6x greedy-decode figure is the headline.
+[a] Compute only, on the SAME 256 prompts, model load excluded from both sides. GSM8K is the
+    generation-heaviest of our benchmarks, so this is the high end; the gap scales with generation length.
+[b] maj@8 (self-consistency, 8 sampled solutions) is an optional heavier protocol shown as the upper
+    end; the 62.6x greedy figure is the headline. The 32-prompt screening row is a reference-size
+    data point, not a term in the multiple.
 
-**So on GSM8K one greedy decode already costs a measured 62.6x PRISM's teacher-forced pass over the
-same prompts (501x with self-consistency), before any output parsing or scoring.** The gap is STRUCTURAL, not
-a constant: PRISM avoids both autoregressive decoding and answer grading, so it widens with generation
-length. And
-under a realistic selection over K variants, PRISM screens all K without decoding or grading (a 32-prompt screen is
-~1.1 s, about 1/8 of a full pass) while the full benchmark runs only on the one or two finalists (or not
-at all once the bound is calibrated).
+**So one greedy decode already costs a measured 62.6x PRISM's teacher-forced pass over
+the same prompts, before any output parsing or scoring, and the gap is STRUCTURAL
+rather than a fixed constant: it widens with generation length.** Under a realistic
+selection over K variants, PRISM screens all K without decoding or grading and the
+full benchmark runs only on the one or two finalists.
 
-(2) Actionability and granularity. The reviewer's own strengths give the foothold:
-the assessment credits that the decomposition "helps localize different failure
-modes, such as representation distortion in low-bit quantization or head divergence
-in GGUF-style quantization". Building on that granted localization, we answer the
-two doubts this weakness raises, that the axes are relatively COARSE and merely
-DESCRIPTIVE. On coarse: each axis maps one-to-one to a distinct remediation, and the
-controlled interventions below show the axes are cleanly separable (each moves ONLY
-its own term, at the selectivity quantified below), so three axes are granular and
-independent, not a blurry bucket. On descriptive: the axis -> action map closes into
-a DIAGNOSE -> ACT -> VERIFY loop, which turns a localization into a verified fix
-rather than another re-description. Sec. 5.3 maps scale -> per-channel outlier
-smoothing, shape -> Hessian-aware reconstruction (PTQ) / trace regularization
-(training), head -> keep lm_head in FP16. The GGUF case runs the full loop:
-PRISM ATTRIBUTES Q6_K SQuAD degradation to the head axis (gamma = 75.77 of
-B = 76.95); the protocol that ACTS on that diagnosis (BnB INT8, head
-unquantized) removes it, VERIFIED at B = 3.81 (20x). Controlled single-axis
-interventions confirm the attribution is causal, not descriptive: on
-Llama-3.1-8B (MMLU + TriviaQA) final-norm rescaling, norm-preserving rotation,
-and lm_head-only RTN each move ONLY their own term (own-axis response
->= 2.6e5x the largest cross-axis leakage; rotation theta=0.4 rad lifts Shape to
-7.7e2 with Scale <= 1.3e-4 and gamma = 0; head-only RTN keeps Scale = Shape = 0
-exactly while gamma sweeps 10 -> 541 over 8 -> 3 bits), bound holds 26/26.
+(2) Coarse, and merely descriptive. The assessment already credits that the
+decomposition "helps localize different failure modes", so the open doubts are
+coarseness and description. On coarseness, each axis maps one-to-one to a distinct
+remediation: scale to per-channel outlier smoothing, shape to Hessian-aware
+reconstruction (PTQ) or trace regularization (training), head to keeping lm_head in
+FP16 (Sec. 5.3). On description, that map closes into a DIAGNOSE -> ACT -> VERIFY
+loop: PRISM attributes Q6_K SQuAD degradation to the head axis (gamma = 75.77 of
+B = 76.95), the protocol acting on that diagnosis (BnB INT8, head unquantized) removes
+it, and the fix is verified at B = 3.81, a 20x reduction. **The attribution is causal
+rather than descriptive: on Llama-3.1-8B, final-norm rescaling, norm-preserving
+rotation and lm_head-only RTN each move ONLY their own term, with own-axis response at
+least 2.6e5x the largest cross-axis leakage, and the bound holds in 26 of 26 cells.**
 
-(3) PRISM needs no benchmark harness, no scorer, and no correctness labels,
-only reference text, so it applies to proprietary or safety-sensitive
-deployments where no public benchmark exists; and where reference answers do
-not exist either, the models' own generated continuations serve instead
-(rs +0.947, W2). Positioning is made explicit in the Introduction.
+(3) Where benchmarking is not an option. PRISM needs no benchmark harness, no scorer
+and no correctness judgment, only reference text, so it applies to proprietary or
+safety-sensitive deployments where no public benchmark exists. Where reference answers
+do not exist either, the models' own generated continuations serve instead: that mode
+does decode, but it still ranks variants at rs +0.947 (W2).
 
-**In sum:** the measured 62.6x cost gap on GSM8K (501x with self-consistency) and the causal single-axis interventions
-together answer "why not just run benchmarks": PRISM is materially cheaper AND
-tells you which axis to fix, which a benchmark score does not. We hope this
-addresses the significance concern.
+**In sum:** the measured 62.6x gap on GSM8K and the causal single-axis interventions
+together answer "why not just run benchmarks": PRISM is materially cheaper AND tells
+you which axis to fix, which a benchmark score does not.
 
 2) W2 [原文]: The empirical evaluation appears incomplete in several important dimensions.
    The experiments rely on teacher-forced feature extraction, but it remains unclear whether
