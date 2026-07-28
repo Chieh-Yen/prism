@@ -549,18 +549,14 @@ both why the correlations sit near 0.9 rather than 1.0 and why no single
 multiplicative correction exists: in log10 units the slack has a standard deviation
 of 0.76, so slack itself varies by about a factor of six from cell to cell.
 
-On the question the reviewer actually asks, whether Q4 is good enough: within a cell
-the bound can be calibrated to nats. We fit a monotone (isotonic) map from bound to
-measured gap and evaluate it leave-one-out, so each variant is predicted by a map
-fitted without it. For Q4_K_M on Llama-MMLU the map takes B = 96.75 to a predicted
-gap of 0.055 nats against a measured 0.036, both inside a 0.1-nat tolerance; in that
-cell the held-out error is 0.040 nats against 0.080 for predicting the cell mean,
-and over all 55 cells it cuts that error by 33%. The same procedure on three fresh
-seeds gives 0.076 against 0.104, so the calibration replicates rather than being a
-property of one round. **We will not oversell it: the map has to be fitted on
-already-measured variants of the same cell, and in this cell precision at 0.1 nats
-is 0.75, one of six cells out of 55 below 0.8, with four variants sitting within one
-MAE of the threshold.**
+On the question actually asked, whether Q4 is good enough: within a cell the bound
+can be calibrated to nats by a monotone fit, evaluated leave-one-out so that each
+variant is predicted by a map that never saw it. **For Q4_K_M on Llama-MMLU it takes
+B = 96.75 to a predicted 0.055 nats against a measured 0.036, both inside a 0.1-nat
+tolerance**, and across the 55 cells it cuts the held-out error by 33% against
+predicting the cell mean; three fresh seeds replicate that. **We will not oversell
+it: the map needs a few already-measured variants of the same cell, and precision at
+the 0.1-nat tolerance is 0.75 here against 0.8 or better in 49 of the 55 cells.**
 
 So the last word does come from a benchmark run, as the reviewer says. What changes
 is the cost of getting there, and the reason is simply that PRISM reads text under
