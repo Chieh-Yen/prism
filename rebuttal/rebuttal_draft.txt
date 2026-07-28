@@ -604,49 +604,39 @@ WHICH axis to fix, and a benchmark score does not.
 > **W3.** Table 3 shows only a small gap between Omega alone and the full bound: a
 > lot of machinery for a modest ranking gain.
 
-Response: Ranking is only ONE of the machinery's four outputs, so the small pooled
-gap measures one output, not the machinery's worth: the other three (the risk bound,
-the axis attribution, the differentiable regularizer) never appear in a pooled
-Spearman, and they are exactly what the reviewer's own strengths credit ("an exact
-identity", "a real contribution", axes that "actually capture different failure
-modes", "a differentiable training objective for free"). With that framing: The
-reviewer's number is Table 3's W=I block: Omega alone 0.804 -> full B 0.820, +0.016
-pooled. That pooled gap is real; we explain why it is small, then show the machinery
-is not overhead. (1) Why small: **gamma > 0 engages ONLY on GGUF k-quant tiers that
-quantize lm_head, so pooling gamma=0 variants (GPTQ/BnB/ FP16-head) beside gamma>0
-variants dilutes the aggregate while preserving validity, and B is the ONLY valid
-metric whenever gamma>0**. The concrete case is in the paper (Sec. 5.3, Table 12):
-Qwen3-Base Q6_K on SQuAD has near-perfect backbone geometry (Omega ~ 1, delta =
-1.18) yet the head term 75.77 is essentially the whole bound B = 76.95; BnB INT8 on
-the same model keeps gamma = 0, B = 3.81 (a 20x difference set entirely by whether
-the protocol quantizes lm_head, invisible to any Omega-only or CKA/SVCCA score). (2)
-What the machinery buys on RANKING, re-measured rather than quoted. We reran the
-whole comparison on three fresh seeds with float64 accumulation and no omega clamp,
-and we will not overstate the outcome: on Llama all five scores land within 0.01 of
-each other (1-CKA +0.931, 1-SVCCA +0.941, Omega_N +0.945, feature arm_N +0.944, B_N
-+0.932), so the reviewer's +0.016 is the right order of magnitude and the paper's
-larger W_N ladder does not survive once the numerical artefact is removed. We say so
-rather than quote the more flattering round.
+Response: 
+感謝 reviewer 的提問, 讓我們有說明實驗設計的機會.
+The +0.016 is real, and we should say why it is small before saying why it is not
+the point. 
+GGUF 的 head term 不等於 0, 但其他種 quantization (GPTQ, BnB) 因為是使用 head 所以等於 0, 這樣的混合比較是我們刻意為之
+我們想要知道 PRISM 是不是可以在混合 quantization family 下, 也給出足夠的資訊.
+如果固定 quantization famliy 的話, score 會提升, 但這不是我們的目標.
+我們的目標是提供一個診斷與分析的工具
+另外一方面,
+**The ranking delta is the smallest of what the decomposition produces, and its
+other outputs never appear in a Spearman at all.** (i) The three AXES each map to a
+distinct remediation, so the bound says which one to fix rather than only that a
+variant drifted; W1 gives the concrete case. (ii) The shape term is DIFFERENTIABLE,
+which turns the diagnosis into a trace-norm penalty that reduces forgetting while
+holding feature alignment, and it leads every task-keeping baseline in every seed
+(W5). (iii) The whole measurement runs under TEACHER FORCING, 62.6x cheaper than one
+benchmark evaluation on the same prompts (W2). A similarity score supplies none of
+these, and none of CKA/SVCCA/Procrustes bounds the risk gap at all.
 
-(3) Why B_N beats B_I. The paper's W_N advantage (0.820 to 0.912, Table 3) is three
-quarters ONE benchmark: recomputed per benchmark on the paper's seven families,
-GSM8K goes +0.405 to +0.698 while the other four move by -0.02 to +0.06. The
-mechanism is the head term absorbing the backbone rotation, set out with the numbers
-under W4. So the two alignments answer different questions by design: W_N ranks, W = I
-attributes and is additionally the differentiable, frozen-head-faithful one that
-yields the Sec. 3.5 regularizer. Both are certified for any W in O(d) (App. C.1).
+The bound is also stable in the two senses that matter operationally: it needs very
+little reference data, and from that small slice it still orders the variants by
+their FULL-data risk. Three fresh seeds, 12 Llama variants, 5 benchmarks:
 
-(4) And the machinery is what DERIVES Omega as the risk-relevant similarity (App. B,
-not CKA) and yields the differentiable regularizer; the bound is the justification
-for those two products, not overhead layered on a ranker.
+| reference slice | bound vs the FULL-slice gap | bound vs that slice's own gap | seed agreement on the ordering |
+|:--|--:|--:|--:|
+| 8 sequences | **+0.932 ± 0.016** | +0.768 ± 0.034 | 0.981 |
+| 32 | +0.931 ± 0.009 | +0.834 ± 0.053 | 0.992 |
+| 128 | +0.933 ± 0.011 | +0.914 ± 0.008 | 0.993 |
+| 512 (paper size) | +0.932 ± 0.011 | +0.932 ± 0.011 | 0.998 |
 
-(5) The machinery is also what still works when the reference is SMALL. On a fresh
-three-seed run over sizes 8 to 512 on identical features, **B_N ranks the variants
-against the full-slice gap at rs 0.932 with only 8 reference sequences, the same as
-its 0.932 at 512, while SVCCA collapses to 0.083 at n=8**: canonical correlation is
-invariant to invertible maps inside each subspace, so once the slice has fewer rows
-than the feature dimension the two subspaces align perfectly and no variant is
-separated. CKA degrades gracefully, 0.903 to 0.931.
+Read the first column down: **eight sequences already rank the variants against the
+full-slice risk as well as 512 do.** The third shows the three seeds agreeing with one another on that ordering at
+0.981 with eight sequences, rising to 0.998 at 512.
 
 > **W4.** GSM8K's correlation is far lower than every other benchmark, and the long
 > chain-of-thought explanation makes it structural rather than an edge case, more
