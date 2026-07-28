@@ -191,14 +191,13 @@ variant) cells of the paper's five benchmarks:
 | slack spread | log10 sd 0.76 (~6x cell to cell) | no single correction rescales it |
 | Lipschitz step (worst-case K vs observed) | at most ~2.5x | not where the looseness lives |
 | triangle step (legs bounded separately) | 140x to 3000x | the dominant source |
-| prefactor rho_T rho_P, within one cell | CV 0.63% | a cell constant: cannot reorder |
-| K_feat; K_pred | cell-fixed; = 2 (App. A.5) | cell constants: cannot reorder |
+| cell constants: K_feat; K_pred = 2 (App. A.5); prefactor rho_T rho_P | within-cell CV 0.63% | shared by all variants: cannot reorder |
 
 **Two of the three slack sources are constants within a (model, benchmark) cell,
 and a factor that is nearly the same for every variant inflates every bound by
-nearly the same multiple, so it cannot change their order.** That is why the paper
+nearly the same multiple, so it cannot change their order**; that is why the paper
 reports rank correlations within cells: the ordering is what survives the loose
-constants, so claiming it is not a retreat but the claim the construction supports.
+constants.
 
 (iii) An operational threshold does exist, per cell. We fit a monotone (isotonic)
 map from the bound to the measured gap inside each cell and evaluate it
@@ -246,7 +245,8 @@ a reference set and it bounds the risk gap on that same data. Computing it on
 generic text in order to predict a benchmark's degradation would break that pairing
 and turn the guarantee into a distribution-transfer question the derivation does
 not address. We therefore do not claim benchmark-independent use, and the revision
-states that scope in the Limitations instead of leaving it implicit.
+states that scope in the Limitations instead of leaving it implicit; this is the
+careful narrowing of claims the meta-review itself invites.
 
 (ii) What the diagnostic does need, measured. The reference is a small slice of the
 diagnosed task's own validation data, read once, with no decoding and no grading:
@@ -261,11 +261,10 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 | 128 | +0.933 ± 0.011 | 0.993 |
 | 512 (paper size) | +0.932 ± 0.011 | 0.998 |
 
-**Eight sequences already order the twelve variants as well as 512 do, and the
-seeds agree with one another on that ordering at 0.981, rising to 0.998.** The
-requirement is therefore both small and stable. Domain is not a free parameter on
-the regularizer side either, since the penalty is computed on the fine-tuning
-task's own held-out split.
+**Eight sequences already order the twelve variants as well as 512 do.** The
+requirement is small and stable; on the regularizer side the reference is the
+fine-tuning task's own held-out split, so domain is not a free parameter there
+either.
 
 (iii) What that buys, measured on identical prompts (256 GSM8K prompts, one RTX
 5090, model load excluded on both sides):
@@ -281,12 +280,11 @@ autoregressive decoding and the answer grading rather than the validation data.
 Itemized in G3T9 W1 and W2.
 
 (iv) The two remaining W-4 items. Reasoning-heavy tasks: GSM8K is kept as a
-first-class limitation with its mechanism quantified rather than excused
-(Condition E below), and a tested span-level mitigation fails and is reported as
-failing (pCi8 W4). Variants farther from the base: we ran the decomposition
-directly across the full post-training gap, with the base checkpoint as the
-reference (target) and its SFT/instruct counterpart as the diagnosed variant
-(proxy):
+first-class limitation with its mechanism quantified (Condition E below), and a
+tested span-level mitigation fails and is reported as failing (pCi8 W4). Variants
+farther from the base: we ran the decomposition directly across the full
+post-training gap, base checkpoint as reference (target), SFT/instruct
+counterpart as diagnosed variant (proxy):
 
 | pair (base -> instruct) | cells where the bound holds | median head share of B | backbone drift vs own Q2_K level |
 |:--|--:|--:|:--|
@@ -325,12 +323,11 @@ turn.
 like-for-like comparison the condition asks for: every score is computed on the same
 features from one forward pass, with the risk gap recomputed from that same pass, so
 no row enjoys a different extraction. The honest reading is that **the bound cedes
-nothing on ranking, but it does not beat the similarity scores either.** Paired over
-the 15 (seed, benchmark) cells, the full bound minus 1-CKA is +0.001 with a 95%
-bootstrap interval of [-0.004, +0.007]. The feature arm edges 1-CKA on this
-three-seed Llama rerun (+0.013 [+0.004, +0.022]), but pooled with Qwen on the
-paper's own round the same comparison is a statistical dead heat (-0.002 [-0.038,
-+0.011]), so we claim parity, not an advantage. They land
+nothing on ranking, but it does not beat the similarity scores either.** Paired
+bootstraps make that precise: the full bound vs 1-CKA is +0.001 [-0.004, +0.007]
+here, and the feature arm's small edge on this Llama rerun (+0.013) disappears
+once Qwen is pooled on the paper's round (-0.002 [-0.038, +0.011]), so we claim
+parity, not an advantage. They land
 together for an algebraic reason rather than by accident: our feature arm IS the
 Procrustes size-and-shape distance, so Procrustes is the feature half of our own bound
 rather than an external competitor, and App. A.1 states that our contribution is not
@@ -439,15 +436,12 @@ round):
 | MMLU | -0.34 | gap real but non-monotone (peaks near step 75, partially recovers by 300) while accumulated drift grows: rank correlation structurally depressed |
 
 **Ranking is uninformative there by construction, and the bound holds at every
-checkpoint in both cells**; the paper reads this as a property of the (model, task,
-benchmark) triple rather than of the diagnostic, and the revision states the two
-mechanisms separately. On GSM8K under quantization the correlation is genuinely low
-at the W = I default (0.41), but the ordering is recoverable: at the Procrustes
-alignment the same cells rank at +0.698, because W_N rotates the head and the head
-term then carries the backbone rotation that the near-tied shape term cannot pick
-up. The magnitude caveat stands either way, since the mean gap there is only about
-0.019 nats (Table 10): **what W_N recovers is the order of those variants, not the
-ability to say how far apart they are.**
+checkpoint in both cells**; the revision states the two mechanisms separately. On
+GSM8K under quantization the correlation is genuinely low (0.41) for a quantified
+reason: the mean gap there is only about 0.019 nats (Table 10), an order of
+magnitude below the other benchmarks, so there is little degradation left to rank.
+Under LoRA fine-tuning, which does move GSM8K, the bound ranks it at +0.97 (Fig.
+3, TruthfulQA row); the tested mitigation and the gauge analysis are in pCi8 W4.
 
 (ii) Where the regularizer does not help, or hurts. Here we should clarify
 something our own caption made too easy to misread. **Table 22 is a
