@@ -697,16 +697,12 @@ discussion.
 > comparing only to small-scale replay is convenient.
 
 Response:
-Agreed, the canonical comparison belongs in the paper, and it now exists: EWC
-(diagonal Fisher on the trainable parameters, estimated on the reference set at
-the adapter's initialization = the base/old-task optimum), L2-SP, and
-layer-freezing (the meta-review's suggestion), all under the identical protocol
-(LoRA, 300 steps, lr 1e-5). Selection rule: **each baseline is reported at the
-sweep config whose target-task loss MATCHES the shape run's, so we compare at
-equal plasticity rather than reward a baseline that merely under-trains**.
+同意, 所以我們補充了 EWC, L2-SP, 和 layer-freezing (the meta-review's suggestion) 的比較。
+ all under the identical protocol
+(LoRA, lr 1e-5).  **Each baseline is reported at the
+sweep config whose target-task loss MATCHES the shape run's**.
 Results on TruthfulQA, the paper's primary shape-drift setting, over three seeds
-(42/43/44; downstream forgetting = mean |dR| over ARC/MMLU/SQuAD/TriviaQA/GSM8K,
-target = TruthfulQA eval loss; mean ± sd across seeds):
+(downstream forgetting = mean |dR| over ARC/MMLU/SQuAD/TriviaQA/GSM8K, target = TruthfulQA eval loss):
 
 | method (TruthfulQA, 3 seeds) | downstream forgetting | target-task loss |
 |:--|--:|--:|
@@ -718,20 +714,16 @@ target = TruthfulQA eval loss; mean ± sd across seeds):
 | layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.000 |
 
 **The shape penalty is lowest on forgetting among the methods that actually learn
-the task, it beats each of them in ALL THREE seeds individually (margins +0.050 to
-+0.157), and it carries the lowest target-task loss in the table**, so the reduction
-is not bought with plasticity. Layer-freezing's much lower |dR| comes from not
+the task, and it carries the lowest target-task loss in the table**. 
+Layer-freezing's much lower |dR| comes from not
 learning the task: target loss 0.924 against the shape run's 0.872, so it does not
-match plasticity and is not a genuine win. L2-SP is reported at the best config in its
-valid range (lambda up to 1e-2; at lr 1e-5 a larger penalty over-constrains the small
-LoRA drift).
+match plasticity and is not a genuine win.
 This remains a feasibility demonstration that the diagnosed axis is actionable
 rather than a claim to beat every possible method.
+
 On why replay was the original choice: it is the CONTROLLED comparison (same 32
 reference sequences, same schedule, same compute as the trace penalty,
-Sec. 5.4), with Related Work framing EWC (weight-space) / replay (data-space) /
-shape (feature-space) as three families, but we take the point that the
-canonical baselines should be shown, not only argued.
+Sec. 5.4).
 
 > **W6.** Does near-isometry still hold after aggressive quantization, when feature
 > geometry is already severely distorted? Two citations are given, with no
