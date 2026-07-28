@@ -491,24 +491,9 @@ catastrophic forgetting.
   free from the bound, and it actually outperforms replay in the experiments.
 ···· END ORIGINAL REVIEW ····
 
-We thank the reviewer for a careful and specific review. Every point below is
-answered with a measurement rather than a clarification. What we added:
+We thank the reviewer for a careful and specific review. We address these weaknesses as follows:
 
- - W1: what the contribution actually is, stated as per-variant attribution on a
-   COMMON SCALE rather than as discovery of the three phenomena;
- - W2: the looseness decomposed into its sources, plus a calibration that answers
-   "is Q4 good enough";
- - W3: what the machinery buys once ranking is set aside;
- - W4: why GSM8K's ORDERING recovers under the Procrustes alignment, and what still
-   does not;
- - W5: three added baselines (EWC, L2-SP, layer-freezing), each at matched
-   target-task loss;
- - W6: a measurement of what the orthogonality restriction costs, which is tightness
-   only and never validity.
-
-> **W1.** The three findings (low-bit breaks feature geometry, LoRA shifts
-> activation scale, quantized lm_head diverges) were already known; the contribution
-> is unification, not discovery.
+> **W1.** The three findings were already known; the contribution is unification, not discovery.
 
 Response:
 We are grateful that the reviewer identifies the simplex-polarization Lipschitz
