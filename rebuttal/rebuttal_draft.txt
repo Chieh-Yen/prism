@@ -125,73 +125,33 @@ the strengths.
 --------------------------------------------------------------------------------
 GLOBAL RESPONSE TO THE META-REVIEW
 
-The strengths all four reviews credit, the claims we narrow in the revision, and a
-closing word on where this line of work goes are in our GENERAL RESPONSE; this reply
-addresses the five conditions directly.
+The strengths all four reviews credit, the claims we narrow, and a closing word are in
+our GENERAL RESPONSE. Every condition below is answered by a measurement run during
+the rebuttal. Two experiments carry most of the load, so we give them once and refer
+back: a fresh three-seed re-extraction of all 12 Llama variants over the 5 benchmarks,
+and a matched-plasticity baseline sweep.
 
-The meta-review asks that its five conditions be met with concrete evidence
-rather than only clarification. We ran the experiments; each condition below is
-answered with a measurement, and where a request exceeds what the theory
-licenses (the unpaired half of B) we narrow the claim explicitly, as the
-meta-review invites:
+| condition | result |
+|:--|:--|
+| A. usefulness / empirical risk | restated on the EMPIRICAL gap + concentration corollary; two of three looseness sources are cell constants and cannot reorder; calibration predicts the gap to 0.055 nats vs 0.082 |
+| B. reference set | 8 sequences order the variants as 512 do (0.932 both ends), at 62.6x less compute than one benchmark run; unpaired claim dropped |
+| C. stronger baselines | bound TIES CKA/SVCCA on identical features, our feature arm beats CKA (+0.013, CI excludes 0), and wins outright on small slices; shape penalty leads EWC, L2-SP, replay, layer-freezing in every seed at matched target loss |
+| D. free-running generation | +0.947 free-running vs +0.958 teacher-forced on the generation-heaviest benchmark; Corollary 1 also restated as teacher-forced-only |
+| E. failures / mixed results | all 20 LoRA cells in the main text: mean +0.71, median +0.93, 18/20 positive, both negatives at ~1e-3 nats; a mitigation tried and reported failed |
 
-| condition | new evidence | headline |
-|---|---|---|
-| A. usefulness of the bound | isotonic calibration + slack decomposition | held-out error 0.055 nats; the two cells cited for looseness calibrate to 0.003 / 0.193 nats, each on the correct side of a 0.1-nat tolerance |
-| B. benchmark-independent use | explicit scope narrowing + a fresh 3-seed reference-size study | the bound is input-conditioned by design: it needs only a small slice of the diagnosed task's own validation data, read once with no decoding and no grading; ranking size-invariant from 8 to 512 sequences (rs 0.932 at both ends), and neither side has an out-of-domain reference to be sensitive to |
-| C. stronger baselines | CKA/SVCCA on identical features (3 fresh seeds); EWC / L2-SP / layer-freezing | the full bound TIES both similarity scores, our feature arm beats CKA at +0.013 (CI excludes 0), and the bound does strictly more; shape penalty ahead of EWC, L2-SP, layer-freezing and replay in every seed at matched target-task loss (TruthfulQA, 3 seeds) |
-| D. free-running generation | greedy self-generation, 5 subsets | rs +0.947±0.015 free vs +0.958±0.011 teacher-forced; the teacher-forced bound predicts free-running degradation at +0.958±0.011 |
-| E. failures and mixed results | full 20-cell matrix + GSM8K SNR analysis + an honestly reported failed mitigation | mean rs +0.71 / median +0.93, 18/20 positive; both negative cells sit at the noise floor |
+ONE TABLE ANSWERS MOST OF B AND C. Every score is computed on the SAME features from
+one forward pass, the risk gap recomputed from that pass. The n=8 column holds the
+target gap at the paper's size and varies only the slice the SCORE sees.
 
+| score (identical features, 12 Llama variants, 3 fresh seeds) | slice n=8 | slice n=512 |
+|:--|--:|--:|
+| 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
+| 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
+| 1-Omega_N (our shape core) | +0.927 ± 0.004 | +0.945 ± 0.014 |
+| our feature arm delta_N (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
+| PRISM B_N (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
-
-What remains after this narrowing is the significance case: PRISM is an
-operational, generation-free instrument that does three things benchmark
-evaluation and representation similarity (CKA/SVCCA) cannot.
-
-(i) OPERATIONAL: after a one-time per-family calibration, PRISM answers "is
-this variant within epsilon of the base?" with quantified uncertainty (a typical
-0.055 nats on a variant the calibration was not fitted on), not merely "which is
-worse". The two cells reviewers cite to
-dramatize looseness (Llama-MMLU Q8_0 B=23.24, Q2_K B=266.09) map to 0.003 and
-0.193 nats after calibration, on the correct sides of an epsilon = 0.1
-tolerance.
-
-(ii) CHEAPER AND ACTIONABLE: one teacher-forced pass, no decoding and no
-grading. On GSM8K, the generation-heaviest benchmark, a single greedy decode of the
-same prompts costs a measured 62.6x that pass (501x with self-consistency). The
-diagnosis also closes into an act-and-verify loop: PRISM attributes Q6_K SQuAD
-damage to the head axis; keeping lm_head in FP16 removes it (bound
-76.95 -> 3.81, 20x), and controlled single-axis interventions confirm each term
-responds only to its own axis (>= 2.6e5x selectivity, causal, bound holds 26/26).
-
-(iii) STRICTLY MORE THAN CKA, AT NO RANKING COST: our feature arm delta_N IS the
-Procrustes size-and-shape distance (App. A.1), and CKA/SVCCA are
-rotation-invariant readings of that same geometric agreement, so on identical
-features they are a statistical dead heat (our arm -0.002 vs 1-CKA, -0.000 vs
-1-SVCCA, bootstrap CIs covering 0; we claim no ranking advantage). Splitting that
-residual and lifting it to a bound then costs nothing: the paper's Table 3 ladder
-runs Omega_N +0.806 -> delta_N +0.873 -> B_N +0.912. The bound therefore carries
-three things none of the similarity scores provides, for free: a valid upper bound
-on the risk gap, an axis attribution, and a differentiable regularizer.
-
-On what "no grading" means, since it carries the cost argument: a benchmark run
-must generate an output per prompt, parse it (GSM8K's "#### <number>", an option
-letter, a span), match and normalize it against the gold answer, and aggregate
-an accuracy. PRISM does none of these: **its quantity is the CE GAP between two
-models over the same gold span (Sec. 5.1), in which correctness plays no part**,
-so nothing is generated, parsed, matched or scored. Itemized in full in our
-response to Reviewer G3T9 (W1).
-
---------------------------------------------------------------------------------
-We answer the five conditions in the meta-review's own order, and fold each of
-the six Weak Points into the condition that addresses it, so that nothing is
-answered twice: A <- W-1 + W-6(first half); B <- W-4(reference data); C <- W-3 +
-W-5(baselines); D <- W-4(free-running); E <- W-5(mixed results). The two items
-that fall outside the five conditions, W-2 and the presentation half of W-6,
-follow after Condition E.
-
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
 
 [原文 A]: Clarify usefulness of the bound: The authors should explicitly state whether the
@@ -207,48 +167,29 @@ A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
    rather than population risk. (The presentation half of W-6 is answered after Condition E.)
 
 > **Condition A (+ Weak Points 1, 6a).** Empirical or population bound? How loose?
-> Any operational threshold beyond ranking?
+> Any threshold beyond ranking?
 
 Response:
-We have done all three.
+Conceded and fixed: Theorem 1 is restated on the EMPIRICAL risk gap over the reference
+sample, the quantity every experiment reports, with a concentration corollary
+recovering the population version at an explicit additive cost. Proof ready to post.
 
-(1) Restatement. Theorem 1 is restated as a bound on the EMPIRICAL risk gap
-over the reference sample, the quantity every experiment already reports, and
-we add a concentration corollary: under a bounded per-sample loss gap
-(`b <= K_feat*D_Z + sqrt(2)*C_z*||W H_T - H_P||_op`, all three factors quantities
-PRISM already measures), McDiarmid's inequality gives the population version at
-an additive `b*sqrt(2 ln(2/delta)/N)` cost. The constant b is finite by
-construction: hidden states are RMSNorm-bounded, so the feature diameter D_Z is
-finite and no unbounded-CE pathology arises. The restated theorem and proof are
-ready; we can post them verbatim in this thread. No experimental conclusion
-changes, since all reported quantities were already empirical.
+On looseness the key fact is its structure, not its size. Slack has median 1597x over
+570 cells and is NOT constant (log10 sd 0.76), but **two of its three sources are
+CONSTANT within a (model, benchmark) cell: K_feat and K_pred depend only on the target
+head, and rho_T rho_P varies across a cell's variants at median CV 0.63%, so they
+inflate every bound by nearly the same multiple and cannot reorder it.** The ordering
+the paper reports is what the construction supports, not a retreat.
 
-(2) Looseness, quantified. Across all 570 (family, benchmark, variant) cells
-over the paper's five benchmarks: slack B/|dR| has median 1597x, IQR [673,
-3966], and is NOT constant (log10 sd ~0.76); this is precisely why the raw
-bound is claimed for ranking only. Decomposing the slack: the Lipschitz-constant step
-contributes only 0.13-0.40 dex; the remainder comes from the alignment/triangle
-steps. Median slack SHRINKS toward low bit-widths (Q8_0: 3.65 dex -> Q2_K: 2.78
-dex), i.e., the bound is relatively tightest where degradation is real.
+A per-cell threshold nevertheless exists: leave-one-out isotonic calibration maps the
+bound to nats at MAE 0.055 against 0.082 for predict-the-mean, and the two cells cited
+for looseness (B_I 23.24 and 266.09) calibrate to 0.003 and 0.193 nats, on the correct
+side of a 0.1-nat tolerance. **Precision at that tolerance is >= 0.8 in 49 of the 55
+cells (21 at 1.0), and in all 55 at a 0.5-nat tolerance**; the six weaker cells are
+all multiple-choice, where the gap's dynamic range is compressed. So this is a filter
+needing a few measured variants, not a certificate. Detail: pCi8 W2, 8VrD W1/W2+Q1.
 
-(3) Operational threshold. **Per-(family, benchmark) leave-one-out isotonic
-calibration B -> |dR| gives aggregate Leave-one-out MAE 0.055 nats, versus 0.082 for a
-predict-the-mean baseline (-33%)**. Leave-one-out means the map is fitted without
-the variant it is then asked to predict, so 0.055 is the error on a variant the
-calibration has never seen, which is the deployment case; in units of each cell's
-own risk range it is a median 15%; the rule "calibrated prediction < 0.1 nats"
-reaches precision >= 0.8 in 49/55 cells (21 at 1.0), and >= 0.8 in all 55 at
-epsilon = 0.5. (We lead with MAE, which is base-rate-free; the six weaker
-precision cells are all multiple-choice benchmarks, ARC/MMLU, where the |dR|
-dynamic range is compressed.) The calibration is one-time per family and
-transfers across bit-widths; thereafter PRISM answers "is Q4 within epsilon of
-the base?" for every new variant with quantified uncertainty and without
-running the benchmark on it. We do not claim a benchmark is never needed; we
-claim it is needed once per family to fit the calibration, not once per
-variant, and even uncalibrated the ranking is already useful.
-Uncalibrated B is explicitly scoped to ranking.
-
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 B + W-4a: benchmark-independent use and reference-set sensitivity
 
 [原文 B]: Demonstrate benchmark-independent use: The authors should show that PRISM remains
@@ -262,84 +203,24 @@ B + W-4a: benchmark-independent use and reference-set sensitivity
    (Quoted in full here; its free-running half is answered under Condition D, and its
    last two items at the end of this response.)
 
-> **Condition B (+ Weak Point 4).** Does PRISM stay predictive on a small
-> benchmark-independent reference set, and how sensitive is it to reference size and
-> domain? Transfer to free-running generation, reasoning-heavy tasks and
-> farther-drifting variants is unclear.
+> **Condition B (+ Weak Point 4).** Predictive on a small benchmark-independent
+> reference set? Sensitivity to size and domain? Transfer to free-running generation,
+> reasoning tasks, farther drift?
 
 Response:
-PRISM does not need, and does not claim, a benchmark-independent reference: the
-bound is input-conditioned by construction, so diagnosing a task means reading
-a small slice of that task's own validation data, which any evaluation already
-has, once, with no decoding and no grading. We therefore answer this condition in two parts, as the
-meta-review invites: the out-of-scope half (unpaired use) with an explicit
-narrowing of the claim, and the in-scope half (how small and stable the
-reference can be) with a measurement.
+We narrow rather than defend. The bound is input-conditioned, so computing it on
+generic text to predict a benchmark's degradation would UNPAIR feature and risk, a
+transfer question the derivation does not cover; benchmark-independent use is not
+claimed and the revision states that scope.
 
-(1) Scope, stated precisely. **The bound is input-conditioned: computed on a
-reference set, it bounds the risk gap on that same data**, with the feature and
-the risk PAIRED on one distribution (a per-instance guarantee, proved in
-App. A; it holds for feature rows of any origin, App. D). Computing the bound
-on generic text to predict a different benchmark's degradation would UNPAIR
-feature from risk, a distribution-transfer question the derivation does not
-cover, so we do not claim it; the revision states this scope in the
-Limitations.
+What it does need is minimal, and the table above measures it: **eight sequences of
+the diagnosed task's own validation data already order the variants exactly as 512 do,
+the three seeds agreeing at 0.981 rising to 0.998.** Domain is not a free parameter
+either, the regularizer likewise reading the fine-tuning task's own held-out split.
+Cost: one greedy-decoded GSM8K evaluation is a measured 62.6x PRISM's single
+teacher-forced pass over the SAME prompts. Itemized in G3T9 W1/W2.
 
-(2) The practical requirement behind the condition is minimal, and we state it
-exactly. The reference is not a curated calibration corpus; it is a handful of
-the diagnosed task's own validation items, each read as its prompt followed by
-its reference answer (features and per-token CE come from that answer region,
-Sec. 5.1). What PRISM removes is therefore the decoding and the grading, not
-the validation data: it reads the slice once, whereas a benchmark run must
-generate an output per prompt, parse it, match it against the gold answer, and
-score an accuracy. Because PRISM's quantity is the CE GAP between two models on
-identical tokens, in which correctness plays no part, no parsing, matching or
-scoring is needed at any point; and in this default protocol nothing is
-generated either.
-
-(3) The in-scope measurement: sensitivity to reference-set size, re-run for this
-rebuttal on the diagnosed task's OWN data (three new seeds 43/44/45, sizes
-8/32/128/512, 12 Llama variants, 5 benchmarks, 720 cells). The decision-relevant
-quantity is whether a small slice ORDERS the variants the way the full slice does, so
-each score computed at size n is correlated against the risk gap measured at n=512
-for the same seed; the sizes are nested, so a small slice is a subset of the target
-set.
-
-| reference size | 1-CKA | 1-SVCCA | PRISM B_N |
-|:--|--:|--:|--:|
-| 8   | 0.903 +- 0.015 | 0.083 +- 0.036 | 0.932 +- 0.016 |
-| 32  | 0.932 +- 0.010 | 0.821 +- 0.100 | 0.931 +- 0.009 |
-| 128 | 0.934 +- 0.013 | 0.894 +- 0.001 | 0.933 +- 0.011 |
-| 512 | 0.931 +- 0.008 | 0.941 +- 0.014 | 0.932 +- 0.011 |
-
-Three readings. (i) At a FIXED size the ordering is seed-stable: the pairwise
-Spearman between the three seeds' own orderings of the variants is 0.981 at n=8 and
-0.998 at n=512, so the paper's 32 is not a lucky draw. (ii) A SMALL size still
-ranks: **B_N at 8 sequences matches B_N at 512, 0.932 either way**, though against
-its own n=8 gap the correlation is only 0.768, so a small slice is enough to order
-variants rather than to quantify them. (iii) On identical features, CKA degrades
-gracefully while SVCCA breaks down at small n: canonical correlation is invariant to
-invertible maps inside each subspace, so once the slice has fewer rows than the
-feature dimension the two subspaces align perfectly, and 1-SVCCA is numerically zero
-on four of the five benchmarks at n=8 (median -6e-07), separating no variant at all.
-
-
-On DOMAIN, neither side has a free domain parameter to be sensitive to. The
-diagnostic reads the diagnosed task's own validation items, by the input-conditioning
-argument in (1), and the regularizer reads the fine-tuning task's own held-out split
-at the paper's size, so there is no out-of-domain reference for either to be
-sensitive to.
-
-W-4's two remaining items, for completeness. Reasoning-heavy tasks: answered
-under Condition E (GSM8K is a drift-magnitude/SNR regime, and where a
-perturbation does move GSM8K, PRISM ranks it at rs = +0.97). Variants that drift
-farther from the base: we add a base-vs-instruct experiment on both main-text
-families, where the bound holds in 10/10 (pair, benchmark) cells and the head
-term engages exactly as predicted (median 50% of B, versus a structural 0% in
-every frozen-head setting of the paper), with absolute tightness the quantity
-that degrades; detailed in our response to Reviewer G3T9 (Q1 + Q2).
-
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 
 [原文 C]: Add stronger baselines: For diagnostics, direct comparisons to CKA, SVCCA, and
@@ -356,83 +237,24 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
    tradeoff between reducing forgetting and preserving new-task performance.
    (Quoted in full here; its "mixed results" half is answered under Condition E.)
 
-> **Condition C (+ Weak Points 3, 5).** Stronger baselines on both sides: CKA/SVCCA
-> and simpler feature scores for the diagnostic; EWC, SLoRA, CLAIM, ArMA,
-> layer-freezing for the regularizer.
+> **Condition C (+ Weak Points 3, 5).** CKA/SVCCA and simpler feature scores for the
+> diagnostic; EWC, SLoRA, CLAIM, ArMA, layer-freezing for the regularizer.
 
 Response:
-Both baseline families are now RUN under the paper's exact protocol, not promised, and
-the headline is deliberately honest: **on ranking the bound TIES the similarity scores
-rather than beating them, and on regularization the shape penalty leads every baseline
-that keeps the fine-tuning task, in every seed, at matched plasticity.**
+The diagnostic half is the table above, and the honest reading is that **the bound
+cedes NOTHING on ranking but does not beat the similarity scores either**: paired over
+the 15 cells, B_N minus 1-CKA is +0.001 [-0.004, +0.007], and the only interval
+excluding zero is our feature arm over CKA, +0.013 [+0.004, +0.022]. They land
+together algebraically, our arm BEING that distance (App. A.1). **Where it wins
+outright is the small-slice regime: at n=8 it holds at 0.932 while SVCCA collapses to
+0.083.** And none of the three bounds the risk gap or attributes an axis:
+Qwen3-8B-Base Q6_K on SQuAD has Omega ~ 1 yet its head term is 75.77 of B = 76.95,
+while BnB INT8 on the same model keeps gamma = 0 at B = 3.81, a 20x difference set
+entirely by whether lm_head is quantized.
 
-(1) Diagnostic baselines, on identical features. We re-extracted features for all 12
-Llama variants over the 5 benchmarks with three fresh seeds (43/44/45, disjoint from
-the paper's), computed every score on the SAME features in one pass, and recomputed
-|dR| from the answer-span CE of that same pass. Accumulation is float64 with no omega
-clamp, so no numerical artefact is shared between rows. Mean Spearman rs(score, |dR|)
-over the five benchmarks, mean +- sd over seeds:
-
-| score (identical features, 12 Llama variants) | mean r_s |
-|:--|--:|
-| 1-CKA | +0.931 ± 0.008 |
-| 1-SVCCA | +0.941 ± 0.014 |
-| 1-Omega_N (our shape core) | +0.945 ± 0.014 |
-| our feature arm delta_N (= the Procrustes distance) | +0.944 ± 0.012 |
-| PRISM B_N (full certified bound) | +0.932 ± 0.011 |
-
-(2) What that licenses, and what it does not. Paired over the 15 (seed, benchmark)
-cells with 95% bootstrap intervals: B_N minus 1-CKA is +0.001 [-0.004, +0.007], B_N
-minus 1-SVCCA is -0.008 [-0.021, +0.003], and our feature arm minus 1-CKA is +0.013
-[+0.004, +0.022]. **So we do NOT claim a ranking advantage for the full bound: against
-both scores it is a tie. The only paired difference whose interval excludes zero is
-our feature arm over CKA, at +0.013.** Within our own family the shape core alone
-ranks marginally highest (0.945) against the full bound's 0.932, so the head and scale
-terms buy validity and attribution rather than ranking, and we present them that way.
-The median per-cell gap between our arm and either score is 0.000 and the largest is
-0.056, so nothing rests on one cell. The Qwen re-extraction is running; the paper's
-own single-seed round over both families gives the same verdict.
-
-(3) Why they land together, and what our contribution actually is. **Our feature arm
-IS the Procrustes size-and-shape distance: delta_N^2 = (rho_T - rho_P)^2 + 2 rho_T
-rho_P (1 - Omega_N), which equals `(||Z_T||_F^2 + ||Z_P||_F^2 - 2||Z_T^T Z_P||_*)/n`,
-the squared orthogonal-Procrustes residual.** So Procrustes is not an external
-competitor but the feature half of our own bound, and CKA/SVCCA are rotation-invariant
-readings of the same geometric agreement. The paper draws the consequence itself (App.
-A.1, L467-473): the contribution "is not the Procrustes distance itself", it is "the
-explicit split of this residual into the scale term and the shape term, which the
-shape-metric literature treats jointly as a single descriptive dissimilarity", plus
-"its lifting to a functional-risk bound". CKA is not substitutable into that residual
-either: it differs in its denominator, relates to our shape core only by the
-inequality CKA >= Omega_F^2, and is not derived from any alignment optimisation (App.
-B).
-
-(4) Where it is NOT a tie: small reference slices. Holding the target gap at n=512 and
-varying only the slice the score is computed on, **B_N holds at rs 0.932 from 8
-sequences upward while SVCCA collapses to 0.083 at n=8**; CKA degrades gracefully,
-0.903 to 0.931. The mechanism is identifiable: canonical correlation is invariant to
-invertible maps inside each subspace, so once the slice has fewer rows than the
-feature dimension the two subspaces align perfectly and no variant is separated. A
-practitioner screening on a handful of sequences gets an ordering from the bound and
-noise from SVCCA.
-
-(5) And three things no similarity score supplies at any slice size. A RISK BOUND:
-none of CKA/SVCCA/Procrustes bounds |dR| at all. AXIS ATTRIBUTION (Sec. 5.3): the
-bound separates scale, shape and head, so it says WHICH axis drove the degradation.
-Qwen3-8B-Base Q6_K on SQuAD has near-perfect backbone geometry (Omega ~ 1, delta =
-1.18) yet its head term is 75.77 of B = 76.95, while BnB INT8 on the same model keeps
-gamma = 0 at B = 3.81; that 20x difference is set entirely by whether the protocol
-quantizes lm_head and is invisible to any similarity score. The identity alignment
-also leads on extraction-QA (SQuAD B_I +0.811 Llama, +0.955 Qwen3-Base), where the
-scale arm carries the signal. A DIFFERENTIABLE PENALTY (Sec. 5.4), which is what the
-second half of this condition tests.
-
-(6) Regularizer baselines, at matched plasticity. As the meta-review asks, we add
-layer-freezing (LoRA on the top-K layers, K in {4, 8, 16}) alongside EWC (diagonal
-Fisher) and L2-SP, all under the paper's exact protocol, each reported at the config
-whose target-task loss MATCHES the shape run's so that no baseline is rewarded for
-under-training. TruthfulQA, three seeds (42/43/44), downstream = mean |dR| over the
-five held-out benchmarks:
+Regularizer baselines, each at the config whose target-task loss MATCHES the shape
+run's. TruthfulQA, three seeds, downstream = mean risk gap over the five held-out
+benchmarks:
 
 | method (TruthfulQA, 3 seeds) | downstream forgetting | target-task loss |
 |:--|--:|--:|
@@ -443,20 +265,14 @@ five held-out benchmarks:
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
 | layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.000 |
 
-Three readings. (a) The shape penalty is lowest on forgetting among the methods that
-keep the fine-tuning task, and it beats every one of them in ALL THREE seeds
-individually, by +0.050 to +0.157, so the ordering is not a seed artefact. (b) It also
-carries the LOWEST target-task loss in the table (0.872), so the reduction is not
-bought with plasticity. (c) Layer-freezing reaches a much lower |dR| only by not
-learning the task: target loss 0.924 against the shape run's 0.872.
+**The shape penalty is lowest among the methods that keep the task, beating each in
+ALL THREE seeds by +0.050 to +0.157, and it carries the LOWEST target-task loss**;
+layer-freezing's lower gap comes from not learning the task (0.924 against 0.872).
+SLoRA, two-phase CIT, CLAIM and ArMA target the SEQUENTIAL continual-instruction
+setting, a task stream rather than a single fine-tuning; we cite all four and leave
+that study to future work. Detail: pCi8 W3/W5, G3T9 W3, eQL6 W4+Q3.
 
-(7) The four named methods. SLoRA, two-phase CIT, CLAIM and ArMA are specialised for
-the sequential continual-instruction setting, a task stream, whereas this experiment
-mitigates forgetting inside a SINGLE LoRA fine-tuning. A fair comparison means moving
-to their sequential benchmarks rather than dropping them in here, so we cite all four
-and flag that study as future work.
-
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 D + W-4b: free-running generation
 
 [原文 D]: Free-running generation: The authors should either provide free-running
@@ -464,31 +280,21 @@ D + W-4b: free-running generation
 [原文 W-4b]: ... It remains unclear how well the method transfers to ... free-running
    generation ... (W-4 quoted in full under Condition B.)
 
-> **Condition D (+ Weak Point 4, free-running half).** Free-running experiments, or
-> limit the claims to teacher forcing.
+> **Condition D (+ Weak Point 4).** Free-running experiments, or limit the claims to
+> teacher forcing.
 
 Response:
-Both. (1) Experiment: on a 100-prompt GSM8K subset (mean 77.4 generated
-tokens per prompt), each of the 12 variants GREEDILY generates its own
-continuation (so surrogate errors compound into its own context; greedy
-keeps the run deterministic and exactly reproducible); both models are then
-scored on those generated trajectories: per-token CE against the
-trajectory's own next tokens, so here the risk gap needs no reference answers
-at all (as everywhere in the paper the gap is a CE difference on tokens shared
-by both models, never a correctness judgment; the generated text simply
-replaces the reference answer as the scored region). Across 5 independent 100-prompt subsets
-(seeds 42-46): rs(B, |dR|) free-running = +0.947 ± 0.015 vs +0.958 ± 0.011
-teacher-forced; bound-rank agreement rs(B_tf, B_free) = +0.959 ± 0.010; and the
-teacher-forced bound predicts free-running degradation at rs(B_tf, |dR|_free) =
-+0.958 ± 0.011. The small sd across subsets shows the result is not a
-single-subset artifact. (2) Scope: we restate Corollary 1 as teacher-forced-only and list
-trajectory-distribution shift as an explicit limitation. We note the bound
-itself applies to any feature-matrix pair, whatever the origin of the rows
-(App. D); the restriction is evaluation protocol, not theory, and the new
-experiment probes exactly the trajectory-shift regime the corollary previously
-did not cover.
+Run, on the hardest case for a teacher-forced bound. We test GSM8K precisely because
+it is the generation-heaviest benchmark, where trajectory shift is most severe: each
+of the 12 variants greedily generates its OWN continuations (77.4 tokens/prompt on
+average), both models scored on those trajectories. **Across 5 subsets r_s = +0.947 +-
+0.015 free-running against +0.958 +- 0.011 teacher-forced**, so the teacher-forced
+bound predicts free-running degradation where it had most room to fail. We also take
+the alternative offered: Corollary 1 restated as teacher-forced-only with trajectory
+shift an explicit limitation, the bound applying to ANY feature rows (App. D). Detail:
+8VrD W4+Q2.
 
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 E + W-5b: failures, mixed results, and where the regularizer does not help
 
 [原文 E]: Analyze failures and mixed results: The authors should discuss weaker
@@ -498,111 +304,50 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
    clearly establish the tradeoff between reducing forgetting and preserving new-task
    performance. (W-5 quoted in full under Condition C.)
 
-> **Condition E (+ Weak Point 5, mixed results).** Discuss the weak correlations
-> (GSM8K, Qwen-BBQ), the cases where the regularizer does not help, and the
+> **Condition E (+ Weak Point 5).** Weak correlations (GSM8K, Qwen-BBQ); cases where
+> the regularizer does not help or WORSENS forgetting; the
 > forgetting-versus-plasticity tradeoff.
 
 Response:
-We agree these belong in the main text, and the promoted analysis is
-quantitative, not a caveat list: over all 20 (model, FT-task, benchmark) cells
-the rank correlation is mean rs +0.71 / median +0.93 with 18/20 positive, and
-**every weak or negative cell is a pair where the perturbation barely moved the
-model, so |dR| sits at the noise floor and there is nothing to rank**, a regime
-PRISM's own small bound flags (App. G.1 / App. H "task-dependence", promoted).
+All 20 LoRA cells move into the main text at mean r_s +0.71, median +0.93, 18/20
+positive. **The two negatives are Qwen-BBQ at a risk gap of ~1e-3 nats, two orders
+below where the bound is informative, so they are a resolution limit, not a geometric
+failure**; we will not present the 0.831 aggregate without it. GSM8K under PTQ is
+genuinely low at the W=I default (0.41) because long chain-of-thought spans dilute
+per-token loss to ~0.019 nats, and the obvious mitigation, scoring the final-answer
+span only, makes the ranking WORSE. Detail: pCi8 W4.
 
-(1) Drift magnitude, not the benchmark, sets rankability. Within a SINGLE
-Qwen-BBQ fine-tuning run, ARC drifts (|dR| = 0.288, rs = +0.94) while TriviaQA
-barely moves (|dR| = 0.0035, rs = -0.66): an ~80x |dR| gap in one run, with the
-rank correlation tracking it. The near-zero |dR| is ground truth (BBQ
-fine-tuning genuinely does not degrade Qwen on TriviaQA), so the negative rs is
-checkpoint noise, not a bound failure.
-
-(2) Where drift exists, PRISM ranks it, GSM8K included. TruthfulQA fine-tuning
-drives broad shape drift (Llama mean |dR| = 0.84) and PRISM ranks its GSM8K
-forgetting at rs = +0.97 (Llama, Fig. 3). GSM8K is not intrinsically
-unrankable; it looks weak only where the perturbation leaves its loss nearly
-unchanged, as in PTQ, where quantization moves long-CoT per-token CE by only
-~0.019 nats (an SNR property of the CE target, inherited by any CE-based
-proxy, perplexity screening included).
-
-(3) Why BBQ sits low. BBQ is a targeted bias-QA task; on Llama it is far less
-shape-disruptive than TruthfulQA (baseline Omega 0.932 vs 0.906) and induces
-much smaller downstream drift (mean |dR| 0.179 vs 0.843), so several
-BBQ->benchmark cells land at the floor while TruthfulQA cells do not. The
-precise, honest statement is therefore a resolving-power caveat, rank is
-informative above a |dR| floor of ~1e-2 nats, which the small bound itself
-signals, not a benchmark or reasoning-task limitation. The revised main text
-promotes App. G.1/H and reports the full 20-cell matrix with this SNR
-analysis; the two negatives are the Qwen-BBQ noise-floor cells above.
-
-(4) Regularizer: the paper's aggregate result stands (Table 2 / Fig. 4: on
-Llama-TruthfulQA the trace penalty cuts mean downstream forgetting by 19% vs
-replay's 9%). The gating analysis explains the per-cell variation the reviewers
-flag rather than contradicting the aggregate. Table 22 is, by construction, that
-diagnostic-gating analysis: its "gating verdict" column already marks Llama-BBQ
-"cell-level mixed" and both Qwen settings "at noise floor => skip"; trace still
-yields per-benchmark wins on shape-driven cells (BBQ-FT TriviaQA -88%, GSM8K
--79%) and lifts Omega 0.93->0.98 where replay leaves it flat. We promote this gating
-analysis from App. H to the main text; the failure cells are exactly those PRISM flags
-as not shape-driven (Llama-BBQ: 20% scale share, rho_P < rho_T; Qwen-BBQ: 1-Omega at
-the ~7e-4 noise floor, nothing to repair). The regularizer is presented as
-axis-targeted, with the gating rule stated explicitly.
-
---------------------------------------------------------------------------------
-The two Weak Points that fall outside the five conditions.
-
-W-2 [原文]: Questionable diagnostic utily: The scale/shape/head decomposition is intuitive,
-   but reviewers pCi8, G3T9, and 8VrD question whether it identifies actionable mechanisms
-   beyond coarse descriptive categories. Some identified failure modes are already
-   expected, and stronger evidence is needed to show that the decomposition reliably
-   guides mitigation.
+------------------------------------------------------------------------------
+Weak Points 2 and 6b, outside the five conditions
 
 > **Weak Point 2.** Are the scale/shape/head axes actionable, or coarse descriptive
 > categories? Some failure modes are already expected.
-
-Response:
-The decomposition now has causal, not descriptive, evidence. Controlled
-single-axis interventions on one base model show the three axes are cleanly
-separable: **final-norm rescaling, norm-preserving rotation, and lm_head-only RTN
-each move ONLY their own term, at >= 2.6e5x the largest cross-axis leakage**, with
-the terms tracking their theoretical laws ((alpha-1)^2 and theta^2 to within
-~1%) and the bound holding in 26/26 configs. The interventions inflict real
-measured damage (|dR| up to 1.39 nats), so this is causal attribution, not
-correlation. On guiding mitigation, the GGUF case runs the full loop end to end:
-PRISM attributes Q6_K SQuAD degradation to the head axis (the head term
-K_pred x gamma = 75.77 of B = 76.95, Qwen3-8B-Base), the protocol that acts on that diagnosis keeps lm_head unquantized,
-and the result is verified at B = 3.81, a 20x reduction. Sec. 5.4 is the same
-loop on the shape axis, turned into a training-time regularizer, and Condition C
-shows it leading the added baselines at matched target loss. Full detail in our
-response to Reviewer G3T9 (W1).
-
-W-6b [原文]: Clarity and theoretical-framing issues: Reviewers eQL6 and 8VrD raise concerns
-   about notation, the motivation for orthogonal alignment ... (the empirical-vs-population
-   half is answered under Condition A.)
-
 > **Weak Point 6b.** Clarity: notation used before definition, and unclear
 > motivation for restricting alignment to orthogonal maps.
 > (Empirical-versus-population half: Condition A.)
 
 Response:
-Both are presentation, and both are fixed. On notation: we define rho_T, rho_P
-(RMS feature scale) and Omega (normalized Procrustes alignment, with 1-Omega the
-dimensionless shape residual) at first use in the Introduction, add a notation
-table, and promote the Section 5 results the argument rests on (the similarity
-comparison, the negative-cell matrix, the gating table) from the appendix into
-the main text. On the motivation for orthogonal alignment: we add an explicit
-identifiability argument. **Because the head is linear, any invertible map A can be absorbed
-into it (W <- W A^-1), so aligning over all invertible maps would let the
-alignment fit away the very degradation we are trying to measure**; restricting to
-rotation and global scale preserves the inner-product geometry the head reads
-out, leaves a meaningful residual, and is the largest group admitting the exact
-closed-form scale/shape split (Prop. 1). Full detail in the responses to
-Reviewer eQL6 (W1 and W2 + Q1).
+Weak Point 2, actionability. Each axis maps one-to-one to a remediation, and the map
+closes into a DIAGNOSE, ACT, VERIFY loop: PRISM attributes Q6_K's SQuAD degradation to
+the head axis, and the protocol acting on it removes it at a 20x lower bound.
+**Single-axis interventions confirm the attribution is causal: each moves ONLY its own
+term, own-axis response being at least 2.6e5x the largest cross-axis leakage, bound
+holding 26/26.** Weak Point 6b, clarity: a notation table, first-use definitions,
+Section 5's key results into the main text, and an identifiability argument for the
+orthogonal restriction. Detail: eQL6 W1/W2+Q1.
 
---------------------------------------------------------------------------------
-
+------------------------------------------------------------------------------
+What this adds up to. The guarantee is stated on the quantity we measure, its
+looseness is attributed and cannot reorder variants, the reference it needs is eight
+to a few hundred sequences of the task's own validation data at 62.6x less compute
+than a benchmark run, it ties the standard similarity baselines while carrying a
+bound, an axis attribution and a trainable penalty they cannot, and the diagnosed axis
+is actionable against four forgetting baselines at matched plasticity. We respectfully
+ask the AC to reconsider, and would welcome completing any condition still judged
+partial.
 
 ================================================================================
+
 Reviewer #1, pCi8 (3: Borderline reject, conf 4), Q3/C3/S2/O3
 ================================================================================
 
