@@ -537,13 +537,14 @@ across the three axes, rather than as the discovery of the phenomena themselves.
 > is worse than Q4, not whether Q4 is good enough. Benchmarks still needed for that.
 
 Response:
-Agreed on both counts, and the useful part is WHERE the looseness sits. Slack B/|dR|
-has median 1597x over 570 cells and comes from three sources: the worst-case
-Lipschitz constant K_feat, the scale prefactor 2 rho_T rho_P inside delta^2 (about
-3.9e4 on Llama/MMLU, so B is measured in nats times a large constant), and the
-triangle step that bounds the target-to-hybrid and hybrid-to-proxy legs separately
-instead of letting them cancel. The third dominates: 2.15-3.48 dex of the slack
-against 0.13-0.40 dex for the K step.
+
+我們同意這個 bound 很鬆, and it is why we claim an ordering racher an absolute value.
+We 具體分析 WHERE the looseness sits. Slack B/|dR|
+has median 1597x over 570 cells and comes from three sources: 
+ - the worst-case Lipschitz constant K_feat, 
+ - the scale prefactor 2 rho_T rho_P inside delta^2 (about 3.9e4 on Llama/MMLU, so B is measured in nats times a large constant), and 
+ - the triangle step that bounds the target-to-hybrid and hybrid-to-proxy legs separately instead of letting them cancel.
+The third dominates: 2.15-3.48 dex of the slack against 0.13-0.40 dex for the K step.
 
 **The first two are constant within a cell. K_feat and K_pred depend only on the
 target head, and rho_T only on the target model and benchmark, so they inflate every
@@ -555,7 +556,7 @@ construction supports. Only the third source varies per variant, which is both w
 the correlations sit near 0.9 rather than 1.0 and why no single multiplicative
 correction exists (log10 sd of the slack 0.76).
 
-On the question you actually ask, whether Q4 is good enough: within a cell the bound
+On the question the reviewer actually ask, whether Q4 is good enough: within a cell the bound
 can be calibrated to nats. For Q4_K_M on Llama-MMLU a leave-one-out isotonic fit
 maps B = 96.75 to a predicted gap of 0.055 nats against a measured 0.036, both
 inside a 0.1-nat tolerance; in that cell its leave-one-out error is 0.040 nats
