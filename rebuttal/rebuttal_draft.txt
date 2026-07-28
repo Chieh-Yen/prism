@@ -136,7 +136,7 @@ front.
 |:--|:--|
 | A | restated on the EMPIRICAL gap + concentration corollary; two of three looseness sources are cell constants and cannot reorder; calibrated to 0.055 nats vs 0.082 |
 | B | 8 sequences order the variants as 512 do, at 62.6x less compute than a benchmark run; unpaired claim dropped |
-| C | bound TIES CKA/SVCCA on identical features and our feature arm beats CKA; shape penalty leads EWC, L2-SP, replay and layer-freezing in every seed at matched target loss |
+| C | bound TIES CKA/SVCCA on identical features and our feature arm beats CKA; shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
 | D | r_s +0.947 free-running vs +0.958 teacher-forced, on the generation-heaviest benchmark |
 | E | 18/20 LoRA cells positive, both negatives at the noise floor; Table 22 read as the gating validation it is |
 
@@ -188,8 +188,9 @@ constant: in log10 units its standard deviation is 0.76, so slack itself varies 
 roughly a factor of six across cells and no single multiplicative correction could
 turn the bound into an estimate. What matters for the paper's claim is WHERE that
 slack comes from, and two of its three sources are fixed once the model and the
-benchmark are fixed. The two Lipschitz constants, K_feat and K_pred, depend only on
-the target model's output head. The scale prefactor rho_T rho_P, the product of the
+benchmark are fixed. The Lipschitz constants are cell-fixed: K_feat depends only on
+the target model's output head, and K_pred = 2 universally (App. A.5). The scale
+prefactor rho_T rho_P, the product of the
 two models' RMS feature scales, varies across the variants of a single cell with a
 median coefficient of variation of 0.63%. **A factor that is nearly the same for every
 variant inflates every variant's bound by nearly the same multiple, so it cannot
@@ -325,7 +326,7 @@ the five held-out benchmarks:
 | L2-SP, lambda 0.01 | 0.763 ± 0.019 | 0.901 ± 0.003 |
 | EWC, lambda 0.1 | 0.751 ± 0.015 | 0.905 ± 0.010 |
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
-| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.000 |
+| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
 **The shape penalty is the lowest on forgetting among the methods that actually keep
 the fine-tuning task, it beats each of them in ALL THREE seeds individually by +0.050
@@ -501,21 +502,19 @@ constant and the exact scale/shape identity as real contributions: those are the
 technical core, and neither existed before this paper. Building on them, and
 agreeing with the reviewer's framing, our claimed contribution is not the discovery
 of the three phenomena but the **first quantitative instrument that makes them
-COMMENSURABLE: all three axes are expressed in the same units, namely each one's
+commensurable: all three axes are expressed in the same units, namely each one's
 contribution to a certified CE-risk-gap bound.** Prior work could say that low-bit
 quantization distorts feature geometry and that LoRA shifts activation scale, but
-not, for one given variant, WHICH axis accounts for its degradation and by how much.
-That common scale is what did not exist.
+not, for one given variant, *which* axis accounts for its degradation and by how
+much. That common scale is what did not exist.
 
-Three things follow from it. (i) A variant's drift decomposes into three numbers
-that can be compared against each other and mapped to a remediation direction. (ii)
-Variants can be ranked from a single teacher-forced pass over a small reference
-slice drawn from the task's own validation data, with no decoding and no answer
-grading. (iii) The shape axis becomes a differentiable training objective.
+Three things follow: per-variant axis attribution mapped to a remediation
+direction, ranking from a single teacher-forced pass over a small slice of the
+task's own validation data, and a differentiable training objective (W2, W3, W5).
 
-Sec. 5.3's Q6_K case is that statement in practice: on Qwen3-8B-Base the head axis
-alone accounts for 75.77 of a bound of 76.95, so the backbone geometry is
-demonstrably not what to fix there. Taking the reviewer's point, the revision states
+Sec. 5.3's Q6_K case is that statement in practice: on Qwen3-8B-Base/SQuAD (Table
+12) the head axis alone accounts for 75.77 of a bound of 76.95, so the backbone
+geometry is demonstrably not what to fix there. Taking the reviewer's point, the revision states
 the contribution in the Introduction as this commensurable, per-variant attribution
 across the three axes, rather than as the discovery of the phenomena themselves.
 
@@ -526,87 +525,86 @@ Response:
 
 We agree the bound is loose, and that is exactly why the paper claims an ordering
 rather than a value. Rather than defend the number, we measured where the looseness
-sits. Slack, the ratio of the bound to the risk gap it bounds, has a median of 1597x
-over 570 cells, and it separates into two measured steps. **Replacing the worst-case
-Lipschitz constant with the largest sensitivity actually observed accounts for a
-factor of under 2.5x. The triangle step, which bounds the target-to-hybrid and
-hybrid-to-proxy legs separately instead of letting them cancel, accounts for the
-remaining 140x to 3000x and is therefore the dominant term.** A third fact is about
-units rather than slack: delta carries the square root of the scale prefactor 2
-rho_T rho_P, about 200 on Llama/MMLU, which is why the bound reads in nats times a
-large constant rather than in nats.
+sits. Slack, the ratio of the bound to the risk gap it bounds, has a median of
+1597x over the 570 (family, benchmark, variant) cells of the paper's five
+benchmarks (near-zero-gap rows excluded), and it separates into two measured steps:
+replacing the worst-case Lipschitz constant with the largest sensitivity actually
+observed accounts for at most ~2.5x; **the triangle step, which bounds the
+target-to-hybrid and hybrid-to-proxy legs separately instead of letting them
+cancel, accounts for the remaining 140x to 3000x and is the dominant term.** Slack
+also narrows where degradation is real: from ~4500x at Q8_0 to ~600x at Q2_K.
 
 **What matters for the ranking claim is that those constants are fixed within a
-(model, benchmark) cell.** K_feat and K_pred depend only on the target model's head,
-and the prefactor rho_T rho_P varies across the variants of one cell with a median
-coefficient of variation of 0.63%, a standard deviation under one percent of its own
-mean. A factor that is the same for every variant inflates every bound by the same
-multiple and cannot reorder them, which is why the paper reports rank correlations
-inside a cell rather than absolute values. What does vary per variant is the
-alignment residual and the triangle slack, and that is both why the correlations sit
-near 0.9 rather than 1.0 and why no single multiplicative correction exists: in
-log10 units the slack has a standard deviation of 0.76, so slack itself varies by
-about a factor of six from cell to cell. It does shrink toward the low bit-widths,
-from about 4500x at Q8_0 to about 600x at Q2_K, so the bound is relatively tightest
-where the degradation is real.
+(model, benchmark) cell.** K_feat depends only on the target model's head, K_pred =
+2 universally (App. A.5), and the prefactor rho_T rho_P varies across the variants
+of one cell with a median coefficient of variation of 0.63%. A factor that is
+nearly the same for every variant cannot reorder them, which is why the paper
+reports within-cell rank correlations rather than absolute values; what does vary
+per variant is the alignment
+residual and the triangle slack, which is why the correlations sit near 0.9 rather
+than 1.0 and why no single multiplicative correction exists.
 
 To test whether the bound can say "good enough" and not only "worse than", we fit a
-monotone map from bound to measured gap inside each cell, holding out one variant at
-a time. **Q4_K_M on Llama-MMLU maps to a predicted 0.055 nats against a measured
-0.036, both under the 0.1-nat tolerance**, and over the 55 cells the held-out error
-runs 33% below predicting the cell mean. In plain terms: once a few variants in a
-cell have been measured, the bound flags which of the rest are safe, at 0.75
-precision here and 0.8 or better in 49 of the 55 cells.
+monotone map from bound to measured gap inside each cell, holding out one variant
+at a time. **Q4_K_M on Llama-MMLU maps to a predicted 0.055 nats against a measured
+0.036, both under the 0.1-nat tolerance**; over the 55 (model, benchmark) cells the
+held-out error runs 33% below predicting the cell mean, and read as an
+accept/reject rule at 0.1 nats, precision is 0.75 on this cell and 0.8 or better in
+49 of the 55. The map is fitted on already-measured variants of the same cell, so
+this amortizes benchmarking rather than replacing it: once a few variants in a cell
+are measured, the bound flags which of the rest are safe.
 
 So the last word does come from a benchmark run, as the reviewer says. What changes
 is the cost of getting there, and the reason is simply that PRISM reads text under
-TEACHER FORCING while a benchmark must GENERATE it. On 256 GSM8K prompts, one RTX
-5090, model load excluded from both sides:
+**teacher forcing** while a benchmark must **generate** it. On the same 256 GSM8K
+prompts, one RTX 5090, model load excluded from both sides:
 
 | pipeline, same 256 GSM8K prompts | what it actually runs | compute |
 |:--|:--|--:|
 | PRISM | one teacher-forced pass, no decoding, no grading | **8.9 s** |
-| benchmark, greedy decode | ~77 autoregressive passes per prompt, then parse and score | 556.7 s (**62.6x**) |
+| benchmark, greedy decode | ~209 generated tokens per prompt, then parse and score | 556.7 s (**62.6x**) |
 | benchmark, self-consistency maj@8 | eight times the above | 4453.6 s (501x) |
 
-The gap is structural rather than a fixed constant, since it grows with generation
-length, so a practitioner can screen every candidate under teacher forcing and spend
-the decoding budget only on the finalists.
+The gap is structural, growing with generation length, so a practitioner can screen
+every candidate under teacher forcing and spend the decoding budget only on the
+finalists.
+
 > **W3.** Table 3 shows only a small gap between Omega alone and the full bound: a
 > lot of machinery for a modest ranking gain.
 
 Response: 
-We thank the reviewer for the question, because it gives us the chance to explain a
-design choice rather than defend a number. The +0.016 is real, and we should say 
-why it is small before saying why it is not the point.
-
-**The twelve variants pooled in Table 3 do not share a head protocol. At W = I the six GGUF k-quant tiers quantize
-lm_head, so their head term is nonzero, while four of the others (BnB INT8, NF4, FP4 and
-one of the two GPTQ checkpoints) leave lm_head untouched, so their head term is exactly
-zero.** Averaging one metric over both kinds necessarily
-understates what the head arm contributes, and we could have reported a much larger
-gap simply by fixing the family: restricted to the GGUF tiers alone, the identity
-bound's mean correlation rises from 0.828 to **0.943**, a gain seven times the
-+0.016 in question. We deliberately do not report it that way. The question we want
-answered is whether PRISM stays informative across a MIXED family, which is the
-situation a practitioner faces when choosing among quantization backends, and the
-paper is offering a diagnostic instrument rather than a leaderboard number.
+The +0.016 is real, and it is small for an identifiable reason: **the variants
+pooled in Table 3 do not share a head protocol.** At W = I the six GGUF k-quant
+tiers quantize lm_head, so their head term is nonzero, while the GPTQ and
+BitsAndBytes variants keep lm_head in FP16, so their head term is zero by
+construction (the paper notes this pooling effect at L282-285). Averaging one
+metric over both kinds necessarily understates what the head arm contributes, and
+the machinery's value shows as soon as either choice is fixed: (a) restricted to
+the GGUF tiers alone (the only regime where the head arm engages), the identity
+bound's mean correlation on Llama rises from 0.828 to **0.943**, a gain seven times
+the +0.016 in question; (b) under the Procrustes alignment the paper itself reports
+(Table 3, bottom block), the same machinery adds **+0.106** (Omega_N 0.806 -> B_N
+0.912), since W_N absorbs the head rotation that W = I leaves in place. This is why
+we recommend W_N whenever the goal is a correct ordering, and W = I for analysis
+and the regularizer (Sec. 3.3). We keep the mixed W = I pool as the
+headline because that is the family a practitioner choosing among backends faces:
+the paper offers a diagnostic instrument, not a leaderboard number.
 
 **And the ranking delta is the smallest of what the decomposition produces: its
-other outputs never appear in a Spearman at all.** (i) The three AXES each map to a
+other outputs never appear in a Spearman at all.** (i) The three axes each map to a
 distinct remediation, so the bound says which one to fix rather than only that a
-variant drifted; W1 gives the concrete case. (ii) The shape term is DIFFERENTIABLE,
-which turns the diagnosis into a trace-norm penalty that reduces forgetting while
-holding feature alignment, and it leads every task-keeping baseline in every seed
-(W5). (iii) The whole measurement runs under TEACHER FORCING, 62.6x cheaper than one
-benchmark evaluation on the same prompts (W2). A similarity score supplies none of
-these, and none of CKA/SVCCA/Procrustes bounds the risk gap at all.
+variant drifted; W1 gives the concrete case. (ii) The shape term is differentiable,
+which turns the diagnosis into a trace-norm penalty that leads every task-keeping
+baseline in every seed (W5). (iii) The whole measurement runs under teacher
+forcing, 62.6x cheaper than one benchmark evaluation on the same prompts (W2). A
+similarity score supplies none of these, and none of CKA/SVCCA/Procrustes bounds
+the risk gap at all.
 
-The bound is also stable where it matters operationally: it needs very little
-reference data, and from that small slice it still orders the variants by their
-FULL-data risk. Three fresh seeds, 12 Llama variants, 5 benchmarks:
+The bound is also frugal where it matters operationally: it needs very little
+reference data. Three fresh seeds, 12 Llama variants, 5 benchmarks, with the
+ground-truth gap held at the full 512 sequences:
 
-| reference slice | bound vs the FULL-slice gap | seed agreement on the ordering |
+| reference slice | bound vs full-slice gap (r_s) | seed agreement on the ordering |
 |:--|--:|--:|
 | 8 sequences | **+0.932 ± 0.016** | 0.981 |
 | 32 | +0.931 ± 0.009 | 0.992 |
@@ -614,62 +612,68 @@ FULL-data risk. Three fresh seeds, 12 Llama variants, 5 benchmarks:
 | 512 (paper size) | +0.932 ± 0.011 | 0.998 |
 
 **Eight sequences already rank the variants against the full-slice risk as well as
-512 do**, and the three seeds agree with one another on that ordering at 0.981 with
-eight sequences, rising to 0.998 at 512. The reference requirement is therefore both
+512 do**, and the seeds agree with one another on that ordering at 0.981 with eight
+sequences, rising to 0.998 at 512. The reference requirement is therefore both
 small and stable.
 
 > **W4.** GSM8K's correlation is far lower than every other benchmark, and the long
 > chain-of-thought explanation makes it structural rather than an edge case, more
 > relevant as models move toward reasoning.
 
-Response: We agree, and the paper already documents it. App. F.3 reports GSM8K as
-the weakest benchmark (r_s about 0.41 across families) and quantifies the reason:
-long teacher-forced chain-of-thought spans dilute per-token loss, so quantization
-moves GSM8K's mean gap by only about 0.019 nats against 0.07 to 0.16 elsewhere.
-**That is a property of the cross-entropy target itself, inherited by any CE-based
-proxy including plain perplexity screening**, and the low correlation is PRISM
-correctly reporting that the variants barely differ there.
+Response: We agree, and the paper already documents it as a first-class
+limitation. App. F.3 reports GSM8K as the weakest benchmark (r_s about 0.41 across
+families) and quantifies the reason: long teacher-forced chain-of-thought spans
+dilute per-token loss, so quantization moves GSM8K's mean gap by only about 0.019
+nats against 0.07 to 0.16 elsewhere (Table 10). **That is a property of the
+cross-entropy target itself, inherited by any CE-based proxy including plain
+perplexity screening**: at gaps this small, per-variant differences approach
+measurement noise, and the low correlation reflects how little degradation there is
+left to rank.
 
-What we can add is that the figure is specific to the alignment the main text
-defaults to. The paper uses W = I because it keeps the head term at its minimum,
-exactly zero when the head is untouched, which is what makes the axis attribution
-clean, and because it is differentiable, which is what the Sec. 3.5 regularizer
-needs (Sec. 3.3). Recomputed under the Procrustes alignment on the paper's own
+What we can separate further is how much of that number is the score side rather
+than the task side. Recomputed under the Procrustes alignment on the paper's own
 round, on Llama:
 
 | Llama-3.1-8B | 1-Omega_I | B_I | 1-Omega_N | B_N |
 |:--|--:|--:|--:|--:|
-| GSM8K | 0.776 | **0.510** | 0.776 | **0.965** |
+| GSM8K | 0.480 | **0.510** | 0.480 | **0.965** |
 | other four (range) | 0.790-0.965 | 0.811-0.972 | 0.790-0.979 | 0.790-0.979 |
 
-**GSM8K's ordering recovers from 0.510 to 0.965 while the other four barely move,
-and the shape core is identical either way (0.776), so the entire jump is the head
-term.** The mechanism is structural: at W = I the head term is exactly zero for
-every variant that leaves lm_head in FP16, so on GSM8K, where the shape core is at
-the numerical floor as well, B_I has almost nothing left to order with. At W_N the
-same term stays nonzero even when the head is untouched, because it also measures
-how far the backbone had to be ROTATED, and it is finely graded across the twelve
-variants (5.6 to 227.9). To be exact about provenance: this is a recomputation on
-the paper's round, and our fresh float64 round computed only the W_N arm, so we do
-not yet claim the gauge gap itself reproduces there.
+On GSM8K the shape term is saturated (Omega = 1.0 to float precision for 11 of the
+12 variants, so its ordering is mostly ties), and at W = I the head term is exactly
+zero for every variant that keeps lm_head in FP16, so B_I has almost nothing left
+to order with (0.510). The feature arm delta is identical under both alignments
+(r_s +0.776), so the entire B_N gain is the head arm, which stays nonzero at W_N
+because it also measures how far the backbone rotated. The ordering signal
+therefore survives under W_N (0.965, the arm we recommend for ranking; W3), but the
+measured gaps behind it still average only ~0.03 nats, so we do not claim this
+makes the absolute drift readable. Provenance note: this is a recomputation on the
+paper's round; our fresh float64 round computed only the W_N arm.
 
-Because the W_N head term is measuring ROTATION rather
-than head damage on these cells, **we recommend W = I when the goal is analysis, 
-and W_N when the goal is a correct ordering**, which is the split Sec.
-3.3 describes. And the recovery is in the order only: the gaps here are
-still about 0.019 nats apart, so we do not claim it makes the absolute drift
-readable. That also places the weakness on a perturbation this small rather than on
-reasoning: under LoRA forgetting, which does move GSM8K, PRISM ranks it at r_s +0.97
-(Fig. 3). We thank the reviewer for pressing on this, and the revision adds the
-discussion.
+We also tested the natural mitigation and report that it does not work: restricting
+features and losses to the final-answer span ("####" onward, ~3 tokens) leaves the
+ordering unreliable (r_s +0.57 on Llama; per-sample losses turn near-binary, and
+the strongest-degradation variant Q2_K even inverts). So we claim no fix; the
+revision states the limitation as structural for any low-signal CE target.
+
+What the data does support is placing the weakness on perturbation size rather than
+on reasoning per se: under LoRA fine-tuning on TruthfulQA, which does move GSM8K
+(mean gap 0.134 on the no-regularization run, Table 2), PRISM ranks its forgetting
+at r_s = +0.97 (Fig. 3, TruthfulQA row), while the BBQ row's weaker GSM8K
+correlation (+0.48) sits in the same small-gap regime (App. H). The boundary is
+therefore the magnitude of the risk gap, which the revision states explicitly:
+PRISM's ordering is reliable when a task's gap is meaningfully nonzero, and GSM8K
+under PTQ sits below that. We thank the reviewer for pressing on this; the revision
+adds the discussion.
 
 > **W5.** EWC is the standard forgetting baseline, cited but never compared against;
 > comparing only to small-scale replay is convenient.
 
 Response:
 Agreed. We added EWC (diagonal Fisher), L2-SP and layer-freezing, the meta-review's
-suggestion, all under the identical protocol (LoRA, lr 1e-5), and **each baseline is
-reported at the sweep config whose target-task loss MATCHES the shape run's**.
+suggestion, all under the identical protocol (LoRA, lr 1e-5), and **each baseline
+is reported at the sweep config whose target-task loss comes closest to the shape
+run's (matched plasticity)**.
 Downstream forgetting is the mean risk gap over the five held-out benchmarks:
 
 | method (TruthfulQA, 3 seeds) | downstream forgetting | target-task loss |
@@ -679,10 +683,10 @@ Downstream forgetting is the mean risk gap over the five held-out benchmarks:
 | L2-SP, lambda 0.01 | 0.763 ± 0.019 | 0.901 ± 0.003 |
 | EWC, lambda 0.1 | 0.751 ± 0.015 | 0.905 ± 0.010 |
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
-| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.000 |
+| layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
 **The shape penalty forgets least among the methods that actually learn the task,
-beats each of them in ALL THREE seeds by +0.050 to +0.157, and carries the lowest
+beats each of them in all three seeds by +0.050 to +0.157, and carries the lowest
 target-task loss in the table.** Layer-freezing's much lower gap comes from not
 learning the task (0.924 against 0.872), which is exactly what matched plasticity is
 there to expose.
@@ -697,29 +701,25 @@ a claim to beat every method.
 > discussion.
 
 Response:
-The alignment affects only how LOOSE the bound is, never whether it holds. **Theorem
-1 is a family of bounds indexed by W, and the only condition is that W be
+The alignment affects only how *loose* the bound is, never whether it holds.
+**Theorem 1 is a family of bounds indexed by W, and the only condition is that W be
 orthogonal: every W in O(d) gives a valid inequality (Thm. 1, L132; proof App.
 C.1).** An orthogonal W is a rotation or a reflection and nothing more, so it
 re-orients the proxy's feature cloud against the target's without changing a single
-length, distance or angle inside it.
+length, distance or angle inside it. **The alignment is an exact isometry by
+construction; what is empirical is only how well such a map can be made to match
+the two clouds, and that governs tightness alone.** Near-isometry is therefore not
+a precondition of the setup; the revision makes this distinction explicit where the
+paper cites [12, 13].
 
-That distinction is what we should have made explicit in the paper. **Our alignment
-is an exact isometry BY CONSTRUCTION; what is empirical is only how well such a map
-can be made to match the two clouds, and that governs tightness alone.** So
-near-isometry is not a precondition, and a W optimized under any other objective
-over O(d) would be equally admissible.
-
-Which one to use is, in the paper's own words, "primarily design-driven" (L145-152).
-Concretely, we recommend W = I for analysis and for the regularizer, because its
-head term is exactly zero when the head is untouched, and W_N when the goal is a
-correct ordering (W4). Both are certified, so the choice costs nothing in validity.
-
-On the reviewer's empirical question, we did measure what the restriction costs at
-aggressive bit-widths: lifting it to an unrestricted linear map shrinks the feature
-residual by under a fifth on average even at 2 bits, and by at most 0.29 in any
-single cell (Llama-3.1-8B, MMLU and SQuAD). The restriction is therefore cheap as
-well as optional.
+On the reviewer's empirical question, we measured what the restriction costs
+exactly where geometry is most distorted: lifting it to an unrestricted linear map
+shrinks the feature residual by under a fifth on average even at 2 bits, and by at
+most 0.29 in any single cell (Llama-3.1-8B, MMLU and SQuAD). The restriction is
+therefore cheap as well as optional. Which W to use is, in the paper's own words,
+"primarily design-driven" (L145-152): W = I for analysis and the regularizer, W_N
+when the goal is ordering (W3); both are certified, so the choice costs nothing in
+validity.
 
 **In sum:** the three answers share one shape. We locate the looseness instead of
 disputing it: two of its three sources are cell constants, so they cannot reorder,
@@ -1280,15 +1280,15 @@ and will label it explicitly.
 
 (2) Versus the newly added baselines, numerically, over three seeds (42/43/44,
 mean ± sd). **Target-task loss: shape penalty 0.872 ± 0.005, replay 0.899 ± 0.007,
-L2-SP 0.901 ± 0.003, EWC 0.905 ± 0.010, layer-freeze 0.924 ± 0.000 (top 16). The
+L2-SP 0.901 ± 0.003, EWC 0.905 ± 0.010, layer-freeze 0.924 ± 0.001 (top 16). The
 shape penalty has the LOWEST target-task loss of every method compared, while also
 having the lowest downstream forgetting among the methods that keep the task
 (0.680 ± 0.016).** So it does not trade target-task performance for retention; it is
 better on both axes at once. Layer-freezing's low forgetting is bought exactly here,
 at target loss 0.924. This is also why every baseline in
-Condition C is reported at the config whose target loss MATCHES the shape run's:
-comparing at equal plasticity is the only way the forgetting numbers mean
-anything.
+Condition C is reported at the sweep config whose target loss comes closest to the
+shape run's: comparing at matched plasticity is the only way the forgetting numbers
+mean anything.
 
 (3) The revision adds this as a numeric column (target-task loss beside
 downstream forgetting) for every method, and if a trade-off does appear for any
