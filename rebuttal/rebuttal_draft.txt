@@ -353,7 +353,7 @@ mean Spearman rs(score, |dR|) over the five benchmarks:
 | our feature arm delta_N (= the Procrustes distance) | +0.930 | +0.873 | +0.901 |
 
 Block 2, what the bound's components contribute, taken from the paper's own
-Table 3 (a single pipeline, W_N gauge, cumulative rows):
+Table 3 (a single pipeline, W_N alignment, cumulative rows):
 
 | component (paper Table 3, W_N block) | Llama | Qwen3 | mean r_s |
 |:--|--:|--:|--:|
@@ -408,7 +408,7 @@ relative to a similarity score.
 Those three are what a similarity score cannot supply. (a) A RISK BOUND: none of
 CKA/SVCCA/Procrustes bounds |dR| at all. (b) AXIS ATTRIBUTION (Sec. 5.3): the
 bound separates scale, shape, and head, so it localizes WHICH axis drove a
-variant's degradation, not merely that it drifted. The identity gauge B_I, for
+variant's degradation, not merely that it drifted. The identity alignment B_I, for
 instance, leads on extraction-QA (SQuAD +0.811/+0.955), where its scale arm
 carries the ranking signal a similarity score cannot see. (c) A DIFFERENTIABLE
 REGULARIZER (Sec. 5.4). Since CKA is bounded only by the inequality
@@ -583,7 +583,7 @@ dimensionless shape residual) at first use in the Introduction, add a notation
 table, and promote the Section 5 results the argument rests on (the similarity
 comparison, the negative-cell matrix, the gating table) from the appendix into
 the main text. On the motivation for orthogonal alignment: we add an explicit
-gauge argument. **Because the head is linear, any invertible map A can be absorbed
+identifiability argument. **Because the head is linear, any invertible map A can be absorbed
 into it (W <- W A^-1), so aligning over all invertible maps would let the
 alignment fit away the very degradation we are trying to measure**; restricting to
 rotation and global scale preserves the inner-product geometry the head reads
@@ -726,17 +726,17 @@ On the question you actually ask, whether Q4 is good enough: within a cell the b
 can be calibrated to nats. For Q4_K_M on Llama-MMLU a leave-one-out isotonic fit
 maps B = 96.75 to a predicted gap of 0.055 nats against a measured 0.036, both
 inside a 0.1-nat tolerance; in that cell its leave-one-out error is 0.040 nats
-against 0.080 for predict-the-mean, and over all 55 cells it cuts that error by 33%. The same
-procedure on three fresh seeds at the Procrustes gauge gives 0.076 against 0.104, a
-26% cut, so the calibration replicates rather than being a property of one round.
-**We will not oversell it: the fit needs a few already-measured variants in that
-cell, and in this cell precision at 0.1 nats is 0.75, one of six cells out of 55
-below 0.8, with four variants sitting within one MAE of the threshold.** So you are
-right that the last word comes from a benchmark run. What changes is how many: **you
-run it on the finalist the ranking selects, not on all twelve**, which is how your
-own Strengths put it. The screen is also 62.6x cheaper than one greedy-decoded GSM8K
-evaluation, since it reads a small reference slice under teacher forcing instead of
-generating and grading.
+against 0.080 for predict-the-mean, and over all 55 cells it cuts that error by 33%.
+The same procedure on three fresh seeds under the Procrustes alignment gives 0.076
+against 0.104, a 26% cut, so the calibration replicates rather than being a property
+of one round. **We will not oversell it: the fit needs a few already-measured
+variants in that cell, and in this cell precision at 0.1 nats is 0.75, one of six
+cells out of 55 below 0.8, with four variants sitting within one MAE of the
+threshold.** So you are right that the last word comes from a benchmark run. What
+changes is how many: **you run it on the finalist the ranking selects, not on all
+twelve**, which is how your own Strengths put it. The screen is also 62.6x cheaper
+than one greedy-decoded GSM8K evaluation, since it reads a small reference slice
+under teacher forcing instead of generating and grading.
 
 Two things are worth adding. The calibration transfers the NUMBER, not the
 tolerance: the 0.1 nats above is the operating point we report against, and what
@@ -755,25 +755,23 @@ FP16 removes it at B = 3.81 (Sec. 5.3). A benchmark score does not do that.
 > **W3.** Table 3 shows only a small gap between the shape similarity Omega alone
 > and the full PRISM bound: a lot of machinery for a modest ranking improvement.
 
-Response:
-Ranking is only ONE of the machinery's four outputs, so the small pooled gap
-measures one output, not the machinery's worth: the other three (the risk
-bound, the axis attribution, the differentiable regularizer) never appear in a
-pooled Spearman, and they are exactly what the reviewer's own strengths credit
-("an exact identity", "a real contribution", axes that "actually capture
-different failure modes", "a differentiable training objective for free").
-With that framing:
-The reviewer's number is Table 3's W=I block: Omega alone 0.804 -> full B 0.820,
-+0.016 pooled. That pooled gap is real; we explain why it is small, then show
-the machinery is not overhead. (1) Why small: **gamma > 0 engages ONLY on GGUF
-k-quant tiers that quantize lm_head, so pooling gamma=0 variants (GPTQ/BnB/
-FP16-head) beside gamma>0 variants dilutes the aggregate while preserving
-validity, and B is the ONLY valid metric whenever gamma>0**. The concrete case
-is in the paper (Sec. 5.3, Table 12): Qwen3-Base Q6_K on SQuAD has near-perfect
-backbone geometry (Omega ~ 1, delta = 1.18) yet the head term 75.77 is essentially
-the whole bound B = 76.95; BnB INT8 on the same model keeps gamma = 0, B = 3.81
-(a 20x difference set entirely by whether the protocol quantizes lm_head,
-invisible to any Omega-only or CKA/SVCCA score). (2) What the machinery buys on RANKING, re-measured rather than quoted. We reran the
+Response: Ranking is only ONE of the machinery's four outputs, so the small pooled
+gap measures one output, not the machinery's worth: the other three (the risk bound,
+the axis attribution, the differentiable regularizer) never appear in a pooled
+Spearman, and they are exactly what the reviewer's own strengths credit ("an exact
+identity", "a real contribution", axes that "actually capture different failure
+modes", "a differentiable training objective for free"). With that framing: The
+reviewer's number is Table 3's W=I block: Omega alone 0.804 -> full B 0.820, +0.016
+pooled. That pooled gap is real; we explain why it is small, then show the machinery
+is not overhead. (1) Why small: **gamma > 0 engages ONLY on GGUF k-quant tiers that
+quantize lm_head, so pooling gamma=0 variants (GPTQ/BnB/ FP16-head) beside gamma>0
+variants dilutes the aggregate while preserving validity, and B is the ONLY valid
+metric whenever gamma>0**. The concrete case is in the paper (Sec. 5.3, Table 12):
+Qwen3-Base Q6_K on SQuAD has near-perfect backbone geometry (Omega ~ 1, delta =
+1.18) yet the head term 75.77 is essentially the whole bound B = 76.95; BnB INT8 on
+the same model keeps gamma = 0, B = 3.81 (a 20x difference set entirely by whether
+the protocol quantizes lm_head, invisible to any Omega-only or CKA/SVCCA score). (2)
+What the machinery buys on RANKING, re-measured rather than quoted. We reran the
 whole comparison on three fresh seeds with float64 accumulation and no omega clamp,
 and we will not overstate the outcome: on Llama all five scores land within 0.01 of
 each other (1-CKA +0.931, 1-SVCCA +0.941, Omega_N +0.945, feature arm_N +0.944, B_N
@@ -785,8 +783,8 @@ rather than quote the more flattering round.
 quarters ONE benchmark: recomputed per benchmark on the paper's seven families,
 GSM8K goes +0.405 to +0.698 while the other four move by -0.02 to +0.06. The
 mechanism is the head term absorbing the backbone rotation, set out with the numbers
-under W4. So the two gauges answer different questions by design: W_N ranks, W = I
-attributes and is additionally the differentiable, frozen-head-faithful gauge that
+under W4. So the two alignments answer different questions by design: W_N ranks, W = I
+attributes and is additionally the differentiable, frozen-head-faithful one that
 yields the Sec. 3.5 regularizer. Both are certified for any W in O(d) (App. C.1).
 
 (4) And the machinery is what DERIVES Omega as the risk-relevant similarity (App. B,
@@ -809,27 +807,25 @@ separated. CKA degrades gracefully, 0.903 to 0.931.
 > the long chain-of-thought explanation makes this a structural limitation rather
 > than an edge case, more relevant as models move toward reasoning.
 
-Response:
-We agree GSM8K's PTQ correlation is low at the W=I default (W3 explains why
-W_N orders those cells better and why we still attribute at W=I), and we analyze it
-rather than wave it away; the analysis reframes it as a drift-MAGNITUDE effect on a specific
-(perturbation, benchmark) regime, not a structural failure on reasoning. Three
-points. (1) Root cause, quantified (App. F.3, Table 10): long
-teacher-forced CoT spans dilute per-token loss, collapsing GSM8K's mean |dR|
-to 0.019 nats (Qwen3-8B-Instruct 0.0033), an order of magnitude below other
-benchmarks (0.07-0.16). **This is a property of the CE target itself, inherited
-by ANY CE-based proxy (perplexity screening included)**, and PRISM
-correctly reports that variants barely differ in CE on GSM8K. (2) We tested the
-obvious mitigation and report the outcome honestly: recomputing features AND
-losses on the FINAL-ANSWER span only ("#### <number>", where the graded content
-lives) does NOT restore the rank signal; it degrades it. The reason is
-mechanical: that span is only about 3 tokens, so span-level |dR| becomes a
-high-variance, near-binary "did it emit the right final number" target, with
-clear inversions (Q2_K, the most-damaged variant by full |dR|, looks almost
-intact on the final token, while NF4 garbles it). We therefore keep GSM8K as a
-first-class item rather than claim a fix.
+Response: We agree GSM8K's PTQ correlation is low at the W=I default (W3 explains
+why W_N orders those cells better and why we still attribute at W=I), and we analyze
+it rather than wave it away; the analysis reframes it as a drift-MAGNITUDE effect on
+a specific (perturbation, benchmark) regime, not a structural failure on reasoning.
+Three points. (1) Root cause, quantified (App. F.3, Table 10): long teacher-forced
+CoT spans dilute per-token loss, collapsing GSM8K's mean |dR| to 0.019 nats
+(Qwen3-8B-Instruct 0.0033), an order of magnitude below other benchmarks
+(0.07-0.16). **This is a property of the CE target itself, inherited by ANY CE-based
+proxy (perplexity screening included)**, and PRISM correctly reports that variants
+barely differ in CE on GSM8K. (2) We tested the obvious mitigation and report the
+outcome honestly: recomputing features AND losses on the FINAL-ANSWER span only
+("#### <number>", where the graded content lives) does NOT restore the rank signal;
+it degrades it. The reason is mechanical: that span is only about 3 tokens, so
+span-level |dR| becomes a high-variance, near-binary "did it emit the right final
+number" target, with clear inversions (Q2_K, the most-damaged variant by full |dR|,
+looks almost intact on the final token, while NF4 garbles it). We therefore keep
+GSM8K as a first-class item rather than claim a fix.
 
-(3) The gauge, which is where the number actually moves. On Llama, per benchmark:
+(3) The alignment, which is where the number actually moves. On Llama, per benchmark:
 
 | Llama-3.1-8B | 1-Omega_I | B_I | 1-Omega_N | B_N |
 |:--|--:|--:|--:|--:|
@@ -921,13 +917,13 @@ The assumption affects only how LOOSE the bound is, never whether it holds.
 orthogonal: every W in O(d) gives a valid inequality (Thm. 1, L132; proof App.
 C.1).** The geometry is why: an orthogonal W is a rotation or a reflection and
 nothing more, so it re-orients the proxy's feature cloud against the target's
-without changing a single length, distance or angle inside it. **Our gauge is
+without changing a single length, distance or angle inside it. **Our alignment is
 therefore an exact isometry BY CONSTRUCTION; what is empirical is only how well such
 a map can be made to match the two clouds.** The choice of W changes how the
 mismatch is split between the feature arm (delta) and the head arm (gamma), never
 the geometry being split.
 
-The gauge is therefore, in the paper's own words, "primarily design-driven"
+The alignment is therefore, in the paper's own words, "primarily design-driven"
 (L145-152), and our two sit at opposite ends of that split. W = I is the identity:
 compare the features in their own coordinates, keep gamma at its minimum, and stay
 differentiable, which is what the Sec. 3.5 regularizer needs. W_N = V U^T from the
@@ -960,10 +956,11 @@ the orthogonal restriction.
 disputing it: two of its three sources are cell constants, so they cannot reorder,
 and a within-cell calibration turns what remains into nats (W2). On identical
 features the bound cedes nothing to CKA or SVCCA while carrying a valid upper bound,
-an axis attribution and a trainable objective that they cannot (W3). And the near-isometry assumption is
-measured rather than assumed: it affects only tightness, by under a fifth of the
-residual even at 2 bits (W6). We hope these speak to the practical-significance
-concern, and we are glad to engage further on any point that remains.
+an axis attribution and a trainable objective that they cannot (W3). And the
+near-isometry assumption is measured rather than assumed: it affects only tightness,
+by under a fifth of the residual even at 2 bits (W6). We hope these speak to the
+practical-significance concern, and we are glad to engage further on any point that
+remains.
 
 ================================================================================
 Reviewer #2, G3T9 (3: Borderline reject, conf 4), Q3/C3/S2/O3
@@ -1080,12 +1077,13 @@ coarseness and description. On coarseness, each axis maps one-to-one to a distin
 remediation: scale to per-channel outlier smoothing, shape to Hessian-aware
 reconstruction (PTQ) or trace regularization (training), head to keeping lm_head in
 FP16 (Sec. 5.3). On description, that map closes into a DIAGNOSE -> ACT -> VERIFY
-loop: PRISM attributes Q6_K SQuAD degradation to the head axis (the head term
-K_pred x gamma = 75.77 of B = 76.95, Qwen3-8B-Base), the protocol acting on that diagnosis (BnB INT8, head unquantized) removes
-it, and the fix is verified at B = 3.81, a 20x reduction. **The attribution is causal
-rather than descriptive: on Llama-3.1-8B, final-norm rescaling, norm-preserving
-rotation and lm_head-only RTN each move ONLY their own term, with own-axis response at
-least 2.6e5x the largest cross-axis leakage, and the bound holds in 26 of 26 cells.**
+loop: PRISM attributes Q6_K SQuAD degradation to the head axis (the head term K_pred
+x gamma = 75.77 of B = 76.95, Qwen3-8B-Base), the protocol acting on that diagnosis
+(BnB INT8, head unquantized) removes it, and the fix is verified at B = 3.81, a 20x
+reduction. **The attribution is causal rather than descriptive: on Llama-3.1-8B,
+final-norm rescaling, norm-preserving rotation and lm_head-only RTN each move ONLY
+their own term, with own-axis response at least 2.6e5x the largest cross-axis
+leakage, and the bound holds in 26 of 26 cells.**
 
 (3) Where benchmarking is not an option. PRISM needs no benchmark harness, no scorer
 and no correctness judgment, only reference text, so it applies to proprietary or
@@ -1202,7 +1200,7 @@ features:
 | our feature arm delta_N (= the Procrustes distance) | +0.930 | +0.873 | +0.901 |
 
 Block 2 is what each bound component contributes, from the paper's own Table 3
-(a single pipeline, W_N gauge, cumulative rows): Omega_N +0.806 (shape core) ->
+(a single pipeline, W_N alignment, cumulative rows): Omega_N +0.806 (shape core) ->
 delta_N +0.873 (+ scale, so +0.067) -> B_N +0.912 (+ head, so +0.039). Block 1
 recomputes every score on one fresh extraction, which is what makes the
 CKA/SVCCA comparison like-for-like, while Block 2 quotes the paper's round; the
@@ -1240,7 +1238,7 @@ from the head arm). Chaining the two within-block results: our feature arm sits
 at the CKA/SVCCA level, the full bound sits at or above its own feature arm, and
 it buys three things a similarity score cannot give. (a) A risk bound and axis
 attribution: the bound localizes WHICH axis (scale / shape / head) drove a
-variant's degradation, e.g. the identity gauge B_I leads on extraction-QA
+variant's degradation, e.g. the identity alignment B_I leads on extraction-QA
 (SQuAD +0.811/+0.955) where its scale arm carries the signal, an attribution no
 similarity score provides. (b) None of CKA/SVCCA/Procrustes bounds |dR| or
 attributes to an axis (App. B: CKA >= Omega_F^2, not
@@ -1376,7 +1374,7 @@ risk gap between pre- and post-trained models.
 We thank the reviewer, and we take the clarity feedback seriously: we treat it
 as our presentation to fix, not the reviewer's reading. Concretely: a notation
 table and first-use definitions, with the key Section 5 results moved into the
-main text (W1); an explicit gauge argument for orthogonal alignment (W2/Q1); and
+main text (W1); an explicit identifiability argument for orthogonal alignment (W2/Q1); and
 a demonstration on the paper's own data that the shape term is driven by
 1-Omega, not the norm prefactor (W3), which is the sharpest technical concern.
 
@@ -1570,7 +1568,7 @@ aggregates over the 10 cells. We will state this explicitly in the Sec. 5.5
 text and every table caption.
 
 **In sum:** the four substantive changes are the notation and presentation fixes
-(W1), the gauge argument for orthogonal alignment with the hypotheses' role
+(W1), the identifiability argument for orthogonal alignment with the hypotheses' role
 scoped to tightness (W2 + Q1), the prefactor analysis on the paper's own data
 showing the shape term is driven by 1-Omega and not by feature magnitude (W3),
 and the target-task numbers showing the penalty costs no plasticity (W4 + Q3).
@@ -1809,14 +1807,14 @@ cite all four and flag a large-scale continual-learning study as future work.
 
 (4) Reference-set sensitivity, which is Q3. On the REGULARIZER side the reference is
 the fine-tuning task's own held-out split at the paper's size, so neither its domain
-nor a domain transfer is a knob we exercise. On the DIAGNOSTIC side we re-ran the size ablation for this rebuttal on three new
-seeds and the task's own data: against the gap measured on the full 512-sequence
-slice, B_N reaches rs 0.932 +- 0.016 at 8 sequences and 0.932 +- 0.011 at 512, and the
-three seeds agree on the ordering at 0.981 (n=8) rising to 0.998 (n=512), so the
-32-sequence choice the reviewer asks about is not load-bearing;
-on domain, the diagnostic bound is input-conditioned by construction, reading the
-diagnosed task's own validation items, so domain sensitivity arises only for the
-regularizer's reference measured above.
+nor a domain transfer is a knob we exercise. On the DIAGNOSTIC side we re-ran the
+size ablation for this rebuttal on three new seeds and the task's own data: against
+the gap measured on the full 512-sequence slice, B_N reaches rs 0.932 +- 0.016 at 8
+sequences and 0.932 +- 0.011 at 512, and the three seeds agree on the ordering at
+0.981 (n=8) rising to 0.998 (n=512), so the 32-sequence choice the reviewer asks
+about is not load-bearing; on domain, the diagnostic bound is input-conditioned by
+construction, reading the diagnosed task's own validation items, so domain
+sensitivity arises only for the regularizer's reference measured above.
 
 (5) Multiple seeds and source-task performance, the remaining two items of W3.
 **Seeds: all three (42/43/44) are complete for every method above, reported as
@@ -1866,9 +1864,9 @@ full 20-cell correlation matrix with all-cell aggregates, mean rs = +0.71,
 median = +0.93 over all 20 (model, FT-task, benchmark) cells, with exactly
 the two negative Qwen-BBQ cells above and 18/20 positive, plus this SNR
 analysis; we will not present 0.831 without that context. For ranking use we
-also note the rotation-invariant W_N gauge is the sharper instrument overall
+also note the rotation-invariant W_N alignment is the sharper instrument overall
 (mean rs 0.912 vs 0.820 under W=I, Table 3); under LoRA's frozen head gamma=0,
-so both gauges are certified and a practitioner ranking checkpoints can adopt
+so both alignments are certified and a practitioner ranking checkpoints can adopt
 W_N directly (this does not change the two noise-floor cells above, whose drift
 is simply too small to order).
 
