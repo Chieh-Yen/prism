@@ -394,9 +394,10 @@ the paper reads this as a property of the (model, task, benchmark) triple rather
 of the diagnostic. On GSM8K under quantization the correlation is genuinely low at the
 W = I default (0.41), but **the ORDERING is recoverable: at the Procrustes alignment
 the same cells rank at +0.698**, because W_N rotates the head and the head term then
-carries the backbone rotation that the near-tied shape term cannot resolve. The
-magnitude caveat stands either way, since the mean gap there is about 0.019 nats, so
-this is a gain in ORDER and not in resolution.
+carries the backbone rotation that the near-tied shape term cannot pick up. The
+magnitude caveat stands either way, since the gaps there are only about 0.019 nats
+apart: **what W_N recovers is the ORDER of those variants, not the ability to say how
+far apart they are.**
 
 (ii) WHERE THE REGULARIZER DOES NOT HELP, OR HURTS. Here we should clarify something
 our own caption made too easy to misread. **Table 22 is a gating-VALIDATION table, not
@@ -609,10 +610,10 @@ We thank the reviewer for the question, because it gives us the chance to explai
 design choice rather than defend a number. The +0.016 is real, and we should say 
 why it is small before saying why it is not the point.
 
-**The twelve variants pooled in Table 3 do not share a head protocol. The six GGUF
-k-quant tiers quantize lm_head, so their head term is nonzero; four of the others
-(BnB INT8, NF4, FP4 and one of the two GPTQ checkpoints) leave lm_head untouched, so
-their head term is exactly zero.** Averaging one metric over both kinds necessarily
+**The twelve variants pooled in Table 3 do not share a head protocol. At W = I the six GGUF k-quant tiers quantize
+lm_head, so their head term is nonzero, while four of the others (BnB INT8, NF4, FP4 and
+one of the two GPTQ checkpoints) leave lm_head untouched, so their head term is exactly
+zero.** Averaging one metric over both kinds necessarily
 understates what the head arm contributes, and we could have reported a much larger
 gap simply by fixing the family: restricted to the GGUF tiers alone, the identity
 bound's mean correlation rises from 0.828 to **0.943**, a gain seven times the
@@ -651,66 +652,45 @@ small and stable.
 > chain-of-thought explanation makes it structural rather than an edge case, more
 > relevant as models move toward reasoning.
 
-Response: We agree GSM8K's PTQ correlation is low at the W=I default 
-這點我們在 XXX 有討論. 
-而本文中有解釋使用 W=I 的原因, 是因為想要分析 YYY
-我們想展開 orthogonal alignment 的設定下, GSM8K 的狀況.
+Response:
+We agree, and the paper already documents it. App. F.3 reports GSM8K as the weakest
+benchmark (r_s about 0.41 across families) and quantifies the reason: long
+teacher-forced chain-of-thought spans dilute per-token loss, so quantization moves
+GSM8K's mean gap by only about 0.019 nats against 0.07 to 0.16 elsewhere. **That is
+a property of the cross-entropy target itself, inherited by any CE-based proxy
+including plain perplexity screening**, and the low correlation is PRISM correctly
+reporting that the variants barely differ there.
 
-[實驗 table]
-
-我們可以發現 GSM8K 的 score 提升了
-[開始解釋 head term 的部分]
-
-"""
-(W3 explains
-why W_N orders those cells better and why we still attribute at W=I), and we analyze
-it rather than wave it away; the analysis reframes it as a drift-MAGNITUDE effect on
-a specific (perturbation, benchmark) regime, not a structural failure on reasoning.
-Three points. (1) Root cause, quantified (App. F.3, Table 10): long teacher-forced
-CoT spans dilute per-token loss, collapsing GSM8K's mean |dR| to 0.019 nats
-(Qwen3-8B-Instruct 0.0033), an order of magnitude below other benchmarks
-(0.07-0.16). **This is a property of the CE target itself, inherited by ANY CE-based
-proxy (perplexity screening included)**, and PRISM correctly reports that variants
-barely differ in CE on GSM8K. (2) We tested the obvious mitigation and report the
-outcome honestly: recomputing features AND losses on the FINAL-ANSWER span only
-("#### <number>", where the graded content lives) does NOT restore the rank signal;
-it degrades it. The reason is mechanical: that span is only about 3 tokens, so
-span-level |dR| becomes a high-variance, near-binary "did it emit the right final
-number" target, with clear inversions (Q2_K, the most-damaged variant by full |dR|,
-looks almost intact on the final token, while NF4 garbles it). We therefore keep
-GSM8K as a first-class item rather than claim a fix.
-
-(3) The alignment, which is where the number actually moves. On Llama, per benchmark:
+What we can add is that the figure is specific to the alignment the main text
+defaults to. The paper uses W = I because it keeps the head term at its minimum,
+exactly zero when the head is untouched, which is what makes the axis attribution
+clean, and because it is differentiable, which is what the Sec. 3.5 regularizer
+needs (Sec. 3.3). Recomputed under the Procrustes alignment on the paper's own round, on Llama:
 
 | Llama-3.1-8B | 1-Omega_I | B_I | 1-Omega_N | B_N |
 |:--|--:|--:|--:|--:|
 | GSM8K | 0.776 | **0.510** | 0.776 | **0.965** |
 | other four (range) | 0.790-0.965 | 0.811-0.972 | 0.790-0.979 | 0.790-0.979 |
 
-**The shape core does not move at all (0.776 either way), so the whole jump is the
-head term.** The reason is structural and the paper flags it (Sec. 3.3): at W = I the
-head term `||Sigma_P^(1/2) (H_T - H_P)||_F` is EXACTLY ZERO for every variant that
-keeps an FP16 head (BnB INT8/NF4/FP4, GPTQ), so on GSM8K, where the shape core is at
-the float32 floor as well, B_I has almost nothing left to order with. At W_N the same
-term is nonzero even when H_P = H_T, because it also measures how far the backbone had
-to be ROTATED, and it is finely graded (5.6 to 227.9 across the twelve variants).
-**So W_N recovers the ORDER of these cells, and the honest reading is that on them the
-W_N head term is rotation rather than head damage, which is exactly why Sec. 5.3
-attributes at W = I.**
+**GSM8K's ordering recovers from 0.510 to 0.965 while the other four barely move,
+and the shape core is identical either way (0.776), so the entire jump is the head
+term.** The mechanism is structural: at W = I the head term is exactly zero for
+every variant that leaves lm_head in FP16, so on GSM8K, where the shape core is at
+the numerical floor as well, B_I has almost nothing left to order with. At W_N the
+same term stays nonzero even when the head is untouched, because it also measures
+how far the backbone had to be ROTATED, and it is finely graded across the twelve variants (5.6 to 227.9). To be exact about
+provenance: this is a recomputation on the paper's round, and our fresh float64 round
+computed only the W_N arm, so we do not yet claim the gauge gap itself reproduces there.
 
-(4) The correct scope is by task, not
-"reasoning is a structural limitation": the weak PTQ correlation is a
-drift-MAGNITUDE / SNR effect (quantization moves GSM8K's long-CoT per-token CE
-by only ~0.019 nats, so variants are near-tied and any CE-based proxy
-inherits it), NOT a failure of the geometry on reasoning. GSM8K is not
-intrinsically unrankable: under a perturbation that does move it, PRISM ranks it
-well, e.g. rs = +0.97 for Llama TruthfulQA-LoRA forgetting (Fig. 3). So the
-honest, precise statement is a noise-floor caveat on resolving power, which
-PRISM's own small bound signals. W_N recovers the ORDER of those cells, not their
-magnitude; we do NOT claim an extraction that "rescues" the absolute drift of PTQ
-cells that sit at the floor. The Limitations
-state this as a |dR|-magnitude caveat, with GSM8K's PTQ cells as the example.
-"""
+Two boundaries we keep. **What W_N recovers is the ORDER of these variants, not the
+ability to say how far apart they are**: the gaps are still only about 0.019 nats, and
+on these cells the W_N head term should be
+read as rotation rather than head damage, which is why Sec. 5.3 attributes at W = I.
+And the weakness is a drift-magnitude effect on one (perturbation, benchmark) regime
+rather than a limit on reasoning: under a perturbation that does move GSM8K, PRISM
+ranks it at r_s +0.97 (Llama TruthfulQA LoRA forgetting, Fig. 3). We also tried the
+obvious mitigation, scoring the final-answer span alone, and report that it makes
+the ranking worse rather than better, so we keep GSM8K as a stated limitation.
 
 
 > **W5.** EWC is the standard forgetting baseline, cited but never compared against;
@@ -1042,13 +1022,15 @@ features:
 | 1-SVCCA | +0.924 | +0.878 | +0.901 |
 | our feature arm delta_N (= the Procrustes distance) | +0.930 | +0.873 | +0.901 |
 
-Block 2 is what each bound component contributes, from the paper's own Table 3
-(a single pipeline, W_N alignment, cumulative rows): Omega_N +0.806 (shape core) ->
-delta_N +0.873 (+ scale, so +0.067) -> B_N +0.912 (+ head, so +0.039). Block 1
-recomputes every score on one fresh extraction, which is what makes the
-CKA/SVCCA comparison like-for-like, while Block 2 quotes the paper's round; the
-absolute levels therefore differ slightly between blocks and every claim below
-uses only WITHIN-block comparisons.
+We should be careful about one thing the paper's Table 3 invites. Its W_N block
+reads as a cumulative climb (Omega_N +0.806, delta_N +0.873, B_N +0.912), but we
+re-ran that comparison on three fresh seeds with float64 accumulation and no omega
+clamp, and on Llama all five scores land within 0.014 of each other, so **that climb
+does not reproduce once the numerical artefact is removed and we do not lean on
+it.** Recomputed per benchmark, three quarters of the paper's W_N advantage comes
+from GSM8K alone, where the shape term sits at the numerical floor and the head term
+is what carries the order; the other four benchmarks move by at most 0.06. Block 1
+above is therefore the comparison we stand on, and it is a dead heat.
 
 The dead heat does not rest on any single cell, and we checked this three ways.
 Because all three scores are read from the SAME features they move together, so
@@ -1075,11 +1057,9 @@ the Procrustes distance itself; App. A.1 states it as (a) the explicit SPLIT of
 that residual into a scale term and a shape term, which the shape-metric
 literature treats as one descriptive dissimilarity while Sec. 4 shows the two
 arms dominate under different lifecycle settings, and (b) its LIFTING to a
-functional-risk bound (Theorem 1). Block 2 prices that structure within the
-paper's own round: it costs nothing on ranking (+0.067 from the scale arm, +0.039
-from the head arm). Chaining the two within-block results: our feature arm sits
-at the CKA/SVCCA level, the full bound sits at or above its own feature arm, and
-it buys three things a similarity score cannot give. (a) A risk bound and axis
+functional-risk bound (Theorem 1). Putting the two blocks together: our feature arm sits at the CKA/SVCCA level, the
+full bound sits with it once the arithmetic is clean, and the structure buys three
+things a similarity score cannot give. (a) A risk bound and axis
 attribution: the bound localizes WHICH axis (scale / shape / head) drove a
 variant's degradation, e.g. the identity alignment B_I leads on extraction-QA
 (SQuAD +0.811/+0.955) where its scale arm carries the signal, an attribution no
@@ -1710,8 +1690,10 @@ rather than an appendix.
 We report it with the aggregate it qualifies: the revised main text carries the full
 20-cell matrix, **mean rs +0.71, median +0.93, and 18 of 20 cells positive**, with
 the two Qwen-BBQ exceptions visible, so 0.831 never appears without that context.
-For ranking use we also note the rotation-invariant W_N alignment is the sharper
-instrument overall (mean rs 0.912 against 0.820 under W=I, Table 3); LoRA freezes
+For ranking use, W_N is the sharper alignment where the shape term is at the noise
+floor and close to neutral elsewhere: recomputed per benchmark, three quarters of the
+Table 3 gap (0.820 to 0.912) comes from GSM8K alone, the other four benchmarks moving
+by at most 0.06; LoRA freezes
 the head so gamma = 0 and both alignments are certified, though this does not change
 the two cells above, whose drift is simply too small to order.
 
