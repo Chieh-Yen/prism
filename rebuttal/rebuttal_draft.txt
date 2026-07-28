@@ -727,45 +727,29 @@ a claim to beat every method.
 > discussion.
 
 Response:
-The assumption affects only how LOOSE the bound is, never whether it holds.
-**Theorem 1 is a family of bounds indexed by W, and the only condition is that W be
+The alignment affects only how LOOSE the bound is, never whether it holds. **Theorem
+1 is a family of bounds indexed by W, and the only condition is that W be
 orthogonal: every W in O(d) gives a valid inequality (Thm. 1, L132; proof App.
-C.1).** The geometry is why: an orthogonal W is a rotation or a reflection and
-nothing more, so it re-orients the proxy's feature cloud against the target's
-without changing a single length, distance or angle inside it. **Our alignment is
-therefore an exact isometry BY CONSTRUCTION; what is empirical is only how well such
-a map can be made to match the two clouds.** The choice of W changes how the
-mismatch is split between the feature arm (delta) and the head arm (gamma), never
-the geometry being split.
+C.1).** An orthogonal W is a rotation or a reflection and nothing more, so it
+re-orients the proxy's feature cloud against the target's without changing a single
+length, distance or angle inside it.
 
-The alignment is therefore, in the paper's own words, "primarily design-driven"
-(L145-152), and our two sit at opposite ends of that split. W = I is the identity:
-compare the features in their own coordinates, keep gamma at its minimum, and stay
-differentiable, which is what the Sec. 3.5 regularizer needs. W_N = V U^T from the
-SVD Z_T^T Z_P = U S V^T is the orthogonal-Procrustes solution, the best rigid
-re-orientation: it minimizes delta instead, paying a per-step SVD and a nonzero
-gamma. A W optimized under any other objective over O(d) is equally admissible and
-moves only the tightness. Near-isometry is not a precondition, only one more entry
-in the looseness itemized under W2.
+That distinction is what we should have made explicit in the paper. **Our alignment
+is an exact isometry BY CONSTRUCTION; what is empirical is only how well such a map
+can be made to match the two clouds, and that governs tightness alone.** So
+near-isometry is not a precondition, and a W optimized under any other objective
+over O(d) would be equally admissible.
 
-What survives is therefore a quantitative question, and it is the reviewer's: how
-much looseness does the orthogonality restriction cost once the geometry really is
-badly distorted? We measure it at the bit-widths named. We align the features twice
-in their top-r principal subspace, once with the best rotation-and-scale and once
-with the best arbitrary linear map, which stretches and shears and so serves only as
-an oracle ceiling, and report iso_gain = 1 - res_linear / res_orthogonal, the
-fraction of residual the restriction costs, 0 meaning free. Means over MMLU and
-SQuAD on Llama-3.1-8B, excluding noise-floor rows: **the FP16 dtype control sits at
-0.084, this metric's own noise level, and quantization reaches only 0.130 (Q8_0),
-0.165 (Q4_K_M), 0.183 (Q2_K) and 0.189 (NF4), the worst single cell reaching 0.29.
-Even at 2 bits, dropping orthogonality entirely would shrink the residual by under a
-fifth on average.**
+Which one to use is, in the paper's own words, "primarily design-driven" (L145-152).
+Concretely, we recommend W = I for analysis and for the regularizer, because its
+head term is exactly zero when the head is untouched, and W_N when the goal is a
+correct ordering (W4). Both are certified, so the choice costs nothing in validity.
 
-The same measurement answers "already severely distorted" from the other side: even
-after the oracle linear alignment, 26% (Q4_K_M) and 57% (Q2_K) of the relative
-residual remains on MMLU. Most of what aggressive quantization does is not linearly
-alignable at all, so the bound is charging genuine degradation, not an artefact of
-the orthogonal restriction.
+On the reviewer's empirical question, we did measure what the restriction costs at
+aggressive bit-widths: lifting it to an unrestricted linear map shrinks the feature
+residual by under a fifth on average even at 2 bits, and by at most 0.29 in any
+single cell (Llama-3.1-8B, MMLU and SQuAD). The restriction is therefore cheap as
+well as optional.
 
 **In sum:** the three answers share one shape. We locate the looseness instead of
 disputing it: two of its three sources are cell constants, so they cannot reorder,
