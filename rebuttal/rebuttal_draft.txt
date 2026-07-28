@@ -652,20 +652,20 @@ small and stable.
 > chain-of-thought explanation makes it structural rather than an edge case, more
 > relevant as models move toward reasoning.
 
-Response:
-We agree, and the paper already documents it. App. F.3 reports GSM8K as the weakest
-benchmark (r_s about 0.41 across families) and quantifies the reason: long
-teacher-forced chain-of-thought spans dilute per-token loss, so quantization moves
-GSM8K's mean gap by only about 0.019 nats against 0.07 to 0.16 elsewhere. **That is
-a property of the cross-entropy target itself, inherited by any CE-based proxy
-including plain perplexity screening**, and the low correlation is PRISM correctly
-reporting that the variants barely differ there.
+Response: We agree, and the paper already documents it. App. F.3 reports GSM8K as
+the weakest benchmark (r_s about 0.41 across families) and quantifies the reason:
+long teacher-forced chain-of-thought spans dilute per-token loss, so quantization
+moves GSM8K's mean gap by only about 0.019 nats against 0.07 to 0.16 elsewhere.
+**That is a property of the cross-entropy target itself, inherited by any CE-based
+proxy including plain perplexity screening**, and the low correlation is PRISM
+correctly reporting that the variants barely differ there.
 
 What we can add is that the figure is specific to the alignment the main text
 defaults to. The paper uses W = I because it keeps the head term at its minimum,
 exactly zero when the head is untouched, which is what makes the axis attribution
 clean, and because it is differentiable, which is what the Sec. 3.5 regularizer
-needs (Sec. 3.3). Recomputed under the Procrustes alignment on the paper's own round, on Llama:
+needs (Sec. 3.3). Recomputed under the Procrustes alignment on the paper's own
+round, on Llama:
 
 | Llama-3.1-8B | 1-Omega_I | B_I | 1-Omega_N | B_N |
 |:--|--:|--:|--:|--:|
@@ -678,20 +678,20 @@ term.** The mechanism is structural: at W = I the head term is exactly zero for
 every variant that leaves lm_head in FP16, so on GSM8K, where the shape core is at
 the numerical floor as well, B_I has almost nothing left to order with. At W_N the
 same term stays nonzero even when the head is untouched, because it also measures
-how far the backbone had to be ROTATED, and it is finely graded across the twelve variants (5.6 to 227.9). To be exact about
-provenance: this is a recomputation on the paper's round, and our fresh float64 round
-computed only the W_N arm, so we do not yet claim the gauge gap itself reproduces there.
+how far the backbone had to be ROTATED, and it is finely graded across the twelve
+variants (5.6 to 227.9). To be exact about provenance: this is a recomputation on
+the paper's round, and our fresh float64 round computed only the W_N arm, so we do
+not yet claim the gauge gap itself reproduces there.
 
-Two boundaries we keep. **What W_N recovers is the ORDER of these variants, not the
-ability to say how far apart they are**: the gaps are still only about 0.019 nats, and
-on these cells the W_N head term should be
-read as rotation rather than head damage, which is why Sec. 5.3 attributes at W = I.
-And the weakness is a drift-magnitude effect on one (perturbation, benchmark) regime
-rather than a limit on reasoning: under a perturbation that does move GSM8K, PRISM
-ranks it at r_s +0.97 (Llama TruthfulQA LoRA forgetting, Fig. 3). We also tried the
-obvious mitigation, scoring the final-answer span alone, and report that it makes
-the ranking worse rather than better, so we keep GSM8K as a stated limitation.
-
+Because the W_N head term is measuring ROTATION rather
+than head damage on these cells, **we recommend W = I when the goal is analysis, 
+and W_N when the goal is a correct ordering**, which is the split Sec.
+3.3 describes. And the recovery is in the order only: the gaps here are
+still about 0.019 nats apart, so we do not claim it makes the absolute drift
+readable. That also places the weakness on a perturbation this small rather than on
+reasoning: under LoRA forgetting, which does move GSM8K, PRISM ranks it at r_s +0.97
+(Fig. 3). We thank the reviewer for pressing on this, and the revision adds the
+discussion.
 
 > **W5.** EWC is the standard forgetting baseline, cited but never compared against;
 > comparing only to small-scale replay is convenient.
