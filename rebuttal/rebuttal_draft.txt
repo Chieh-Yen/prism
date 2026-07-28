@@ -605,15 +605,23 @@ WHICH axis to fix, and a benchmark score does not.
 > lot of machinery for a modest ranking gain.
 
 Response: 
-感謝 reviewer 的提問, 讓我們有說明實驗設計的機會.
-The +0.016 is real, and we should say why it is small before saying why it is not
-the point. 
-GGUF 的 head term 不等於 0, 但其他種 quantization (GPTQ, BnB) 因為是使用 head 所以等於 0, 這樣的混合比較是我們刻意為之
-我們想要知道 PRISM 是不是可以在混合 quantization family 下, 也給出足夠的資訊.
-如果固定 quantization famliy 的話, score 會提升, 但這不是我們的目標.
-我們的目標是提供一個診斷與分析的工具
-另外一方面,
-**The ranking delta is the smallest of what the decomposition produces, and its
+We thank the reviewer for the question, because it gives us the chance to explain a
+design choice rather than defend a number. The +0.016 is real, and we should say 
+why it is small before saying why it is not the point.
+
+**The twelve variants pooled in Table 3 do not share a head protocol. The six GGUF
+k-quant tiers quantize lm_head, so their head term is nonzero; four of the others
+(BnB INT8, NF4, FP4 and one of the two GPTQ checkpoints) leave lm_head untouched, so
+their head term is exactly zero.** Averaging one metric over both kinds necessarily
+understates what the head arm contributes, and we could have reported a much larger
+gap simply by fixing the family: restricted to the GGUF tiers alone, the identity
+bound's mean correlation rises from 0.828 to **0.943**, a gain seven times the
++0.016 in question. We deliberately do not report it that way. The question we want
+answered is whether PRISM stays informative across a MIXED family, which is the
+situation a practitioner faces when choosing among quantization backends, and the
+paper is offering a diagnostic instrument rather than a leaderboard number.
+
+**And the ranking delta is the smallest of what the decomposition produces: its
 other outputs never appear in a Spearman at all.** (i) The three AXES each map to a
 distinct remediation, so the bound says which one to fix rather than only that a
 variant drifted; W1 gives the concrete case. (ii) The shape term is DIFFERENTIABLE,
@@ -623,20 +631,21 @@ holding feature alignment, and it leads every task-keeping baseline in every see
 benchmark evaluation on the same prompts (W2). A similarity score supplies none of
 these, and none of CKA/SVCCA/Procrustes bounds the risk gap at all.
 
-The bound is also stable in the two senses that matter operationally: it needs very
-little reference data, and from that small slice it still orders the variants by
-their FULL-data risk. Three fresh seeds, 12 Llama variants, 5 benchmarks:
+The bound is also stable where it matters operationally: it needs very little
+reference data, and from that small slice it still orders the variants by their
+FULL-data risk. Three fresh seeds, 12 Llama variants, 5 benchmarks:
 
-| reference slice | bound vs the FULL-slice gap | bound vs that slice's own gap | seed agreement on the ordering |
-|:--|--:|--:|--:|
-| 8 sequences | **+0.932 ± 0.016** | +0.768 ± 0.034 | 0.981 |
-| 32 | +0.931 ± 0.009 | +0.834 ± 0.053 | 0.992 |
-| 128 | +0.933 ± 0.011 | +0.914 ± 0.008 | 0.993 |
-| 512 (paper size) | +0.932 ± 0.011 | +0.932 ± 0.011 | 0.998 |
+| reference slice | bound vs the FULL-slice gap | seed agreement on the ordering |
+|:--|--:|--:|
+| 8 sequences | **+0.932 ± 0.016** | 0.981 |
+| 32 | +0.931 ± 0.009 | 0.992 |
+| 128 | +0.933 ± 0.011 | 0.993 |
+| 512 (paper size) | +0.932 ± 0.011 | 0.998 |
 
-Read the first column down: **eight sequences already rank the variants against the
-full-slice risk as well as 512 do.** The third shows the three seeds agreeing with one another on that ordering at
-0.981 with eight sequences, rising to 0.998 at 512.
+**Eight sequences already rank the variants against the full-slice risk as well as
+512 do**, and the three seeds agree with one another on that ordering at 0.981 with
+eight sequences, rising to 0.998 at 512. The reference requirement is therefore both
+small and stable.
 
 > **W4.** GSM8K's correlation is far lower than every other benchmark, and the long
 > chain-of-thought explanation makes it structural rather than an edge case, more
