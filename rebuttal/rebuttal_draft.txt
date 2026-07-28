@@ -355,7 +355,8 @@ Response:
 We ran it, and on the hardest case for a teacher-forced bound. GSM8K is the
 generation-heaviest of the five benchmarks, so it is where trajectory shift can do the
 most damage: each of the 12 variants greedily generates its OWN continuation,
-averaging 77.4 tokens per prompt, so its early mistakes compound into its own later
+averaging 76 tokens per prompt (72-81 across subsets), so its early mistakes
+compound into its own later
 context, which is precisely the regime the autoregressive corollary did not cover.
 Both models are then scored on those generated trajectories.
 
@@ -937,18 +938,18 @@ to quantify them. SVCCA is the one that breaks, for a reason worth stating: cano
 correlation is invariant to invertible maps inside each subspace, so when the slice
 has fewer rows than the feature dimension the two subspaces align perfectly and every
 variant scores the same. At n=8, 1-SVCCA is numerically zero on arc, mmlu, squad and
-triviaqa (median -6e-07), separating no variant at all; the exception is GSM8K, whose
+triviaqa (median -1.2e-06), separating no variant at all; the exception is GSM8K, whose
 long answers give ample rows, where SVCCA works at every size. CKA degrades
 gracefully, and the bound does not degrade. On the type of the samples: the
-reference is the diagnosed task's own validation split by construction (item 4),
-so size is the free parameter this ablation varies, and a different data type is
-not a knob but a different guarantee, the scope stated in item (4).
+reference is the diagnosed task's own validation split by construction, so size
+is the free parameter this ablation varies, and a different data type is not a
+knob but a different guarantee, the scope stated in item (1).
 
 (3) Free-running generation. We test on GSM8K specifically because it is the
 generation-heaviest, reasoning-heavy benchmark where trajectory shift is most
 severe, the hardest case for a teacher-forced bound. On a 100-prompt subset each
-of the 12 variants greedily generates its own continuations (mean 77.4
-tokens/prompt) and both models are scored on those trajectories: across 5 subsets
+of the 12 variants greedily generates its own continuations (mean 76
+tokens/prompt across subsets) and both models are scored on those trajectories: across 5 subsets
 (seeds 42-46), rs = +0.947 ± 0.015 free-run vs +0.958 ± 0.011 teacher-forced, rank
 agreement +0.959 ± 0.010. This mode does decode, so it is the answer-availability
 fallback rather than the cheap path. Independently we restate Corollary 1 as
@@ -991,7 +992,8 @@ bootstrap over variants (5000 resamples) puts our feature arm at -0.002 versus
 heat is robust three ways: the largest per-cell gap between our feature arm and
 either score is 0.036 over the ten (family, benchmark) cells; dropping any one
 benchmark moves the pooled paired difference by at most 0.006; and two
-extractions differing 3.2x in token budget reproduce every cell to four decimals.
+extractions differing 3.2x in token budget (Llama; 3.9x on Qwen) reproduce every
+cell to four decimals.
 One provenance disclosure: the paper's Table 3 W_N block reads as a cumulative
 climb (Omega_N +0.806 -> B_N +0.912), but re-run with float64 accumulation and no
 omega clamp, on Llama all five scores land within 0.014 of one another, and three
@@ -1008,8 +1010,8 @@ Procrustes distance itself but (a) its explicit split into a scale arm and a
 shape arm, which Sec. 4 shows dominate under different lifecycle settings, and
 (b) its lifting to a functional-risk bound (Theorem 1). That structure buys what
 a similarity score cannot give: a certified bound with axis attribution (e.g.
-B_I on extraction-QA, SQuAD +0.811/+0.955, where the scale arm carries the
-signal), the Sec. 5.3 diagnoses, and robustness to reference size: on the
+B_I on extraction-QA, SQuAD +0.811/+0.955), the Sec. 5.3 diagnoses, and
+robustness to reference size: on the
 three-seed size run (table under W2), **B_N holds at r_s 0.932 from 8 sequences
 up while SVCCA collapses to 0.083 at n=8**, so the parity above is measured where
 SVCCA is at its best.
@@ -1181,9 +1183,10 @@ Response:
 Agreed on both counts. We will (i) define rho_T, rho_P (RMS feature scale of
 the reference feature matrices) and Omega (normalized Procrustes alignment,
 with 1-Omega the dimensionless shape residual) at first use in the
-Introduction, each with a one-line intuition; (ii) move the results Sec. 5
-argues from (the CKA/similarity comparison, the full 20-cell LoRA matrix, and the
-gating table, currently App. H Table 22) into the main text; (iii) add a
+Introduction, each with a one-line intuition; (ii) bring the results the Sec. 5
+argument rests on into the main text: the full 20-cell LoRA matrix and the
+gating table (currently App. H, Table 22) move up from the appendix, and the new
+same-features CKA/SVCCA comparison is added alongside them; (iii) add a
 notation table. Thank you for flagging these.
 
 2) W2 + Q1 [原文]:
@@ -1273,8 +1276,7 @@ comparison holds T fixed and varies P over the same backbone, so **within a
 essentially constant, while 1-Omega spans a median 366x dynamic range**;
 Spearman(shape term, 1-Omega) has median 1.000 (min 0.988) over the 52 cells
 with Omega variance (of 55), and the two give identical rank correlations
-against |dR| (median 0.770). Three fresh seeds reproduce this with room to spare
-(CV 0.53%, dynamic range 837x). So the ordering and the diagnostic signal come
+against |dR| (median 0.770). So the ordering and the diagnostic signal come
 from 1-Omega; the prefactor sets units, not ranking. This is also why the
 inflation the reviewer worries about could not reorder even if it were larger:
 the cell's other constants are shared too (K_feat depends only on the target
@@ -1361,8 +1363,9 @@ its equation.
 Response:
 Against the empirical cross-entropy risk gap: for each variant we compute the
 quantity |dR|, the benchmark-measured CE gap between target and proxy under the fixed
-evaluation protocol (defined in Sec. 5.1; also stated in the captions of
-Table 1 and Fig. 2, "r_s(B, |dR|)"), and r_s is computed between each bound
+evaluation protocol (defined in Sec. 5.1; Table 1's caption states it as
+"r_s(B, |dR|)", and Fig. 2 plots B against |dR| with per-subplot r_s
+annotated), and r_s is computed between each bound
 term and |dR| across all variants within a (family, benchmark) cell; Table 3
 aggregates over the 10 cells. One nuance, since the reviewer asks precisely:
 Eq. (1) defines the population risk, and every reported quantity, the bound and
@@ -1507,8 +1510,9 @@ land on the correct side of an epsilon = 0.1 nat tolerance:**
 
 We add that cell's operating characteristic rather than only its favourable rows,
 since the reviewer is likely to check it: Leave-one-out MAE 0.040 nats and precision 0.75 at
-eps = 0.1, one of the six cells of 55 below 0.8. All four of its errors lie within
-1.2 MAE of the tolerance and all seven calls further than that are correct, so the
+eps = 0.1, one of the six cells of 55 below 0.8. All four of its errors have
+calibrated predictions within 1.2 MAE of the tolerance, and every call whose
+prediction sits further out than that band is correct, so the
 failure mode is a bounded ambiguous band rather than an arbitrary error: the
 calibrated bound decides the clear variants and flags the borderline ones for
 measurement. Both analyses become a new section/table, the band is stated with
@@ -1706,7 +1710,7 @@ We report it with the aggregate it qualifies: the revised main text carries the 
 the two Qwen-BBQ exceptions visible, so 0.831 never appears without that context.
 For ranking use, W_N is the sharper alignment where the shape term is at the noise
 floor and close to neutral elsewhere: recomputed per benchmark, three quarters of the
-Table 3 gap (0.820 to 0.912) comes from GSM8K alone, the other four benchmarks moving
+Table 3 climb (Omega_N 0.806 to B_N 0.912) comes from GSM8K alone, the other four benchmarks moving
 by at most 0.06; LoRA freezes
 the head, so gamma = 0 at the W = I default and both alignments are certified,
 though this does not change the two cells above, whose rank signal is degenerate
@@ -1716,7 +1720,8 @@ for the reasons already stated.
 rather than convenient: of the five benchmarks it is the only one whose answers are
 long enough for trajectory shift to exist at all, since ARC and MMLU answers are a
 single token and SQuAD and TriviaQA average about 3 to 4. Each of the 12 variants
-greedily generates its own continuation (mean 77.4 tokens per prompt, so its errors
+greedily generates its own continuation (mean 76 tokens per prompt across
+subsets, so its errors
 compound into its own context, exactly the regime the corollary did not cover) and
 both models are then scored on those trajectories, with the generated tokens as
 their own next-token targets, so the model-versus-model gap needs no reference
@@ -1732,9 +1737,12 @@ greedy decoding is deterministic, so a seed varies only the prompt subset):
 
 **The last row is the operational one: the bound computed on reference text already
 predicts the degradation the variant shows on its own generated trajectories, at
-+0.958.** So a practitioner ranks once on the reference slice and the ordering
-carries over to free-running use. The spread across subsets is at most 0.042 on any
-row, so this is not a single-subset artifact. Independently, Corollary 1 is restated
++0.958.** (Its summary statistics coincide with the teacher-forced row's because
+the five per-subset values happen to form the same set in a different order;
+the underlying per-subset pairs differ.) So a practitioner ranks once on the
+reference slice and the ordering carries over to free-running use. The spread
+across subsets is at most 0.042 on any row, so this is not a single-subset
+artifact. Independently, Corollary 1 is restated
 as teacher-forced-only with trajectory-distribution shift an explicit limitation:
 the bound applies to any feature rows (App. D), so the restriction is protocol
 rather than theory. The Limitations section adds reference-set sensitivity,
