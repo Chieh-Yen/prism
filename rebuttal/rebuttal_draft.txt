@@ -386,14 +386,14 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 Response:
 (i) THE WEAK CORRELATIONS. All 20 (model, fine-tuning task, benchmark) LoRA cells move
 into the main text with their aggregate: mean r_s +0.71, median +0.93, and 18 of 20
-positive. The two flagged cells (Qwen-BBQ on MMLU and TriviaQA) are no-drift cells,
-and App. G.1 already gives the
-mechanism: their risk gap at lambda = 0 sits at about 1e-3 nats, two to three orders
-below the 1e-1 scale at which the bound is informative, because that fine-tune barely
-moves those benchmarks. **When a fine-tune leaves a benchmark essentially intact,
-ranking its checkpoints by how much it moved is uninformative by construction**, and
-the paper reads this as a property of the (model, task, benchmark) triple rather than
-of the diagnostic. On GSM8K under quantization the correlation is genuinely low at the
+positive. In the two flagged cells (Qwen-BBQ on MMLU and TriviaQA), one side of
+the correlation has no dynamic range left (Table 21): TriviaQA's risk gap at
+lambda = 0 is 0.0035 nats against 0.288 on ARC in the same trajectory (the target
+side has nothing to rank, App. G.1), and MMLU's backbone drift sits at the grid's
+numerical floor (1 - Omega = 0.0009, so the bound side has nothing to rank with).
+**Ranking over near-ties is uninformative by construction**, and the paper reads
+this as a property of the (model, task, benchmark) triple rather than of the
+diagnostic. On GSM8K under quantization the correlation is genuinely low at the
 W = I default (0.41), but **the ORDERING is recoverable: at the Procrustes alignment
 the same cells rank at +0.698**, because W_N rotates the head and the head term then
 carries the backbone rotation that the near-tied shape term cannot pick up. The
@@ -1673,19 +1673,22 @@ Response:
 (1) Agreed on prominence, and we move these two cells into the main text; we also
 want to be precise about what they record, because they are not failures of the
 diagnostic. The two cells are Qwen3-8B fine-tuned on BBQ, evaluated on MMLU
-(rs = -0.34) and on TriviaQA (rs = -0.66) in Fig. 7, and what those panels record
-is that **BBQ fine-tuning simply does not damage those two benchmarks: at
-lambda = 0 their |dR| sits at ~1e-3 nats (TriviaQA ~0.0035, against ~0.288 on ARC
-inside the same fine-tuning trajectory, Table 21), two to three orders of
-magnitude below the ~1e-1 scale at which the bound is informative.** With nothing
-forgotten, the checkpoints are statistical ties, and a rank correlation over ties
-is noise; a strongly positive rs there would mean the bound was fitting
-measurement noise. So those two numbers read "this model is robust to this
-fine-tune on these benchmarks": the diagnostic reporting no damage, which is the
-mechanism App. G.1 (L770-779) already states. Fig. 7's purpose is the
-cross-family replication of the drift-tracking claim, and its low-forgetting
-panels are the no-damage reading of the same instrument, not a scoreboard on
-which a negative entry is a failed case.
+(rs = -0.34) and on TriviaQA (rs = -0.66) in Fig. 7, and Table 21 shows what each
+panel records: in both, one side of the correlation has no dynamic range left to
+rank with. **On TriviaQA it is the target side: the fine-tune barely moves the
+benchmark (|dR| = 0.0035 at lambda = 0, against 0.288 on ARC inside the same
+trajectory), two orders below the ~1e-1 scale at which per-checkpoint ranking is
+informative (App. G.1, L770-779), so the checkpoints are statistical ties. On
+MMLU it is the bound side: the backbone barely drifts geometrically (1 - Omega =
+0.0009 at step 300, at the grid's numerical floor), so the bound has almost no
+variation with which to order checkpoints, the same condition-(ii) signature
+App. H documents on Llama-BBQ.** A rank correlation over near-ties is noise, and
+a strongly positive rs on either cell would mean the score was fitting that
+noise. So the two panels read "benchmark robust to this fine-tune" and
+"fine-tune geometrically quiet on this benchmark", not "bound failure"; Fig. 7's
+purpose is the cross-family replication of the drift-tracking claim, and its
+low-signal panels are the same instrument reporting that there is nothing to
+rank, not a scoreboard on which a negative entry is a failed case.
 
 We report it with the aggregate it qualifies: the revised main text carries the full
 20-cell matrix, **mean rs +0.71, median +0.93, and 18 of 20 cells positive**, with
@@ -1694,8 +1697,9 @@ For ranking use, W_N is the sharper alignment where the shape term is at the noi
 floor and close to neutral elsewhere: recomputed per benchmark, three quarters of the
 Table 3 gap (0.820 to 0.912) comes from GSM8K alone, the other four benchmarks moving
 by at most 0.06; LoRA freezes
-the head so gamma = 0 and both alignments are certified, though this does not change
-the two cells above, whose drift is simply too small to order.
+the head, so gamma = 0 at the W = I default and both alignments are certified,
+though this does not change the two cells above, whose rankable signal is simply
+too small on one side or the other.
 
 (2) Free-running, which is also Q2. We test on GSM8K, and the choice is forced
 rather than convenient: of the five benchmarks it is the only one whose answers are
