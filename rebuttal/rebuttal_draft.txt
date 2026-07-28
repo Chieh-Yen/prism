@@ -781,20 +781,13 @@ each other (1-CKA +0.931, 1-SVCCA +0.941, Omega_N +0.945, feature arm_N +0.944, 
 larger W_N ladder does not survive once the numerical artefact is removed. We say so
 rather than quote the more flattering round.
 
-(3) Why B_N beats B_I, since the honest answer is the head term. The paper's W_N
-advantage (0.820 to 0.912, Table 3) is three quarters ONE benchmark: recomputed per
-benchmark on the paper's seven families, GSM8K goes +0.405 to +0.698 while the other
-four move by -0.02 to +0.06. The mechanism is the one Sec. 3.3 already flags. At W_N
-the head term is `||Sigma_P^(1/2) (W_N H_T - H_P)||_F`, which is nonzero even when
-H_P = H_T, so it absorbs the backbone ROTATION; at W = I the same term is exactly
-zero for every FP16-head variant (BnB, GPTQ) and therefore nearly two-valued on
-GSM8K, where it can order nothing. **On GSM8K the per-token CE differences sit at
-the noise floor and the shape term resolves nothing, so that absorbed rotation is
-the only surviving signal. That is precisely why the paper RANKS with W_N and
-ATTRIBUTES with W = I: on those cells the W_N head term is rotation, not head
-damage.** So the two gauges answer different questions by design, W = I additionally
-being the differentiable, frozen-head-faithful one that yields the Sec. 3.5
-regularizer. Both are certified for any W in O(d) (App. C.1).
+(3) Why B_N beats B_I. The paper's W_N advantage (0.820 to 0.912, Table 3) is three
+quarters ONE benchmark: recomputed per benchmark on the paper's seven families,
+GSM8K goes +0.405 to +0.698 while the other four move by -0.02 to +0.06. The
+mechanism is the head term absorbing the backbone rotation, set out with the numbers
+under W4. So the two gauges answer different questions by design: W_N ranks, W = I
+attributes and is additionally the differentiable, frozen-head-faithful gauge that
+yields the Sec. 3.5 regularizer. Both are certified for any W in O(d) (App. C.1).
 
 (4) And the machinery is what DERIVES Omega as the risk-relevant similarity (App. B,
 not CKA) and yields the differentiable regularizer; the bound is the justification
@@ -834,7 +827,27 @@ mechanical: that span is only about 3 tokens, so span-level |dR| becomes a
 high-variance, near-binary "did it emit the right final number" target, with
 clear inversions (Q2_K, the most-damaged variant by full |dR|, looks almost
 intact on the final token, while NF4 garbles it). We therefore keep GSM8K as a
-first-class item rather than claim a fix. (3) The correct scope is by task, not
+first-class item rather than claim a fix.
+
+(3) The gauge, which is where the number actually moves. On Llama, per benchmark:
+
+| Llama-3.1-8B | 1-Omega_I | B_I | 1-Omega_N | B_N |
+|:--|--:|--:|--:|--:|
+| GSM8K | 0.776 | **0.510** | 0.776 | **0.965** |
+| other four (range) | 0.790-0.965 | 0.811-0.972 | 0.790-0.979 | 0.790-0.979 |
+
+**The shape core does not move at all (0.776 either way), so the whole jump is the
+head term.** The reason is structural and the paper flags it (Sec. 3.3): at W = I the
+head term `||Sigma_P^(1/2) (H_T - H_P)||_F` is EXACTLY ZERO for every variant that
+keeps an FP16 head (BnB INT8/NF4/FP4, GPTQ), so on GSM8K, where the shape core is at
+the float32 floor as well, B_I has almost nothing left to order with. At W_N the same
+term is nonzero even when H_P = H_T, because it also measures how far the backbone had
+to be ROTATED, and it is finely graded (5.6 to 227.9 across the twelve variants).
+**So W_N recovers the ORDER of these cells, and the honest reading is that on them the
+W_N head term is rotation rather than head damage, which is exactly why Sec. 5.3
+attributes at W = I.**
+
+(4) The correct scope is by task, not
 "reasoning is a structural limitation": the weak PTQ correlation is a
 drift-MAGNITUDE / SNR effect (quantization moves GSM8K's long-CoT per-token CE
 by only ~0.019 nats, so variants are near-tied and any CE-based proxy
