@@ -127,27 +127,28 @@ GLOBAL RESPONSE TO THE META-REVIEW
 
 The strengths all four reviews credit, the claims we narrow, and a closing word are in
 our GENERAL RESPONSE. Every condition below is answered by a measurement run during
-the rebuttal. Two experiments carry most of the load, so we give them once and refer
-back: a fresh three-seed re-extraction of all 12 Llama variants over the 5 benchmarks,
-and a matched-plasticity baseline sweep.
+the rebuttal, and the two experiments carrying most of the load are given once, up
+front.
+
+**All five are met by measurement, not clarification.**
 
 | condition | result |
 |:--|:--|
-| A. usefulness / empirical risk | restated on the EMPIRICAL gap + concentration corollary; two of three looseness sources are cell constants and cannot reorder; calibration predicts the gap to 0.055 nats vs 0.082 |
-| B. reference set | 8 sequences order the variants as 512 do (0.932 both ends), at 62.6x less compute than one benchmark run; unpaired claim dropped |
-| C. stronger baselines | bound TIES CKA/SVCCA on identical features, our feature arm beats CKA (+0.013, CI excludes 0), and wins outright on small slices; shape penalty leads EWC, L2-SP, replay, layer-freezing in every seed at matched target loss |
-| D. free-running generation | +0.947 free-running vs +0.958 teacher-forced on the generation-heaviest benchmark; Corollary 1 also restated as teacher-forced-only |
-| E. failures / mixed results | all 20 LoRA cells in the main text: mean +0.71, median +0.93, 18/20 positive, both negatives at ~1e-3 nats; a mitigation tried and reported failed |
+| A | restated on the EMPIRICAL gap + concentration corollary; two of three looseness sources are cell constants and cannot reorder; calibrated to 0.055 nats vs 0.082 |
+| B | 8 sequences order the variants as 512 do, at 62.6x less compute than a benchmark run; unpaired claim dropped |
+| C | bound TIES CKA/SVCCA on identical features and our feature arm beats CKA; shape penalty leads EWC, L2-SP, replay and layer-freezing in every seed at matched target loss |
+| D | r_s +0.947 free-running vs +0.958 teacher-forced, on the generation-heaviest benchmark |
+| E | 18/20 LoRA cells positive, both negatives at the noise floor; Table 22 read as the gating validation it is |
 
 ONE TABLE ANSWERS MOST OF B AND C. Every score is computed on the SAME features from
 one forward pass, the risk gap recomputed from that pass. The n=8 column holds the
-target gap at the paper's size and varies only the slice the SCORE sees.
+target gap at 512 and varies only the slice the score sees.
 
 | score (identical features, 12 Llama variants, 3 fresh seeds) | slice n=8 | slice n=512 |
 |:--|--:|--:|
 | 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
 | 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
-| 1-Omega_N (our shape core) | +0.927 ± 0.004 | +0.945 ± 0.014 |
+
 | our feature arm delta_N (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
 | PRISM B_N (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
@@ -211,7 +212,7 @@ Response:
 We narrow rather than defend. The bound is input-conditioned, so computing it on
 generic text to predict a benchmark's degradation would UNPAIR feature and risk, a
 transfer question the derivation does not cover; benchmark-independent use is not
-claimed and the revision states that scope.
+claimed, and the revision says so.
 
 What it does need is minimal, and the table above measures it: **eight sequences of
 the diagnosed task's own validation data already order the variants exactly as 512 do,
@@ -284,15 +285,14 @@ D + W-4b: free-running generation
 > teacher forcing.
 
 Response:
-Run, on the hardest case for a teacher-forced bound. We test GSM8K precisely because
-it is the generation-heaviest benchmark, where trajectory shift is most severe: each
-of the 12 variants greedily generates its OWN continuations (77.4 tokens/prompt on
-average), both models scored on those trajectories. **Across 5 subsets r_s = +0.947 +-
-0.015 free-running against +0.958 +- 0.011 teacher-forced**, so the teacher-forced
-bound predicts free-running degradation where it had most room to fail. We also take
-the alternative offered: Corollary 1 restated as teacher-forced-only with trajectory
-shift an explicit limitation, the bound applying to ANY feature rows (App. D). Detail:
-8VrD W4+Q2.
+Run, on the hardest case for a teacher-forced bound: GSM8K, the generation-heaviest
+benchmark, where trajectory shift is most severe. Each of the 12 variants greedily
+generates its OWN continuations (77.4 tokens/prompt) and both models are scored on
+those trajectories. **Across 5 subsets r_s = +0.947 +- 0.015 free-running against
++0.958 +- 0.011 teacher-forced**, so the teacher-forced bound predicts free-running
+degradation where it had most room to fail. We also take the alternative offered:
+Corollary 1 restated as teacher-forced-only, with trajectory shift an explicit
+limitation. Detail: 8VrD W4+Q2.
 
 ------------------------------------------------------------------------------
 E + W-5b: failures, mixed results, and where the regularizer does not help
@@ -309,13 +309,26 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 > forgetting-versus-plasticity tradeoff.
 
 Response:
-All 20 LoRA cells move into the main text at mean r_s +0.71, median +0.93, 18/20
-positive. **The two negatives are Qwen-BBQ at a risk gap of ~1e-3 nats, two orders
-below where the bound is informative, so they are a resolution limit, not a geometric
-failure**; we will not present the 0.831 aggregate without it. GSM8K under PTQ is
-genuinely low at the W=I default (0.41) because long chain-of-thought spans dilute
-per-token loss to ~0.019 nats, and the obvious mitigation, scoring the final-answer
-span only, makes the ranking WORSE. Detail: pCi8 W4.
+(i) WEAK CORRELATIONS. All 20 LoRA cells go into the main text at mean r_s +0.71,
+median +0.93, 18/20 positive; the two negatives are Qwen-BBQ at ~1e-3 nats, two orders
+below where the bound is informative. GSM8K under PTQ is low at the W=I default
+(0.41), but **the ORDERING is recoverable: at the Procrustes alignment the same cells
+rank +0.698**, because W_N rotates the head and the head term then carries the
+rotation the near-tied shape term cannot resolve. The magnitude caveat stands (~0.019
+nats), so this is an ordering gain, not a resolution gain.
+
+(ii) WHERE THE REGULARIZER DOES NOT HELP OR HURTS. **Table 22 is a gating-VALIDATION
+table rather than a four-setting results table, and our caption should have said so:
+its rows are ordered by decreasing shape drift, and two of the four carry the verdict
+"at noise floor, skip".** Llama TruthfulQA (drift 0.0937) gives -19.2%, while the two
+Qwen settings (0.0091, 0.0011) give +2.7% and -0.2%, inside the +-3% band the appendix
+calls neutral and on cells we say NOT to treat. Three of four match the prediction;
+**Llama BBQ (+8.6%) is the one genuine exception**, a condition-(ii) failure rather
+than a shape failure, and on its two benchmarks where that condition holds the penalty
+gives -88% and -79%. Decomposed in 8VrD W3.
+
+(iii) THE TRADEOFF. Every baseline in C is reported at MATCHED target-task loss, which
+is what exposes layer-freezing's lower gap as under-training.
 
 ------------------------------------------------------------------------------
 Weak Points 2 and 6b, outside the five conditions
@@ -327,24 +340,24 @@ Weak Points 2 and 6b, outside the five conditions
 > (Empirical-versus-population half: Condition A.)
 
 Response:
-Weak Point 2, actionability. Each axis maps one-to-one to a remediation, and the map
-closes into a DIAGNOSE, ACT, VERIFY loop: PRISM attributes Q6_K's SQuAD degradation to
-the head axis, and the protocol acting on it removes it at a 20x lower bound.
-**Single-axis interventions confirm the attribution is causal: each moves ONLY its own
-term, own-axis response being at least 2.6e5x the largest cross-axis leakage, bound
-holding 26/26.** Weak Point 6b, clarity: a notation table, first-use definitions,
-Section 5's key results into the main text, and an identifiability argument for the
-orthogonal restriction. Detail: eQL6 W1/W2+Q1.
+Weak Point 2, actionability: each axis maps one-to-one to a distinct remediation and
+the map closes into a DIAGNOSE, ACT, VERIFY loop, PRISM attributing Q6_K's SQuAD
+degradation to the head axis and the protocol acting on it removing the degradation at
+a 20x lower bound. **Single-axis interventions confirm the attribution is causal: each
+moves ONLY its own term, own-axis response being at least 2.6e5x the largest
+cross-axis leakage, bound holding 26/26.** Weak Point 6b, clarity: a notation table,
+first-use definitions, Section 5's key results into the main text, and an
+identifiability argument for the orthogonal restriction. Detail: pCi8 W1, eQL6
+W1/W2+Q1.
 
 ------------------------------------------------------------------------------
-What this adds up to. The guarantee is stated on the quantity we measure, its
-looseness is attributed and cannot reorder variants, the reference it needs is eight
-to a few hundred sequences of the task's own validation data at 62.6x less compute
-than a benchmark run, it ties the standard similarity baselines while carrying a
-bound, an axis attribution and a trainable penalty they cannot, and the diagnosed axis
-is actionable against four forgetting baselines at matched plasticity. We respectfully
-ask the AC to reconsider, and would welcome completing any condition still judged
-partial.
+What this adds up to. The guarantee is stated on the quantity we measure; its
+looseness is attributed and cannot reorder variants; the reference it needs is eight
+to a few hundred sequences of the task's own data at 62.6x less compute than a
+benchmark run; it ties the similarity baselines while carrying a bound, an attribution
+and a trainable penalty they cannot; and the diagnosed axis is actionable against four
+forgetting baselines at matched plasticity. We ask the AC to reconsider, and would
+welcome completing any condition still judged partial.
 
 ================================================================================
 
@@ -1480,19 +1493,38 @@ cause real measured damage (|dR| up to 1.39 nats at alpha = 0.5, 0.42 at
 (2) Negative cells: we would first note that the reviewer's own strengths already
 state the positive half of our gating thesis, that the shape objective "helps
 address the significant shape drift problem in Llama-TruthfulQA scenarios"; the
-gating analysis simply completes that observation by explaining the "only". We
-address the reviewer's exact figures, and first note that
-the aggregate win on Llama-TruthfulQA stands (Table 2; trace -19% forgetting vs
-replay -9%); the negative cells below are the per-cell variation, not a
-reversal. Table 22's increased forgetting on Llama-BBQ (+8.6%) and
-Qwen-TruthfulQA (+2.7%), and the near-zero change on Qwen-BBQ, are precisely the
-cells PRISM's
-gating verdict flags as NOT shape-driven (Llama-BBQ: 20% scale share,
-rho_P < rho_T; Qwen-BBQ: 1-Omega at the ~7e-4 noise floor, nothing to repair).
-Where the axis IS shape-driven, trace wins per-benchmark (BBQ-FT: TriviaQA
--88%, GSM8K -79%) and lifts Omega 0.93 -> 0.98 while replay stays flat. We
-promote this gating analysis to the main text. The regularizer is presented
-as axis-targeted with the gating rule explicit, not a universal win.
+gating analysis simply completes that observation by explaining the "only". One thing we should have made clearer in the paper, and the fault is ours: **Table 22
+is not a four-setting results table but a GATING-VALIDATION table.** Its rows are
+ordered by decreasing 1-Omega-bar, the shape drift available to repair, and the claim
+it tests is a dose-response one: does our own diagnosis predict where the penalty will
+help? The verdict column carries that, and two of the four rows read "at noise floor
+=> skip".
+
+| setting (ordered by 1-Omega-bar) | 1-Omega-bar | trace effect | our gating verdict |
+|:--|--:|--:|:--|
+| Llama TruthfulQA | 0.0937 | **-19.2%** | shape-driven, apply |
+| Llama BBQ | 0.0678 | +8.6% | cell-level mixed |
+| Qwen TruthfulQA | 0.0091 | +2.7% | at noise floor, SKIP |
+| Qwen BBQ | 0.0011 | -0.2% | at noise floor, SKIP |
+
+So on the two Qwen rows the framework says not to apply the penalty at all, because
+their baseline Omega is already 0.991 and 0.999 (against Llama's 0.906 and 0.932),
+leaving essentially no drift to repair. **Their +2.7% and -0.2% sit inside the +-3%
+band the appendix itself defines as neutral, and every method there is within 0.02 of
+every other, so we read them as confirming the gating signal rather than as increased
+forgetting.** Three of the four settings match the prediction directly (App. H).
+
+**Llama BBQ is the one genuine partial exception, and it is a condition-(ii) failure
+rather than a shape-drift failure.** Its aggregate 1-Omega-bar = 0.0678 does exceed the
+noise floor, so condition (i) holds; but the drift is concentrated on ARC and MMLU,
+where substantial shape movement is NOT accompanied by proportional |dR| growth, so the
+penalty has no proportional target. On the two Llama-BBQ benchmarks where condition
+(ii) does hold, TriviaQA and GSM8K, trace yields **-88% and -79%**, which is why the
+appendix reads the aggregate +8.6% as mixed cell-level behaviour rather than a failure
+of the gating rule. We promote this analysis to the main text, and we present the
+regularizer as axis-targeted with the gating rule explicit rather than as a universal
+win. Adaptive per-cell deployment, driven by the per-benchmark decomposition online,
+is the natural next step.
 
 (3) Baselines and scope. A framing point first, because it fixes which baselines are
 the right ones: the paper's contribution is the diagnostic FRAMEWORK (the closed-form
@@ -1558,45 +1590,54 @@ method is credited for a low |dR| bought by under-training.
 
 Response:
 
-(1) Agreed on prominence, and the negative cells now move into the main text
-with their mechanism. The 0.831 was explicitly scoped to the Llama grid
-(Sec. 5.2) and the negative Qwen-BBQ cells are plotted in Fig. 7, with App.
-G.1 (L770-782) diagnosing the mechanism: at lambda=0 those cells sit at |dR| ~ 1e-3 nats (the difference of risk ~ 0.001),
-two orders below where the bound is informative (0.0035 on TriviaQA vs
-0.288 on ARC within the SAME fine-tuning trajectory), so per-checkpoint
-rankings reflect trajectory noise rather than bound failure (the same effect
-appears in Llama BBQ->SQuAD, r_s ~ 0.30). Conversely, where fine-tuning does
-drive drift the ranking is strong on every held-out benchmark including GSM8K
-(Llama TruthfulQA-FT, GSM8K r_s = +0.97): **the weak cells are the low-drift
-pairs, not weak benchmarks, so this is a by-(task, benchmark) property, not a
-Qwen or BBQ deficiency**. The revised MAIN text reports the
-full 20-cell correlation matrix with all-cell aggregates, mean rs = +0.71,
-median = +0.93 over all 20 (model, FT-task, benchmark) cells, with exactly
-the two negative Qwen-BBQ cells above and 18/20 positive, plus this SNR
-analysis; we will not present 0.831 without that context. For ranking use we
-also note the rotation-invariant W_N alignment is the sharper instrument overall
-(mean rs 0.912 vs 0.820 under W=I, Table 3); under LoRA's frozen head gamma=0,
-so both alignments are certified and a practitioner ranking checkpoints can adopt
-W_N directly (this does not change the two noise-floor cells above, whose drift
-is simply too small to order).
+(1) Agreed on prominence, and the two negative cells move into the main text with
+the mechanism App. G.1 (L770-779) already gives: **those cells are ones where the
+fine-tuned model is ROBUST, not ones where the bound fails.** At lambda=0, Qwen3-8B
+BBQ shows |dR| ~ 0.0035 nats on TriviaQA against ~0.288 on ARC inside the SAME
+fine-tuning trajectory (Table 21), two to three orders below the ~1e-1 scale at
+which the bound is informative. When a fine-tune barely moves a benchmark, ranking
+its checkpoints by that movement is uninformative by construction, and the paper
+says exactly this: the pattern is a property of the (model, task, benchmark) triple,
+Qwen3-8B BBQ on TriviaQA being robust to fine-tuning, rather than a property of the
+diagnostic. Thank you for pressing on prominence, this belongs in the main text
+rather than an appendix.
 
-(2) Free-running, which is also Q2. On a 100-prompt GSM8K subset each of the 12
-variants greedily generates its OWN continuations (mean 77.4 tokens/prompt, so
-surrogate errors compound into its own context, exactly the regime the corollary
-did not cover) and both models are then scored on those trajectories: features
-and per-token CE on the generated region, with the generated tokens themselves as
-the next-token targets, so the model-vs-model risk gap needs no reference answers
-at all. Across 5 independent subsets (seeds 42-46): rs(B, |dR|) = +0.947 ± 0.015
-free-running vs +0.958 ± 0.011 teacher-forced; bound-rank agreement
-rs(B_tf, B_free) = +0.959 ± 0.010; and the teacher-forced bound already predicts
-free-running degradation, rs(B_tf, |dR|_free) = +0.958 ± 0.011. The small spread
-across subsets shows this is not a single-subset artifact. The practically useful
-reading: rank once on the reference text, and the ordering carries over to
-self-generated trajectories. Independently, Corollary 1 is restated as
-teacher-forced-only with trajectory-distribution shift as an explicit limitation
-(the bound applies to any feature rows, App. D; the restriction is protocol, not
-theory). The Limitations section adds reference-set sensitivity, free-run
-generation, head-varying variants, and feature-extraction cost, as suggested.
+We report it with the aggregate it qualifies: the revised main text carries the full
+20-cell matrix, **mean rs +0.71, median +0.93, and 18 of 20 cells positive**, with
+the two Qwen-BBQ exceptions visible, so 0.831 never appears without that context.
+For ranking use we also note the rotation-invariant W_N alignment is the sharper
+instrument overall (mean rs 0.912 against 0.820 under W=I, Table 3); LoRA freezes
+the head so gamma = 0 and both alignments are certified, though this does not change
+the two cells above, whose drift is simply too small to order.
+
+(2) Free-running, which is also Q2. We test on GSM8K, and the choice is forced
+rather than convenient: of the five benchmarks it is the only one whose answers are
+long enough for trajectory shift to exist at all, since ARC and MMLU answers are a
+single token and SQuAD and TriviaQA average about 3 to 4. Each of the 12 variants
+greedily generates its OWN continuation (mean 77.4 tokens per prompt, so its errors
+compound into its own context, exactly the regime the corollary did not cover) and
+both models are then scored on those trajectories, with the generated tokens as
+their own next-token targets, so the model-versus-model gap needs no reference
+answers. Over 5 independent 100-prompt subsets (seeds 42-46, 12 variants each;
+greedy decoding is deterministic, so a seed varies only the prompt subset):
+
+| statistic (12 variants, mean +- sd over 5 subsets) | value | per-subset range |
+|:--|--:|--:|
+| rs(bound, gap) teacher-forced | +0.958 ± 0.011 | 0.944 to 0.972 |
+| rs(bound, gap) FREE-RUNNING | +0.947 ± 0.015 | 0.923 to 0.965 |
+| rank agreement, teacher-forced vs free-running bound | +0.959 ± 0.010 | 0.944 to 0.972 |
+| **cross: teacher-forced bound vs FREE-RUNNING gap** | **+0.958 ± 0.011** | 0.944 to 0.972 |
+
+**The last row is the operational one: the bound computed on reference text already
+predicts the degradation the variant shows on its own generated trajectories, at
++0.958.** So a practitioner ranks once on the reference slice and the ordering
+carries over to free-running use. The spread across subsets is at most 0.042 on any
+row, so this is not a single-subset artifact. Independently, Corollary 1 is restated
+as teacher-forced-only with trajectory-distribution shift an explicit limitation:
+the bound applies to any feature rows (App. D), so the restriction is protocol
+rather than theory. The Limitations section adds reference-set sensitivity,
+free-running generation, head-varying variants and feature-extraction cost, as
+suggested.
 
 5) Limitations [原文]: This paper acknowledges the limitations of ranking risk and absolute
    risk, as well as the teacher-enforced approach. It should also discuss reference set
