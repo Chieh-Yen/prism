@@ -75,6 +75,9 @@ and we respectfully ask the AC and reviewers to reconsider in light of the new
 evidence. If any condition still appears only partially met, we would welcome the
 chance to complete it during the discussion period.
 
+Thank you, to all four reviewers and the AC, for the time and care these reviews
+reflect; the paper is genuinely better for it.
+
 ================================================================================
 
 Meta Review (AC)
@@ -545,6 +548,11 @@ reported by us rather than left to be found, and much of the underlying analysis
 was already in the submitted appendices. We ask the AC to reconsider in this
 light, and would welcome completing any condition still judged partial during the
 discussion.
+
+Independent of the outcome, this cycle has made the paper markedly better: the
+empirical restatement, the per-cell calibration, and the matched-plasticity
+protocol each began as a point raised in these reviews. We are grateful for the
+care behind them.
 
 ================================================================================
 
