@@ -123,6 +123,32 @@ PY
 
 if [[ " $PARTS " == *" A "* ]]; then
     echo "=== E15 part A (paired draws, GPU) ===" | tee -a "$LOG"
+    # Fail fast. An import-level breakage costs 3 s per cell, so without this
+    # the loop silently burns the whole cell list and leaves four identical
+    # tracebacks in the log. Also stamps the env into the log: every E3
+    # postmortem so far was protocol drift, so the versions belong on record.
+    if ! python3 - <<'PY' 2>&1 | tee -a "$LOG"
+import sys
+try:
+    import torch, transformers, peft, datasets
+except Exception as e:
+    print(f"IMPORT FAILED: {type(e).__name__}: {e}")
+    if "revision or a version" in str(e):
+        print("  Cause: the installed `kernels` package is newer than this "
+              "transformers' hub_kernels integration (it builds LayerRepository "
+              "entries without revision=/version= at import time, and the guard "
+              "only catches ImportError).")
+        print("  Fix:   pip uninstall -y kernels   "
+              "(optional fused-layer speedup; unused by Llama LoRA training)")
+    sys.exit(1)
+print(f"env: torch {torch.__version__} / transformers {transformers.__version__} "
+      f"/ peft {peft.__version__} / datasets {datasets.__version__} "
+      f"/ cuda {torch.version.cuda} avail={torch.cuda.is_available()}")
+PY
+    then
+        echo "!!! ABORT part A: training deps do not import (see above)." | tee -a "$LOG"
+        exit 1
+    fi
     for cell in $E15_CELLS; do
         IFS=: read -r ref_task n offset suffix <<< "$cell"
         suffix="${suffix:-}"

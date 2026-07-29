@@ -230,12 +230,26 @@ def preflight(cells: List[Tuple[str, int, int, str]], tokenizer_id: str,
           "dataset-level and tokenizer-independent; the two token columns are "
           "not, so run this with the tokenizer of the model the cells train "
           "on before quoting them.", "",
-          "| cell | delivered / requested | blank dropped | total tokens "
-          "| answer tokens | prompt boundary | loss_mode | set fingerprint |",
-          "|---|---|---|---|---|---|---|---|"]
+          "**`role`**: only task-domain rows become training cells. A "
+          "`context only` row is never trained on by E15 — it is the E3-C "
+          "comparison point whose unpairedness this table measures, and the "
+          "control that shows the overlap matrix is really comparing source "
+          "rows. Drop it with `--cells \"...\"` if the log should contain "
+          "task rows alone.", "",
+          "| cell | role | delivered / requested | blank dropped | total "
+          "tokens | answer tokens | prompt boundary | loss_mode | set "
+          "fingerprint |",
+          "|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
+        # Only task-domain cells become training runs. A non-task row is here
+        # as CONTEXT: it is the E3-C comparison point whose unpairedness this
+        # table quantifies, and it doubles as the control for the overlap
+        # matrix (an all-zero column against a set that is genuinely
+        # different proves the fingerprints identify source rows).
+        role = "draw (trained)" if r["ref_task"] == FT_TASK else "context only"
         md.append(
-            f"| {r['tag']} | {r['n_delivered']} / {r['n_requested']} "
+            f"| {r['tag']} | {role} "
+            f"| {r['n_delivered']} / {r['n_requested']} "
             f"| {r['dropped_blank']} | {r['total_tokens']} "
             f"| {r['answer_tokens'] if r['answer_tokens'] is not None else '—'} "
             f"| {'yes' if r['has_prompt_boundary'] else 'NO'} "
@@ -354,12 +368,15 @@ def aggregate(cells: List[Tuple[str, int, int, str]], lam: float, seed: int,
             print(f"  [skip] {tag} — step-{ANALYSIS_STEP} record has no "
                   f"downstream tasks")
             continue
+        env = exp.get("env") or {}
         found.append({
             "tag": tag, "source": "E15", "path": str(p.relative_to(REPO)),
             "ref_seed": exp.get("ref_seed"),
             "ref_offset": exp.get("ref_offset"),
             "reg_samples": exp.get("reg_samples"),
             "lr": exp.get("lr"), "lambda_reg": exp.get("lambda_reg"),
+            "env": "/".join(env.get(k, "?") for k in ("torch", "transformers",
+                                                      "peft")),
             **s,
         })
 
@@ -379,6 +396,13 @@ def aggregate(cells: List[Tuple[str, int, int, str]], lam: float, seed: int,
              if not bad else
              f"**MIXED PROTOCOL, DO NOT POOL**: {', '.join(bad)} differ "
              f"(lr {sorted(lrs)}, lambda {sorted(lams)}, n {sorted(ns)})")
+    # Library versions are recorded per cell (older paper-round JSONs have no
+    # env block, so only compare cells that carry one).
+    envs = {f["env"] for f in found if f.get("env")}
+    if len(envs) > 1:
+        guard += (f"  ⚠️ **MIXED ENVIRONMENT** across cells "
+                  f"(torch/transformers/peft: {sorted(envs)}) — the draw "
+                  f"spread now also contains a library difference")
 
     # The spread is over cells that went through THIS script path. The
     # paper-tree draw 0 was launched from train_forgetting_multitask.py, so

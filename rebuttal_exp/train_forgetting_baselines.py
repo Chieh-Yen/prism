@@ -215,6 +215,20 @@ _RESUME_GUARD = ("method", "lambda_reg", "ref_task", "reg_samples",
                  "model", "trained_task", "max_steps", "lora_r")
 
 
+def _env_stamp() -> Dict[str, str]:
+    """Library versions, recorded in the metrics JSON for provenance."""
+    import datasets
+    import peft
+    import transformers
+    return {"torch": torch.__version__,
+            "transformers": transformers.__version__,
+            "peft": peft.__version__,
+            "datasets": datasets.__version__,
+            "cuda": str(torch.version.cuda),
+            "gpu": (torch.cuda.get_device_name(0)
+                    if torch.cuda.is_available() else "cpu")}
+
+
 def plan_resume(output_dir: str, cfg: Dict[str, Any],
                 ) -> Tuple[Optional[str], List[Dict[str, Any]]]:
     """Decide where to restart and which PRISM records to keep.
@@ -373,6 +387,11 @@ def main() -> None:
         "max_steps": args.max_steps, "save_steps": args.save_steps,
         "max_length": args.max_length,
         "train_loss_mode": "answer_only",
+        # Provenance: E15's whole argument is that its cells are
+        # protocol-identical to the paper round, and every E3 postmortem so
+        # far was protocol drift. Record the library versions in the artifact
+        # that gets analysed, not just in the console log.
+        "env": _env_stamp(),
     }
     print("=" * 78)
     for k, v in experiment_config.items():
