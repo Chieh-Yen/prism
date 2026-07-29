@@ -1466,13 +1466,79 @@ rather than a single point.
 > instances: Hessian-aware reconstruction at PTQ time, and ...".
 
 Response:
-Apologies, the sentence compresses too much. Intended meaning: the same
-shape-preservation objective appears at two points of a model's lifecycle:
-(i) at PTQ time, Hessian-aware reconstruction (GPTQ-style layerwise
-objectives) implicitly minimizes shape distortion of layer outputs; (ii) at
-fine-tuning time, our differentiable 1-Omega regularizer minimizes it
-explicitly. We rewrite the sentence as two explicit clauses, each linked to
-its equation.
+Thank you for flagging this sentence. It compressed two different things and
+overstated the PTQ half, so we will rewrite it.
+
+What we meant. The quantity 1 - Omega measures how much the direction of the
+features disagrees, independently of their size, and the shape term of the bound
+is that disagreement weighted by the two scales, 2 rho_T rho_P (1 - Omega).
+Whether it can be reduced directly depends on when one acts. In GPTQ the model is
+not trained end to end: the quantization decisions are discrete and are taken
+layer by layer against a calibration objective, so our end-to-end shape term is
+not a quantity that objective can act on directly. During LoRA training it is.
+Those are the two "instances": two different kinds of method, not one method with
+two settings.
+
+Why the PTQ half is not shape-specific. For one layer with weights M
+(d_out x d_in), quantized weights M_hat, and calibration inputs X (d_in x n_c)
+over n_c calibration tokens, GPTQ targets the output error
+|| (M - M_hat) X ||_F^2, whose Hessian in each row of M is proportional to X X^T;
+that is what "Hessian-aware" refers to. Writing that layer's outputs as
+Z_l = X^T M^T and Z_l_hat = X^T M_hat^T, both (n_c x d_out), this error is exactly
+the quantity Proposition 1 splits in two (at W = I; the factor 1/n_c does not
+change what is minimized):
+
+  (1/n_c) || Z_l - Z_l_hat ||_F^2
+      = ( rho_{Z_l} - rho_{Z_l_hat} )^2
+        + 2 rho_{Z_l} rho_{Z_l_hat} ( 1 - Omega( Z_l, Z_l_hat ) ),
+
+where rho_A = ||A||_F / sqrt(n_c) is the root-mean-square feature scale and Omega
+the normalized inner product of Eq. (3) at W = I. GPTQ therefore targets a joint
+residual containing both components. **Minimizing a sum does not by itself make
+either part fall, so it may affect the local shape component only indirectly; it
+does not optimize the end-to-end shape term of our bound, and a single scalar
+residual cannot say which component dominates.** This is an analytical remark
+about a published objective, not a measurement of ours.
+
+The LoRA half is different because the model is still training, so the objective is
+ours to design rather than inherited: the component the diagnosis implicates can be
+put directly into the loss. There, 1 - Omega is computed from the current features
+and can be differentiated without an SVD, which is one reason we use the identity
+alignment W = I for the intervention, together with the frozen-head simplification
+it gives (Sec. 3; W = W_N would also need a per-step SVD). Eq. (8) therefore
+penalizes 1 - Omega itself, the directional disagreement, rather than a residual in
+which it is mixed with scale.
+
+What we used, and what we meant to point at. The GPTQ and GGUF variants in our
+study are publicly released pre-quantized checkpoints that we only diagnose, while
+BitsAndBytes quantization is applied on the fly from the full-precision
+checkpoint, without calibration data. We do not run or modify GPTQ calibration at
+any point. Our intention in naming Hessian-aware reconstruction was
+narrower than the sentence suggests: its calibration is an objective that can be
+changed, so the decomposition points at the possibility of steering that objective
+toward the shape component, and we wanted to note that connection. We did not plan
+or run such an experiment, and only the LoRA regularizer is proposed and evaluated
+here as an intervention. The scale-axis and head-axis remedies in the same
+paragraph are likewise directions suggested by existing protocols, not controlled
+interventions evaluated in this paper. We will replace the original sentence with:
+
+  "Each dominant axis suggests a remediation direction, though only shape
+  regularization is evaluated here as an intervention. At PTQ time, GPTQ-style
+  Hessian-aware reconstruction [frantar2022gptq] affects shape only indirectly,
+  since it minimizes a layerwise error containing both a scale and a shape
+  component (Prop. 1 at W = I); at LoRA training time, 1 - Omega can be penalized
+  directly (Eq. (8), Sec. 5.4). Per-channel outlier smoothing
+  [xiao2023smoothquant] for the scale axis and FP16-lm_head retention for the head
+  axis are suggested as protocol-level remediation directions but are not evaluated
+  here as controlled interventions."
+
+Follow-up. Because Proposition 1 separates the two components contained jointly in
+the reconstruction objective, a natural follow-up is to test whether augmenting
+standard reconstruction with an explicit shape penalty, or optimizing shape subject
+to a scale constraint, improves downstream preservation. That would require
+rerunning calibration under controlled, matched configurations, which is outside
+the present diagnostic study; we add it to Sec. 6 as a follow-up the decomposition
+enables.
 
 6) Q4 [原文]: In Section 5.5, the Spearman [r_s] is computed between each risk gap bound
    term, and what other variable? Is it the empirical risk gap?
@@ -1774,11 +1840,11 @@ regularizer side we ran a size-and-domain ablation in a separate sensitivity run
 (Llama-TruthfulQA, trace at lambda 0.5, lr 1e-5, one seed; a run distinct from
 the three-seed table above, so we report its absolute gaps only within itself):
 mean downstream gaps are 0.725 / 0.736 / 0.724 with task-domain references of
-8 / 32 / 128 sequences, and 0.773 with a generic reference at n=32. **Size is not
-a knob (8 sequences already deliver the full benefit, so the 32-sequence choice
-the reviewer asks about is not load-bearing), and leaving the task's domain
-entirely costs only ~0.05 nats, so the regularizer does not require in-task
-reference data.** On the diagnostic side we re-ran the size ablation on three new seeds and
+8 / 32 / 128 sequences, and 0.773 with a generic WikiText reference at n=32.
+**Size is not a knob (8 sequences already deliver the full benefit, so the
+32-sequence choice the reviewer asks about is not load-bearing), and leaving the
+task's domain entirely costs ~0.04 nats at matched size (0.773 vs 0.736), so the
+regularizer does not require in-task reference data.** On the diagnostic side we re-ran the size ablation on three new seeds and
 the task's own data: against the gap measured on the full 512-sequence slice, B_N
 reaches rs 0.932 ± 0.016 at 8 sequences and 0.932 ± 0.011 at 512, with seed
 agreement on the ordering 0.981 (n=8) rising to 0.998 (n=512); on domain, the
