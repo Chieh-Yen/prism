@@ -250,10 +250,11 @@ task's own data, so benchmark-independent use is scoped out, the narrowing the
 meta-review invites; size, cost, and the two remaining W-4 items are measured
 directly below.
 
-(i) What the reference set is, and what we do not claim. The reference is a small
-slice of the diagnosed task's own validation data, read once, with no decoding and
-no grading: 512 sequences per benchmark in the quantization study and 256 in the
-LoRA study, which any evaluation already has on hand. The bound is
+(i) What the reference set is, and what we do not claim. The bound's reference,
+which we will call the **diagnostic set** (Sec. 5.1's fixed held-out subsets), is
+a small slice of the diagnosed task's own validation data, read once, with no
+decoding and no grading: 512 sequences per benchmark in the quantization study
+and 256 in the LoRA study, which any evaluation already has on hand. The bound is
 input-conditioned: computed on that slice, it bounds the risk gap on that same
 data. Computing it on generic text in order to predict a benchmark's degradation
 would break that pairing and turn the guarantee into a distribution-transfer
@@ -273,9 +274,12 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 | 512 (paper size) | +0.932 ± 0.011 | 0.998 |
 
 **Eight sequences already order the twelve variants as well as 512 do.** The
-requirement is small and stable; on the regularizer side the reference is the
-fine-tuning task's own held-out split, so domain is not a free parameter there
-either.
+requirement is small and stable. To keep the paper's two reference sets distinct
+by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
+the risk gap are computed, and the **regularization reference D_ref** (32
+sequences, Sec. 5.4) is what the trace penalty reads during fine-tuning; D_ref's
+own size-and-domain ablation is in 8VrD Q3, and the revision adopts these two
+names throughout.
 
 (iii) What that buys, measured on identical prompts (256 GSM8K prompts, one RTX
 5090, model load excluded on both sides):
