@@ -127,20 +127,19 @@ GLOBAL RESPONSE TO THE META-REVIEW
 
 We thank the AC for distilling four reviews into five testable conditions: that
 structure is what allowed this rebuttal to answer with measurements rather than
-prose. The strengths all four reviews credit, the claims we narrow, and a closing
-word are in our GENERAL RESPONSE. Every condition below is answered by a
-measurement run during the rebuttal, and the two experiments carrying most of the
-load are given once, up front.
+prose. **Against the bar the meta-review set, "concrete evidence rather than only
+clarification", all five conditions are answered with new measurements, and the
+claims are narrowed exactly where the meta-review invites narrowing.** The
+strengths all four reviews credit and the narrowed claims are in our GENERAL
+RESPONSE; the two experiments carrying most of the load are given once, up front.
 
-**All five are met by measurement, not clarification.**
-
-| condition | result |
+| condition | what was delivered |
 |:--|:--|
-| A | restated on the empirical gap + concentration corollary; two of three looseness sources are cell constants and cannot reorder; calibrated to 0.055 nats vs 0.082 |
-| B | 8 sequences order the variants as 512 do, at 62.6x less compute than a benchmark run; unpaired claim dropped |
-| C | bound TIES CKA/SVCCA on identical features, and adds what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
-| D | r_s +0.947 free-running vs +0.958 teacher-forced, on the generation-heaviest benchmark |
-| E | 18/20 LoRA cells positive; the two flagged cells lack a rankable signal (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is |
+| A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to 0.055 vs 0.082 nats, precision >= 0.8 in 49/55 cells |
+| B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6 the compute of one benchmark run |
+| C. stronger baselines, both settings | ties CKA/SVCCA on identical features while adding what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
+| D. free-running generation, or limit the claims | both: run (r_s +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
+| E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
 
 **One table answers most of B and C.** Every score is computed on the same features
 from one forward pass, the risk gap recomputed from that pass. The n=8 column holds
@@ -172,6 +171,10 @@ A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
 > Any threshold beyond ranking?
 
 Response:
+Met in all three parts: the theorem is restated on the empirical gap with a
+concentration corollary recovering the population version, the looseness is
+quantified and located, and a per-cell calibration yields a working threshold.
+
 (i) The guarantee, restated. The reviewers are right: Theorem 1 is written for the
 population risk gap, but its proof works with a finite reference sample and carries
 no generalization term. The revision therefore states it as a bound on the
@@ -224,7 +227,7 @@ of the same cell, so this amortizes benchmarking rather than replacing it, and i
 is a filter rather than a certificate. Derivations in pCi8 W2 and 8VrD W1/W2+Q1.
 
 ------------------------------------------------------------------------------
-B + W-4a: benchmark-independent use and reference-set sensitivity
+B + W-4a: the reference set: what the bound licenses, and size/domain sensitivity
 
 [原文 B]: Demonstrate benchmark-independent use: The authors should show that PRISM remains
    predictive when computed on a small, benchmark-independent reference set, including
@@ -242,18 +245,24 @@ B + W-4a: benchmark-independent use and reference-set sensitivity
 > reasoning tasks, farther drift?
 
 Response:
-(i) What we do not claim, first. The bound is input-conditioned: it is computed on
-a reference set and it bounds the risk gap on that same data. Computing it on
-generic text in order to predict a benchmark's degradation would break that pairing
-and turn the guarantee into a distribution-transfer question the derivation does
-not address. We therefore do not claim benchmark-independent use, and the revision
-states that scope in the Limitations instead of leaving it implicit; this is the
-careful narrowing of claims the meta-review itself invites.
+Met by narrowing plus measurement: the reference the bound needs is the diagnosed
+task's own data, so benchmark-independent use is scoped out, the narrowing the
+meta-review invites; size, cost, and the two remaining W-4 items are measured
+directly below.
 
-(ii) What the diagnostic does need, measured. The reference is a small slice of the
-diagnosed task's own validation data, read once, with no decoding and no grading:
-512 sequences per benchmark in the quantization study and 256 in the LoRA study,
-which any evaluation already has on hand. Three fresh seeds, 12 Llama variants, 5
+(i) What the reference set is, and what we do not claim. The reference is a small
+slice of the diagnosed task's own validation data, read once, with no decoding and
+no grading: 512 sequences per benchmark in the quantization study and 256 in the
+LoRA study, which any evaluation already has on hand. The bound is
+input-conditioned: computed on that slice, it bounds the risk gap on that same
+data. Computing it on generic text in order to predict a benchmark's degradation
+would break that pairing and turn the guarantee into a distribution-transfer
+question the derivation does not address. We therefore do not claim
+benchmark-independent use, and the revision states that scope in the Limitations
+instead of leaving it implicit; this is the careful narrowing of claims the
+meta-review itself invites.
+
+(ii) Sensitivity to size, measured. Three fresh seeds, 12 Llama variants, 5
 benchmarks, with the ground-truth gap held at the full 512 sequences:
 
 | reference slice | bound vs full-slice gap (r_s) | seed agreement on the ordering |
@@ -275,7 +284,7 @@ either.
 |:--|:--|--:|
 | PRISM | one teacher-forced pass, no decoding, no grading | **8.9 s** |
 | benchmark, greedy decode | ~209 generated tokens per prompt, then parse and score | 556.7 s (**62.6x**) |
-| benchmark, self-consistency maj@8 | eight times the above | 4453.6 s (501x) |
+| benchmark, self-consistency maj@8 | ~eight times the above | 4453.6 s (501x) |
 
 The gap widens with generation length, because what PRISM avoids is the
 autoregressive decoding and the answer grading rather than the validation data.
@@ -318,8 +327,10 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 > diagnostic; EWC, SLoRA, CLAIM, ArMA, layer-freezing for the regularizer.
 
 Response:
-The condition has two halves, diagnostics and regularization, and we answer them in
-turn.
+Met on both halves: the similarity baselines are compared on identical features
+(a statistical tie, with three capabilities they lack), and three regularizer
+families are added at matched plasticity (the shape penalty leads every one that
+learns the task).
 
 (i) Diagnostic baselines, on identical features. The four-score table above is the
 like-for-like comparison the condition asks for: every score is computed on the same
@@ -426,6 +437,14 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 > forgetting-versus-plasticity tradeoff.
 
 Response:
+Met in all three parts: both flagged cells are explained by stated mechanisms, the
+gating table's one genuine exception is owned rather than excused, and the
+forgetting-versus-plasticity tradeoff is pinned by matched plasticity. Notably,
+the ingredients of this failure analysis were already in the submitted appendices
+(App. F.3's GSM8K quantification, App. G.1's low-signal mechanism, App. H's gating
+validation): what the revision changes is their placement and labeling, promoting
+them to the main text.
+
 (i) The weak correlations. All 20 (model, fine-tuning task, benchmark) LoRA cells
 move into the main text with their aggregate: **mean r_s +0.71, median +0.93, and
 18 of 20 cells positive.** The two flagged cells fail to rank for different,
@@ -506,13 +525,22 @@ moved into the main text, and an identifiability argument for the orthogonal
 restriction. Detail: pCi8 W1, eQL6 W1/W2+Q1.
 
 ------------------------------------------------------------------------------
-What this adds up to. The guarantee is stated on the quantity we measure; its
-looseness is attributed and cannot reorder variants; the reference it needs is eight
-to a few hundred sequences of the task's own data at 62.6x less compute than a
-benchmark run; it ties the similarity baselines while carrying a bound, an attribution
-and a trainable penalty they cannot; and the diagnosed axis is actionable against four
-forgetting baselines at matched plasticity. We ask the AC to reconsider, and would
-welcome completing any condition still judged partial.
+What this adds up to, in the meta-review's own structure: (A) the guarantee is
+stated on the quantity we measure, with a concentration corollary back to the
+population version, and a per-cell calibration turns the bound into a working
+threshold; (B) the reference requirement is eight to a few hundred sequences of
+the task's own data, at 1/62.6 of one benchmark run, with unpaired use scoped out;
+(C) the bound ties CKA/SVCCA on identical features while carrying a certified
+bound, an axis attribution and a trainable penalty they cannot, and that penalty
+leads four forgetting baselines at matched plasticity; (D) the ranking survives
+free-running generation, and the corollary is restated to its teacher-forced
+scope; (E) the flagged cells are explained by stated mechanisms and the one
+genuine gating exception is owned. Every negative result in this rebuttal, the
+failed span mitigation, the two low-signal cells, and the Llama-BBQ exception, is
+reported by us rather than left to be found, and much of the underlying analysis
+was already in the submitted appendices. We ask the AC to reconsider in this
+light, and would welcome completing any condition still judged partial during the
+discussion.
 
 ================================================================================
 
