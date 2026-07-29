@@ -174,9 +174,10 @@ A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
 > Any threshold beyond ranking?
 
 Response:
-Met in all three parts: the theorem is restated on the empirical gap with a
+Addressed in all three parts: the theorem is restated on the empirical gap with a
 concentration corollary recovering the population version, the looseness is
-quantified and located, and a per-cell calibration yields a working threshold.
+quantified and located, and a per-cell calibration yields an operational
+screening threshold (a filter, not a certificate).
 
 (i) The guarantee, restated. The reviewers are right: Theorem 1 is written for the
 population risk gap, but its proof works with a finite reference sample and carries
@@ -198,8 +199,8 @@ variant) cells of the paper's five benchmarks:
 | median slack | 1597x (IQR [673, 3966]) | the raw bound is not an estimate |
 | slack spread | log10 sd 0.76 (~6x cell to cell) | no single correction rescales it |
 | Lipschitz step (worst-case K vs observed) | at most ~2.5x | not where the looseness lives |
-| triangle step (legs bounded separately) | 140x to 3000x | the dominant source |
-| cell constants: K_feat; K_pred = 2 (App. A.5); prefactor rho_T rho_P | within-cell CV 0.63% | shared by all variants: cannot reorder |
+| remainder (alignment residual + triangle + Jensen steps) | 140x to 3000x | the dominant source |
+| cell constants: K_feat; K_pred <= sqrt(2) (App. A.5); prefactor rho_T rho_P | within-cell CV 0.63% | exactly (K) or nearly (prefactor) shared: cannot materially reorder |
 
 **Two of the three slack sources are constants within a (model, benchmark) cell,
 and a factor that is nearly the same for every variant inflates every bound by
@@ -212,7 +213,8 @@ map from the bound to the measured gap inside each cell and evaluate it
 leave-one-out, so no variant is ever scored by a map that has seen it; a monotone
 family is right precisely because the constants in (ii) preserve order. Across the
 55 (model, benchmark) cells the held-out error is 0.055 nats, against 0.082 for
-predicting the cell's mean gap. On the two cells the reviews single out as extreme,
+predicting the cell's mean gap (each cell holds 10-12 variants, so we present
+this as a proof of concept). On the two cells the reviews single out as extreme,
 plus the deployment-relevant middle one:
 
 | variant (Llama-MMLU) | bound B | measured gap | calibrated prediction | call at 0.1 nats |
@@ -248,10 +250,10 @@ B + W-4a: the reference set: what the bound licenses, and size/domain sensitivit
 > reasoning tasks, farther drift?
 
 Response:
-Met by narrowing plus measurement: the reference the bound needs is the diagnosed
-task's own data, so benchmark-independent use is scoped out, the narrowing the
-meta-review invites; size, cost, and the two remaining W-4 items are measured
-directly below.
+Addressed by explicit scope narrowing plus in-scope measurement: the reference the
+bound needs is the diagnosed task's own data, so benchmark-independent use is
+scoped out, the narrowing the meta-review invites; size, cost, and the two
+remaining W-4 items are measured directly below.
 
 (i) What the reference set is, and what we do not claim. The bound's reference,
 which we will call the **diagnostic set** (Sec. 5.1's fixed held-out subsets), is
@@ -334,7 +336,7 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 > diagnostic; EWC, SLoRA, CLAIM, ArMA, layer-freezing for the regularizer.
 
 Response:
-Met on both halves: the similarity baselines are compared on identical features
+Addressed on both halves: the similarity baselines are compared on identical features
 (a statistical tie, with three capabilities they lack), and three regularizer
 families are added at matched plasticity (the shape penalty leads every one that
 learns the task).
@@ -381,12 +383,12 @@ the five held-out benchmarks:
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
 | layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
-**The shape penalty is the lowest on forgetting among the methods that actually keep
-the fine-tuning task, it beats each of them in all three seeds individually by +0.050
-to +0.157, and it carries the lowest target-task loss in the table**, so the reduction
-is not bought with plasticity. Layer-freezing reaches a much lower gap only by not
-learning the task, at target loss 0.924 against the shape run's 0.872, which is
-exactly the comparison matched plasticity is there to expose. Of the four remaining
+**The shape penalty is the lowest on forgetting among the methods that learn the
+task to a comparable level, it beats each of them in all three seeds individually
+by +0.050 to +0.157, and it carries the lowest target-task loss in the table**, so
+the reduction is not bought with plasticity. Layer-freezing reaches a much lower
+gap only by learning the task less, at target loss 0.924 against the shape run's
+0.872, which is exactly the comparison matched plasticity is there to expose. Of the four remaining
 named methods, SLoRA, two-phase continual instruction tuning, CLAIM and ArMA all
 target the sequential continual-instruction setting, a stream of tasks rather than
 the single fine-tuning we study, so a fair comparison means moving to their
@@ -444,7 +446,7 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 > forgetting-versus-plasticity tradeoff.
 
 Response:
-Met in all three parts: both flagged cells are explained by stated mechanisms, the
+Addressed in all three parts: both flagged cells are explained by stated mechanisms, the
 gating table's one genuine exception is owned rather than excused, and the
 forgetting-versus-plasticity tradeoff is pinned by matched plasticity. Notably,
 the ingredients of this failure analysis were already in the submitted appendices
@@ -499,7 +501,7 @@ Condition C is reported at the config closest to the shape run's target-task los
 rather than at its own best setting: it is the only comparison that separates a
 method which forgets less from one which simply learns less. The table there shows
 the shape penalty holding the lowest target-task loss while also forgetting least,
-and layer-freezing achieving a lower gap purely by under-training.
+and layer-freezing achieving a lower gap purely by giving up plasticity.
 
 ------------------------------------------------------------------------------
 Weak Points 2 and 6b, outside the five conditions
@@ -547,7 +549,9 @@ failed span mitigation, the two low-signal cells, and the Llama-BBQ exception, i
 reported by us rather than left to be found, and much of the underlying analysis
 was already in the submitted appendices. We ask the AC to reconsider in this
 light, and would welcome completing any condition still judged partial during the
-discussion.
+discussion. We would especially value the AC's view on whether the explicitly
+input-conditioned scope resolves Condition B, given that benchmark-independent
+transfer remains outside the claim.
 
 Independent of the outcome, this cycle has made the paper markedly better: the
 empirical restatement, the per-cell calibration, and the matched-plasticity
@@ -602,7 +606,7 @@ contribution restated as commensurable per-variant attribution (W1); the
 looseness located and then calibrated, so the bound answers "is Q4 actually good
 enough" directly, Q4_K_M predicting 0.055 nats against 0.036 measured, at 1/62.6
 the measured cost of one benchmark run on the same prompts (W2); the mixed head
-protocols behind the small Table 3 delta, with the GGUF-only correlation rising
+protocols behind the small Table 3 delta, with the GGUF-only correlation at
 to 0.943 and 8 reference sequences already ranking as 512 do (W3); GSM8K kept as
 an honest limitation, including a mitigation we tested and report as failing
 (W4); EWC, L2-SP and layer-freezing added, the shape penalty leading in all
@@ -645,20 +649,21 @@ sits. Slack, the ratio of the bound to the risk gap it bounds, has a median of
 1597x over the 570 (family, benchmark, variant) cells of the paper's five
 benchmarks (near-zero-gap rows excluded), and it separates into two measured steps:
 replacing the worst-case Lipschitz constant with the largest sensitivity actually
-observed accounts for at most ~2.5x; **the triangle step, which bounds the
-target-to-hybrid and hybrid-to-proxy legs separately instead of letting them
-cancel, accounts for the remaining 140x to 3000x and is the dominant term.** Slack
+observed accounts for at most ~2.5x; **the remainder, the alignment residual plus
+the triangle and Jensen steps, which this analysis does not further separate,
+accounts for the remaining 140x to 3000x and is the dominant source.** Slack
 also narrows where degradation is real: from ~4500x at Q8_0 to ~600x at Q2_K.
 
 **What matters for the ranking claim is that those constants are fixed within a
-(model, benchmark) cell.** K_feat depends only on the target model's head, K_pred =
-2 universally (App. A.5), and the prefactor rho_T rho_P varies across the variants
-of one cell with a median coefficient of variation of 0.63%. A factor that is
-nearly the same for every variant cannot reorder them, which is why the paper
-reports within-cell rank correlations rather than absolute values; what does vary
-per variant is the alignment
-residual and the triangle slack, which is why the correlations sit near 0.9 rather
-than 1.0 and why no single multiplicative correction exists.
+(model, benchmark) cell.** K_feat depends only on the target model's head, K_pred
+<= sqrt(2) universally (App. A.5), and the prefactor rho_T rho_P varies across the
+variants of one cell with a median coefficient of variation of 0.63%. The K
+constants are exactly shared, the prefactor nearly so, and a factor this close to
+common cannot materially reorder a cell, which is why the paper reports
+within-cell rank correlations rather than absolute values; what does vary per
+variant is the alignment residual and the remainder slack, which is why the
+correlations sit near 0.9 rather than 1.0 and why no single multiplicative
+correction exists.
 
 To test the reviewer's own question, whether Q4 is "actually good enough" and not
 only better than Q2, we fit a monotone map from bound to measured gap inside each
@@ -695,10 +700,12 @@ tiers quantize lm_head, so their head term is nonzero, while the GPTQ and
 BitsAndBytes variants keep lm_head in FP16, so their head term is zero by
 construction (the paper notes this pooling effect at L282-285). Averaging one
 metric over both kinds necessarily understates what the head arm contributes, and
-the machinery's value shows once the pooling is undone: restricted to the GGUF
-tiers alone (the only regime where the head arm engages), the identity bound's
-mean correlation on Llama rises from 0.828 to **0.943**, a gain seven times the
-+0.016 in question. The W = I / W_N split itself is the paper's prescribed design
+the pooling explains the size of the delta: restricted to the GGUF tiers alone
+(the only regime where the head arm engages under a common protocol), the
+identity bound's mean correlation on Llama is **0.943**, against 0.828 pooled.
+Because the variant subset changes with the restriction, we read this as a
+protocol-controlled robustness check rather than a per-component gain. The W = I
+/ W_N split itself is the paper's prescribed design
 choice (Sec. 3.3): W_N absorbs the head rotation that W = I leaves in place, so we
 recommend W_N whenever the goal is a correct ordering, and W = I for analysis and
 the regularizer. We keep the mixed W = I pool as the headline because that is the
@@ -801,11 +808,11 @@ Downstream forgetting is the mean risk gap over the five held-out benchmarks:
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
 | layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
-**The shape penalty forgets least among the methods that actually learn the task,
-beats each of them in all three seeds by +0.050 to +0.157, and carries the lowest
-target-task loss in the table.** Layer-freezing's much lower gap comes from not
-learning the task (0.924 against 0.872), which is exactly what matched plasticity is
-there to expose.
+**The shape penalty forgets least among the methods that learn the task to a
+comparable level, beats each of them in all three seeds by +0.050 to +0.157, and
+carries the lowest target-task loss in the table.** Layer-freezing's much lower
+gap comes from learning the task less (0.924 against 0.872), which is exactly
+what matched plasticity is there to expose.
 
 On why replay was the original choice: it is the controlled comparison, same 32
 reference sequences, same schedule, same compute as the trace penalty (Sec. 5.4).
@@ -829,10 +836,12 @@ a precondition of the setup; the revision makes this distinction explicit where 
 paper cites [12, 13].
 
 On the reviewer's empirical question, we measured what the restriction costs
-exactly where geometry is most distorted: lifting it to an unrestricted linear map
-shrinks the feature residual by under a fifth on average even at 2 bits, and by at
-most 0.29 in any single cell (Llama-3.1-8B, MMLU and SQuAD). The restriction is
-therefore cheap as well as optional. Which W to use is, in the paper's own words,
+exactly where geometry is most distorted: in the top-r principal subspace the
+diagnostic reads (r <= 256, 77-90% explained variance), lifting the restriction to
+an unrestricted linear map shrinks the feature residual by under a fifth on
+average even at 2 bits (mean 18.3% for Q2_K), and by at most 0.29 in any single
+cell (Llama-3.1-8B, MMLU and SQuAD). Within the measured high-variance subspace,
+the restriction is therefore cheap as well as optional. Which W to use is, in the paper's own words,
 "primarily design-driven" (L145-152): W = I for analysis and the regularizer, W_N
 when the goal is ordering (W3); both are certified, so the choice costs nothing in
 validity.
@@ -844,8 +853,9 @@ features the bound cedes nothing to CKA or SVCCA while carrying a valid upper bo
 an axis attribution and a trainable objective that they cannot (W3). And the
 near-isometry assumption is measured rather than assumed: it affects only tightness,
 by under a fifth of the residual even at 2 bits (W6). We hope these speak to the
-practical-significance concern, and we are glad to engage further on any point that
-remains.
+practical-significance concern. May we ask whether the calibrated screening rule
+and the measured cost gap address that concern? We are glad to engage further on
+any point that remains.
 
 ================================================================================
 Reviewer #2, G3T9 (3: Borderline reject, conf 4), Q3/C3/S2/O3
@@ -976,11 +986,11 @@ keeping lm_head in FP16 (Sec. 5.3). On description, that map closes into a
 diagnose, act, verify loop: PRISM attributes Q6_K SQuAD degradation to the head
 axis (the head term gamma = 75.77 of B = 76.95, Qwen3-8B-Base), the
 protocol acting on that diagnosis (BnB INT8, head unquantized) removes it, and the
-fix is verified at B = 3.81, a 20x reduction. **The attribution is causal rather
-than descriptive: on Llama-3.1-8B, final-norm rescaling, norm-preserving rotation
-and lm_head-only RTN each move only their own term under the W = I default, with
-own-axis response at least 2.6e5x the largest cross-axis leakage, and the bound
-holds in 26 of 26 cells.**
+fix is verified at B = 3.81, a 20x reduction. **For these constructed single-axis
+perturbations the attribution is causal rather than descriptive: on Llama-3.1-8B,
+final-norm rescaling, norm-preserving rotation and lm_head-only RTN each move only
+their own term under the W = I default, with own-axis response at least 2.6e5x
+the largest cross-axis leakage, and the bound holds in 26 of 26 cells.**
 
 **In sum:** one teacher-forced pass per variant at 1/62.6 of a greedy-decode run,
 plus a causal axis attribution that a benchmark score cannot give.
@@ -1121,9 +1131,10 @@ SVCCA is at its best.
 (2) Regularizers. On the "simpler feature-preserving regularizer" first: the
 simplest one, an L2 match of reference features, decomposes by Prop. 1 into
 exactly our scale arm plus our shape arm, and under frozen-head LoRA the scale
-arm is nearly inert (rho_0 ~ rho_t; Table 2 caption), so it is not a distinct
-method but approximately the shape penalty itself. The genuinely distinct
-families are therefore weight-space (L2-SP, EWC) and architectural
+arm is nearly inert (rho_0 ~ rho_t; Table 2 caption), so in this regime it nearly
+coincides with the shape penalty rather than forming a distinct family. The
+genuinely distinct families are therefore weight-space (L2-SP, EWC) and
+architectural
 (layer-freezing), which we add, all protocol-identical, each at the sweep config
 closest to the shape run's target loss. On TruthfulQA over three seeds
 (42/43/44, mean ± sd), downstream
@@ -1131,7 +1142,8 @@ forgetting is 0.680 ± 0.016 for the shape penalty at lambda 1 against 0.751 ± 
 (EWC), 0.763 ± 0.019 (L2-SP), 0.771 ± 0.027 (replay) and 0.815 ± 0.042 (no-reg); the
 shape penalty wins in all three seeds individually and carries the lowest target-task
 loss (0.872) of any method here, so it is not trading plasticity. Layer-freezing
-reaches 0.404 (top 16) only at target loss 0.924, i.e. by under-training.
+reaches 0.404 (top 16) only at target loss 0.924, i.e. by trading plasticity for
+retention.
 
 4) W4 [原文]: Finally, the proposed risk bound appears extremely loose in absolute scale,
    as shown in Table 1. While the paper demonstrates that the bound has good rank
@@ -1168,15 +1180,17 @@ degradation is real.
 
 Response:
 Mathematically the decomposition survives unchanged. Theorem 1 needs only a
-matched architecture and feature dimension and is agnostic to how the variant was
-produced, so full fine-tuning and RLHF fall under the general form with a nonzero
-head term (App. C.1/D); nothing in the derivation assumes a frozen head or a
-particular training recipe, and the frozen-head form is a simplification we
-exploit in Sec. 3, not a condition the bound needs. What changes far from the
-base is tightness, not validity: the farther the variant drifts, the less optimal
-any single orthogonal alignment becomes, so the absolute bound loosens while the
-within-cell ordering is expected to persist wherever drift exceeds the noise
-floor (the SNR regime of App. F.3).
+matched architecture, feature dimension, and output vocabulary, and is agnostic
+to how the variant was produced, so full fine-tuning and RLHF fall under the
+general form, with the head term engaging whenever the output head changes
+(App. C.1/D); nothing in the derivation assumes a frozen head or a particular
+training recipe, and the frozen-head form is a simplification we exploit in
+Sec. 3, not a condition the bound needs. What changes far from the base is
+tightness, not validity: the farther the variant drifts, the less optimal any
+single orthogonal alignment becomes, so the absolute bound loosens, while the
+within-cell ordering is expected, as an empirical extrapolation rather than a
+theorem, to persist wherever drift exceeds the noise floor (the SNR regime of
+App. F.3).
 
 That far regime is exactly what the paper defers rather than claims. App. C.3
 derives the joint feature-head alignment for "models with both rotated features
@@ -1231,8 +1245,10 @@ check, the causal single-axis interventions, and the same-features CKA/SVCCA and
 regularizer comparisons are measurements, not restatements, and Q1/Q2 are
 answered with the theory's actual scope, the paper's instruct-family
 replications, and a direct base-to-SFT consistency check. We hope these resolve
-the motivation and evaluation concerns, and we are glad to follow up on anything
-that remains during the discussion.
+the motivation and evaluation concerns; we would particularly value knowing
+whether the cost table and the controlled interventions resolve the motivation
+and actionability points, and we are glad to follow up on anything that remains
+during the discussion.
 
 ================================================================================
 Reviewer #3, eQL6 (3: Borderline reject, conf 3), Q2/C2/S3/O3
@@ -1313,7 +1329,7 @@ decays. **That asks two things of the quantity: the damage must not be fittable
 away, and whatever remains must divide into parts one can act on.** Steps (1) and
 (2) are those two requirements; (3) is where the hypotheses come in.
 
-(1) Why nothing larger than O(d) is admissible. Because the head is linear, a
+(1) Why we restrict to O(d): identifiability. Because the head is linear, a
 model's features and head are only defined jointly, up to an invertible map: Z_P H_P
 and (Z_P A)(A^-1 H_P) are the same proxy model. **So a feature discrepancy measured
 after an unrestricted invertible alignment is not identifiable: the damage can
@@ -1334,14 +1350,16 @@ closed-form solutions, just not a residual that still means anything.
 restriction cheap. The linear/platonic results say that related models tend to align
 well under near-orthogonal maps, which is why a single orthogonal W is sufficient in
 practice, i.e. why the bound is tight rather than vacuous. Quantitatively: on
-Llama-3.1-8B, lifting the restriction to an unrestricted linear map shrinks the
-feature residual by under a fifth on average even at 2 bits, and by at most 0.29 in
-any single cell. **Validity does not depend on any of this: Theorem 1 holds for any
+Llama-3.1-8B, in the top-r principal subspace the diagnostic reads (r <= 256,
+77-90% explained variance), lifting the restriction to an unrestricted linear map
+shrinks the feature residual by under a fifth on average even at 2 bits, and by at
+most 0.29 in any single cell. **Validity does not depend on any of this: Theorem 1 holds for any
 W in O(d) (L132, App. C.1), so if the hypotheses were false the bound would merely
 loosen, never break.**
 
 One distinction is worth making explicit, since it is the likeliest residue of the
-confusion: the paper chooses at two levels. The group is forced, by (1) and (2).
+confusion: the paper chooses at two levels. The group is the natural maximal
+linear family that keeps the attribution identifiable, by (1) and (2).
 Which member of it we use is not; it is a design parameter the family hands us for
 free: W = I for analysis and the regularizer (differentiable, head term exactly
 zero when the head is untouched), W_N when the goal is a correct ordering. The
@@ -1380,11 +1398,11 @@ Spearman(shape term, 1-Omega) has median 1.000 (min 0.988) over the 52 cells
 with Omega variance (of 55), and the two give identical rank correlations
 against |dR| (median 0.770). So the ordering and the diagnostic signal come
 from 1-Omega; the prefactor sets units, not ranking. This is also why the
-inflation the reviewer worries about could not reorder even if it were larger:
-the cell's other constants are shared too (K_feat depends only on the target
-head, K_pred = 2 universally), and a factor common to every variant of a cell
-inflates all bounds together, which is exactly why the paper reports within-cell
-rank correlations rather than absolute values.
+inflation the reviewer worries about could not materially reorder even if it were
+larger: the cell's other constants are shared too (K_feat depends only on the
+target head, K_pred <= sqrt(2) universally), and a factor common, or nearly
+common, to every variant of a cell inflates all bounds together, which is exactly
+why the paper reports within-cell rank correlations rather than absolute values.
 
 Two boundary cases complete the answer. The premise that rho_T stays close to
 rho_P is model-dependent rather than guaranteed, and the paper itself contains
@@ -1470,9 +1488,9 @@ evaluation protocol (defined in Sec. 5.1; Table 1's caption states it as
 annotated), and r_s is computed between each bound
 term and |dR| across all variants within a (family, benchmark) cell; Table 3
 aggregates over the 10 cells. One nuance, since the reviewer asks precisely:
-Eq. (1) defines the population risk, and every reported quantity, the bound and
-|dR| alike, is its empirical counterpart on the fixed held-out subsets of Sec.
-5.1; the revision restates Theorem 1 at that empirical level, with a
+Eq. (1) defines the population risk, and every reported quantity, the bound
+and |dR| alike, is its empirical counterpart on the fixed held-out subsets of
+Sec. 5.1; the revision restates Theorem 1 at that empirical level, with a
 concentration corollary recovering the population version. We will state both
 explicitly in the Sec. 5.5 text and every table caption.
 
@@ -1484,7 +1502,9 @@ and the target-task numbers showing the penalty costs no plasticity (W4 + Q3).
 W3 in particular forced an analysis that made the paper better: the prefactor
 study it prompted now anchors how the shape term should be read, and the
 dimensionless variant it suggested enters the revision. We hope these resolve
-the quality and clarity concerns, and we are glad to clarify anything further.
+the quality and clarity concerns; we would value knowing whether the
+identifiability argument resolves the orthogonal-alignment motivation, and we are
+glad to clarify anything further.
 
 ================================================================================
 Reviewer #4, 8VrD (4: Borderline accept, conf 3), Q3/C3/S3/O3
@@ -1555,10 +1575,10 @@ reference sample, also the quantity our diagnostic use case targets (all
 experiments evaluate on fixed reference sets; **every step of the proof (the
 per-sample triangle inequality, pointwise Lipschitz/simplex-polarization,
 Jensen on the empirical mean, and the exact finite-sample identity of
-Prop. 1) already holds at the sample level**). (2) New corollary: whenever the
-per-sample loss gap is bounded (guaranteed by bounded feature norms and the
-alignment residual, quantities PRISM already measures, with explicit constant
-`b <= K_feat*D_Z + sqrt(2)*C_z*||W H_T - H_P||_op`), McDiarmid's inequality
+Prop. 1) already holds at the sample level**). (2) New corollary: under i.i.d.
+sampling and an explicit almost-sure bound on the per-sample loss gap (with
+explicit constant `b <= K_feat*D_Z + sqrt(2)*C_z*||W H_T - H_P||_op`, whose
+empirical analogues the pipeline measures), McDiarmid's inequality
 yields `|population gap - empirical gap| <= b*sqrt(2 ln(2/delta)/N)` w.p.
 1-delta, giving the population version at an additive concentration cost. The
 constant b is finite by construction: hidden states are RMSNorm-bounded, so D_Z
@@ -1672,7 +1692,8 @@ The terms also track their theoretical laws: Scale follows (alpha-1)^2 and
 Shape follows theta^2 to within ~1%, and gamma rises monotonically with head
 quantization (10 -> 40 -> 210 -> 541 for 8/6/4/3 bits). The interventions
 cause real measured damage (|dR| up to 1.39 nats at alpha = 0.5, 0.42 at
-3-bit head), so the attribution is causal, not correlational.
+3-bit head), so for these constructed perturbations the attribution is causal,
+not correlational.
 
 (2) The Table 22 cells: we would first note that the reviewer's own strengths already
 state the positive half of our gating thesis, that the shape objective "helps
@@ -1736,9 +1757,10 @@ downstream forgetting is the mean risk gap over the five held-out benchmarks:
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
 | layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
-The shape penalty forgets least among the methods that learn the task and wins in
-all three seeds individually; layer-freezing's lower gap is bought at target loss
-0.924, i.e. by under-training. On the four cited methods (SLoRA, two-phase CIT,
+The shape penalty forgets least among the methods that learn the task to a
+comparable level and wins in all three seeds individually; layer-freezing's lower
+gap is bought at target loss 0.924, i.e. by trading plasticity for retention. On
+the four cited methods (SLoRA, two-phase CIT,
 CLAIM, ArMA): these are specialized for the sequential continual-instruction
 setting (a task stream), whereas our experiment mitigates forgetting within a
 single LoRA fine-tuning; they address a different problem, so a fair comparison
@@ -1748,15 +1770,15 @@ App. I already lists continual learning among the paper's future directions
 revision cites all four methods there, as the first concrete step of that item.
 
 (4) Reference-set sensitivity, which is Q3, measured on both sides. On the
-regularizer side we ran the size-and-domain ablation directly (Llama-TruthfulQA,
-trace at lambda 0.5, lr 1e-5, one seed, each config against its own
-no-regularization anchor): with task-domain references of 8/32/128 sequences the
-penalty cuts mean downstream forgetting by 51.1% / 50.4% / 51.2%, and swapping in
-a generic reference at n=32 still cuts it by 47.9%. **Size is not a knob
-(8 sequences already deliver the full benefit, so the 32-sequence choice the
-reviewer asks about is not load-bearing), and leaving the task's domain entirely
-costs about 2.5 points, so the regularizer does not require in-task reference
-data.** On the diagnostic side we re-ran the size ablation on three new seeds and
+regularizer side we ran a size-and-domain ablation in a separate sensitivity run
+(Llama-TruthfulQA, trace at lambda 0.5, lr 1e-5, one seed; a run distinct from
+the three-seed table above, so we report its absolute gaps only within itself):
+mean downstream gaps are 0.725 / 0.736 / 0.724 with task-domain references of
+8 / 32 / 128 sequences, and 0.773 with a generic reference at n=32. **Size is not
+a knob (8 sequences already deliver the full benefit, so the 32-sequence choice
+the reviewer asks about is not load-bearing), and leaving the task's domain
+entirely costs only ~0.05 nats, so the regularizer does not require in-task
+reference data.** On the diagnostic side we re-ran the size ablation on three new seeds and
 the task's own data: against the gap measured on the full 512-sequence slice, B_N
 reaches rs 0.932 ± 0.016 at 8 sequences and 0.932 ± 0.011 at 512, with seed
 agreement on the ordering 0.981 (n=8) rising to 0.998 (n=512); on domain, the
@@ -1883,5 +1905,7 @@ not the validation data itself.
 clarification (the restated theorem, the calibration on the reviewer's own two
 cells, the 26/26 causal interventions, the free-running result, the matched
 baselines, and the size-and-domain reference ablations). 
-The reviewer's careful reading materially improved the paper; if
-any concern remains, we would be glad to address it during the discussion.
+Your careful reading materially improved the paper. We would particularly 
+value knowing whether the empirical-risk restatement and the scoped free-running 
+test address your main concerns about scope; if anything remains, 
+we would be glad to address it during the discussion.
