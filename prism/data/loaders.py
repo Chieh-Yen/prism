@@ -524,6 +524,7 @@ def load_task_data(
     max_length: int = 512,
     shuffle: bool = False,
     seed: Optional[int] = None,
+    offset: int = 0,
 ) -> DataLoader:
     """Load a task dataset and return a ready-to-use DataLoader.
 
@@ -540,6 +541,13 @@ def load_task_data(
         seed:        Random seed for reproducible dataset-level shuffling
                      before selecting ``num_samples``.  Ignored for
                      streaming datasets (e.g. c4) where order is fixed.
+        offset:      Row offset into the shuffled pool.  ``offset=0`` (the
+                     default) keeps the legacy nesting property that E1D /
+                     E14 rely on (8 ⊂ 32 ⊂ 128 ⊂ 512).  Setting it to
+                     distinct multiples of ``num_samples`` yields **disjoint
+                     same-size draws** of one fixed shuffle — the paired
+                     reference-draw ablation of E15.  Unsupported for
+                     streaming datasets.
     """
     from datasets import load_dataset  # lazy import to keep startup fast
 
@@ -566,6 +574,10 @@ def load_task_data(
 
     if meta.get("streaming"):
         # Streaming datasets (c4): take first N rows; shuffle not supported.
+        if offset:
+            raise ValueError(
+                f"offset={offset} is not supported for the streaming task "
+                f"'{task_name}' (row order is fixed, length unknown)")
         rows = list(hf_dataset.take(num_samples or 256))
         from datasets import Dataset as HFDataset
         hf_dataset = HFDataset.from_list(rows)
@@ -577,7 +589,16 @@ def load_task_data(
         # reproducible.  Skip when seed is None to preserve legacy behaviour.
         if seed is not None:
             hf_dataset = hf_dataset.shuffle(seed=seed)
-        if num_samples is not None and num_samples < len(hf_dataset):
+        if offset:
+            if num_samples is None:
+                raise ValueError("offset requires num_samples")
+            if offset + num_samples > len(hf_dataset):
+                raise ValueError(
+                    f"offset {offset} + num_samples {num_samples} exceeds the "
+                    f"{len(hf_dataset)}-row '{task_name}' {split} pool "
+                    f"(hf split '{hf_split}')")
+            hf_dataset = hf_dataset.select(range(offset, offset + num_samples))
+        elif num_samples is not None and num_samples < len(hf_dataset):
             hf_dataset = hf_dataset.select(range(num_samples))
 
     is_text = "text_key" in meta or "formatter" in meta

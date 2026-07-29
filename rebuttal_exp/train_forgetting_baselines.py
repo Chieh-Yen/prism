@@ -9,9 +9,10 @@ Adds three canonical baselines on top of the paper's trace / replay pair
     ewc         L = L_CE + lambda * sum F_i (theta_i - theta_0i)^2  (Fisher-weighted)
     feature_kd  L = L_CE + lambda * ||Z_t - Z_0||_F^2 / ||Z_0||_F^2 (feature space)
 
-plus `trace` / `replay` / `none` re-exposed with --seed and --ref_task
-overrides, so multi-seed reruns (8VrD-W3) and the regularizer-side
-reference-set sweep (8VrD-Q3, E3 part B-reg) all go through ONE entry point.
+plus `trace` / `replay` / `none` re-exposed with --seed, --ref_task,
+--ref_seed and --ref_offset overrides, so multi-seed reruns (8VrD-W3), the
+regularizer-side reference-set sweep (8VrD-Q3, E3 part C) and the paired
+same-size reference-draw ablation (E15) all go through ONE entry point.
 
 Everything else — LoRA config, data, collator, PRISM checkpoint callback,
 schedules — is imported unchanged from train_forgetting_multitask.py, so runs
@@ -36,10 +37,13 @@ Outputs: {output_root}/{method}/lam{lambda}/seed{seed}/{model_short}/{task}/
 from __future__ import annotations
 
 import argparse
+import glob
+import json
 import os
+import re
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -200,6 +204,75 @@ def estimate_fisher(model, ref_dl, device: str) -> Dict[str, Tensor]:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Mid-run resume (E15: a cell is ~80 min on one 5090; dying at step 250
+# should not cost the whole cell)
+# ══════════════════════════════════════════════════════════════════════
+# Fields that must agree before we resume into an existing directory. A
+# collision here means two different configs share an output_root, which is
+# the E3 part-C overwrite postmortem all over again — refuse, don't merge.
+_RESUME_GUARD = ("method", "lambda_reg", "ref_task", "reg_samples",
+                 "ref_seed", "ref_offset", "reg_every_k", "lr", "seed",
+                 "model", "trained_task", "max_steps", "lora_r")
+
+
+def plan_resume(output_dir: str, cfg: Dict[str, Any],
+                ) -> Tuple[Optional[str], List[Dict[str, Any]]]:
+    """Decide where to restart and which PRISM records to keep.
+
+    HF writes the checkpoint directory BEFORE the callback runs its PRISM
+    evaluation, so a crash inside that evaluation leaves a checkpoint whose
+    metrics never reached the JSON. Resuming from the newest directory would
+    silently drop that step from the record, so we resume from the newest
+    checkpoint the JSON actually covers and let training redo the rest.
+
+    Returns (checkpoint_path or None, records to pre-seed the callback with).
+    """
+    steps = sorted(int(m.group(1)) for p in glob.glob(
+        os.path.join(output_dir, "checkpoint-*"))
+        if (m := re.search(r"checkpoint-(\d+)$", p)) and os.path.isdir(p))
+    if not steps:
+        return None, []
+
+    jp = os.path.join(output_dir, "prism_forgetting_metrics.json")
+    records: List[Dict[str, Any]] = []
+    if os.path.exists(jp):
+        try:
+            prev = json.load(open(jp))
+        except Exception as e:
+            sys.exit(f"resume: {jp} is unreadable ({e}) — move it aside or "
+                     f"pass --resume no")
+        old = prev.get("experiment", {})
+        # Keys absent from the old file are unknown, not different: the
+        # pre-E15 runs simply had no ref_seed / ref_offset field.
+        bad = [k for k in _RESUME_GUARD
+               if k in old and k in cfg and old[k] != cfg[k]]
+        if bad:
+            sys.exit("resume: refusing to resume — "
+                     + "; ".join(f"{k}: on disk {old[k]!r} vs requested "
+                                 f"{cfg[k]!r}" for k in bad)
+                     + f"\n  ({output_dir} holds a DIFFERENT config. Use a "
+                       f"fresh --output_root, or --resume no to overwrite.)")
+        records = prev.get("checkpoints", [])
+
+    json_max = max((r.get("step", -1) for r in records), default=-1)
+    covered = [s for s in steps if s <= json_max]
+    if covered:
+        step = max(covered)
+    else:
+        step = min(steps)
+        print(f"  [warn] no checkpoint is covered by the metrics JSON "
+              f"(json max step {json_max}, checkpoints {steps}); resuming "
+              f"from {step} — steps evaluated before it are not recoverable")
+    kept = sorted((r for r in records if r.get("step", 0) <= step),
+                  key=lambda r: r["step"])
+    ckpt = os.path.join(output_dir, f"checkpoint-{step}")
+    print(f"\n=== RESUMING from {ckpt} "
+          f"({len(kept)} PRISM checkpoint record(s) retained: "
+          f"{[r['step'] for r in kept]}) ===")
+    return ckpt, kept
+
+
+# ══════════════════════════════════════════════════════════════════════
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--model", required=True)
@@ -230,11 +303,28 @@ def parse_args() -> argparse.Namespace:
                    help="reference-set source task (default: --task; "
                         "e.g. wikitext for the E3(b) domain sweep)")
     p.add_argument("--reg_samples", type=int, default=32)
+    p.add_argument("--ref_seed", type=int, default=None,
+                   help="shuffle seed for the reference draw (default: "
+                        "--seed + 1000, the paper offset). Decoupling it "
+                        "from --seed is what makes E15's draw ablation "
+                        "PAIRED: the training seed, data order and LoRA "
+                        "init stay byte-identical while only the reference "
+                        "sample moves.")
+    p.add_argument("--ref_offset", type=int, default=0,
+                   help="row offset into the shuffled reference pool; "
+                        "distinct multiples of --reg_samples give DISJOINT "
+                        "same-size draws of one fixed shuffle (E15). "
+                        "0 = the paper's draw.")
     p.add_argument("--reg_batch_size", type=int, default=8)   # paper default
     p.add_argument("--reg_max_length", type=int, default=512)
     p.add_argument("--reg_every_k", type=int, default=8)
     p.add_argument("--logging_steps", type=int, default=10)
     p.add_argument("--output_root", default=str(HERE / "out" / "E2"))
+    p.add_argument("--resume", choices=["auto", "no"], default="auto",
+                   help="auto (default): if output_dir already holds "
+                        "checkpoints with a MATCHING config, restart from the "
+                        "newest one the metrics JSON covers and keep the "
+                        "earlier PRISM records. no: ignore them and overwrite.")
     return p.parse_args()
 
 
@@ -243,6 +333,7 @@ def main() -> None:
     if args.method not in ("none", "layer_freeze") and args.lambda_reg <= 0:
         sys.exit("--lambda_reg must be > 0 for a regularized method")
     ref_task = args.ref_task or args.task
+    ref_seed = args.ref_seed if args.ref_seed is not None else args.seed + 1000
     task_cfg = TASK_CONFIGS[args.task]
     task_max_length = task_cfg.get("max_length")
     if task_max_length is not None and args.max_length == 512:
@@ -270,6 +361,7 @@ def main() -> None:
         "script": "rebuttal_exp/train_forgetting_baselines.py",
         "method": args.method, "lambda_reg": args.lambda_reg,
         "ref_task": ref_task, "reg_samples": args.reg_samples,
+        "ref_seed": ref_seed, "ref_offset": args.ref_offset,
         "reg_every_k": args.reg_every_k,
         "model": args.model, "trained_task": args.task,
         "eval_tasks": eval_tasks, "seed": args.seed,
@@ -287,6 +379,11 @@ def main() -> None:
         print(f"  {k:<22s}: {v}")
     print(f"  output_dir            : {output_dir}")
     print("=" * 78)
+
+    # Decided BEFORE the 8B load so a config collision fails in seconds.
+    resume_ckpt, kept_records = (
+        plan_resume(output_dir, experiment_config)
+        if args.resume == "auto" else (None, []))
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -319,8 +416,19 @@ def main() -> None:
             ref_task, split="test", num_samples=args.reg_samples,
             batch_size=args.reg_batch_size, tokenizer=tokenizer,
             max_length=min(args.max_length, args.reg_max_length),
-            seed=args.seed + 1000,
+            seed=ref_seed, offset=args.ref_offset,
         )
+        n_kept = len(ref_dataloader.dataset)
+        print(f"\nReference draw: task={ref_task} seed={ref_seed} "
+              f"offset={args.ref_offset} requested={args.reg_samples} "
+              f"kept={n_kept}")
+        if n_kept < args.reg_samples:
+            # Empty/whitespace rows are dropped inside TextDataset, so a
+            # requested size is not a delivered size on raw-text corpora
+            # (wikitext). E15 preflight quantifies this; keep it visible here.
+            print(f"  [warn] {args.reg_samples - n_kept} of the requested rows "
+                  f"were blank and dropped — the delivered reference size is "
+                  f"{n_kept}, not {args.reg_samples}")
     if args.method in ("trace", "feature_kd"):
         z_mode_ref = get_task_metadata(ref_task)["z_mode"]
         print(f"\nPre-computing Z_T_ref (task={ref_task}, "
@@ -374,6 +482,11 @@ def main() -> None:
         output_dir=output_dir, device=device,
         experiment_config=experiment_config, K_theory=K_theory,
     )
+    # The callback rewrites the whole JSON at every save from its in-memory
+    # list, so a resumed run must inherit the earlier records or it truncates
+    # the file to the post-resume tail.
+    if kept_records:
+        prism_callback.all_checkpoints = list(kept_records)
     collator = AnswerOnlyDataCollator(tokenizer=tokenizer)
     try:
         import bitsandbytes  # noqa: F401
@@ -414,8 +527,13 @@ def main() -> None:
     else:  # none / layer_freeze — plain CE training
         trainer = Trainer(**common)
 
-    print(f"\nTraining ({args.method}, lambda={args.lambda_reg}) ...")
-    trainer.train()
+    print(f"\nTraining ({args.method}, lambda={args.lambda_reg})"
+          + (f", resuming at {os.path.basename(resume_ckpt)}"
+             if resume_ckpt else "") + " ...")
+    if resume_ckpt:
+        trainer.train(resume_from_checkpoint=resume_ckpt)
+    else:
+        trainer.train()
     print(f"\nDone. PRISM log: {prism_callback.json_path}")
 
 
