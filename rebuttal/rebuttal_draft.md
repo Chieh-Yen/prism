@@ -252,8 +252,9 @@ B + W-4a: the reference set: what the bound licenses, and size/domain sensitivit
 Response:
 Addressed by explicit scope narrowing plus in-scope measurement: the reference the
 bound needs is the diagnosed task's own data, so benchmark-independent use is
-scoped out, the narrowing the meta-review invites; size, cost, and the two
-remaining W-4 items are measured directly below.
+scoped out, the narrowing the meta-review invites. Size is measured on both
+reference sets below, cost is measured, the two remaining W-4 items are answered,
+and on domain we separate the two halves rather than answer only the easy one.
 
 (i) What the reference set is, and what we do not claim. The bound's reference,
 which we will call the **diagnostic set** (Sec. 5.1's fixed held-out subsets), is
@@ -281,11 +282,23 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 **Eight sequences already order the twelve variants as well as 512 do.** The
 requirement is small and stable. To keep the paper's two reference sets distinct
 by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
-the risk gap are computed, and the **regularization reference D_ref** (32
-sequences, Sec. 5.4) is what the trace penalty reads during fine-tuning; D_ref's
-own size-and-draw ablation is in 8VrD Q3 (its domain axis is deliberately left
-alone there, for the reason given in that answer), and the revision adopts these
-two names throughout.
+the risk gap are computed, and the **regularization reference D_ref** (32 held-out
+sequences of the fine-tuned task, Sec. 5.4) is what the trace penalty reads during
+fine-tuning. The revision adopts these two names throughout, and corrects Sec. 5.1,
+which calls D_ref "pre-training sequences" in error.
+
+D_ref has its own ablation, run at the paper's operating point so the numbers sit
+beside Table 2's 0.681: four disjoint draws at each of n = 8 / 16 / 32 give mean
+downstream forgetting 0.690 ± 0.019, 0.685 ± 0.011 and 0.676 ± 0.008, with all
+twelve runs 15.2% to 21.1% below the no-regularization 0.843, so **the whole
+size-and-draw grid moves retention by at most 5.9 points.** Two controls: rerunning
+the paper's own draw reproduces it to 0.0016 nats, and the spread shrinks as the
+reference grows, the signature of sampling variation. **On the domain half we have no
+controlled answer, and the bound licenses none.** Preserving shape on generic text
+and expecting benchmark retention is the same distribution-transfer step that (i)
+scopes out, so we treat a generic reference as an untested heuristic rather than a
+claim. The matched test, a reference drawn from a different structured-QA task, is
+follow-up (8VrD Q3).
 
 (iii) What that buys, measured on identical prompts (256 GSM8K prompts, one RTX
 5090, model load excluded on both sides):
@@ -514,12 +527,17 @@ Weak Points 2 and 6b, outside the five conditions
 > (Empirical-versus-population half: Condition A.)
 
 Response:
-Weak Point 2, actionability: each axis maps one-to-one to a distinct remediation
-and the map closes into a diagnose, act, verify loop: PRISM attributes Q6_K's SQuAD
+Weak Point 2, actionability: each axis points at a distinct remediation, and for two
+of the three the loop closes with a measurement rather than a suggestion. On the head
+axis it closes protocol-side: PRISM attributes Q6_K's SQuAD
 degradation to the head axis (gamma = 75.77 of B = 76.95, Qwen3-8B-Base), and the
 protocol acting on that diagnosis (BnB INT8, head unquantized) removes it at a 20x
-lower bound. Controlled single-axis interventions confirm the attribution is
-causal (Llama-3.1-8B, W = I default; max |term - control| within each family,
+lower bound, which is a comparison across existing protocols rather than an
+intervention we ran. On the shape axis it closes through training instead: the diagnosis says
+shape dominates LoRA forgetting, and penalizing it directly (Eq. (8)) cuts the gap
+from 0.843 to 0.680 (Condition C). Per-channel smoothing for the scale axis is a
+direction we name but do not evaluate, and eQL6 Q2 states that scope. Controlled
+single-axis interventions confirm the attribution is causal (Llama-3.1-8B, W = I default; max |term - control| within each family,
 MMLU / TriviaQA):
 
 | intervention family | scale term | shape term | head term |
@@ -539,7 +557,9 @@ What this adds up to, in the meta-review's own structure: (A) the guarantee is
 stated on the quantity we measure, with a concentration corollary back to the
 population version, and a per-cell calibration turns the bound into a working
 threshold; (B) the reference requirement is eight to a few hundred sequences of
-the task's own data, at 1/62.6 of one benchmark run, with unpaired use scoped out;
+the task's own data, at 1/62.6 of one benchmark run, the regularizer's own reference
+moves retention by at most 5.9 points across a size-and-draw grid, and unpaired use
+is scoped out;
 (C) the bound ties CKA/SVCCA on identical features while carrying a certified
 bound, an axis attribution and a trainable penalty they cannot, and that penalty
 leads four forgetting baselines at matched plasticity; (D) the ranking survives
@@ -1865,12 +1885,11 @@ the four-draw mean 0.676, so it is a typical draw, not a favourable one. And the
 own reference set; isolating the draw gives 0.008, so this knob is smaller than the
 seed variation already reported.
 
-On domain we are more careful than before. A generic-corpus reference is not
-matched here: 32 WikiText rows deliver 19 sequences once blank rows are dropped,
-with 1862 tokens against 849 and no prompt boundary, so a gap against it moves
-domain, item count and token budget together. We make no claim from it; the paired
-version, a reference from a structured-QA task outside the five benchmarks, is
-follow-up in the revision.
+On the domain half of Q3 we have no controlled answer, and the bound licenses none:
+preserving shape on generic text and expecting benchmark retention is the same
+distribution-transfer step we scope out for the diagnostic, so a generic reference
+is an untested heuristic rather than a claim. The matched test, a reference from a
+structured-QA task outside the five benchmarks, is follow-up in the revision.
 
 On the diagnostic side, three new seeds on the task's own data: against the gap on
 the full 512-sequence slice, B_N reaches rs 0.932 ± 0.016 at 8 sequences and
