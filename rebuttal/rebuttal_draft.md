@@ -62,8 +62,8 @@ What the rebuttal establishes, each measured rather than asserted:
     greedy decoding (62.6x).
   - **free-running**: for 12 Llama PTQ variants on GSM8K, $r_s=+0.947\pm0.015$
     free-running against $+0.958\pm0.011$ teacher-forced; the teacher-forced
-    bound orders free-running gaps at $+0.958\pm0.011$ and remains our
-    recommended fast screen because it avoids decoding.
+    bound orders free-running gaps at $+0.958\pm0.011$; we recommend TF for
+    fast screening because it avoids decoding.
   - **diagnostic reference**: 8 sequences rank the 12 variants as well as 512
     ($r_s=0.932$ at both sizes), with cross-seed ordering agreement rising from
     0.981 to 0.998.
