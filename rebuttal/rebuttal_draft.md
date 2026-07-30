@@ -500,14 +500,22 @@ round):
 
 **Ranking is uninformative there by construction, and the bound holds at every
 checkpoint in both cells**; the revision states the two mechanisms separately. On
-GSM8K under quantization the correlation is genuinely low (0.41) for a quantified
-reason: the mean gap there is only about 0.019 nats (Table 10), an order of
-magnitude below the other benchmarks, so there is little degradation left to rank.
-Under LoRA fine-tuning, which does move GSM8K, the bound ranks it at +0.97 (Fig.
-3, TruthfulQA row); the tested mitigation and the gauge analysis are in pCi8 W4.
+GSM8K under quantization the correlation is genuinely low (0.41 pooled across
+families), and for a quantified reason: the mean gap there is about 0.019 nats
+(Table 10), an order of magnitude below the other benchmarks, which leaves the least
+signal and makes the cell the most sensitive to how the mismatch is attributed. That
+sensitivity is itself measured, and it is what the paper's design rule rests on: at
+the analysis default $W = I$ the head rotation stays inside the shape term and GSM8K
+ranks +0.51 on Llama and +0.68 on Qwen, while the Procrustes alignment $W = W_N$
+absorbs that rotation so the head term carries the ordering, and the same cells rank
++0.97 and +0.96, the largest gain of any benchmark in either family. **This is why we
+recommend $W_N$ when the goal is an ordering and $W = I$ for axis analysis and the
+regularizer**; both are certified, so the choice costs no validity. Under LoRA
+fine-tuning, which does move GSM8K, the bound ranks it at +0.97 at $W = I$ too (Fig.
+3, TruthfulQA row); the tested mitigation is in pCi8 W4.
 
 (ii) Where the regularizer does not help, or hurts. Here we should clarify
-something our own caption made too easy to misread. **Table 22 is a
+something our own caption made too easy to misread, and the fault is ours. **Table 22 is a
 gating-validation table, not a results table over four settings**: its rows are
 ordered by decreasing mean shape drift $1-\bar{\Omega}$, the amount of drift there is
 to repair, and its last column records what PRISM's diagnosis says to do:
@@ -519,15 +527,25 @@ to repair, and its last column records what PRISM's diagnosis says to do:
 | Qwen TruthfulQA | 0.0091 | +2.7% | at noise floor, skip |
 | Qwen BBQ | 0.0011 | -0.2% | at noise floor, skip |
 
-The two Qwen effects sit inside the band the appendix itself calls neutral
-(magnitude < 3%), on cells our own rule says not to treat, so three of the four
-settings match the prediction directly. **Llama BBQ (+8.6%) is the one genuine
-exception**, and the appendix separates two gating conditions to explain it:
-condition (i), enough shape drift to repair, is satisfied at 0.0678, but condition
-(ii), that the drift be accompanied by proportional risk-gap growth, fails on ARC
-and MMLU, so the penalty has no target there. On the two Llama-BBQ benchmarks where
-condition (ii) does hold, TriviaQA and GSM8K, the penalty gives -88% and -79%.
-Decomposed in 8VrD W3.
+What makes the two Qwen rows a prediction rather than an excuse is that the column
+deciding them is measured before any intervention: it is one minus the baseline
+$\Omega$, and Qwen's baseline $\Omega$ is already 0.991 and 0.999, against Llama's
+0.906 and 0.932, so there is essentially nothing to repair. Their +2.7% and -0.2%
+then sit inside the +-3% band the appendix itself defines as neutral, on cells where
+every method lands within 0.02 of every other. Three of the four settings therefore
+match the prediction directly.
+
+**Llama BBQ (+8.6%) is the one genuine exception**, and it is a condition-(ii) failure
+rather than a shape-drift failure: condition (i), enough drift to repair, is satisfied
+at 0.0678, but condition (ii), that the drift be accompanied by proportional risk-gap
+growth, fails on ARC and MMLU, so the penalty has no target there. On the two
+Llama-BBQ benchmarks where condition (ii) does hold, TriviaQA and GSM8K, the penalty
+gives -88% and -79%. The honest reading is therefore granular: at the setting level,
+where Table 22 applies the gate, this row does mislead; at the per-benchmark level,
+where the two conditions are actually stated, the gate separates the cells correctly.
+The revision promotes this analysis to the main text and presents the regularizer as
+axis-targeted with its gating rule explicit, not as a universal win. Decomposed in
+8VrD W3.
 
 (iii) The forgetting-versus-plasticity tradeoff. This is why every baseline in
 Point C is reported at the config closest to the shape run's target-task loss
