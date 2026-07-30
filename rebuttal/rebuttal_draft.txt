@@ -283,8 +283,9 @@ requirement is small and stable. To keep the paper's two reference sets distinct
 by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
 the risk gap are computed, and the **regularization reference D_ref** (32
 sequences, Sec. 5.4) is what the trace penalty reads during fine-tuning; D_ref's
-own size-and-domain ablation is in 8VrD Q3, and the revision adopts these two
-names throughout.
+own size-and-draw ablation is in 8VrD Q3 (its domain axis is deliberately left
+alone there, for the reason given in that answer), and the revision adopts these
+two names throughout.
 
 (iii) What that buys, measured on identical prompts (256 GSM8K prompts, one RTX
 5090, model load excluded on both sides):
@@ -1469,76 +1470,83 @@ Response:
 Thank you for flagging this sentence. It compressed two different things and
 overstated the PTQ half, so we will rewrite it.
 
-What we meant. The quantity 1 - Omega measures how much the direction of the
-features disagrees, independently of their size, and the shape term of the bound
-is that disagreement weighted by the two scales, 2 rho_T rho_P (1 - Omega).
-Whether it can be reduced directly depends on when one acts. In GPTQ the model is
+**What we meant.** The quantity $1-\Omega$ measures how much the direction of the
+features disagrees, independently of their size, and the shape term of the bound is
+that disagreement weighted by the two scales, $2\rho_T\rho_P(1-\Omega)$. Whether it
+can be reduced directly depends on when one acts. In GPTQ the model is
 not trained end to end: the quantization decisions are discrete and are taken
 layer by layer against a calibration objective, so our end-to-end shape term is
 not a quantity that objective can act on directly. During LoRA training it is.
 Those are the two "instances": two different kinds of method, not one method with
 two settings.
 
-Why the PTQ half is not shape-specific. For one layer with weights M
-(d_out x d_in), quantized weights M_hat, and calibration inputs X (d_in x n_c)
-over n_c calibration tokens, GPTQ targets the output error
-|| (M - M_hat) X ||_F^2, whose Hessian in each row of M is proportional to X X^T;
-that is what "Hessian-aware" refers to. Writing that layer's outputs as
-Z_l = X^T M^T and Z_l_hat = X^T M_hat^T, both (n_c x d_out), this error is exactly
-the quantity Proposition 1 splits in two (at W = I; the factor 1/n_c does not
-change what is minimized):
+**Why the PTQ half is not shape-specific.** Take one layer with weights $M$
+($d_{\mathrm{out}}\times d_{\mathrm{in}}$), quantized weights $\widehat{M}$, and
+calibration inputs $X$ ($d_{\mathrm{in}}\times n_c$) for $n_c$ tokens, and write
+$E = M - \widehat{M}$. GPTQ targets the output error
 
-  (1/n_c) || Z_l - Z_l_hat ||_F^2
-      = ( rho_{Z_l} - rho_{Z_l_hat} )^2
-        + 2 rho_{Z_l} rho_{Z_l_hat} ( 1 - Omega( Z_l, Z_l_hat ) ),
+$$\|EX\|_F^2 = \mathrm{tr}\left(E \, XX^\top E^\top\right),$$
 
-where rho_A = ||A||_F / sqrt(n_c) is the root-mean-square feature scale and Omega
-the normalized inner product of Eq. (3) at W = I. GPTQ therefore targets a joint
+whose Hessian in each row of $\widehat{M}$ is proportional to $XX^\top$; that is
+what "Hessian-aware" refers to. Now write that layer's outputs as
+$Y = X^\top M^\top$ and $\widehat{Y} = X^\top \widehat{M}^\top$, both
+$n_c \times d_{\mathrm{out}}$, with scales $\rho = \|Y\|_F / \sqrt{n_c}$ and
+$\widehat{\rho} = \|\widehat{Y}\|_F / \sqrt{n_c}$. Since
+$\|Y - \widehat{Y}\|_F^2 = \|EX\|_F^2$, that error is exactly what Proposition 1's
+identity splits in two, the identity being algebraic and so holding for any two
+matrices of the same shape (at $W = I$; the factor $1/n_c$ does not change what is
+minimized):
+
+$$\frac{1}{n_c} \|Y - \widehat{Y}\|_F^2 = \left(\rho - \widehat{\rho}\right)^2 + 2 \rho \widehat{\rho} \left(1 - \Omega(Y, \widehat{Y})\right),$$
+
+where $\Omega$ is the normalized inner product of Eq. (3) at $W = I$. GPTQ therefore
+targets a joint
 residual containing both components. **Minimizing a sum does not by itself make
 either part fall, so it may affect the local shape component only indirectly; it
 does not optimize the end-to-end shape term of our bound, and a single scalar
-residual cannot say which component dominates.** This is an analytical remark
-about a published objective, not a measurement of ours.
+residual cannot say which component dominates.** This is analysis of a published
+objective, not a measurement of ours.
 
-The LoRA half is different because the model is still training, so the objective is
-ours to design rather than inherited: the component the diagnosis implicates can be
-put directly into the loss. There, 1 - Omega is computed from the current features
-and can be differentiated without an SVD, which is one reason we use the identity
-alignment W = I for the intervention, together with the frozen-head simplification
-it gives (Sec. 3; W = W_N would also need a per-step SVD). Eq. (8) therefore
-penalizes 1 - Omega itself, the directional disagreement, rather than a residual in
-which it is mixed with scale.
+**The LoRA half is different** because the model is still training, so the objective
+is ours to design rather than inherited: the component the diagnosis implicates can
+be put directly into the loss. There, $1-\Omega$ is computed from the current
+features and, wherever the feature norms are nonzero, differentiated without an
+SVD, which is one reason we use the
+identity alignment $W = I$ for the intervention, together with the frozen-head
+simplification it gives (Sec. 3; $W = W_N$ needs a per-step SVD). Eq. (8)
+therefore penalizes $1-\Omega$ itself, the directional disagreement, rather than a
+residual in which it is mixed with scale.
 
-What we used, and what we meant to point at. The GPTQ and GGUF variants in our
-study are publicly released pre-quantized checkpoints that we only diagnose, while
-BitsAndBytes quantization is applied on the fly from the full-precision
-checkpoint, without calibration data. We do not run or modify GPTQ calibration at
-any point. Our intention in naming Hessian-aware reconstruction was
-narrower than the sentence suggests: its calibration is an objective that can be
-changed, so the decomposition points at the possibility of steering that objective
-toward the shape component, and we wanted to note that connection. We did not plan
-or run such an experiment, and only the LoRA regularizer is proposed and evaluated
-here as an intervention. The scale-axis and head-axis remedies in the same
-paragraph are likewise directions suggested by existing protocols, not controlled
-interventions evaluated in this paper. We will replace the original sentence with:
+**What we used, and what we meant.** The GPTQ and GGUF variants we diagnose are
+publicly released pre-quantized checkpoints; BitsAndBytes is applied on the fly
+from the full-precision checkpoint, without calibration data. We never run or
+modify GPTQ calibration. Our intention was narrower than the sentence suggests:
+GPTQ's calibration phase optimizes an objective that could be changed, so the
+decomposition points at a possible link to shape there. We did not plan or run such
+an experiment. The sentence also closes Sec. 5.3, which reports diagnosis; the one
+intervention we evaluate is the regularizer of Sec. 5.4. The scale- and head-axis
+remedies in that paragraph are likewise directions suggested by existing protocols,
+not controlled interventions. We will replace the original sentence with:
 
-  "Each dominant axis suggests a remediation direction, though only shape
-  regularization is evaluated here as an intervention. At PTQ time, GPTQ-style
-  Hessian-aware reconstruction [frantar2022gptq] affects shape only indirectly,
-  since it minimizes a layerwise error containing both a scale and a shape
-  component (Prop. 1 at W = I); at LoRA training time, 1 - Omega can be penalized
-  directly (Eq. (8), Sec. 5.4). Per-channel outlier smoothing
-  [xiao2023smoothquant] for the scale axis and FP16-lm_head retention for the head
-  axis are suggested as protocol-level remediation directions but are not evaluated
-  here as controlled interventions."
+> "Each dominant axis suggests a remediation direction, though only shape
+> regularization is evaluated here as an intervention. At PTQ time, GPTQ-style
+> Hessian-aware reconstruction [frantar2022gptq] affects shape only indirectly,
+> since it minimizes a layerwise error containing both a scale and a shape component
+> (Prop. 1 at $W = I$); at LoRA training time, $1-\Omega$ can be penalized directly
+> (Eq. (8), Sec. 5.4). Per-channel outlier smoothing [xiao2023smoothquant] for the
+> scale axis and FP16-`lm_head` retention for the head axis are suggested as
+> protocol-level remediation directions but are not evaluated here as controlled
+> interventions."
 
-Follow-up. Because Proposition 1 separates the two components contained jointly in
-the reconstruction objective, a natural follow-up is to test whether augmenting
-standard reconstruction with an explicit shape penalty, or optimizing shape subject
-to a scale constraint, improves downstream preservation. That would require
-rerunning calibration under controlled, matched configurations, which is outside
-the present diagnostic study; we add it to Sec. 6 as a follow-up the decomposition
-enables.
+**Follow-up.** The separated version already exists in this paper, at the other
+lifecycle stage: Eq. (8) penalizes the scale-free $1-\Omega$ on its own. Whether
+that separation carries into calibration is the open question, and the two obvious
+attempts differ in kind: adding a penalty $\mu(1-\Omega)$ on top of the joint
+residual only moves the shape coefficient from $2\rho\widehat{\rho}$ to
+$2\rho\widehat{\rho}+\mu$ by the identity above, so it still optimizes a mixture,
+whereas minimizing $1-\Omega$ under a scale budget separates the axes. Either needs calibration rerun under
+matched configurations, outside this diagnostic study; the revision lists it in
+Sec. 6.
 
 6) Q4 [原文]: In Section 5.5, the Spearman [r_s] is computed between each risk gap bound
    term, and what other variable? Is it the empirical risk gap?
@@ -1841,7 +1849,12 @@ regularizer side we ran the ablation at the paper's own operating point
 numbers sit beside Table 2's 0.681 on the same scale rather than in a separate
 run. We then varied only what the question is about, namely which sequences form
 D_ref: for each size, four draws taken as disjoint windows of one fixed shuffle of
-the task's own test split, verified to share zero sequences pairwise.
+the task's own held-out split, verified to share zero sequences pairwise. One
+correction we owe the reviewer here: Sec. 5.1 describes D_ref as "32 pre-training
+sequences", which is a wording error. What the code draws, and what every number
+in the paper and below was produced with, is 32 held-out sequences of the
+fine-tuned task itself, disjoint from its training split. The revision fixes that
+sentence.
 
 | reference size | mean downstream forgetting | range over the 4 draws |
 |:--|--:|--:|
@@ -1998,7 +2011,7 @@ not the validation data itself.
 **In sum:** each point above is answered with a measurement rather than a
 clarification (the restated theorem, the calibration on the reviewer's own two
 cells, the 26/26 causal interventions, the free-running result, the matched
-baselines, and the size-and-domain reference ablations). 
+baselines, and the reference size-and-draw ablation). 
 Your careful reading materially improved the paper. We would particularly 
 value knowing whether the empirical-risk restatement and the scoped free-running 
 test address your main concerns about scope; if anything remains, 
