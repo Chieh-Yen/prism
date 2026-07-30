@@ -1470,8 +1470,8 @@ Response:
 Thank you for flagging this sentence. It compressed two different things and
 overstated the PTQ half, so we will rewrite it.
 
-**What we meant.** The quantity $1-\Omega$ measures how much the direction of the
-features disagrees, independently of their size, and the shape term of the bound is
+**What we meant.** The quantity $1-\Omega$ measures how much the feature
+directions disagree, independently of size, and the shape term of the bound is
 that disagreement weighted by the two scales, $2\rho_T\rho_P(1-\Omega)$. Whether it
 can be reduced directly depends on when one acts. In GPTQ the model is
 not trained end to end: the quantization decisions are discrete and are taken
@@ -1502,19 +1502,18 @@ $$\frac{1}{n_c} \|Y - \widehat{Y}\|_F^2 = \left(\rho - \widehat{\rho}\right)^2 +
 where $\Omega$ is the normalized inner product of Eq. (3) at $W = I$. GPTQ therefore
 targets a joint
 residual containing both components. **Minimizing a sum does not by itself make
-either part fall, so it may affect the local shape component only indirectly; it
-does not optimize the end-to-end shape term of our bound, and a single scalar
-residual cannot say which component dominates.** This is analysis of a published
+either part fall, so it may affect the local shape component only indirectly, and
+a single scalar residual cannot say which component dominates.** This is analysis of a published
 objective, not a measurement of ours.
 
 **The LoRA half is different** because the model is still training, so the objective
-is ours to design rather than inherited: the component the diagnosis implicates can
-be put directly into the loss. There, $1-\Omega$ is computed from the current
+is ours to design rather than inherited. There, $1-\Omega$ is computed from the
+current
 features and, wherever the feature norms are nonzero, differentiated without an
 SVD, which is one reason we use the
 identity alignment $W = I$ for the intervention, together with the frozen-head
 simplification it gives (Sec. 3; $W = W_N$ needs a per-step SVD). Eq. (8)
-therefore penalizes $1-\Omega$ itself, the directional disagreement, rather than a
+therefore penalizes $1-\Omega$ itself rather than a
 residual in which it is mixed with scale.
 
 **What we used, and what we meant.** The GPTQ and GGUF variants we diagnose are
@@ -1522,11 +1521,10 @@ publicly released pre-quantized checkpoints; BitsAndBytes is applied on the fly
 from the full-precision checkpoint, without calibration data. We never run or
 modify GPTQ calibration. Our intention was narrower than the sentence suggests:
 GPTQ's calibration phase optimizes an objective that could be changed, so the
-decomposition points at a possible link to shape there. We did not plan or run such
-an experiment. The sentence also closes Sec. 5.3, which reports diagnosis; the one
-intervention we evaluate is the regularizer of Sec. 5.4. The scale- and head-axis
-remedies in that paragraph are likewise directions suggested by existing protocols,
-not controlled interventions. We will replace the original sentence with:
+decomposition points at a possible link to shape there, though we did not pursue
+it. The sentence also closes Sec. 5.3, which reports diagnosis; the one
+intervention we evaluate is the regularizer of Sec. 5.4. The scale- and head-axis remedies
+there are likewise suggested directions, not controlled interventions. We will replace the original sentence with:
 
 > "Each dominant axis suggests a remediation direction, though only shape
 > regularization is evaluated here as an intervention. At PTQ time, GPTQ-style
@@ -1538,9 +1536,8 @@ not controlled interventions. We will replace the original sentence with:
 > protocol-level remediation directions but are not evaluated here as controlled
 > interventions."
 
-**Follow-up.** The separated version already exists in this paper, at the other
-lifecycle stage: Eq. (8) penalizes the scale-free $1-\Omega$ on its own. Whether
-that separation carries into calibration is the open question, and the two obvious
+**Follow-up.** The separated version already exists here at the other lifecycle
+stage, as Eq. (8). Whether it carries into calibration is the open question, and two
 attempts differ in kind: adding a penalty $\mu(1-\Omega)$ on top of the joint
 residual only moves the shape coefficient from $2\rho\widehat{\rho}$ to
 $2\rho\widehat{\rho}+\mu$ by the identity above, so it still optimizes a mixture,
