@@ -5,7 +5,7 @@ Legend / 貼文規則(2026-07-27 重整:本檔只留要貼的內容)
 
   貼:  每則的 "> ..." blockquote(= 該 weakness/question 的精簡摘要,貼在回覆
         最前面,讓 reviewer 一眼知道在答哪一條)
-        + "Response:" 之後的全部內文
+        + blockquote 之後的全部內文(2026-07-30 起不再有 "Response:" 標籤)
         + 結尾的 "In sum:" 收尾句(thread 級總結,給只掃結尾的人看)
 
   不貼:"[原文 ...]:" 的逐字引文    = 一一對應檢查用(改由上面的 "> " 摘要代替)
@@ -55,11 +55,11 @@ is genuinely limited and substantiating what is not:
 What the rebuttal establishes, each measured rather than asserted:
   - **cost**: one forward pass per variant against greedy decoding on the same 256
     prompts, 8.9 s versus 556.7 s (62.6x);
-  - **free-running**: r_s +0.947 ± 0.015 on self-generated text against
+  - **free-running**: $r_s$ +0.947 ± 0.015 on self-generated text against
     +0.958 ± 0.011 teacher-forced, and a teacher-forced bound orders free-running
     gaps at +0.958 ± 0.011;
   - **diagnostic reference**: 8 sequences order the 12 variants as well as 512 do
-    (r_s 0.932 either way), with seed agreement on the ordering 0.981 to 0.998;
+    ($r_s$ 0.932 either way), with seed agreement on the ordering 0.981 to 0.998;
   - **regularizer reference**: 8 sequences already deliver the benefit, and four
     disjoint draws at each of n = 8/16/32 keep downstream forgetting within 5.9
     points of one another;
@@ -163,7 +163,7 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
 | A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to 0.055 vs 0.082 nats, precision >= 0.8 in 49/55 cells |
 | B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6 the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
 | C. stronger baselines, both settings | ties CKA/SVCCA on identical features while adding what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
-| D. free-running generation, or limit the claims | both: run (r_s +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
+| D. free-running generation, or limit the claims | both: run ($r_s$ +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
 | E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
 
 **One table answers most of B and C.** Every score is computed on the same features
@@ -174,11 +174,11 @@ the target gap at 512 and varies only the slice the score sees.
 |:--|--:|--:|
 | 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
 | 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
-| our feature arm delta_N (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
-| PRISM B_N (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
+| our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
+| PRISM $B_N$ (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
 ------------------------------------------------------------------------------
-A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
+### A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
 
 [原文 A]: Clarify usefulness of the bound: The authors should explicitly state whether the
    result should be understood as an empirical/calibration-set bound or a population-risk
@@ -195,7 +195,6 @@ A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
 > **Condition A (+ Weak Points 1, 6a).** Empirical or population bound? How loose?
 > Any threshold beyond ranking?
 
-Response:
 Addressed in all three parts: the theorem is restated on the empirical gap with a
 concentration corollary recovering the population version, the looseness is
 quantified and located, and a per-cell calibration yields an operational
@@ -222,7 +221,7 @@ variant) cells of the paper's five benchmarks:
 | slack spread | log10 sd 0.76 (~6x cell to cell) | no single correction rescales it |
 | Lipschitz step (worst-case K vs observed) | at most ~2.5x | not where the looseness lives |
 | remainder (alignment residual + triangle + Jensen steps) | 140x to 3000x | the dominant source |
-| cell constants: K_feat; K_pred <= sqrt(2) (App. A.5); prefactor rho_T rho_P | within-cell CV 0.63% | exactly (K) or nearly (prefactor) shared: cannot materially reorder |
+| cell constants: $K_{\mathrm{feat}}$; $K_{\mathrm{pred}} \le \sqrt{2}$ (App. A.5); prefactor $\rho_T \rho_P$ | within-cell CV 0.63% | exactly (K) or nearly (prefactor) shared: cannot materially reorder |
 
 **Two of the three slack sources are constants within a (model, benchmark) cell,
 and a factor that is nearly the same for every variant inflates every bound by
@@ -241,9 +240,9 @@ plus the deployment-relevant middle one:
 
 | variant (Llama-MMLU) | bound B | measured gap | calibrated prediction | call at 0.1 nats |
 |:--|--:|--:|--:|:--|
-| Q8_0 | 23.24 | 0.0002 | 0.003 | within / within, correct |
-| Q4_K_M | 96.75 | 0.036 | 0.055 | within / within, correct |
-| Q2_K | 266.09 | 0.366 | 0.193 | outside / outside, correct |
+| `Q8_0` | 23.24 | 0.0002 | 0.003 | within / within, correct |
+| `Q4_K_M` | 96.75 | 0.036 | 0.055 | within / within, correct |
+| `Q2_K` | 266.09 | 0.366 | 0.193 | outside / outside, correct |
 
 Reading "predicted gap below the tolerance" as an accept/reject rule, **precision
 is at least 0.8 in 49 of the 55 cells (21 of them at 1.0), and in all 55 cells at a
@@ -254,7 +253,7 @@ of the same cell, so this amortizes benchmarking rather than replacing it, and i
 is a filter rather than a certificate. Derivations in pCi8 W2 and 8VrD W1/W2+Q1.
 
 ------------------------------------------------------------------------------
-B + W-4a: the reference set: what the bound licenses, and size/domain sensitivity
+### B + W-4a: the reference set: what the bound licenses, and size/domain sensitivity
 
 [原文 B]: Demonstrate benchmark-independent use: The authors should show that PRISM remains
    predictive when computed on a small, benchmark-independent reference set, including
@@ -271,7 +270,6 @@ B + W-4a: the reference set: what the bound licenses, and size/domain sensitivit
 > reference set? Sensitivity to size and domain? Transfer to free-running generation,
 > reasoning tasks, farther drift?
 
-Response:
 Addressed by explicit scope narrowing plus in-scope measurement: the reference the
 bound needs is the diagnosed task's own data, so benchmark-independent use is
 scoped out, the narrowing the meta-review invites. Size is measured on both
@@ -294,7 +292,7 @@ meta-review itself invites.
 (ii) Sensitivity to size, measured. Three fresh seeds, 12 Llama variants, 5
 benchmarks, with the ground-truth gap held at the full 512 sequences:
 
-| reference slice | bound vs full-slice gap (r_s) | seed agreement on the ordering |
+| reference slice | bound vs full-slice gap ($r_s$) | seed agreement on the ordering |
 |:--|--:|--:|
 | 8 sequences | **+0.932 ± 0.016** | 0.981 |
 | 32 | +0.931 ± 0.009 | 0.992 |
@@ -304,12 +302,12 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 **Eight sequences already order the twelve variants as well as 512 do.** The
 requirement is small and stable. To keep the paper's two reference sets distinct
 by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
-the risk gap are computed, and the **regularization reference D_ref** (32 held-out
+the risk gap are computed, and the **regularization reference $D_{\mathrm{ref}}$** (32 held-out
 sequences of the fine-tuned task, Sec. 5.4) is what the trace penalty reads during
 fine-tuning. The revision adopts these two names throughout, and corrects Sec. 5.1,
-which calls D_ref "pre-training sequences" in error.
+which calls $D_{\mathrm{ref}}$ "pre-training sequences" in error.
 
-D_ref has its own ablation, run at the paper's operating point so the numbers sit
+$D_{\mathrm{ref}}$ has its own ablation, run at the paper's operating point so the numbers sit
 beside Table 2's 0.681: four disjoint draws at each of n = 8 / 16 / 32 give mean
 downstream forgetting 0.690 ± 0.019, 0.685 ± 0.011 and 0.676 ± 0.008, with all
 twelve runs 15.2% to 21.1% below the no-regularization 0.843, so **the whole
@@ -342,7 +340,7 @@ farther from the base: we ran the decomposition directly across the full
 post-training gap, base checkpoint as reference (target), SFT/instruct
 counterpart as diagnosed variant (proxy):
 
-| pair (base -> instruct) | cells where the bound holds | median head share of B | backbone drift vs own Q2_K level |
+| pair (base -> instruct) | cells where the bound holds | median head share of B | backbone drift vs own `Q2_K` level |
 |:--|--:|--:|:--|
 | Llama-3.1-8B -> Instruct | 5 / 5 | 52% | at that level (0.224 vs 0.225) |
 | Qwen3-8B-Base -> Qwen3-8B | 5 / 5 | 48% | 14x beyond (0.254 vs 0.018) |
@@ -352,7 +350,7 @@ at about half of B (pooled median 50%) exactly as the open-head regime predicts;
 calibrated tightness there is App. C.3's regime and stays future work.
 
 ------------------------------------------------------------------------------
-C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
+### C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 
 [原文 C]: Add stronger baselines: For diagnostics, direct comparisons to CKA, SVCCA, and
    simpler feature-preserving scores are needed. For regularization, stronger
@@ -371,7 +369,6 @@ C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
 > **Condition C (+ Weak Points 3, 5).** CKA/SVCCA and simpler feature scores for the
 > diagnostic; EWC, SLoRA, CLAIM, ArMA, layer-freezing for the regularizer.
 
-Response:
 Addressed on both halves: the similarity baselines are compared on identical features
 (a statistical tie, with three capabilities they lack), and three regularizer
 families are added at matched plasticity (the shape penalty leads every one that
@@ -395,10 +392,10 @@ risk bound.
 **Where the bound wins outright is the small-slice regime: with eight reference
 sequences it still ranks at 0.932 while SVCCA collapses to 0.083.** And none of the
 three similarity scores bounds the risk gap or attributes it to an axis, which is what
-the paper's diagnoses rest on: Qwen3-8B-Base Q6_K on SQuAD has near-perfect backbone
-geometry (Omega close to 1) yet its head term is 75.77 out of a bound of 76.95, while
-BnB INT8 on the same model leaves the head untouched (gamma = 0) at a bound of 3.81.
-That 20x difference is set entirely by whether the protocol quantizes lm_head, and it
+the paper's diagnoses rest on: Qwen3-8B-Base `Q6_K` on SQuAD has near-perfect backbone
+geometry ($\Omega$ close to 1) yet its head term is 75.77 out of a bound of 76.95, while
+BnB INT8 on the same model leaves the head untouched ($\gamma = 0$) at a bound of 3.81.
+That 20x difference is set entirely by whether the protocol quantizes `lm_head`, and it
 is invisible to any similarity score.
 
 (ii) Regularizer baselines, at matched plasticity. As the meta-review asks, we add
@@ -433,7 +430,7 @@ directions, and the revision cites all four methods there. Detail in pCi8 W3/W5,
 G3T9 W3 and eQL6 W4+Q3.
 
 ------------------------------------------------------------------------------
-D + W-4b: free-running generation
+### D + W-4b: free-running generation
 
 [原文 D]: Free-running generation: The authors should either provide free-running
    generation experiments or clearly limit the claims to teacher-forced comparisons.
@@ -443,7 +440,6 @@ D + W-4b: free-running generation
 > **Condition D (+ Weak Point 4).** Free-running experiments, or limit the claims to
 > teacher forcing.
 
-Response:
 We ran it, and on the hardest case for a teacher-forced bound. GSM8K is the
 generation-heaviest of the five benchmarks, so it is where trajectory shift can do
 the most damage: each of the 12 variants greedily generates its own continuation,
@@ -454,8 +450,8 @@ trajectories. Five independent 100-prompt subsets (seeds 42-46):
 
 | statistic (12 variants, mean ± sd over 5 subsets) | value |
 |:--|--:|
-| rs(bound, gap), teacher-forced | +0.958 ± 0.011 |
-| rs(bound, gap), free-running | +0.947 ± 0.015 |
+| $r_s$(bound, gap), teacher-forced | +0.958 ± 0.011 |
+| $r_s$(bound, gap), free-running | +0.947 ± 0.015 |
 | rank agreement, teacher-forced vs free-running bound | +0.959 ± 0.010 |
 | **cross: teacher-forced bound vs free-running gap** | **+0.958 ± 0.011** |
 
@@ -468,7 +464,7 @@ restriction is a property of the protocol rather than of the theory. Per-subset
 ranges in 8VrD W4+Q2.
 
 ------------------------------------------------------------------------------
-E + W-5b: failures, mixed results, and where the regularizer does not help
+### E + W-5b: failures, mixed results, and where the regularizer does not help
 
 [原文 E]: Analyze failures and mixed results: The authors should discuss weaker
    correlations, such as those noted for GSM8K or Qwen-BBQ, and cases where the regularizer
@@ -481,7 +477,6 @@ E + W-5b: failures, mixed results, and where the regularizer does not help
 > the regularizer does not help or worsens forgetting; the
 > forgetting-versus-plasticity tradeoff.
 
-Response:
 Addressed in all three parts: both flagged cells are explained by stated mechanisms, the
 gating table's one genuine exception is owned rather than excused, and the
 forgetting-versus-plasticity tradeoff is pinned by matched plasticity. Notably,
@@ -491,12 +486,12 @@ validation): what the revision changes is their placement and labeling, promotin
 them to the main text.
 
 (i) The weak correlations. All 20 (model, fine-tuning task, benchmark) LoRA cells
-move into the main text with their aggregate: **mean r_s +0.71, median +0.93, and
+move into the main text with their aggregate: **mean $r_s$ +0.71, median +0.93, and
 18 of 20 cells positive.** The two flagged cells fail to rank for different,
 now-stated reasons (Table 21 plus a per-checkpoint recomputation on the paper's
 round):
 
-| cell (Qwen3-8B, BBQ fine-tune) | r_s | what the panel records |
+| cell (Qwen3-8B, BBQ fine-tune) | $r_s$ | what the panel records |
 |:--|--:|:--|
 | TriviaQA | -0.66 | gap at the noise floor (0.0035 at lambda 0 vs 0.288 on ARC, no trend across checkpoints): nothing to rank |
 | MMLU | -0.34 | gap real but non-monotone (peaks near step 75, partially recovers by 300) while accumulated drift grows: rank correlation structurally depressed |
@@ -512,10 +507,10 @@ Under LoRA fine-tuning, which does move GSM8K, the bound ranks it at +0.97 (Fig.
 (ii) Where the regularizer does not help, or hurts. Here we should clarify
 something our own caption made too easy to misread. **Table 22 is a
 gating-validation table, not a results table over four settings**: its rows are
-ordered by decreasing mean shape drift 1 - Omega-bar, the amount of drift there is
+ordered by decreasing mean shape drift $1-\bar{\Omega}$, the amount of drift there is
 to repair, and its last column records what PRISM's diagnosis says to do:
 
-| setting (ordered by 1-Omega-bar) | 1-Omega-bar | trace effect | gating verdict |
+| setting (ordered by $1-\bar{\Omega}$) | $1-\bar{\Omega}$ | trace effect | gating verdict |
 |:--|--:|--:|:--|
 | Llama TruthfulQA | 0.0937 | **-19.2%** | shape-driven, apply |
 | Llama BBQ | 0.0678 | +8.6% | cell-level mixed |
@@ -548,25 +543,24 @@ Weak Points 2 and 6b, outside the five conditions
 > motivation for restricting alignment to orthogonal maps.
 > (Empirical-versus-population half: Condition A.)
 
-Response:
 Weak Point 2, actionability: each axis points at a distinct remediation, and for two
 of the three the loop closes with a measurement rather than a suggestion. On the head
-axis it closes protocol-side: PRISM attributes Q6_K's SQuAD
-degradation to the head axis (gamma = 75.77 of B = 76.95, Qwen3-8B-Base), and the
+axis it closes protocol-side: PRISM attributes `Q6_K`'s SQuAD
+degradation to the head axis ($\gamma = 75.77$ of $B = 76.95$, Qwen3-8B-Base), and the
 protocol acting on that diagnosis (BnB INT8, head unquantized) removes it at a 20x
 lower bound, which is a comparison across existing protocols rather than an
 intervention we ran. On the shape axis it closes through training instead: the diagnosis says
 shape dominates LoRA forgetting, and penalizing it directly (Eq. (8)) cuts the gap
 from 0.843 to 0.680 (Condition C). Per-channel smoothing for the scale axis is a
 direction we name but do not evaluate, and eQL6 Q2 states that scope. Controlled
-single-axis interventions confirm the attribution is causal (Llama-3.1-8B, W = I default; max |term - control| within each family,
+single-axis interventions confirm the attribution is causal (Llama-3.1-8B, $W = I$ default; max |term - control| within each family,
 MMLU / TriviaQA):
 
 | intervention family | scale term | shape term | head term |
 |:--|--:|--:|--:|
 | scale-only (final-norm rescale) | **1.9e4 / 2.0e4** | 6.9e-2 / 7.5e-2 | 0 / 0 |
 | rotation-only (norm-preserving) | 1.3e-4 / 6.6e-6 | **7.7e2 / 7.9e2** | 0 / 0 |
-| head-only (RTN lm_head) | 0 / 0 | 0 / 0 | **5.4e2 / 4.6e2** |
+| head-only (RTN `lm_head`) | 0 / 0 | 0 / 0 | **5.4e2 / 4.6e2** |
 
 **Each family moves only its own term, with own-axis response at least 2.6e5x the
 largest cross-axis leakage, and the bound holds in 26 of 26 configs.** Weak Point
@@ -659,7 +653,6 @@ each in turn:
 
 > **W1.** The three findings were already known; the contribution is unification, not discovery.
 
-Response:
 We are grateful that the reviewer identifies the simplex-polarization Lipschitz
 constant and the exact scale/shape identity as real contributions: those are the
 technical core, and neither existed before this paper. Building on them, and
@@ -683,8 +676,6 @@ across the three axes, rather than as the discovery of the phenomena themselves.
 
 > **W2.** Loose by orders of magnitude and calibrated only for ranking: it says Q2
 > is worse than Q4, not whether Q4 is good enough. Benchmarks still needed for that.
-
-Response:
 
 We agree the bound is loose, and that is exactly why the paper claims an ordering
 rather than a value. Rather than defend the number, we measured where the looseness
@@ -736,7 +727,6 @@ finalists.
 > **W3.** Table 3 shows only a small gap between Omega alone and the full bound: a
 > lot of machinery for a modest ranking gain.
 
-Response: 
 The +0.016 is real, and it is small for an identifiable reason: **the variants
 pooled in Table 3 do not share a head protocol.** At W = I the six GGUF k-quant
 tiers quantize lm_head, so their head term is nonzero, while the GPTQ and
@@ -785,7 +775,7 @@ small and stable.
 > chain-of-thought explanation makes it structural rather than an edge case, more
 > relevant as models move toward reasoning.
 
-Response: We agree, and the paper already documents it as a first-class
+We agree, and the paper already documents it as a first-class
 limitation. App. F.3 reports GSM8K as the weakest benchmark (r_s about 0.41 across
 families) and quantifies the reason: long teacher-forced chain-of-thought spans
 dilute per-token loss, so quantization moves GSM8K's mean gap by only about 0.019
@@ -835,7 +825,6 @@ adds the discussion.
 > **W5.** EWC is the standard forgetting baseline, cited but never compared against;
 > comparing only to small-scale replay is convenient.
 
-Response:
 Agreed. We added EWC (diagonal Fisher), L2-SP and layer-freezing, the meta-review's
 suggestion, all under the identical protocol (LoRA, lr 1e-5), and **each baseline
 is reported at the sweep config whose target-task loss comes closest to the shape
@@ -866,7 +855,6 @@ a claim to beat every method.
 > geometry is already severely distorted? Two citations are given, with no
 > discussion.
 
-Response:
 The alignment affects only how *loose* the bound is, never whether it holds.
 **Theorem 1 is a family of bounds indexed by W, and the only condition is that W be
 orthogonal: every W in O(d) gives a valid inequality (Thm. 1, L132; proof App.
@@ -962,7 +950,6 @@ fine-tuning, RLHF, and multi-task SFT (Q1, Q2).
 > Cost analysis: forward passes, reference data, realistic comparison with
 > standard benchmark evaluation.
 
-Response:
 **The use case first.** PRISM is a screening tool for variant decay, not a
 replacement for evaluation. A concrete instance from our own grid (Sec. 5.1):
 Llama-3.1-8B, Qwen3-8B and Ministral-3-8B each ship a dozen quantized variants
@@ -1051,7 +1038,6 @@ plus a causal axis attribution that a benchmark score cannot give.
 > would a small benchmark-independent reference set do? And an ablation over the
 > number and type of reference samples.
 
-Response:
 All three dimensions get a direct treatment: a free-running experiment (r_s
 +0.947 ± 0.015 against +0.958 ± 0.011 teacher-forced, item 3), a reference-sample
 ablation on three fresh seeds (8 sequences already rank the variants as 512 do,
@@ -1127,7 +1113,6 @@ benchmark-independent transfer, is now stated as explicit scope.
 > settings, and compare the shape regularizer against simpler feature-preserving
 > regularizers, not only replay.
 
-Response:
 Agreed on both, and both now exist.
 
 (1) Ranking, on identical features: linear-CKA, SVCCA and our feature arm
@@ -1196,7 +1181,6 @@ retention.
 > **W4.** Extremely loose in absolute scale (Table 1): good rank correlation
 > supports a heuristic ranking score, not a practically meaningful upper bound.
 
-Response:
 The raw bound is indeed loose in absolute scale; we quantify it rather than
 dispute it: slack B/|dR| median 1597x, IQR [673, 3966] over 570 cells (the
 paper's five benchmarks), non-constant (log10 sd ~0.76), hence ranking-only for
@@ -1221,7 +1205,6 @@ degradation is real.
 > **Q1.** Beyond PTQ and frozen-head LoRA: full fine-tuning or RLHF, where both
 > backbone and head change and the variant sits much farther from the base?
 
-Response:
 Mathematically the decomposition survives unchanged. Theorem 1 needs only a
 matched architecture, feature dimension, and output vocabulary, and is agnostic
 to how the variant was produced, so full fine-tuning and RLHF fall under the
@@ -1253,7 +1236,6 @@ extension stands as stated theory plus declared scope.
 > **Q2.** Mixed or multi-task fine-tuning: from the original base model to SFT
 > models, or joint fine-tuning on heterogeneous data?
 
-Response:
 The mathematical frame is the same as Q1: the bound is agnostic to the recipe, so
 mixed-task SFT changes nothing in validity. What heterogeneous data changes is
 the empirical drift pattern, and that is the familiar generalization question
@@ -1340,7 +1322,6 @@ a demonstration on the paper's own data that the shape term is driven by
 > contributions list), and Section 5 leaves results central to the argument in the
 > appendix.
 
-Response:
 Agreed on both counts. We will (i) define rho_T, rho_P (RMS feature scale of
 the reference feature matrices) and Omega (normalized Procrustes alignment,
 with 1-Omega the dimensionless shape residual) at first use in the
@@ -1361,7 +1342,6 @@ notation table. Thank you for flagging these.
 > orthogonal transformations, and why should the linear / platonic representation
 > hypotheses motivate that specifically?
 
-Response:
 The load-bearing reason is the linear head, not the representation hypotheses. Our
 own presentation hides that: L112-115 motivates the restriction by empirical
 isometry, **which says why orthogonality is cheap, not why it is necessary.** The
@@ -1426,7 +1406,6 @@ certified and differ only in tightness and in which term carries the mismatch.
 > while staying the same order before and after post-training (Tables 1, 18), so a
 > large bound would reflect a large rho_T rho_P product.
 
-Response:
 The reviewer's algebra is exactly right: if feature energies blew up
 (Z-tilde = cZ, large c), the shape and head terms would scale as c^2 and the
 prefactor would dominate. We show, on the paper's own data, that this case does
@@ -1470,7 +1449,6 @@ the revision; rankings are unchanged.
 > fine-tuned model on its own downstream task (the task it is fine-tuned on), and
 > does it match the no-regularization and replay-CE baselines there?
 
-Response:
 It does not degrade the target task, and the check is already in the paper: we
 will make it unmissable and add numbers.
 
@@ -1508,7 +1486,6 @@ rather than a single point.
 > **Q2.** Clarify Section 5.3's "Shape preservation admits two lifecycle-specific
 > instances: Hessian-aware reconstruction at PTQ time, and ...".
 
-Response:
 Thank you for flagging this sentence. It compressed two different things and
 overstated the PTQ half, so we will rewrite it.
 
@@ -1593,7 +1570,6 @@ Sec. 6.
 > **Q4.** In Section 5.5, Spearman is computed between each bound term and what? The
 > empirical risk gap?
 
-Response:
 Against the empirical cross-entropy risk gap: for each variant we compute the
 quantity |dR|, the benchmark-measured CE gap between target and proxy under the fixed
 evaluation protocol (defined in Sec. 5.1; Table 1's caption states it as
@@ -1680,7 +1656,6 @@ explained rather than hidden.
 > feature matrix with no generalization term, so the guarantee appears to cover only
 > empirical risk. Restate the theorem, or add a finite-sample argument.
 
-Response:
 The reviewer is right, and we fix it exactly as suggested, both ways.
 
 (1) Theorem 1 is restated as a bound on the empirical risk gap over the
@@ -1715,7 +1690,6 @@ quantities were already empirical.
 > bound magnitudes and not only the ordering, and say whether any operational
 > threshold is supported.
 
-Response:
 Quantified directly, on all 570 (family, benchmark, variant) cells over the
 paper's five benchmarks. Slack B/|dR|: median 1597x, IQR [673, 3966], and not
 constant (log10 sd ~0.76; the reviewer's two cells, ~727x near the lower
@@ -1777,7 +1751,6 @@ them, and uncalibrated B is explicitly scoped to ranking.
 > is too weak a sole baseline: SLoRA, two-phase CIT, CLAIM, ArMA (Q4). Also multiple
 > seeds, source-task performance, and 32-sequence reference sensitivity (Q3).
 
-Response:
 Every item asked for is now measured: controlled single-axis interventions (1),
 the mixed Table 22 cells read through the gating analysis that table exists to
 validate, rather than hidden (2), and matched stronger baselines plus seeds,
@@ -1946,8 +1919,6 @@ under-training.
 > autoregressive corollary scores both models on shared teacher-forced prefixes, so
 > it misses models that diverge early and meet different later contexts (Q2).
 
-Response:
-
 (1) Agreed on prominence, and we move these two cells into the main text; we also
 want to be precise about what they record, because the two mechanisms differ and
 neither is a bound failure. The cells are Qwen3-8B fine-tuned on BBQ, evaluated
@@ -2019,7 +1990,6 @@ suggested.
 > **Limitations.** Should also discuss reference-set sensitivity, free-running
 > generation, head-varying variants, and feature computation cost.
 
-Response:
 Agreed, all four are added to the Limitations: (i) reference-set sensitivity
 with the new size/domain ablations; (ii) free-running generation with the new
 subset experiment and the restated teacher-forced-only corollary; (iii)
