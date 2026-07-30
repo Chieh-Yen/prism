@@ -373,28 +373,28 @@ and varies only the slice the score sees.
 | our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
 | PRISM $B_N$ (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
-This is the like-for-like comparison the point asks for, and its n=8 column also
-carries the size half of Point B: at the smallest slice the bound holds while
-SVCCA collapses. The honest reading is that **the bound cedes
-nothing on ranking, but it does not beat the similarity scores either.** Paired
-bootstraps make that precise: the full bound vs 1-CKA is +0.001 [-0.004, +0.007]
-here, and the feature arm's small edge on this Llama rerun (+0.013) disappears
-once Qwen is pooled on the paper's round (-0.002 [-0.038, +0.011]), so we claim
-parity, not an advantage. They land
-together for an algebraic reason rather than by accident: our feature arm IS the
-Procrustes size-and-shape distance, so Procrustes is the feature half of our own bound
-rather than an external competitor, and App. A.1 states that our contribution is not
-that distance but its split into a scale term and a shape term plus its lifting to a
-risk bound.
+This is the like-for-like comparison the point asks for. **At full size the bound is
+no worse than the similarity scores on ranking, and no better**: paired bootstraps put
+the full bound against 1-CKA at +0.001 [-0.004, +0.007] here, and the feature arm's
+small edge on this Llama rerun (+0.013) disappears once Qwen is included
+(-0.002 [-0.038, +0.011]), so we claim parity, not an advantage. That parity is
+expected, for an algebraic reason: our feature arm IS the Procrustes size-and-shape
+distance, so Procrustes is the feature half of our own bound rather than an external
+competitor, and App. A.1 states that our contribution is not that distance but its
+split into a scale term and a shape term plus its lifting to a risk bound.
 
-**Where the bound wins outright is the small-slice regime: with eight reference
-sequences it still ranks at 0.932 while SVCCA collapses to 0.083.** And none of the
-three similarity scores bounds the risk gap or attributes it to an axis, which is what
-the paper's diagnoses rest on: Qwen3-8B-Base `Q6_K` on SQuAD has near-perfect backbone
-geometry ($\Omega$ close to 1) yet its head term is 75.77 out of a bound of 76.95, while
-BnB INT8 on the same model leaves the head untouched ($\gamma = 0$) at a bound of 3.81.
-That 20x difference is set entirely by whether the protocol quantizes `lm_head`, and it
-is invisible to any similarity score.
+Two things that comparison does not reach. **First, the small-slice regime, where the
+bound wins outright**: with eight reference sequences it is the highest of the four
+scores (0.932 against 1-CKA's 0.903) while SVCCA collapses to 0.083, which is also the
+size half of Point B. **Second, ranking is one of three outputs, and the only one a
+similarity score can produce at all.** None of them bounds the risk gap, so none
+certifies anything; none attributes the gap to an axis, which is what the paper's
+diagnoses rest on; and none names the quantity the Sec. 5.4 regularizer penalizes.
+Qwen3-8B-Base `Q6_K` on SQuAD has near-perfect backbone geometry ($\Omega$ close to 1)
+yet its head term is 75.77 out of a bound of 76.95, while BnB INT8 on the same model
+leaves the head untouched ($\gamma = 0$) at a bound of 3.81. That 20x difference is set
+entirely by whether the protocol quantizes `lm_head`, and it is invisible to any
+similarity score.
 
 (ii) Regularizer baselines, at matched plasticity. As the meta-review asks, we add
 layer-freezing (LoRA on the top-K layers, K in {4, 8, 16}) alongside EWC with a
@@ -882,7 +882,7 @@ validity.
 **In sum:** the three answers share one shape. We locate the looseness instead of
 disputing it: two of its three sources are cell constants, so they cannot reorder,
 and a within-cell calibration turns what remains into nats (W2). On identical
-features the bound cedes nothing to CKA or SVCCA while carrying a valid upper bound,
+features the bound ranks as well as CKA or SVCCA while carrying a valid upper bound,
 an axis attribution and a trainable objective that they cannot (W3). And the
 near-isometry assumption is measured rather than assumed: it affects only tightness,
 by under a fifth of the residual even at 2 bits (W6). We hope these speak to the
