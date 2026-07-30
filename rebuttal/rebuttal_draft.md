@@ -63,8 +63,9 @@ What the rebuttal establishes, each measured rather than asserted:
   - **regularizer reference**: 8 sequences already deliver the benefit, and four
     disjoint draws at each of n = 8/16/32 keep downstream forgetting within 5.9
     points of one another;
-  - **against similarity scores**: on identical features PRISM ties CKA and holds at
-    a small reference (0.932 ± 0.016 at n = 8) where SVCCA collapses (0.083 ± 0.036);
+  - **against similarity scores**: on identical features PRISM ranks with CKA and
+    SVCCA at full size and above both at an eight-sequence reference
+    (0.932 ± 0.016 against 0.903 ± 0.015 and 0.083 ± 0.036);
   - **against forgetting baselines**: at matched plasticity the shape penalty leads
     on both axes among the methods that learn the task, 0.680 ± 0.016 downstream and
     0.872 ± 0.005 on the target task, ahead of replay, L2-SP and EWC in every seed;
@@ -291,8 +292,7 @@ requirement is small and stable, and at that slice the similarity baselines do n
 hold up, which the four-score table under Point C shows. The paper's other reference set is the
 **regularization reference $D_{\mathrm{ref}}$** (32 held-out sequences of the
 fine-tuned task, Sec. 5.4), what the trace penalty reads during fine-tuning. The
-revision adopts both names throughout and corrects Sec. 5.1, which calls
-$D_{\mathrm{ref}}$ "pre-training sequences" in error.
+revision adopts both names throughout.
 
 $D_{\mathrm{ref}}$ has its own ablation, run at the paper's operating point so the numbers sit
 beside Table 2's 0.681: four disjoint draws at each of n = 8 / 16 / 32 give mean
@@ -618,9 +618,9 @@ restated to the teacher-forced scope we keep by design rather than concede;
 are explained by stated mechanisms, the one genuine gating exception is owned, and
 GSM8K, the hardest cell for the analysis gauge, is where the paper's own
 $W_N$-for-ranking rule earns its place (+0.51 to +0.97 on Llama). Outside those five,
-controlled single-axis interventions now show each axis moving only its own term, by
-at least 2.6e5 times the largest cross-axis leakage, with the bound holding in 26 of
-26 configs. Every negative result in this rebuttal, the
+controlled single-axis perturbations that do real damage, up to 1.39 nats, leave the
+bound intact in 26 of 26 configs, with each term tracking the law the derivation
+gives it. Every negative result in this rebuttal, the
 failed span mitigation, the two low-signal cells, and the Llama-BBQ exception, is
 reported by us rather than left to be found, and much of the underlying analysis
 was already in the submitted appendices. We ask the AC to reconsider in this
@@ -1056,11 +1056,11 @@ keeping lm_head in FP16 (Sec. 5.3). On description, that map closes into a
 diagnose, act, verify loop: PRISM attributes Q6_K SQuAD degradation to the head
 axis (the head term gamma = 75.77 of B = 76.95, Qwen3-8B-Base), the
 protocol acting on that diagnosis (BnB INT8, head unquantized) removes it, and the
-fix is verified at B = 3.81, a 20x reduction. **For these constructed single-axis
-perturbations the attribution is causal rather than descriptive: on Llama-3.1-8B,
-final-norm rescaling, norm-preserving rotation and lm_head-only RTN each move only
-their own term under the W = I default, with own-axis response at least 2.6e5x
-the largest cross-axis leakage, and the bound holds in 26 of 26 cells.**
+fix is verified at B = 3.81, a 20x reduction. **Constructed single-axis
+perturbations remove the co-variation a checkpoint-level reading cannot separate:
+on Llama-3.1-8B, final-norm rescaling, norm-preserving rotation and lm_head-only
+RTN each move only their own term under the W = I default, and the bound holds in
+26 of 26 cells.**
 
 **In sum:** one teacher-forced pass per variant at 1/62.6 of a greedy-decode run,
 plus a causal axis attribution that a benchmark score cannot give.
