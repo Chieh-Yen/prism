@@ -1843,10 +1843,11 @@ run. We then varied only what the question is about, namely which sequences form
 D_ref: for each size, four draws taken as disjoint windows of one fixed shuffle of
 the task's own test split, verified to share zero sequences pairwise.
 
-  reference size    mean downstream |dR| over 4 disjoint draws
-  n = 8             0.690 +- 0.019   (range 0.668 - 0.716)
-  n = 16            0.685 +- 0.011   (range 0.673 - 0.699)
-  n = 32            0.676 +- 0.008   (range 0.666 - 0.683)
+| reference size | mean downstream forgetting | range over the 4 draws |
+|:--|--:|--:|
+| n = 8 | 0.690 ± 0.019 | 0.668 - 0.716 |
+| n = 16 | 0.685 ± 0.011 | 0.673 - 0.699 |
+| **n = 32** (the paper's setting) | **0.676 ± 0.008** | 0.666 - 0.683 |
 
 **All twelve runs fall between 0.666 and 0.716, that is 15.2% to 21.1% below the
 no-regularization 0.843, so the whole size-and-draw grid moves retention by at
