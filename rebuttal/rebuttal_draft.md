@@ -94,7 +94,7 @@ We believe these results, together with the narrowed framing (PRISM as a
 calibrated, generation-free ranking-and-attribution instrument with an explicitly
 empirical-risk guarantee), directly address the five points of the meta-review,
 and we respectfully ask the AC and reviewers to reconsider in light of the new
-evidence. If any condition still appears only partially met, we would welcome the
+evidence. If any point still appears only partially met, we would welcome the
 chance to complete it during the discussion period.
 
 Thank you, to all four reviewers and the AC, for the time and care these reviews
@@ -144,21 +144,21 @@ the strengths.
 (對應方式:五個 "What could change the recommendation?" 條件 = A–E 標頭的 [原文 A]–[原文 E];
 六個 Weak Points 併入對應條件,標頭寫成 "A + W-1 + W-6a" 等,原文並列於同一標頭下,答案只寫
 一次;W-4 與 W-5 各跨兩條件,全文引一次、另一處只引相關片段並註明;W-2 與 W-6b 不屬五條件,
-放在 Condition E 之後。)
+放在 Point E 之後。)
 ···· END ORIGINAL META-REVIEW ····
 
 --------------------------------------------------------------------------------
 GLOBAL RESPONSE TO THE META-REVIEW
 
-We thank the AC for distilling four reviews into five testable conditions: that
+We thank the AC for distilling four reviews into five testable points: that
 structure is what allowed this rebuttal to answer with measurements rather than
 prose. **Against the bar the meta-review set, "concrete evidence rather than only
-clarification", all five conditions are answered with new measurements, and the
+clarification", all five points are answered with new measurements, and the
 claims are narrowed exactly where the meta-review invites narrowing.** The
 strengths all four reviews credit and the narrowed claims are in our GENERAL
 RESPONSE; the two experiments carrying most of the load are given once, up front.
 
-| condition | what was delivered |
+| point | what was delivered |
 |:--|:--|
 | A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to a leave-one-out MAE of 0.055 nats against 0.082 for predict-the-mean, with precision >= 0.8 at a 0.1-nat threshold in 49/55 cells |
 | B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6x the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
@@ -179,9 +179,9 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
    rather than a calibrated heuristic for ordering variants.
 [原文 W-6a]: Clarity and theoretical-framing issues: ... whether the stated risk guarantee
    should be framed more carefully as applying to empirical risk on calibration samples
-   rather than population risk. (The presentation half of W-6 is answered after Condition E.)
+   rather than population risk. (The presentation half of W-6 is answered after Point E.)
 
-> **Condition A (+ Weak Points 1, 6a).** Empirical or population bound? How loose?
+> **Point A (+ Weak Points 1, 6a).** Empirical or population bound? How loose?
 > Any threshold beyond ranking?
 
 Addressed in all three parts: the theorem is restated on the empirical gap with a
@@ -252,10 +252,10 @@ is a filter rather than a certificate. Derivations in pCi8 W2 and 8VrD W1/W2+Q1.
    reference data. It remains unclear how well the method transfers to benchmark-
    independent calibration sets, free-running generation, reasoning-heavy tasks, or
    variants that drift farther from the base model.
-   (Quoted in full here; its free-running half is answered under Condition D, and its
+   (Quoted in full here; its free-running half is answered under Point D, and its
    last two items in (iv) below.)
 
-> **Condition B (+ Weak Point 4).** Predictive on a small benchmark-independent
+> **Point B (+ Weak Point 4).** Predictive on a small benchmark-independent
 > reference set? Sensitivity to size and domain? Transfer to free-running generation,
 > reasoning tasks, farther drift?
 
@@ -290,7 +290,7 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 
 **Eight sequences already order the twelve variants as well as 512 do.** The
 requirement is small and stable, and at that slice the similarity baselines do not
-hold up, which the four-score table under Condition C shows. To keep the paper's two reference sets distinct
+hold up, which the four-score table under Point C shows. To keep the paper's two reference sets distinct
 by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
 the risk gap are computed, and the **regularization reference $D_{\mathrm{ref}}$** (32 held-out
 sequences of the fine-tuned task, Sec. 5.4) is what the trace penalty reads during
@@ -324,7 +324,7 @@ autoregressive decoding and the answer grading rather than the validation data.
 Itemized in G3T9 W1 and W2.
 
 (iv) The two remaining W-4 items. Reasoning-heavy tasks: GSM8K is kept as a
-first-class limitation with its mechanism quantified (Condition E below), and a
+first-class limitation with its mechanism quantified (Point E below), and a
 tested span-level mitigation fails and is reported as failing (pCi8 W4). Variants
 farther from the base: we ran the decomposition directly across the full
 post-training gap, base checkpoint as reference (target), SFT/instruct
@@ -354,9 +354,9 @@ calibrated tightness there is App. C.3's regime and stays future work.
    shape regularizer promising but not yet fully validated. The evaluation uses limited
    baselines, shows mixed results across settings, and does not clearly establish the
    tradeoff between reducing forgetting and preserving new-task performance.
-   (Quoted in full here; its "mixed results" half is answered under Condition E.)
+   (Quoted in full here; its "mixed results" half is answered under Point E.)
 
-> **Condition C (+ Weak Points 3, 5).** CKA/SVCCA and simpler feature scores for the
+> **Point C (+ Weak Points 3, 5).** CKA/SVCCA and simpler feature scores for the
 > diagnostic; EWC, SLoRA, CLAIM, ArMA, layer-freezing for the regularizer.
 
 Addressed on both halves: the similarity baselines are compared on identical features
@@ -376,8 +376,8 @@ and varies only the slice the score sees.
 | our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
 | PRISM $B_N$ (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
-This is the like-for-like comparison the condition asks for, and its n=8 column also
-carries the size half of Condition B: at the smallest slice the bound holds while
+This is the like-for-like comparison the point asks for, and its n=8 column also
+carries the size half of Point B: at the smallest slice the bound holds while
 SVCCA collapses. The honest reading is that **the bound cedes
 nothing on ranking, but it does not beat the similarity scores either.** Paired
 bootstraps make that precise: the full bound vs 1-CKA is +0.001 [-0.004, +0.007]
@@ -436,9 +436,9 @@ G3T9 W3 and eQL6 W4+Q3.
 [原文 D]: Free-running generation: The authors should either provide free-running
    generation experiments or clearly limit the claims to teacher-forced comparisons.
 [原文 W-4b]: ... It remains unclear how well the method transfers to ... free-running
-   generation ... (W-4 quoted in full under Condition B.)
+   generation ... (W-4 quoted in full under Point B.)
 
-> **Condition D (+ Weak Point 4).** Free-running experiments, or limit the claims to
+> **Point D (+ Weak Point 4).** Free-running experiments, or limit the claims to
 > teacher forcing.
 
 We ran it, and on the hardest case for a teacher-forced bound. GSM8K is the
@@ -458,7 +458,7 @@ trajectories. Five independent 100-prompt subsets (seeds 42-46):
 
 **The last row is the operational one: a practitioner ranks once on reference text
 and the ordering carries over to self-generated output.** We also take the
-alternative the condition offers, since the two are not exclusive: Corollary 1 is
+alternative the point offers, since the two are not exclusive: Corollary 1 is
 restated as teacher-forced-only, with trajectory-distribution shift named as an
 explicit limitation. The bound itself applies to any feature rows (App. D), so the
 restriction is a property of the protocol rather than of the theory. Per-subset
@@ -472,9 +472,9 @@ ranges in 8VrD W4+Q2.
    does not help or worsens forgetting.
 [原文 W-5b]: ... The evaluation ... shows mixed results across settings, and does not
    clearly establish the tradeoff between reducing forgetting and preserving new-task
-   performance. (W-5 quoted in full under Condition C.)
+   performance. (W-5 quoted in full under Point C.)
 
-> **Condition E (+ Weak Point 5).** Weak correlations (GSM8K, Qwen-BBQ); cases where
+> **Point E (+ Weak Point 5).** Weak correlations (GSM8K, Qwen-BBQ); cases where
 > the regularizer does not help or worsens forgetting; the
 > forgetting-versus-plasticity tradeoff.
 
@@ -529,20 +529,20 @@ condition (ii) does hold, TriviaQA and GSM8K, the penalty gives -88% and -79%.
 Decomposed in 8VrD W3.
 
 (iii) The forgetting-versus-plasticity tradeoff. This is why every baseline in
-Condition C is reported at the config closest to the shape run's target-task loss
+Point C is reported at the config closest to the shape run's target-task loss
 rather than at its own best setting: it is the only comparison that separates a
 method which forgets less from one which simply learns less. The table there shows
 the shape penalty holding the lowest target-task loss while also forgetting least,
 and layer-freezing achieving a lower gap purely by giving up plasticity.
 
 ------------------------------------------------------------------------------
-Weak Points 2 and 6b, outside the five conditions
+Weak Points 2 and 6b, outside the five points
 
 > **Weak Point 2.** Are the scale/shape/head axes actionable, or coarse descriptive
 > categories? Some failure modes are already expected.
 > **Weak Point 6b.** Clarity: notation used before definition, and unclear
 > motivation for restricting alignment to orthogonal maps.
-> (Empirical-versus-population half: Condition A.)
+> (Empirical-versus-population half: Point A.)
 
 Weak Point 2, actionability: each axis points at a distinct remediation, and for two
 of the three the loop closes with a measurement rather than a suggestion. On the head
@@ -552,7 +552,7 @@ protocol acting on that diagnosis (BnB INT8, head unquantized) removes it at a 2
 lower bound, which is a comparison across existing protocols rather than an
 intervention we ran. On the shape axis it closes through training instead: the diagnosis says
 shape dominates LoRA forgetting, and penalizing it directly (Eq. (8)) cuts the gap
-from 0.843 to 0.680 (Condition C). Per-channel smoothing for the scale axis is a
+from 0.843 to 0.680 (Point C). Per-channel smoothing for the scale axis is a
 direction we name but do not evaluate, and eQL6 Q2 states that scope. Controlled
 single-axis interventions confirm the attribution is causal (Llama-3.1-8B, $W = I$ default; max |term - control| within each family,
 MMLU / TriviaQA):
@@ -586,9 +586,9 @@ genuine gating exception is owned. Every negative result in this rebuttal, the
 failed span mitigation, the two low-signal cells, and the Llama-BBQ exception, is
 reported by us rather than left to be found, and much of the underlying analysis
 was already in the submitted appendices. We ask the AC to reconsider in this
-light, and would welcome completing any condition still judged partial during the
+light, and would welcome completing any point still judged partial during the
 discussion. We would especially value the AC's view on whether the explicitly
-input-conditioned scope resolves Condition B, given that benchmark-independent
+input-conditioned scope resolves Point B, given that benchmark-independent
 transfer remains outside the claim.
 
 Independent of the outcome, this cycle has made the paper markedly better: the
