@@ -167,7 +167,7 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
 |:--|:--|
 | A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, with fixed within-cell $K$ constants and a near-constant prefactor unlikely to dominate reordering; calibrated to a leave-one-out MAE of 0.055 nats against 0.082 for predict-the-mean, with precision >= 0.8 at a 0.1-nat threshold in 49/55 cells |
 | B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6x the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
-| C. stronger baselines, both settings | ties CKA/SVCCA at full size and leads both at an 8-sequence slice (0.932 against 0.903 and 0.083), while adding what they do not give (a certified bound, an axis attribution, and a penalty on the very quantity diagnosed); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (target loss 0.924 against the shape penalty's 0.872) |
+| C. stronger baselines, both settings | ties CKA/SVCCA at full size and leads both at an 8-sequence slice (0.932 against 0.903 and 0.083), while adding an explicit empirical CE-risk bound, three-axis attribution, and a penalty on the diagnosed shape term; shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (target loss 0.924 against the shape penalty's 0.872) |
 | D. free-running generation, or limit the claims | rollout-conditioned test ($r_s$ +0.947 vs +0.958 teacher-forced); Corollary 1 covers the fixed shared trajectories, while TF remains the recommended fast screen because it avoids decoding |
 | E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
 
@@ -360,22 +360,22 @@ head-varying full SFT/RLHF is future work (App. C.3).
 > **Point C (+ Weak Points 3, 5).** CKA/SVCCA and simpler feature scores for the
 > diagnostic; EWC, SLoRA, CLAIM, ArMA, layer-freezing for the regularizer.
 
-Addressed on both halves: the similarity baselines are compared on identical features
-(a statistical tie, with three capabilities they lack), and three regularizer
-families are added at matched plasticity (the shape penalty leads every one that
-learns the task).
+Addressed on both halves: CKA/SVCCA are compared on identical features at
+full-size parity; PRISM provides an explicit CE-risk link and
+three-axis attribution. Three regularizer families are added at matched
+plasticity (the shape penalty leads every one that learns the task).
 
 (i) Diagnostic baselines, on identical features. Every score below is computed on the
 same features from one forward pass, with the risk gap recomputed from that same pass,
 so no row enjoys a different extraction; the n=8 column holds the target gap at 512
 and varies only the slice the score sees.
 
-| score (identical features, 12 Llama variants, 3 fresh seeds) | slice n=8 | slice n=512 |
-|:--|--:|--:|
-| 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
-| 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
-| our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
-| PRISM $B_N$ (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
+| score (identical features, 12 Llama variants, 3 fresh seeds) | slice n=8 | slice n=512 | interpretation |
+|:--|--:|--:|:--|
+| 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 | Descriptive similarity statistic; no explicit CE-risk bound or three-axis attribution. |
+| 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 | Descriptive similarity statistic; degenerates in four short-answer cells at n=8 (GSM8K is the long-answer exception). |
+| our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 | Exact Procrustes residual with an exact scale/shape decomposition. |
+| PRISM $B_N$ (full bound) | +0.932 ± 0.016 | +0.932 ± 0.011 | Lifts feature geometry and head divergence to an empirical CE-risk bound with three-axis attribution. |
 
 This is the like-for-like comparison the point asks for. **At full size the bound is
 no worse than the similarity scores on ranking, and no better**: paired bootstraps put
@@ -390,10 +390,9 @@ split into a scale term and a shape term plus its lifting to a risk bound.
 Two things that comparison does not reach. **First, the small-slice regime, where the
 bound wins outright**: with eight reference sequences it is the highest of the four
 scores (0.932 against 1-CKA's 0.903) while SVCCA collapses to 0.083, which is also the
-size half of Point B. **Second, ranking is one of three outputs, and the only one a
-similarity score can produce at all.** None of them bounds the risk gap, so none
-certifies anything; none attributes the gap to an axis, which is what the paper's
-diagnoses rest on; and none names the quantity the Sec. 5.4 regularizer penalizes.
+size half of Point B. **Second, CKA/SVCCA are descriptive similarity statistics.**
+PRISM additionally provides an explicit CE-risk bound and three-axis attribution,
+and its shape component is the quantity directly penalized in Sec. 5.4.
 Qwen3-8B-Base `Q6_K` on SQuAD has near-perfect backbone geometry ($\Omega$ close to 1)
 yet its head term is 75.77 out of a bound of 76.95, while BnB INT8 on the same model
 leaves the head untouched ($\gamma = 0$) at a bound of 3.81. That 20x difference is set
