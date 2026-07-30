@@ -92,9 +92,9 @@ What the rebuttal establishes, each measured rather than asserted:
     >=0.8 at 0.1 nats in 49/55 cells; it requires measured variants from the same
     cell and is an amortized screening rule.
 
-**Our broader goal is to focus the community's evaluation budget on the strongest
+Our broader goal is to focus the community's evaluation budget on the strongest
 candidates and hardest cases, not repeatedly grade every variant, so more time
-goes to improving models.** Reviewers' questions yielded the calibration,
+goes to improving models. Reviewers' questions yielded the calibration,
 empirical-risk restatement, stronger baselines and failure analyses. Sequential
 learning and head-varying full SFT/RLHF remain future work.
 
