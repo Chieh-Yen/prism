@@ -274,9 +274,7 @@ input-conditioned: computed on that slice, it bounds the risk gap on that same
 data. Computing it on generic text in order to predict a benchmark's degradation
 would break that pairing and turn the guarantee into a distribution-transfer
 question the derivation does not address. We therefore do not claim
-benchmark-independent use, and the revision states that scope in the Limitations
-instead of leaving it implicit; this is the careful narrowing of claims the
-meta-review itself invites.
+benchmark-independent use, and the revision states that scope in the Limitations.
 
 (ii) Sensitivity to size, measured. Three fresh seeds, 12 Llama variants, 5
 benchmarks, with the ground-truth gap held at the full 512 sequences:
@@ -290,12 +288,11 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 
 **Eight sequences already order the twelve variants as well as 512 do.** The
 requirement is small and stable, and at that slice the similarity baselines do not
-hold up, which the four-score table under Point C shows. To keep the paper's two reference sets distinct
-by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
-the risk gap are computed, and the **regularization reference $D_{\mathrm{ref}}$** (32 held-out
-sequences of the fine-tuned task, Sec. 5.4) is what the trace penalty reads during
-fine-tuning. The revision adopts these two names throughout, and corrects Sec. 5.1,
-which calls $D_{\mathrm{ref}}$ "pre-training sequences" in error.
+hold up, which the four-score table under Point C shows. The paper's other reference set is the
+**regularization reference $D_{\mathrm{ref}}$** (32 held-out sequences of the
+fine-tuned task, Sec. 5.4), what the trace penalty reads during fine-tuning. The
+revision adopts both names throughout and corrects Sec. 5.1, which calls
+$D_{\mathrm{ref}}$ "pre-training sequences" in error.
 
 $D_{\mathrm{ref}}$ has its own ablation, run at the paper's operating point so the numbers sit
 beside Table 2's 0.681: four disjoint draws at each of n = 8 / 16 / 32 give mean
@@ -461,8 +458,12 @@ and the ordering carries over to self-generated output.** We also take the
 alternative the point offers, since the two are not exclusive: Corollary 1 is
 restated as teacher-forced-only, with trajectory-distribution shift named as an
 explicit limitation. The bound itself applies to any feature rows (App. D), so the
-restriction is a property of the protocol rather than of the theory. Per-subset
-ranges in 8VrD W4+Q2.
+restriction is a property of the protocol rather than of the theory, and the
+protocol is chosen for what the instrument is for: a diagnostic has to be cheaper
+than the benchmark it replaces, and teacher forcing is what keeps it to one
+deterministic pass per variant, with no decoding and no sampling to control for.
+We therefore claim the teacher-forced scope and report the free-running result as
+evidence that the ordering survives it. Per-subset ranges in 8VrD W4+Q2.
 
 ------------------------------------------------------------------------------
 ### E + W-5b: failures, mixed results, and where the regularizer does not help
