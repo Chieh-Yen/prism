@@ -162,7 +162,7 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
 |:--|:--|
 | A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to a leave-one-out MAE of 0.055 nats against 0.082 for predict-the-mean, with precision >= 0.8 at a 0.1-nat threshold in 49/55 cells |
 | B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6x the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
-| C. stronger baselines, both settings | ties CKA/SVCCA on identical features while adding what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (target loss 0.924 against the shape penalty's 0.872) |
+| C. stronger baselines, both settings | ties CKA/SVCCA at full size and leads both at an 8-sequence slice (0.932 against 0.903 and 0.083), while adding what they do not give (a certified bound, an axis attribution, and a penalty on the very quantity diagnosed); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (target loss 0.924 against the shape penalty's 0.872) |
 | D. free-running generation, or limit the claims | both: run ($r_s$ +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
 | E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
 
@@ -603,16 +603,24 @@ eQL6 W1/W2+Q1.
 What this adds up to, in the meta-review's own structure: (A) the guarantee is
 stated on the quantity we measure, with a concentration corollary back to the
 population version, and a per-cell calibration turns the bound into a working
-threshold; (B) the reference requirement is eight to a few hundred sequences of
+threshold at 0.055 nats of leave-one-out error, with precision at or above 0.8 in 49/55 cells; (B) the reference requirement is eight to a few hundred sequences of
 the task's own data, at 1/62.6 of one benchmark run, the regularizer's own reference
 moves retention by at most 5.9 points across a size-and-draw grid, and unpaired use
-is scoped out;
-(C) the bound ties CKA/SVCCA on identical features while carrying a certified
-bound, an axis attribution and a trainable penalty they cannot, and that penalty
-leads four forgetting baselines at matched plasticity; (D) the ranking survives
-free-running generation, and the corollary is restated to its teacher-forced
-scope; (E) the flagged cells are explained by stated mechanisms and the one
-genuine gating exception is owned. Every negative result in this rebuttal, the
+is scoped out; (C) on identical features the bound ranks with CKA and SVCCA at full
+size and above both at the smallest slice (0.932 against 0.903 and 0.083), while
+adding a certified bound, an axis attribution, and the property that the quantity
+diagnosed is the quantity the penalty trains, and that penalty leads replay, L2-SP
+and EWC in every seed at matched plasticity, layer-freezing's lower gap being bought
+by under-learning the task; (D) the ranking survives free-running generation, with a
+teacher-forced bound ordering self-generated gaps at +0.958, and the corollary is
+restated to the teacher-forced scope we keep by design rather than concede;
+(E) 18 of 20 LoRA cells are positive (mean +0.71, median +0.93), both flagged cells
+are explained by stated mechanisms, the one genuine gating exception is owned, and
+GSM8K, the hardest cell for the analysis gauge, is where the paper's own
+$W_N$-for-ranking rule earns its place (+0.51 to +0.97 on Llama). Outside those five,
+controlled single-axis interventions now show each axis moving only its own term, by
+at least 2.6e5 times the largest cross-axis leakage, with the bound holding in 26 of
+26 configs. Every negative result in this rebuttal, the
 failed span mitigation, the two low-signal cells, and the Llama-BBQ exception, is
 reported by us rather than left to be found, and much of the underlying analysis
 was already in the submitted appendices. We ask the AC to reconsider in this
@@ -911,8 +919,9 @@ validity.
 **In sum:** the three answers share one shape. We locate the looseness instead of
 disputing it: two of its three sources are cell constants, so they cannot reorder,
 and a within-cell calibration turns what remains into nats (W2). On identical
-features the bound ranks as well as CKA or SVCCA while carrying a valid upper bound,
-an axis attribution and a trainable objective that they cannot (W3). And the
+features the bound ranks as well as CKA or SVCCA at full size and above both at an
+eight-sequence slice, while carrying a valid upper bound, an axis attribution and a
+penalty on the very quantity it diagnoses (W3). And the
 near-isometry assumption is measured rather than assumed: it affects only tightness,
 by under a fifth of the residual even at 2 bits (W6). We hope these speak to the
 practical-significance concern. May we ask whether the calibrated screening rule
@@ -1340,7 +1349,7 @@ as our presentation to fix, not the reviewer's reading. Concretely: a notation
 table and first-use definitions, with the key Section 5 results moved into the
 main text (W1); an explicit identifiability argument for orthogonal alignment (W2/Q1); and
 a demonstration on the paper's own data that the shape term is driven by
-1-Omega, not the norm prefactor (W3), which is the sharpest technical concern.
+$1-\Omega$, not the norm prefactor (W3), which is the sharpest technical concern.
 
 1) W1 [原文]: The writing and communication is sometimes not very clear. The authors
    commonly use notation that has not yet been defined, e.g., under the summary of main
@@ -1353,9 +1362,9 @@ a demonstration on the paper's own data that the shape term is driven by
 > contributions list), and Section 5 leaves results central to the argument in the
 > appendix.
 
-Agreed on both counts. We will (i) define rho_T, rho_P (RMS feature scale of
-the reference feature matrices) and Omega (normalized Procrustes alignment,
-with 1-Omega the dimensionless shape residual) at first use in the
+Agreed on both counts. We will (i) define $\rho_T$, $\rho_P$ (RMS feature scale of
+the reference feature matrices) and $\Omega$ (normalized Procrustes alignment,
+with $1-\Omega$ the dimensionless shape residual) at first use in the
 Introduction, each with a one-line intuition; (ii) bring the results the Sec. 5
 argument rests on into the main text: the full 20-cell LoRA matrix and the
 gating table (currently App. H, Table 22) move up from the appendix, and the new
@@ -1384,8 +1393,8 @@ away, and whatever remains must divide into parts one can act on.** Steps (1) an
 (2) are those two requirements; (3) is where the hypotheses come in.
 
 (1) Why we restrict to O(d): identifiability. Because the head is linear, a
-model's features and head are only defined jointly, up to an invertible map: Z_P H_P
-and (Z_P A)(A^-1 H_P) are the same proxy model. **So a feature discrepancy measured
+model's features and head are only defined jointly, up to an invertible map: $Z_P$ $H_P$
+and ($Z_P$ A)(A^-1 $H_P$) are the same proxy model. **So a feature discrepancy measured
 after an unrestricted invertible alignment is not identifiable: the damage can
 always be pushed through A into the head and fitted away.** O(d) is exactly the set
 of linear maps that leaves the geometry the head reads out untouched: an orthogonal
@@ -1415,8 +1424,8 @@ One distinction is worth making explicit, since it is the likeliest residue of t
 confusion: the paper chooses at two levels. The group is the natural maximal
 linear family that keeps the attribution identifiable, by (1) and (2).
 Which member of it we use is not; it is a design parameter the family hands us for
-free: W = I for analysis and the regularizer (differentiable, head term exactly
-zero when the head is untouched), W_N when the goal is a correct ordering. The
+free: $W = I$ for analysis and the regularizer (differentiable, head term exactly
+zero when the head is untouched), $W_N$ when the goal is a correct ordering. The
 paper calls that choice "primarily design-driven" (L145-152) because both are
 certified and differ only in tightness and in which term carries the mismatch.
 
@@ -1429,37 +1438,37 @@ certified and differ only in tightness and in which term carries the mismatch.
    then [.], but we still have [.]. From Table 1, [.] is typically close to [.], and [.], so
    to me it seems any "large" [.]'s are due to the [.] product being large.
    (Math heavily OCR-garbled; the Response below restates the reviewer's algebra in full,
-   i.e. "if feature energies blew up, Z-tilde = cZ, the shape/head terms would scale as
+   i.e. "if feature energies blew up, $\tilde{Z}$ = cZ, the shape/head terms would scale as
    c^2 and the prefactor would dominate.")
 
 > **W3.** The shape term may dominate because of feature magnitude rather than
 > misalignment: scaling features and head weights by c scales both terms as c^2
 > while staying the same order before and after post-training (Tables 1, 18), so a
-> large bound would reflect a large rho_T rho_P product.
+> large bound would reflect a large $\rho_T$ $\rho_P$ product.
 
 The reviewer's algebra is exactly right: if feature energies blew up
-(Z-tilde = cZ, large c), the shape and head terms would scale as c^2 and the
+($\tilde{Z}$ = cZ, large c), the shape and head terms would scale as c^2 and the
 prefactor would dominate. We show, on the paper's own data, that this case does
 not arise among variants of a shared backbone. The shape term
 `rho_T*rho_P*(1-Omega)` is (up to constants) the aligned residual energy
 `||Z_T - s Z_P O||^2_F`: the prefactor carries physical units (logits scale with
-feature norm x head norm), 1-Omega is the dimensionless geometric part. Every
+feature norm x head norm), $1-\Omega$ is the dimensionless geometric part. Every
 comparison holds T fixed and varies P over the same backbone, so **within a
 (family, benchmark) cell `rho_T*rho_P` varies with median CV 0.63% (p90 7.9%),
-essentially constant, while 1-Omega spans a median 366x dynamic range**;
-Spearman(shape term, 1-Omega) has median 1.000 (min 0.988) over the 52 cells
-with Omega variance (of 55), and the two give identical rank correlations
-against |dR| (median 0.770). So the ordering and the diagnostic signal come
-from 1-Omega; the prefactor sets units, not ranking. This is also why the
+essentially constant, while $1-\Omega$ spans a median 366x dynamic range**;
+Spearman(shape term, $1-\Omega$) has median 1.000 (min 0.988) over the 52 cells
+with $\Omega$ variance (of 55), and the two give identical rank correlations
+against $|\Delta\mathcal{R}|$ (median 0.770). So the ordering and the diagnostic signal come
+from $1-\Omega$; the prefactor sets units, not ranking. This is also why the
 inflation the reviewer worries about could not materially reorder even if it were
-larger: the cell's other constants are shared too (K_feat depends only on the
-target head, K_pred <= sqrt(2) universally), and a factor common, or nearly
+larger: the cell's other constants are shared too ($K_{\mathrm{feat}}$ depends only on the
+target head, $K_{\mathrm{pred}}$ <= sqrt(2) universally), and a factor common, or nearly
 common, to every variant of a cell inflates all bounds together, which is exactly
 why the paper reports within-cell rank correlations rather than absolute values.
 
-Two boundary cases complete the answer. The premise that rho_T stays close to
-rho_P is model-dependent rather than guaranteed, and the paper itself contains
-the exception: Qwen3-Base Q2_K on GSM8K, where rho_P jumps from 267 to 313
+Two boundary cases complete the answer. The premise that $\rho_T$ stays close to
+$\rho_P$ is model-dependent rather than guaranteed, and the paper itself contains
+the exception: Qwen3-Base `Q2_K` on GSM8K, where $\rho_P$ jumps from 267 to 313
 (|Delta rho| = 46), is called out in Sec. 5.3 as a scale-axis outlier, exactly
 the channel the decomposition separates so that it can be flagged. And the
 divergent-norm limit (feature energies blowing up relative to each other) is
@@ -1595,21 +1604,21 @@ whereas minimizing $1-\Omega$ under a scale budget separates the axes. Either ne
 matched configurations, outside this diagnostic study; the revision lists it in
 Sec. 6.
 
-6) Q4 [原文]: In Section 5.5, the Spearman [r_s] is computed between each risk gap bound
+6) Q4 [原文]: In Section 5.5, the Spearman [$r_s$] is computed between each risk gap bound
    term, and what other variable? Is it the empirical risk gap?
 
 > **Q4.** In Section 5.5, Spearman is computed between each bound term and what? The
 > empirical risk gap?
 
 Against the empirical cross-entropy risk gap: for each variant we compute the
-quantity |dR|, the benchmark-measured CE gap between target and proxy under the fixed
+quantity $|\Delta\mathcal{R}|$, the benchmark-measured CE gap between target and proxy under the fixed
 evaluation protocol (defined in Sec. 5.1; Table 1's caption states it as
-"r_s(B, |dR|)", and Fig. 2 plots B against |dR| with per-subplot r_s
-annotated), and r_s is computed between each bound
-term and |dR| across all variants within a (family, benchmark) cell; Table 3
+"$r_s$(B, $|\Delta\mathcal{R}|$)", and Fig. 2 plots B against $|\Delta\mathcal{R}|$ with per-subplot $r_s$
+annotated), and $r_s$ is computed between each bound
+term and $|\Delta\mathcal{R}|$ across all variants within a (family, benchmark) cell; Table 3
 aggregates over the 10 cells. One nuance, since the reviewer asks precisely:
 Eq. (1) defines the population risk, and every reported quantity, the bound
-and |dR| alike, is its empirical counterpart on the fixed held-out subsets of
+and $|\Delta\mathcal{R}|$ alike, is its empirical counterpart on the fixed held-out subsets of
 Sec. 5.1; the revision restates Theorem 1 at that empirical level, with a
 concentration corollary recovering the population version. We will state both
 explicitly in the Sec. 5.5 text and every table caption.
@@ -1617,7 +1626,7 @@ explicitly in the Sec. 5.5 text and every table caption.
 **In sum:** the four substantive changes are the notation and presentation fixes
 (W1), the identifiability argument for orthogonal alignment with the hypotheses' role
 scoped to tightness (W2 + Q1), the prefactor analysis on the paper's own data
-showing the shape term is driven by 1-Omega and not by feature magnitude (W3),
+showing the shape term is driven by $1-\Omega$ and not by feature magnitude (W3),
 and the target-task numbers showing the penalty costs no plasticity (W4 + Q3).
 W3 in particular forced an analysis that made the paper better: the prefactor
 study it prompted now anchors how the shape term should be read, and the
