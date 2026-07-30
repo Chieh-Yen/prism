@@ -479,13 +479,10 @@ evidence that the ordering survives it. Per-subset ranges in 8VrD W4+Q2.
 > the regularizer does not help or worsens forgetting; the
 > forgetting-versus-plasticity tradeoff.
 
-Addressed in all three parts: both flagged cells are explained by stated mechanisms, the
-gating table's one genuine exception is owned rather than excused, and the
-forgetting-versus-plasticity tradeoff is pinned by matched plasticity. Notably,
-the ingredients of this failure analysis were already in the submitted appendices
-(App. F.3's GSM8K quantification, App. G.1's low-signal mechanism, App. H's gating
-validation): what the revision changes is their placement and labeling, promoting
-them to the main text.
+All three parts are answered below, and the ingredients were already in the submitted
+appendices (App. F.3's GSM8K quantification, App. G.1's low-signal mechanism, App. H's
+gating validation): what the revision changes is their placement, promoting them to
+the main text.
 
 (i) The weak correlations. All 20 (model, fine-tuning task, benchmark) LoRA cells
 move into the main text with their aggregate: **mean $r_s$ +0.71, median +0.93, and
@@ -499,26 +496,26 @@ round):
 | MMLU | -0.34 | gap real but non-monotone (peaks near step 75, partially recovers by 300) while accumulated drift grows: rank correlation structurally depressed |
 
 **Ranking is uninformative there by construction, and the bound holds at every
-checkpoint in both cells**; the revision states the two mechanisms separately. On
+checkpoint in both cells.** On
 GSM8K under quantization the correlation is genuinely low (0.41 pooled across
 families), and for a quantified reason: the mean gap there is about 0.019 nats
 (Table 10), an order of magnitude below the other benchmarks, which leaves the least
 signal and makes the cell the most sensitive to how the mismatch is attributed. That
-sensitivity is itself measured, and it is what the paper's design rule rests on: at
-the analysis default $W = I$ the head rotation stays inside the shape term and GSM8K
-ranks +0.51 on Llama and +0.68 on Qwen, while the Procrustes alignment $W = W_N$
-absorbs that rotation so the head term carries the ordering, and the same cells rank
-+0.97 and +0.96, the largest gain of any benchmark in either family. **This is why we
+sensitivity is measured, and the paper's design rule rests on it: at the analysis
+default $W = I$ the head rotation stays inside the shape term and GSM8K ranks +0.51 on
+Llama and +0.68 on Qwen, while the Procrustes alignment $W = W_N$ absorbs that
+rotation so the head term carries the ordering and the same cells rank +0.97 and
++0.96, the largest gain of any benchmark in either family. **This is why we
 recommend $W_N$ when the goal is an ordering and $W = I$ for axis analysis and the
 regularizer**; both are certified, so the choice costs no validity. Under LoRA
 fine-tuning, which does move GSM8K, the bound ranks it at +0.97 at $W = I$ too (Fig.
 3, TruthfulQA row); the tested mitigation is in pCi8 W4.
 
-(ii) Where the regularizer does not help, or hurts. Here we should clarify
-something our own caption made too easy to misread, and the fault is ours. **Table 22 is a
-gating-validation table, not a results table over four settings**: its rows are
-ordered by decreasing mean shape drift $1-\bar{\Omega}$, the amount of drift there is
-to repair, and its last column records what PRISM's diagnosis says to do:
+(ii) Where the regularizer does not help, or hurts. Our own caption made this too easy to
+misread, and the fault is ours. **Table 22 is a gating-validation table, not a results
+table over four settings**: its rows are ordered by decreasing mean shape drift
+$1-\bar{\Omega}$, the drift available to repair, and its last column records what
+PRISM's diagnosis says to do:
 
 | setting (ordered by $1-\bar{\Omega}$) | $1-\bar{\Omega}$ | trace effect | gating verdict |
 |:--|--:|--:|:--|
