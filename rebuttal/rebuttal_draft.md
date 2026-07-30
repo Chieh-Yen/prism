@@ -49,8 +49,9 @@ We narrow five claims:
   - The reference is a small slice of the diagnosed task's own validation data.
     Predicting one distribution's degradation from another distribution's
     features (unpaired use) is outside the derivation and not claimed.
-  - Corollary 1 is restated as teacher-forced-only, with trajectory shift an
-    explicit limitation and a free-running experiment probing it.
+  - Corollary 1 applies to any shared token trajectory, including proxy-generated
+    continuations; our free-running experiment tests this rollout-conditioned
+    setting empirically.
   - Validated claims remain scoped to PTQ and frozen-head LoRA. In two
     base-to-instruct comparisons the bound held in all 10 benchmark cells, while
     tightness and head-varying full SFT/RLHF remain future work (App. C.3).
@@ -60,9 +61,9 @@ What the rebuttal establishes, each measured rather than asserted:
     pass; on the same 256 prompts this took 8.9 s versus 556.7 s for
     greedy decoding (62.6x).
   - **free-running**: for 12 Llama PTQ variants on GSM8K, $r_s=+0.947\pm0.015$
-    free-running against $+0.958\pm0.011$ teacher-forced, and the cheap
-    teacher-forced bound orders the free-running gaps just as well, also at
-    $+0.958\pm0.011$.
+    free-running against $+0.958\pm0.011$ teacher-forced; the teacher-forced
+    bound orders free-running gaps at $+0.958\pm0.011$ and remains our
+    recommended fast screen because it avoids decoding.
   - **diagnostic reference**: 8 sequences rank the 12 variants as well as 512
     ($r_s=0.932$ at both sizes), with cross-seed ordering agreement rising from
     0.981 to 0.998.
@@ -94,9 +95,8 @@ What the rebuttal establishes, each measured rather than asserted:
 **Our broader goal is to focus the community's evaluation budget on the strongest
 candidates and hardest cases, not repeatedly grade every variant, so more time
 goes to improving models.** Reviewers' questions yielded the calibration,
-empirical-risk restatement, stronger baselines and failure analyses. Free-running
-is covered theoretically and empirically; sequential learning and head-varying
-full SFT/RLHF remain future directions.
+empirical-risk restatement, stronger baselines and failure analyses. Sequential
+learning and head-varying full SFT/RLHF remain future work.
 
 We believe this evidence substantially addresses the meta-review's five points
 while explicitly narrowing unsupported scope, and we respectfully ask the AC and
