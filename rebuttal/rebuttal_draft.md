@@ -49,20 +49,20 @@ We narrow five claims:
   - The reference is a small slice of the diagnosed task's own validation data.
     Predicting one distribution's degradation from another distribution's
     features (unpaired use) is outside the derivation and not claimed.
-  - Corollary 1 applies to any shared token trajectory, including proxy-generated
-    continuations; our free-running experiment tests this rollout-conditioned
-    setting empirically.
-  - Validated claims remain scoped to PTQ and frozen-head LoRA. In two
-    base-to-instruct comparisons the bound held in all 10 benchmark cells, while
-    tightness and head-varying full SFT/RLHF remain future work (App. C.3).
+  - Corollary 1 covers fixed shared trajectories, including proxy-generated
+    ones scored by both models; TF remains our decoding-free fast screen.
+  - Two base-to-instruct pairs serve only as a validity/head-engagement sanity
+    check: PRISM remains computable with a nonzero head term. Systematic study
+    across models, post-training recipes, and head-varying full SFT/RLHF is future
+    work (App. C.3).
 
 What the rebuttal establishes, each measured rather than asserted:
   - **cost**: after one reusable base pass, each variant needs one teacher-forced
     pass; on the same 256 prompts this took 8.9 s versus 556.7 s for
     greedy decoding (62.6x).
-  - **free-running**: for 12 Llama PTQ variants on GSM8K, $r_s=+0.947\pm0.015$
-    free-running against $+0.958\pm0.011$ teacher-forced; the teacher-forced
-    bound orders free-running gaps at $+0.958\pm0.011$; we recommend TF for
+  - **rollout test**: for 12 Llama PTQ variants on GSM8K, $r_s=+0.947\pm0.015$
+    rollout-conditioned versus $+0.958\pm0.011$ teacher-forced; the teacher-forced
+    bound orders rollout gaps at $+0.958\pm0.011$; we recommend TF for
     fast screening because it avoids decoding.
   - **diagnostic reference**: 8 sequences rank the 12 variants as well as 512
     ($r_s=0.932$ at both sizes), with cross-seed ordering agreement rising from
@@ -165,10 +165,10 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
 
 | point | what was delivered |
 |:--|:--|
-| A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to a leave-one-out MAE of 0.055 nats against 0.082 for predict-the-mean, with precision >= 0.8 at a 0.1-nat threshold in 49/55 cells |
+| A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, with fixed within-cell $K$ constants and a near-constant prefactor unlikely to dominate reordering; calibrated to a leave-one-out MAE of 0.055 nats against 0.082 for predict-the-mean, with precision >= 0.8 at a 0.1-nat threshold in 49/55 cells |
 | B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6x the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
 | C. stronger baselines, both settings | ties CKA/SVCCA at full size and leads both at an 8-sequence slice (0.932 against 0.903 and 0.083), while adding what they do not give (a certified bound, an axis attribution, and a penalty on the very quantity diagnosed); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (target loss 0.924 against the shape penalty's 0.872) |
-| D. free-running generation, or limit the claims | both: run ($r_s$ +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
+| D. free-running generation, or limit the claims | rollout-conditioned test ($r_s$ +0.947 vs +0.958 teacher-forced); Corollary 1 covers the fixed shared trajectories, while TF remains the recommended fast screen because it avoids decoding |
 | E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
 
 ------------------------------------------------------------------------------
@@ -215,13 +215,12 @@ variant) cells of the paper's five benchmarks:
 | slack spread | log10 sd 0.76 (~6x cell to cell) | no single correction rescales it |
 | Lipschitz step (worst-case K vs observed) | at most ~2.5x | not where the looseness lives |
 | remainder (alignment residual + triangle + Jensen steps) | 140x to 3000x | the dominant source |
-| cell constants: $K_{\mathrm{feat}}$; $K_{\mathrm{pred}} \le \sqrt{2}$ (App. A.5); prefactor $\rho_T \rho_P$ | within-cell CV 0.63% | exactly (K) or nearly (prefactor) shared: cannot materially reorder |
+| cell constants: $K_{\mathrm{feat}}$; $K_{\mathrm{pred}} \le \sqrt{2}$ (App. A.5); prefactor $\rho_T \rho_P$ | within-cell CV 0.63% | $K$ values are fixed across variants; the near-constant prefactor is unlikely to dominate reordering |
 
-**Two of the three slack sources are constants within a (model, benchmark) cell,
-and a factor that is nearly the same for every variant inflates every bound by
-nearly the same multiple, so it cannot change their order**; that is why the paper
-reports rank correlations within cells: the ordering is what survives the loose
-constants.
+Within a (model, benchmark) cell, $K_{\mathrm{feat}}$ and
+$K_{\mathrm{pred}}$ are fixed across variants, while the prefactor varies little
+(median CV 0.63%). This shared structure may limit their effect on reordering; we
+still treat rank preservation as an empirical result, not an implied invariance.
 
 (iii) An operational threshold does exist, per cell. We fit a monotone (isotonic)
 map from the bound to the measured gap inside each cell and evaluate it
@@ -336,9 +335,10 @@ counterpart as diagnosed variant (proxy):
 | Llama-3.1-8B -> Instruct | 5 / 5 | 52% | at that level: drift 0.224, `Q2_K` 0.225 |
 | Qwen3-8B-Base -> Qwen3-8B | 5 / 5 | 48% | 14x beyond: drift 0.254, `Q2_K` 0.018 |
 
-Validity and decomposability persist at this distance, with the head term engaging
-at about half of B (pooled median 50%) exactly as the open-head regime predicts;
-calibrated tightness there is App. C.3's regime and stays future work.
+We treat these two pairs only as a validity/head-engagement sanity check: the
+decomposition remains computable and the head term is nonzero (pooled median
+share 50%). Systematic study across more models, post-training recipes, and
+head-varying full SFT/RLHF is future work (App. C.3).
 
 ------------------------------------------------------------------------------
 ### C + W-3 + W-5a: stronger baselines, for diagnostics and for regularization
@@ -446,9 +446,9 @@ We ran it, and on the hardest case for a teacher-forced bound. GSM8K is the
 generation-heaviest of the five benchmarks, so it is where trajectory shift can do
 the most damage: each of the 12 variants greedily generates its own continuation,
 averaging 76 tokens per prompt (72-81 across subsets), so its early mistakes
-compound into its own later context, precisely the regime the autoregressive
-corollary did not cover. Both models are then scored on those generated
-trajectories. Five independent 100-prompt subsets (seeds 42-46):
+compound into its own later context. Both models are then scored on the same
+proxy-generated trajectory, a fixed shared trajectory covered conditionally by
+Corollary 1. Five independent 100-prompt subsets (seeds 42-46):
 
 | statistic (12 variants, mean ± sd over 5 subsets) | value |
 |:--|--:|
@@ -458,16 +458,10 @@ trajectories. Five independent 100-prompt subsets (seeds 42-46):
 | **cross: teacher-forced bound vs free-running gap** | **+0.958 ± 0.011** |
 
 **The last row is the operational one: a practitioner ranks once on reference text
-and the ordering carries over to self-generated output.** We also take the
-alternative the point offers, since the two are not exclusive: Corollary 1 is
-restated as teacher-forced-only, with trajectory-distribution shift named as an
-explicit limitation. The bound itself applies to any feature rows (App. D), so the
-restriction is a property of the protocol rather than of the theory, and the
-protocol is chosen for what the instrument is for: a diagnostic has to be cheaper
-than the benchmark it replaces, and teacher forcing is what keeps it to one
-deterministic pass per variant, with no decoding and no sampling to control for.
-We therefore claim the teacher-forced scope and report the free-running result as
-evidence that the ordering survives it. Per-subset ranges in 8VrD W4+Q2.
+and the ordering carries over to self-generated output.** Corollary 1 is restated
+for any fixed shared trajectory, including a proxy-generated continuation scored
+by both models. This experiment requires decoding; TF therefore remains our
+decoding-free fast screen. Per-subset ranges are in 8VrD W4+Q2.
 
 ------------------------------------------------------------------------------
 ### E + W-5b: failures, mixed results, and where the regularizer does not help
@@ -615,9 +609,10 @@ size and above both at the smallest slice (0.932 against 0.903 and 0.083), while
 adding a certified bound, an axis attribution, and the property that the quantity
 diagnosed is the quantity the penalty trains, and that penalty leads replay, L2-SP
 and EWC in every seed at matched plasticity, layer-freezing's lower gap being bought
-by under-learning the task; (D) the ranking survives free-running generation, with a
-teacher-forced bound ordering self-generated gaps at +0.958, and the corollary is
-restated to the teacher-forced scope we keep by design rather than concede;
+by under-learning the task; (D) the ranking survives rollout-conditioned generation, with a
+teacher-forced bound ordering self-generated gaps at +0.958; Corollary 1 covers
+the fixed shared trajectories, while TF remains the recommended fast screen
+because it avoids decoding;
 (E) 18 of 20 LoRA cells are positive (mean +0.71, median +0.93), both flagged cells
 are explained by stated mechanisms, the one genuine gating exception is owned, and
 GSM8K, the hardest cell for the analysis gauge, is where the paper's own
@@ -734,13 +729,13 @@ also narrows where degradation is real: from ~4500x at Q8_0 to ~600x at Q2_K.
 **What matters for the ranking claim is that those constants are fixed within a
 (model, benchmark) cell.** K_feat depends only on the target model's head, K_pred
 <= sqrt(2) universally (App. A.5), and the prefactor rho_T rho_P varies across the
-variants of one cell with a median coefficient of variation of 0.63%. The K
-constants are exactly shared, the prefactor nearly so, and a factor this close to
-common cannot materially reorder a cell, which is why the paper reports
-within-cell rank correlations rather than absolute values; what does vary per
-variant is the alignment residual and the remainder slack, which is why the
-correlations sit near 0.9 rather than 1.0 and why no single multiplicative
-correction exists.
+variants of one cell with a median coefficient of variation of 0.63%. The $K$
+values are fixed across variants, while the prefactor is nearly constant; together,
+this shared structure may limit their effect on reordering. We nevertheless treat
+ordering as an empirical result supported by the within-cell rank correlations,
+not as exact invariance; the alignment residual and remainder slack still vary,
+which is why the correlations sit near 0.9 rather than 1.0 and no single
+multiplicative correction exists.
 
 To test the reviewer's own question, whether Q4 is "actually good enough" and not
 only better than Q2, we fit a monotone map from bound to measured gap inside each
@@ -921,8 +916,9 @@ when the goal is ordering (W3); both are certified, so the choice costs nothing 
 validity.
 
 **In sum:** the three answers share one shape. We locate the looseness instead of
-disputing it: two of its three sources are cell constants, so they cannot reorder,
-and a within-cell calibration turns what remains into nats (W2). On identical
+disputing it: the fixed $K$ values and near-constant prefactor are unlikely to
+dominate within-cell reordering, and a within-cell calibration turns what remains
+into nats (W2). On identical
 features the bound ranks as well as CKA or SVCCA at full size and above both at an
 eight-sequence slice, while carrying a valid upper bound, an axis attribution and a
 penalty on the very quantity it diagnoses (W3). And the
@@ -1136,14 +1132,13 @@ severe, the hardest case for a teacher-forced bound. On a 100-prompt subset each
 of the 12 variants greedily generates its own continuations (mean 76
 tokens/prompt across subsets) and both models are scored on those trajectories: across 5 subsets
 (seeds 42-46), rs = +0.947 ± 0.015 free-run vs +0.958 ± 0.011 teacher-forced, rank
-agreement +0.959 ± 0.010. This mode does decode, so it is the answer-availability
-fallback rather than the cheap path. Independently we restate Corollary 1 as
-teacher-forced-only and add trajectory shift as an explicit limitation (the bound
-applies to any feature rows, App. D; the restriction is protocol, not theory).
+agreement +0.959 ± 0.010. Corollary 1 applies conditionally because both models
+are scored on the same proxy-generated trajectory. This mode requires decoding, so TF
+remains our recommended fast screen because it avoids decoding.
 
 **In sum:** the reference requirement is a small slice of the task's own
-validation data (8 sequences already fix the ordering), the protocol extends to
-free-running generation at r_s +0.947, and the one thing we do not claim,
+validation data (8 sequences already fix the ordering), the rollout-conditioned
+test reaches r_s +0.947, and the one thing we do not claim,
 benchmark-independent transfer, is now stated as explicit scope.
 
 3) W3 [原文]: The comparison to existing baselines is also limited. Since PRISM is
@@ -1304,16 +1299,16 @@ setting: the base checkpoint serves as the reference (target), and its SFT
 10 (pair, benchmark) cells, the head term engages at a median 50% of B, as the
 open-head regime predicts, and backbone drift sits at or beyond each family's
 own Q2_K level. The
-conservative conclusion we draw: the diagnostic patterns are stable for models
-produced by heterogeneous post-training, per-task application remains
-well-defined under mixed data, and calibrated tightness for the base-to-SFT
-pairing sits in the App. C.3 regime of Q1 and stays future work.
+conservative conclusion is only a validity/head-engagement sanity check: the
+decomposition remains computable and the head term is nonzero in these two pairs.
+Systematic study across more models, post-training recipes, and head-varying full
+SFT/RLHF remains future work under App. C.3.
 
 **In sum:** the measured cost table, the reference-set ablation, the free-running
 check, the causal single-axis interventions, and the same-features CKA/SVCCA and
 regularizer comparisons are measurements, not restatements, and Q1/Q2 are
 answered with the theory's actual scope, the paper's instruct-family
-replications, and a direct base-to-SFT consistency check. We hope these resolve
+replications, and a base-to-SFT sanity check. We hope these resolve
 the motivation and evaluation concerns; we would particularly value knowing
 whether the cost table and the controlled interventions resolve the motivation
 and actionability points, and we are glad to follow up on anything that remains
@@ -1462,13 +1457,11 @@ comparison holds T fixed and varies P over the same backbone, so **within a
 essentially constant, while $1-\Omega$ spans a median 366x dynamic range**;
 Spearman(shape term, $1-\Omega$) has median 1.000 (min 0.988) over the 52 cells
 with $\Omega$ variance (of 55), and the two give identical rank correlations
-against $|\Delta\mathcal{R}|$ (median 0.770). So the ordering and the diagnostic signal come
-from $1-\Omega$; the prefactor sets units, not ranking. This is also why the
-inflation the reviewer worries about could not materially reorder even if it were
-larger: the cell's other constants are shared too ($K_{\mathrm{feat}}$ depends only on the
-target head, $K_{\mathrm{pred}}$ <= sqrt(2) universally), and a factor common, or nearly
-common, to every variant of a cell inflates all bounds together, which is exactly
-why the paper reports within-cell rank correlations rather than absolute values.
+against $|\Delta\mathcal{R}|$ (median 0.770). Thus, in these data, the ordering
+signal is primarily associated with $1-\Omega$; because the prefactor is nearly
+constant and the $K$ values are fixed within a cell, their effect on reordering
+appears limited. We state this as an empirical observation rather than an exact
+invariance.
 
 Two boundary cases complete the answer. The premise that $\rho_T$ stays close to
 $\rho_P$ is model-dependent rather than guaranteed, and the paper itself contains
@@ -1999,11 +1992,9 @@ rather than convenient: of the five benchmarks it is the only one whose answers 
 long enough for trajectory shift to exist at all, since ARC and MMLU answers are a
 single token and SQuAD and TriviaQA average about 3 to 4. Each of the 12 variants
 greedily generates its own continuation (mean 76 tokens per prompt across
-subsets, so its errors
-compound into its own context, exactly the regime the corollary did not cover) and
-both models are then scored on those trajectories, with the generated tokens as
-their own next-token targets, so the model-versus-model gap needs no reference
-answers. Over 5 independent 100-prompt subsets (seeds 42-46, 12 variants each;
+subsets), and both models are then scored on that same proxy-generated trajectory,
+with the generated tokens as their own next-token targets. Corollary 1 applies
+conditionally to this fixed shared trajectory. Over 5 independent 100-prompt subsets (seeds 42-46, 12 variants each;
 greedy decoding is deterministic, so a seed varies only the prompt subset):
 
 | statistic (12 variants, mean ± sd over 5 subsets) | value | per-subset range |
@@ -2018,14 +2009,13 @@ predicts the degradation the variant shows on its own generated trajectories, at
 +0.958.** (Its summary statistics coincide with the teacher-forced row's because
 the five per-subset values happen to form the same set in a different order;
 the underlying per-subset pairs differ.) So a practitioner ranks once on the
-reference slice and the ordering carries over to free-running use. The spread
+reference slice and the ordering carries over to rollout-conditioned use. The spread
 across subsets is at most 0.042 on any row, so this is not a single-subset
-artifact. Independently, Corollary 1 is restated
-as teacher-forced-only with trajectory-distribution shift an explicit limitation:
-the bound applies to any feature rows (App. D), so the restriction is protocol
-rather than theory. The Limitations section adds reference-set sensitivity,
-free-running generation, head-varying variants and feature-extraction cost, as
-suggested.
+artifact. Corollary 1 is restated for any fixed shared trajectory, including a
+proxy-generated continuation scored by both models. This experiment requires
+decoding; TF therefore remains our decoding-free fast screen. The Limitations
+section adds reference-set sensitivity, independently
+induced rollouts, head-varying variants and feature-extraction cost, as suggested.
 
 5) Limitations [原文]: This paper acknowledges the limitations of ranking risk and absolute
    risk, as well as the teacher-enforced approach. It should also discuss reference set
@@ -2036,11 +2026,14 @@ suggested.
 
 Agreed, all four are added to the Limitations: (i) reference-set sensitivity
 with the new size/domain ablations; (ii) free-running generation with the new
-subset experiment and the restated teacher-forced-only corollary; (iii)
+subset experiment and the shared-trajectory scope of Corollary 1, while TF remains
+the recommended fast screen because it avoids decoding; (iii)
 head-varying variants (full SFT/RLHF), already identified in App. C.3 as the
-joint-alignment regime we scope out and list as future work; the revision
-adds a first base-vs-instruct data point verifying bound validity in that
-regime; (iv) feature-extraction cost, quantified in the new cost table (one
+joint-alignment regime we scope out and list as future work; the two
+base-vs-instruct pairs are only a validity/head-engagement sanity check, showing
+that the decomposition remains computable and its head term nonzero, while
+systematic study across more models and post-training recipes remains future
+work; (iv) feature-extraction cost, quantified in the new cost table (one
 forward pass per variant over the reference set; no decoding, no grading;
 measured on GSM8K on identical prompts, one greedy decode 556.7 s vs PRISM's 8.9 s
 teacher-forced pass, a 62.6x gap, with model load excluded from both sides).
