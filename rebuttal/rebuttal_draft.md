@@ -580,10 +580,24 @@ MMLU / TriviaQA):
 | head-only (RTN `lm_head`) | 0 / 0 | 0 / 0 | **5.4e2 / 4.6e2** |
 
 **Each family moves only its own term, with own-axis response at least 2.6e5x the
-largest cross-axis leakage, and the bound holds in 26 of 26 configs.** Weak Point
-6b, clarity: a notation table, first-use definitions, Section 5's key results
-moved into the main text, and an identifiability argument for the orthogonal
-restriction. Detail: pCi8 W1, eQL6 W1/W2+Q1.
+largest cross-axis leakage, and the bound holds in 26 of 26 configs (identity
+control: $B$ = 0.00/0.08).** The terms also follow the laws the theory predicts,
+scale as $(\alpha-1)^2$ and shape as $\theta^2$ to within about 1%, with $\gamma$
+rising monotonically over head bit-width (10, 40, 210, 541 at 8/6/4/3 bits), and the
+perturbations do real damage ($|\Delta\mathcal{R}|$ up to 1.39 nats at
+$\alpha = 0.5$). So the axes are not labels attached after the fact: each one responds
+only to its own perturbation and does so on the functional form the derivation gives it.
+
+Weak Point 6b, clarity: a notation table, first-use definitions, and Section 5's key
+results moved into the main text. The orthogonal restriction has a reason we should
+have stated, namely identifiability: because the head is linear, features and head are
+only defined jointly up to an invertible map, since $Z_P H_P$ and
+$(Z_P A)(A^{-1} H_P)$ are the same model, so a discrepancy measured after an
+unrestricted alignment can always be pushed through $A$ into the head and fitted away.
+$O(d)$ is exactly the set of maps that leaves the geometry the head reads out
+untouched, and it is also what makes Prop. 1's exact scale-shape split available,
+since a general linear map carries scale and shear of its own. Detail: pCi8 W1,
+eQL6 W1/W2+Q1.
 
 ------------------------------------------------------------------------------
 What this adds up to, in the meta-review's own structure: (A) the guarantee is
