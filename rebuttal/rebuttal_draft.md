@@ -26,8 +26,12 @@ rebuttal_exp/out/{E1,E3,E4,E6,E7,E8,E9,E11,E12,E13,eql6w3}/ and the submitted PD
 GENERAL RESPONSE (to all reviewers and the Area Chair)
 ================================================================================
 
+**PRISM screens rather than replaces evaluation**: a cached base pass and one
+teacher-forced pass per variant rank candidates and attribute degradation before
+costly decoding.
+
 We thank the reviewers and the Area Chair for a careful and constructive
-assessment, and for recognizing the paper's core contributions: the exact
+assessment and for recognizing the paper's core contributions: the exact
 closed-form scale/shape decomposition, the pairwise head-embedding Lipschitz
 constant that avoids the naive vocabulary-scale blow-up, the principled link
 between representation geometry and cross-entropy risk, and the differentiable
@@ -35,18 +39,18 @@ shape regularizer. The reviews converge on a fair message: the technical core is
 compelling, but its practical significance and evaluation require stronger
 evidence. We have taken this to heart.
 
-We narrow the following claims:
+We narrow five claims:
   - Theorem 1 is restated as a bound on the empirical risk gap over the reference
     sample; a population corollary requires i.i.d. sampling and an explicit
     almost-sure bounded-gap assumption.
-  - The raw bound is used only for ranking. A same-cell isotonic calibration is
+  - The raw bound is used only for ranking. A same cell isotonic calibration is
     evaluated as a proof-of-concept predictor for absolute thresholds, not as a
     certificate.
   - The reference is a small slice of the diagnosed task's own validation data.
     Predicting one distribution's degradation from another distribution's
     features (unpaired use) is outside the derivation and not claimed.
   - Corollary 1 is restated as teacher-forced-only, with trajectory shift an
-    explicit limitation and a new free-running experiment probing it.
+    explicit limitation and a free-running experiment probing it.
   - Validated claims remain scoped to PTQ and frozen-head LoRA. In two
     base-to-instruct comparisons the bound held in all 10 benchmark cells, while
     tightness and head-varying full SFT/RLHF remain future work (App. C.3).
@@ -55,10 +59,10 @@ What the rebuttal establishes, each measured rather than asserted:
   - **cost**: after one reusable base pass, each variant needs one teacher-forced
     pass; on the same 256 prompts this took 8.9 s versus 556.7 s for
     greedy decoding (62.6x).
-  - **free-running**: for 12 Llama PTQ variants on GSM8K,
-    $r_s(B_{\rm free},|\Delta R|_{\rm free})=+0.947\pm0.015$ versus
-    $+0.958\pm0.011$ teacher-forced; the teacher-forced bound orders gaps on
-    proxy-generated trajectories at $+0.958\pm0.011$.
+  - **free-running**: for 12 Llama PTQ variants on GSM8K, $r_s=+0.947\pm0.015$
+    free-running against $+0.958\pm0.011$ teacher-forced, and the cheap
+    teacher-forced bound orders the free-running gaps just as well, also at
+    $+0.958\pm0.011$.
   - **diagnostic reference**: 8 sequences rank the 12 variants as well as 512
     ($r_s=0.932$ at both sizes), with cross-seed ordering agreement rising from
     0.981 to 0.998.
@@ -66,8 +70,8 @@ What the rebuttal establishes, each measured rather than asserted:
     runs reduce forgetting by 15.2%-21.1% versus no regularization.
   - **similarity baselines**: on identical features PRISM is statistically tied
     with CKA and SVCCA at full size. At 8 sequences its mean correlation is
-    $0.932\pm0.016$, versus $0.903\pm0.015$ and $0.083\pm0.036$.
-  - **actionability**: controlled scale-, rotation-, and head-only interventions
+    $0.932\pm0.016$ versus $0.903\pm0.015$ and $0.083\pm0.036$.
+  - **actionability**: controlled scale-, rotation- and head-only interventions
     move their intended term by at least $2.6\times10^5$ the largest cross-axis
     leakage, and the bound holds in all 26 configurations. These are causal
     selectivity tests for the constructed perturbations, not a claim about every
@@ -87,20 +91,17 @@ What the rebuttal establishes, each measured rather than asserted:
     >=0.8 at 0.1 nats in 49/55 cells; it requires measured variants from the same
     cell and is an amortized screening rule.
 
-PRISM screens rather than replaces evaluation: after a reusable base pass, one
-teacher-forced pass per variant prioritizes candidates and attributes degradation
-before expensive
-decode-and-grade evaluation. The review process made that instrument materially
-sharper: the calibration, empirical-risk restatement, stronger baselines, and
-failure analyses arose directly from the reviewers' and AC's specific questions.
-Free-running is covered by the same per-trajectory bound and empirically
-stress-tested here; sequential continual learning and head-varying full SFT/RLHF
-form the roadmap.
+**Our broader goal is to focus the community's evaluation budget on the strongest
+candidates and hardest cases, not repeatedly grade every variant, so more time
+goes to improving models.** Reviewers' questions yielded the calibration,
+empirical-risk restatement, stronger baselines and failure analyses. Free-running
+is covered theoretically and empirically; sequential learning and head-varying
+full SFT/RLHF remain future directions.
 
 We believe this evidence substantially addresses the meta-review's five points
 while explicitly narrowing unsupported scope, and we respectfully ask the AC and
-reviewers to reconsider in light of it. We welcome the opportunity to clarify
-any point that remains unclear during discussion.
+reviewers to reconsider in light of it. We are glad to clarify anything
+that remains unclear during discussion.
 
 Thank you to all four reviewers and the AC for the time and care reflected in
 their reviews; the paper is genuinely better for it.
