@@ -1805,19 +1805,17 @@ gating rule explicit rather than as a universal win, and per-benchmark gating
 (adaptive per-cell deployment, driven by the decomposition online) is the natural
 next step.
 
-(3) Baselines and scope, which is also Q4. A framing point first, because it fixes
-which baselines are the right ones: the paper's contribution is the diagnostic
-framework; the shape regularizer (Sec. 5.4) is a demonstration that the diagnosed
-shape axis is actionable, a corollary of the bound, not a bid to be a new
-state-of-the-art continual-learning method. The relevant bar is therefore whether
-acting on the diagnosis helps against general, matched baselines. Replay was not
-an arbitrary control: in our single-adapter, single-task setting it is the matched
-comparison (same reference data, schedule and compute as the shape penalty). We
-agree more baselines strengthen the case and add the families matched to this
-setting, weight-space (EWC, L2-SP) and architectural (layer-freezing), all
-protocol-identical, each at the sweep config closest to the shape run's target
-loss (matched plasticity). TruthfulQA, three seeds (42/43/44, mean ± sd);
-downstream forgetting is the mean risk gap over the five held-out benchmarks:
+(3) Baselines and scope, which is also Q4. A framing point first, since it fixes
+which baselines are right: the paper's contribution is the diagnostic framework,
+and the shape regularizer (Sec. 5.4) demonstrates that the diagnosed axis is
+actionable, not a bid for state-of-the-art continual learning. The bar is whether
+acting on the diagnosis helps against matched baselines. Replay was not arbitrary:
+in this single-adapter, single-task setting it is the matched comparison (same
+reference data, schedule, compute). We agree, and add the families matched to this setting, weight-space (EWC, L2-SP) and
+architectural (layer-freezing), all protocol-identical, each at the sweep config
+closest to the shape run's target loss (matched plasticity). TruthfulQA, three
+seeds (42/43/44, mean ± sd); downstream forgetting is the mean risk gap over the
+five held-out benchmarks:
 
 | method | downstream forgetting | target-task loss |
 |:--|--:|--:|
@@ -1828,74 +1826,66 @@ downstream forgetting is the mean risk gap over the five held-out benchmarks:
 | **shape penalty, lambda 1** | **0.680 ± 0.016** | **0.872 ± 0.005** |
 | layer-freeze, top 16 | 0.404 ± 0.017 | 0.924 ± 0.001 |
 
-The shape penalty forgets least among the methods that learn the task to a
-comparable level and wins in all three seeds individually; layer-freezing's lower
-gap is bought at target loss 0.924, i.e. by trading plasticity for retention. On
-the four cited methods (SLoRA, two-phase CIT,
-CLAIM, ArMA): these are specialized for the sequential continual-instruction
-setting (a task stream), whereas our experiment mitigates forgetting within a
-single LoRA fine-tuning; they address a different problem, so a fair comparison
-means moving to their sequential benchmarks rather than adding a baseline here.
-App. I already lists continual learning among the paper's future directions
-("beyond LoRA forgetting: full SFT, distillation, continual learning"); the
-revision cites all four methods there, as the first concrete step of that item.
+The shape penalty forgets least among the methods that learn the task comparably;
+layer-freezing's lower gap is bought at target loss 0.924, trading plasticity for
+retention. The four cited methods
+(SLoRA, two-phase CIT, CLAIM, ArMA) are specialized for sequential
+continual-instruction tuning (a task stream), whereas we mitigate forgetting
+within a single LoRA run; a fair comparison means moving to their benchmarks
+rather than adding a baseline here. App. I already lists continual learning as
+future work; the revision cites all four there.
 
-(4) Reference-set sensitivity, which is Q3, measured on both sides. On the
+(4) Reference-set sensitivity, which is Q3, on both sides. On the
 regularizer side we ran the ablation at the paper's own operating point
 (Llama-TruthfulQA, trace at lambda 1.0, lr 1e-5, seed 42, step 300), so its
-numbers sit beside Table 2's 0.681 on the same scale rather than in a separate
-run. We then varied only what the question is about, namely which sequences form
-D_ref: for each size, four draws taken as disjoint windows of one fixed shuffle of
-the task's own held-out split, verified to share zero sequences pairwise. One
-correction we owe the reviewer here: Sec. 5.1 describes D_ref as "32 pre-training
-sequences", which is a wording error. What the code draws, and what every number
-in the paper and below was produced with, is 32 held-out sequences of the
-fine-tuned task itself, disjoint from its training split. The revision fixes that
-sentence.
+numbers sit beside Table 2's 0.681 on the same scale. We varied only what the
+question asks about, which sequences form D_ref: four draws per size, disjoint
+windows of one fixed shuffle of the task's own held-out split, verified pairwise
+disjoint. One correction: Sec. 5.1 calls D_ref "32 pre-training sequences", a
+wording error. The code draws, and every number here was produced with, 32
+held-out sequences of the fine-tuned task, disjoint from its training split; the
+revision fixes it.
 
-| reference size | mean downstream forgetting | range over the 4 draws |
-|:--|--:|--:|
-| n = 8 | 0.690 ± 0.019 | 0.668 - 0.716 |
-| n = 16 | 0.685 ± 0.011 | 0.673 - 0.699 |
-| **n = 32** (the paper's setting) | **0.676 ± 0.008** | 0.666 - 0.683 |
+| reference size | mean downstream forgetting |
+|:--|--:|
+| n = 8 | 0.690 ± 0.019 |
+| n = 16 | 0.685 ± 0.011 |
+| **n = 32** (the paper's setting) | **0.676 ± 0.008** |
 
-**All twelve runs fall between 0.666 and 0.716, that is 15.2% to 21.1% below the
-no-regularization 0.843, so the whole size-and-draw grid moves retention by at
-most 5.9 points and the specific 32-sequence reference set is not load-bearing.
-The spread also shrinks as the reference grows (sd 0.019, 0.011, 0.008), the
-signature of ordinary sampling variation rather than of sensitivity to which data
-is used.** Three checks on those numbers. Rerunning the paper's own draw through
-this harness gives 0.6829 against the tree's 0.6813, a 0.0016-nat reproduction
-gap, so the draw spread is a real effect about ten times that floor, and small.
-The paper's 0.681 sits inside the n=32 draw range while being slightly worse than
-the four-draw mean of 0.676, so the reported number is a typical draw rather than a
-favourable one. And the seed-to-seed spread in the table of (3) (0.016 over three
-seeds) already contains draw variation, since each seed draws its own reference
-set; isolating the draw at fixed seed gives 0.008, about half of it, so this knob
-is smaller than the seed variation already reported.
+**All twelve runs fall in 0.666-0.716, i.e. 15.2% to 21.1% below the
+no-regularization 0.843: the whole size-and-draw grid moves retention by at most
+5.9 points, so the specific 32-sequence set is not load-bearing. The spread also
+shrinks as the reference grows (sd 0.019, 0.011, 0.008), the signature of sampling
+variation rather than of sensitivity to the data used.** Three checks. Rerunning
+the paper's own draw here gives 0.6829 against 0.6813, a 0.0016-nat
+reproduction gap, so the draw spread is a real effect about ten times that floor,
+and small. The paper's 0.681 sits inside the n=32 range and is slightly worse than
+the four-draw mean 0.676, so it is a typical draw, not a favourable one. And the
+0.016 seed spread in (3) already contains draw variation, since each seed draws its
+own reference set; isolating the draw gives 0.008, so this knob is smaller than the
+seed variation already reported.
 
-On domain we are more careful than our earlier phrasing. A generic-corpus
-reference is not a matched comparison here: requesting 32 WikiText rows delivers
-19 sequences once blank rows are dropped, with 1862 tokens against 849 for a task
-draw and no prompt boundary at all, so a gap measured against it moves domain,
-item count and token budget together. We therefore make no claim from it. The
-paired version, a reference drawn from a different structured-QA task lying
-outside the five evaluation benchmarks, is stated as follow-up in the revision.
+On domain we are more careful than before. A generic-corpus reference is not
+matched here: 32 WikiText rows deliver 19 sequences once blank rows are dropped,
+with 1862 tokens against 849 and no prompt boundary, so a gap against it moves
+domain, item count and token budget together. We make no claim from it; the paired
+version, a reference from a structured-QA task outside the five benchmarks, is
+follow-up in the revision.
 
-On the diagnostic side we re-ran the size ablation on three new seeds and
-the task's own data: against the gap measured on the full 512-sequence slice, B_N
-reaches rs 0.932 ± 0.016 at 8 sequences and 0.932 ± 0.011 at 512, with seed
-agreement on the ordering 0.981 (n=8) rising to 0.998 (n=512); on domain, the
-diagnostic bound is input-conditioned by construction, reading the diagnosed
-task's own validation items, a scope the revision states in the Limitations.
+On the diagnostic side, three new seeds on the task's own data: against the gap on
+the full 512-sequence slice, B_N reaches rs 0.932 ± 0.016 at 8 sequences and
+0.932 ± 0.011 at 512, seed agreement on the ordering rising from 0.981 (n=8) to
+0.998 (n=512). On domain, the diagnostic bound is input-conditioned by
+construction, reading the diagnosed task's own validation items, a scope the
+revision states in the Limitations.
 
-(5) Multiple seeds and source-task performance, the remaining two items of W3;
-both live in the table of (3). **Every method is reported over all three seeds
-(mean ± sd), and the shape penalty's advantage holds in each seed
-separately rather than only on average.** Source-task performance is the
-target-task-loss column, where the shape penalty is also the best (0.872 ± 0.005);
-that column is how the matched-plasticity selection is defined, so no method is
-credited for a low forgetting number bought by under-training.
+(5) Multiple seeds and source-task performance, W3's remaining two items, both in
+(3)'s table. **Every method is reported over all three seeds (mean ± sd),
+and the shape penalty's advantage holds in each seed separately rather than only
+on average.** Source-task performance is the target-task-loss column, where the
+shape penalty is also the best (0.872 ± 0.005); that column defines the
+matched-plasticity selection, so no method is credited for low forgetting bought by
+under-training.
 
 4) W4 + Q2 [原文]:
    [W4] Some conclusions are broader than the evidence. The reported LoRA mean correlation
