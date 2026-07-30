@@ -160,22 +160,11 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
 
 | condition | what was delivered |
 |:--|:--|
-| A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to 0.055 vs 0.082 nats, precision >= 0.8 in 49/55 cells |
-| B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6 the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
-| C. stronger baselines, both settings | ties CKA/SVCCA on identical features while adding what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
+| A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to a leave-one-out MAE of 0.055 nats against 0.082 for predict-the-mean, with precision >= 0.8 at a 0.1-nat threshold in 49/55 cells |
+| B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6x the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
+| C. stronger baselines, both settings | ties CKA/SVCCA on identical features while adding what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (target loss 0.924 against the shape penalty's 0.872) |
 | D. free-running generation, or limit the claims | both: run ($r_s$ +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
 | E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
-
-**One table answers most of B and C.** Every score is computed on the same features
-from one forward pass, the risk gap recomputed from that pass. The n=8 column holds
-the target gap at 512 and varies only the slice the score sees.
-
-| score (identical features, 12 Llama variants, 3 fresh seeds) | slice n=8 | slice n=512 |
-|:--|--:|--:|
-| 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
-| 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
-| our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
-| PRISM $B_N$ (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
 
 ------------------------------------------------------------------------------
 ### A + W-1 + W-6a: usefulness of the bound, and empirical vs population risk
@@ -300,7 +289,8 @@ benchmarks, with the ground-truth gap held at the full 512 sequences:
 | 512 (paper size) | +0.932 ± 0.011 | 0.998 |
 
 **Eight sequences already order the twelve variants as well as 512 do.** The
-requirement is small and stable. To keep the paper's two reference sets distinct
+requirement is small and stable, and at that slice the similarity baselines do not
+hold up, which the four-score table under Condition C shows. To keep the paper's two reference sets distinct
 by name: the **diagnostic set** (512/256 sequences, above) is where the bound and
 the risk gap are computed, and the **regularization reference $D_{\mathrm{ref}}$** (32 held-out
 sequences of the fine-tuned task, Sec. 5.4) is what the trace penalty reads during
@@ -342,8 +332,8 @@ counterpart as diagnosed variant (proxy):
 
 | pair (base -> instruct) | cells where the bound holds | median head share of B | backbone drift vs own `Q2_K` level |
 |:--|--:|--:|:--|
-| Llama-3.1-8B -> Instruct | 5 / 5 | 52% | at that level (0.224 vs 0.225) |
-| Qwen3-8B-Base -> Qwen3-8B | 5 / 5 | 48% | 14x beyond (0.254 vs 0.018) |
+| Llama-3.1-8B -> Instruct | 5 / 5 | 52% | at that level: drift 0.224, `Q2_K` 0.225 |
+| Qwen3-8B-Base -> Qwen3-8B | 5 / 5 | 48% | 14x beyond: drift 0.254, `Q2_K` 0.018 |
 
 Validity and decomposability persist at this distance, with the head term engaging
 at about half of B (pooled median 50%) exactly as the open-head regime predicts;
@@ -374,10 +364,21 @@ Addressed on both halves: the similarity baselines are compared on identical fea
 families are added at matched plasticity (the shape penalty leads every one that
 learns the task).
 
-(i) Diagnostic baselines, on identical features. The four-score table above is the
-like-for-like comparison the condition asks for: every score is computed on the same
-features from one forward pass, with the risk gap recomputed from that same pass, so
-no row enjoys a different extraction. The honest reading is that **the bound cedes
+(i) Diagnostic baselines, on identical features. Every score below is computed on the
+same features from one forward pass, with the risk gap recomputed from that same pass,
+so no row enjoys a different extraction; the n=8 column holds the target gap at 512
+and varies only the slice the score sees.
+
+| score (identical features, 12 Llama variants, 3 fresh seeds) | slice n=8 | slice n=512 |
+|:--|--:|--:|
+| 1-CKA | +0.903 ± 0.015 | +0.931 ± 0.008 |
+| 1-SVCCA | +0.083 ± 0.036 | +0.941 ± 0.014 |
+| our feature arm $\delta_N$ (Procrustes) | +0.924 ± 0.007 | +0.944 ± 0.012 |
+| PRISM $B_N$ (full certified bound) | +0.932 ± 0.016 | +0.932 ± 0.011 |
+
+This is the like-for-like comparison the condition asks for, and its n=8 column also
+carries the size half of Condition B: at the smallest slice the bound holds while
+SVCCA collapses. The honest reading is that **the bound cedes
 nothing on ranking, but it does not beat the similarity scores either.** Paired
 bootstraps make that precise: the full bound vs 1-CKA is +0.001 [-0.004, +0.007]
 here, and the feature arm's small edge on this Llama rerun (+0.013) disappears
