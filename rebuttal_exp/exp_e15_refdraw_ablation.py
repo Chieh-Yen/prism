@@ -557,7 +557,14 @@ def main() -> None:
                   args.tokenizer, args.ref_seed, args.max_length,
                   args.reg_batch_size)
     if args.aggregate:
-        rel = args.draw0 or DRAW0_BY_LAMBDA.get(args.lambda_reg)
+        # "none" (or an empty string) suppresses the anchor entirely, which is
+        # what per-size blocks need: the paper tree's draw 0 is n=32, so
+        # pooling it into an n=8 or n=16 block would mix reference sizes and
+        # (correctly) trip the protocol guard.
+        if args.draw0 in ("none", ""):
+            rel = None
+        else:
+            rel = args.draw0 or DRAW0_BY_LAMBDA.get(args.lambda_reg)
         if rel is None:
             print(f"  [warn] no paper-round draw-0 anchor known for lambda="
                   f"{args.lambda_reg:g} — the replicate cell becomes the only "

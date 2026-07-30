@@ -1836,15 +1836,42 @@ App. I already lists continual learning among the paper's future directions
 revision cites all four methods there, as the first concrete step of that item.
 
 (4) Reference-set sensitivity, which is Q3, measured on both sides. On the
-regularizer side we ran a size-and-domain ablation in a separate sensitivity run
-(Llama-TruthfulQA, trace at lambda 0.5, lr 1e-5, one seed; a run distinct from
-the three-seed table above, so we report its absolute gaps only within itself):
-mean downstream gaps are 0.725 / 0.736 / 0.724 with task-domain references of
-8 / 32 / 128 sequences, and 0.773 with a generic WikiText reference at n=32.
-**Size is not a knob (8 sequences already deliver the full benefit, so the
-32-sequence choice the reviewer asks about is not load-bearing), and leaving the
-task's domain entirely costs ~0.04 nats at matched size (0.773 vs 0.736), so the
-regularizer does not require in-task reference data.** On the diagnostic side we re-ran the size ablation on three new seeds and
+regularizer side we ran the ablation at the paper's own operating point
+(Llama-TruthfulQA, trace at lambda 1.0, lr 1e-5, seed 42, step 300), so its
+numbers sit beside Table 2's 0.681 on the same scale rather than in a separate
+run. We then varied only what the question is about, namely which sequences form
+D_ref: for each size, four draws taken as disjoint windows of one fixed shuffle of
+the task's own test split, verified to share zero sequences pairwise.
+
+  reference size    mean downstream |dR| over 4 disjoint draws
+  n = 8             0.690 +- 0.019   (range 0.668 - 0.716)
+  n = 16            0.685 +- 0.011   (range 0.673 - 0.699)
+  n = 32            0.676 +- 0.008   (range 0.666 - 0.683)
+
+**All twelve runs fall between 0.666 and 0.716, that is 15.2% to 21.1% below the
+no-regularization 0.843, so the whole size-and-draw grid moves retention by at
+most 5.9 points and the specific 32-sequence reference set is not load-bearing.
+The spread also shrinks as the reference grows (sd 0.019, 0.011, 0.008), the
+signature of ordinary sampling variation rather than of sensitivity to which data
+is used.** Three checks on those numbers. Rerunning the paper's own draw through
+this harness gives 0.6829 against the tree's 0.6813, a 0.0016-nat reproduction
+gap, so the draw spread is a real effect about ten times that floor, and small.
+The paper's 0.681 sits inside the n=32 draw range while being slightly worse than
+the four-draw mean of 0.676, so the reported number is a typical draw rather than a
+favourable one. And the seed-to-seed spread in the table of (3) (0.016 over three
+seeds) already contains draw variation, since each seed draws its own reference
+set; isolating the draw at fixed seed gives 0.008, about half of it, so this knob
+is smaller than the seed variation already reported.
+
+On domain we are more careful than our earlier phrasing. A generic-corpus
+reference is not a matched comparison here: requesting 32 WikiText rows delivers
+19 sequences once blank rows are dropped, with 1862 tokens against 849 for a task
+draw and no prompt boundary at all, so a gap measured against it moves domain,
+item count and token budget together. We therefore make no claim from it. The
+paired version, a reference drawn from a different structured-QA task lying
+outside the five evaluation benchmarks, is stated as follow-up in the revision.
+
+On the diagnostic side we re-ran the size ablation on three new seeds and
 the task's own data: against the gap measured on the full 512-sequence slice, B_N
 reaches rs 0.932 ± 0.016 at 8 sequences and 0.932 ± 0.011 at 512, with seed
 agreement on the ordering 0.981 (n=8) rising to 0.998 (n=512); on domain, the
