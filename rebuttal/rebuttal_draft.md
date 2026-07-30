@@ -27,83 +27,86 @@ GENERAL RESPONSE (to all reviewers and the Area Chair)
 ================================================================================
 
 We thank the reviewers and the Area Chair for a careful and constructive
-assessment, and for recognizing the paper's core contributions: the exact,
-closed-form scale/shape decomposition, the vocabulary-independent Lipschitz
-constant that keeps the bound informative at LLM scale, the principled link
-between representation geometry and cross-entropy risk, and the shape term as a
-differentiable training-time regularizer. The reviews converge on a fair and
-useful message: the framework is technically sound, but its practical
-significance and the completeness of its evaluation should be demonstrated
-rather than asserted. We have taken this to heart.
+assessment, and for recognizing the paper's core contributions: the exact
+closed-form scale/shape decomposition, the pairwise head-embedding Lipschitz
+constant that avoids the naive vocabulary-scale blow-up, the principled link
+between representation geometry and cross-entropy risk, and the differentiable
+shape regularizer. The reviews converge on a fair message: the technical core is
+compelling, but its practical significance and evaluation require stronger
+evidence. We have taken this to heart.
 
-Claims we narrow in the revision (as the meta-review suggests), conceding what
-is genuinely limited and substantiating what is not:
-  - Theorem 1 -> a bound on the empirical risk gap over the reference sample,
-    with a concentration corollary for the population version;
-  - the raw bound is scoped to ranking; only the calibrated bound is claimed to
-    answer absolute thresholds;
-  - the reference set is a small slice of the diagnosed task's own validation
-    data; predicting one distribution's degradation from another
-    distribution's features (unpaired use) is outside the derivation and not
-    claimed;
-  - Corollary 1 (autoregressive) -> teacher-forced-only, with trajectory shift
-    an explicit limitation (and a new free-running experiment probing it);
-  - validated claims scoped to PTQ and frozen-head LoRA; full SFT/RLHF is the
-    joint-alignment regime (App. C.3) we leave to future work, with a first
-    base-vs-instruct data point verifying validity there.
+We narrow the following claims:
+  - Theorem 1 is restated as a bound on the empirical risk gap over the reference
+    sample; a population corollary requires i.i.d. sampling and an explicit
+    almost-sure bounded-gap assumption.
+  - The raw bound is used only for ranking. A same-cell isotonic calibration is
+    evaluated as a proof-of-concept predictor for absolute thresholds, not as a
+    certificate.
+  - The reference is a small slice of the diagnosed task's own validation data.
+    Predicting one distribution's degradation from another distribution's
+    features (unpaired use) is outside the derivation and not claimed.
+  - Corollary 1 is restated as teacher-forced-only, with trajectory shift an
+    explicit limitation and a new free-running experiment probing it.
+  - Validated claims remain scoped to PTQ and frozen-head LoRA. In two
+    base-to-instruct comparisons the bound held in all 10 benchmark cells, while
+    tightness and head-varying full SFT/RLHF remain future work (App. C.3).
 
 What the rebuttal establishes, each measured rather than asserted:
-  - **cost**: one forward pass per variant against greedy decoding on the same 256
-    prompts, 8.9 s versus 556.7 s (62.6x);
-  - **free-running**: $r_s$ +0.947 ± 0.015 on self-generated text against
-    +0.958 ± 0.011 teacher-forced, and a teacher-forced bound orders free-running
-    gaps at +0.958 ± 0.011;
-  - **diagnostic reference**: 8 sequences order the 12 variants as well as 512 do
-    ($r_s$ 0.932 either way), with seed agreement on the ordering 0.981 to 0.998;
-  - **regularizer reference**: 8 sequences already deliver the benefit, and four
-    disjoint draws at each of n = 8/16/32 keep downstream forgetting within 5.9
-    points of one another;
-  - **against similarity scores**: on identical features PRISM ranks with CKA and
-    SVCCA at full size and above both at an eight-sequence reference
-    (0.932 ± 0.016 against 0.903 ± 0.015 and 0.083 ± 0.036);
-  - **against forgetting baselines**: at matched plasticity the shape penalty leads
-    on both axes among the methods that learn the task, 0.680 ± 0.016 downstream and
-    0.872 ± 0.005 on the target task, ahead of replay, L2-SP and EWC in every seed;
-    layer-freezing's lower gap is bought at target loss 0.924;
-  - **ranking versus absolute values**: the raw bound is scoped to ranking, since
-    slack is large and not constant (median 1597x) while the gaps themselves span
-    one to two orders of magnitude; per-cell calibration then recovers nats, at
-    leave-one-out MAE 0.055 with precision >= 0.8 at 0.1 nats in 49/55 cells.
+  - **cost**: after one reusable base pass, each variant needs one teacher-forced
+    pass; on the same 256 prompts this took 8.9 s versus 556.7 s for
+    greedy decoding (62.6x).
+  - **free-running**: for 12 Llama PTQ variants on GSM8K,
+    $r_s(B_{\rm free},|\Delta R|_{\rm free})=+0.947\pm0.015$ versus
+    $+0.958\pm0.011$ teacher-forced; the teacher-forced bound orders gaps on
+    proxy-generated trajectories at $+0.958\pm0.011$.
+  - **diagnostic reference**: 8 sequences rank the 12 variants as well as 512
+    ($r_s=0.932$ at both sizes), with cross-seed ordering agreement rising from
+    0.981 to 0.998.
+  - **regularizer reference**: across four draws at each of $n=8/16/32$, all 12
+    runs reduce forgetting by 15.2%-21.1% versus no regularization.
+  - **similarity baselines**: on identical features PRISM is statistically tied
+    with CKA and SVCCA at full size. At 8 sequences its mean correlation is
+    $0.932\pm0.016$, versus $0.903\pm0.015$ and $0.083\pm0.036$.
+  - **actionability**: controlled scale-, rotation-, and head-only interventions
+    move their intended term by at least $2.6\times10^5$ the largest cross-axis
+    leakage, and the bound holds in all 26 configurations. These are causal
+    selectivity tests for the constructed perturbations, not a claim about every
+    natural post-training failure.
+  - **forgetting baselines**: among approximately plasticity-matched penalty
+    baselines, the shape penalty has both the lowest downstream forgetting
+    ($0.680\pm0.016$) and target loss ($0.872\pm0.005$), ahead of replay, L2-SP,
+    and EWC in every seed. Layer-freezing forgets less (0.404) but learns the
+    target less effectively (loss 0.924).
+  - **mixed results**: across all 20 LoRA cells, mean $r_s$ is +0.71, median +0.93,
+    and 18/20 are positive. The two negative cells remain visible and are analyzed
+    separately as low-gap and non-monotone cases; the Llama-BBQ regularizer result
+    remains a genuine partial exception.
+  - **ranking versus magnitude**: raw-bound slack is large and non-constant
+    (median 1597x), so it is not an absolute-risk estimate. A same-cell,
+    leave-one-variant-out isotonic predictor yields MAE 0.055 nats and precision
+    >=0.8 at 0.1 nats in 49/55 cells; it requires measured variants from the same
+    cell and is an amortized screening rule.
 
-A closing word on the larger goal. All four reviews, and the meta-review, credit
-the same core: a timely problem, a decomposition more informative than any single
-similarity score, and a principled link between geometry and risk. The reason we
-pursue exactly that combination is practical: **the ecosystem now produces
-post-trained variants far faster than it can afford to evaluate them, and PRISM
-is our attempt at the missing instrument, a measurement that turns "re-run the
-benchmark suite for every variant" into one forward pass per variant, three
-commensurable numbers, and a remediation direction**, so that the community's
-time goes into building models rather than repeatedly grading them. This review process has made
-the instrument materially sharper: the calibration, the empirical-risk
-restatement, and the stronger baselines exist because the reviewers and the AC
-asked exactly the right questions. The directions we could not fully pursue
-within the rebuttal window (sequential continual learning, the joint-alignment
-regime of full SFT/RLHF, a trajectory-shift term for free-running generation) are
-stated in the revision as the explicit roadmap of this line of work.
+PRISM screens rather than replaces evaluation: after a reusable base pass, one
+teacher-forced pass per variant prioritizes candidates and attributes degradation
+before expensive
+decode-and-grade evaluation. The review process made that instrument materially
+sharper: the calibration, empirical-risk restatement, stronger baselines, and
+failure analyses arose directly from the reviewers' and AC's specific questions.
+Free-running is covered by the same per-trajectory bound and empirically
+stress-tested here; sequential continual learning and head-varying full SFT/RLHF
+form the roadmap.
 
-We believe these results, together with the narrowed framing (PRISM as a
-calibrated, generation-free ranking-and-attribution instrument with an explicitly
-empirical-risk guarantee), directly address the five points of the meta-review,
-and we respectfully ask the AC and reviewers to reconsider in light of the new
-evidence. If any point still appears only partially met, we would welcome the
-chance to complete it during the discussion period.
+We believe this evidence substantially addresses the meta-review's five points
+while explicitly narrowing unsupported scope, and we respectfully ask the AC and
+reviewers to reconsider in light of it. We welcome the opportunity to clarify
+any point that remains unclear during discussion.
 
-Thank you, to all four reviewers and the AC, for the time and care these reviews
-reflect; the paper is genuinely better for it.
+Thank you to all four reviewers and the AC for the time and care reflected in
+their reviews; the paper is genuinely better for it.
 
 ================================================================================
 
-Meta Review (AC)
 AC LN7U (17 Jul 2026, modified 24 Jul 2026), Preliminary: Borderline Reject, "What could change the recommendation?"
 
 ···· ORIGINAL META-REVIEW — verbatim from OpenReview (for 一一對應檢查; internal, DO NOT POST) ····
