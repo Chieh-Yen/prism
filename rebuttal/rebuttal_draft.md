@@ -52,6 +52,28 @@ is genuinely limited and substantiating what is not:
     joint-alignment regime (App. C.3) we leave to future work, with a first
     base-vs-instruct data point verifying validity there.
 
+What the rebuttal establishes, each measured rather than asserted:
+  - **cost**: one forward pass per variant against greedy decoding on the same 256
+    prompts, 8.9 s versus 556.7 s (62.6x);
+  - **free-running**: r_s +0.947 ± 0.015 on self-generated text against
+    +0.958 ± 0.011 teacher-forced, and a teacher-forced bound orders free-running
+    gaps at +0.958 ± 0.011;
+  - **diagnostic reference**: 8 sequences order the 12 variants as well as 512 do
+    (r_s 0.932 either way), with seed agreement on the ordering 0.981 to 0.998;
+  - **regularizer reference**: 8 sequences already deliver the benefit, and four
+    disjoint draws at each of n = 8/16/32 keep downstream forgetting within 5.9
+    points of one another;
+  - **against similarity scores**: on identical features PRISM ties CKA and holds at
+    a small reference (0.932 ± 0.016 at n = 8) where SVCCA collapses (0.083 ± 0.036);
+  - **against forgetting baselines**: at matched plasticity the shape penalty leads
+    on both axes among the methods that learn the task, 0.680 ± 0.016 downstream and
+    0.872 ± 0.005 on the target task, ahead of replay, L2-SP and EWC in every seed;
+    layer-freezing's lower gap is bought at target loss 0.924;
+  - **ranking versus absolute values**: the raw bound is scoped to ranking, since
+    slack is large and not constant (median 1597x) while the gaps themselves span
+    one to two orders of magnitude; per-cell calibration then recovers nats, at
+    leave-one-out MAE 0.055 with precision >= 0.8 at 0.1 nats in 49/55 cells.
+
 A closing word on the larger goal. All four reviews, and the meta-review, credit
 the same core: a timely problem, a decomposition more informative than any single
 similarity score, and a principled link between geometry and risk. The reason we
@@ -139,7 +161,7 @@ RESPONSE; the two experiments carrying most of the load are given once, up front
 | condition | what was delivered |
 |:--|:--|
 | A. empirical or population; how loose; any threshold | restated on the empirical gap + concentration corollary; slack located, two of three sources are cell constants that cannot reorder; calibrated to 0.055 vs 0.082 nats, precision >= 0.8 in 49/55 cells |
-| B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6 the compute of one benchmark run |
+| B. what reference data the bound needs, how little, domain | needs only a small slice of the diagnosed task's own validation data, a scope the revision now states (the invited narrowing); 8 sequences order the variants as 512 do; 1/62.6 the compute of one benchmark run; the regularizer's own reference moves retention by at most 5.9 points across sizes 8-32 and disjoint draws |
 | C. stronger baselines, both settings | ties CKA/SVCCA on identical features while adding what they cannot give (certified bound, axis attribution, trainable objective); shape penalty leads EWC, L2-SP and replay in every seed at matched plasticity; layer-freezing under-learns the task (0.924 vs 0.872) |
 | D. free-running generation, or limit the claims | both: run (r_s +0.947 free-running vs +0.958 teacher-forced), and Corollary 1 restated as teacher-forced-only |
 | E. failures and mixed results | 18/20 LoRA cells positive; both flagged cells explained by stated mechanisms (noise-floor gap / non-monotone gap); Table 22 read as the gating validation it is, its one genuine exception owned |
