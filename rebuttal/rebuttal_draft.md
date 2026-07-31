@@ -43,7 +43,7 @@ We narrow five claims:
   - Theorem 1 is restated as a bound on the empirical risk gap over the reference
     sample; a population corollary requires i.i.d. sampling and an explicit
     almost-sure bounded-gap assumption.
-  - The raw bound is used only for ranking. A same cell isotonic calibration is
+  - The raw bound is used only for ranking. A same-cell isotonic calibration is
     evaluated as a proof-of-concept predictor for absolute thresholds, not as a
     certificate.
   - The reference is a small slice of the diagnosed task's own validation data.
@@ -73,7 +73,7 @@ What the rebuttal establishes, each measured rather than asserted:
     with CKA and SVCCA at full size. At 8 sequences its mean correlation is
     $0.932\pm0.016$ versus $0.903\pm0.015$ and $0.083\pm0.036$.
   - **actionability**: controlled scale-, rotation- and head-only interventions
-    move their intended term by at least $2.6\times10^5$ the largest cross-axis
+    move their intended term by at least $2.6\times10^5\times$ the largest cross-axis
     leakage, and the bound holds in all 26 configurations. These are causal
     selectivity tests for the constructed perturbations, not a claim about every
     natural post-training failure.
@@ -303,12 +303,15 @@ downstream forgetting 0.690 ± 0.019, 0.685 ± 0.011 and 0.676 ± 0.008, with al
 twelve runs 15.2% to 21.1% below the no-regularization 0.843, so **the whole
 size-and-draw grid moves retention by at most 5.9 points.** Two controls: rerunning
 the paper's own draw reproduces it to 0.0016 nats, and the spread shrinks as the
-reference grows, the signature of sampling variation. **On the domain half we have no
-controlled answer, and the bound licenses none.** Preserving shape on generic text
-and expecting benchmark retention is the same distribution-transfer step that (i)
-scopes out, so we treat a generic reference as an untested heuristic rather than a
-claim. The matched test, a reference drawn from a different structured-QA task, is
-follow-up (8VrD Q3).
+reference grows, the signature of sampling variation. **For the diagnostic,
+computing the bound on generic text to predict a benchmark's gap is unpaired use
+and remains out of scope; the regularizer has only an empirical probe.** Under
+the paper's protocol, a generic WikiText reference (19 usable sequences after
+blank-line filtering) reduces
+downstream forgetting to 0.773, against 0.724 to 0.736 with the task's own
+reference across sizes 8 to 128 in the same run family: a single-seed observation,
+not a claim. The matched test, a reference drawn from a different structured-QA
+task, is follow-up (8VrD Q3).
 
 (iii) What that buys, measured on identical prompts (256 GSM8K prompts, one RTX
 5090, model load excluded on both sides):
@@ -565,7 +568,7 @@ protocol acting on that diagnosis (BnB INT8, head unquantized) removes it at a 2
 lower bound, which is a comparison across existing protocols rather than an
 intervention we ran. On the shape axis it closes through training instead: the diagnosis says
 shape dominates LoRA forgetting, and penalizing it directly (Eq. (8)) cuts the gap
-from 0.843 to 0.680 (Point C). Per-channel smoothing for the scale axis is a
+from 0.843 to 0.681 (Point C). Per-channel smoothing for the scale axis is a
 direction we name but do not evaluate, and eQL6 Q2 states that scope. Controlled
 single-axis interventions confirm the attribution is causal (Llama-3.1-8B, $W = I$ default; max |term - control| within each family,
 MMLU / TriviaQA):
@@ -681,7 +684,7 @@ looseness located and then calibrated, so the bound answers "is Q4 actually good
 enough" directly, Q4_K_M predicting 0.055 nats against 0.036 measured, at 1/62.6
 the measured cost of one benchmark run on the same prompts (W2); the mixed head
 protocols behind the small Table 3 delta, with the GGUF-only correlation at
-to 0.943 and 8 reference sequences already ranking as 512 do (W3); GSM8K kept as
+0.943 and 8 reference sequences already ranking as 512 do (W3); GSM8K kept as
 an honest limitation, including a mitigation we tested and report as failing
 (W4); EWC, L2-SP and layer-freezing added, the shape penalty leading in all
 three seeds at matched plasticity (W5); and near-isometry scoped to tightness
@@ -818,9 +821,10 @@ families) and quantifies the reason: long teacher-forced chain-of-thought spans
 dilute per-token loss, so quantization moves GSM8K's mean gap by only about 0.019
 nats against 0.07 to 0.16 elsewhere (Table 10). **That is a property of the
 cross-entropy target itself, inherited by any CE-based proxy including plain
-perplexity screening**: at gaps this small, per-variant differences approach
-measurement noise, and the low correlation reflects how little degradation there is
-left to rank.
+perplexity screening**: the gaps stay small and tightly bunched for most tiers, so
+mild-tier orderings become fragile even though the severe tiers stay clearly
+separated, and a score whose GSM8K components saturate (next paragraph) has little
+left to order with.
 
 What we can separate further is how much of that number is the score side rather
 than the task side. Recomputed under the Procrustes alignment on the paper's own
@@ -1004,9 +1008,9 @@ a mapped fix (item 2), and, once a few variants of a cell are benchmarked,
 calibrates the rest into predicted gaps (W4: Q4_K_M on Llama-MMLU predicts 0.055
 nats against 0.036 measured, so Q4 clears a 0.1-nat bar there). The decode budget
 then goes to the one or two finalists. Where no public benchmark exists at all
-(proprietary or safety-sensitive deployments) PRISM still applies, needing
-reference text rather than a scorer; absent even reference answers, the models'
-own continuations serve (r_s +0.947, W2).
+(proprietary or safety-sensitive deployments) PRISM still applies, needing only
+the task's own text rather than a scorer; absent even reference answers, the
+models' own continuations serve (r_s +0.947, W2).
 
 (1) Cost analysis, itemized as asked; model loading, a one-time cost both sides
 pay, is excluded throughout.
@@ -1817,10 +1821,9 @@ cause real measured damage (|dR| up to 1.39 nats at alpha = 0.5, 0.42 at
 3-bit head), so for these constructed perturbations the attribution is causal,
 not correlational.
 
-(2) The Table 22 cells: we would first note that the reviewer's own strengths already
-state the positive half of our gating thesis, that the shape objective "helps
-address the significant shape drift problem in Llama-TruthfulQA scenarios"; the
-gating analysis simply completes that observation by explaining the "only". 
+(2) The Table 22 cells: the review's Strengths already note the Llama-TruthfulQA
+effect (the shape objective "helps address the significant shape drift problem");
+the gating analysis explains the "only".
 One thing we should have made clearer in the paper, and the fault is ours: **Table 22
 is not a four-setting results table but a gating-validation table.** Its rows are
 ordered by decreasing 1-Omega-bar, the shape drift available to repair, and the claim
@@ -1916,10 +1919,17 @@ the four-draw mean 0.676, so it is a typical draw, not a favourable one. And the
 own reference set; isolating the draw gives 0.008, so this knob is smaller than the
 seed variation already reported.
 
-On the domain half of Q3 we have no controlled answer, and the bound licenses none:
-preserving shape on generic text and expecting benchmark retention is the same
-distribution-transfer step we scope out for the diagnostic, so a generic reference
-is an untested heuristic rather than a claim. The matched test, a reference from a
+On the domain half of Q3, one distinction and one measurement. The distinction:
+for the diagnostic, computing the bound on generic text to predict a benchmark's
+gap is unpaired use, outside the derivation, so we claim nothing there; the
+regularizer carries no such guarantee, so its domain sensitivity is a purely
+empirical question. The measurement, under the paper's protocol:
+a generic WikiText reference (19 usable sequences after blank-line
+filtering) still reduces downstream forgetting to 0.773, against 0.724 to 0.736
+with the task's own reference across sizes 8 to 128 in the same run family. We
+report this as a single-seed empirical observation, not a claim: preserving shape
+on generic text and expecting benchmark retention remains a distribution-transfer
+heuristic the theory does not cover. The matched test, a reference from a
 structured-QA task outside the five benchmarks, is follow-up in the revision.
 
 On the diagnostic side, three new seeds on the task's own data: against the gap on
