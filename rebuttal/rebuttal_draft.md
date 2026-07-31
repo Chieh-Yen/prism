@@ -1859,17 +1859,14 @@ gating rule explicit rather than as a universal win, and per-benchmark gating
 (adaptive per-cell deployment, driven by the decomposition online) is the natural
 next step.
 
-(3) Baselines and scope, which is also Q4. A framing point first, since it fixes
-which baselines are right: the paper's contribution is the diagnostic framework,
-and the shape regularizer (Sec. 5.4) demonstrates that the diagnosed axis is
-actionable, not a bid for state-of-the-art continual learning. The bar is whether
-acting on the diagnosis helps against matched baselines. Replay was not arbitrary:
-in this single-adapter, single-task setting it is the matched comparison (same
-reference data, schedule, compute). We agree, and add the families matched to this setting, weight-space (EWC, L2-SP) and
-architectural (layer-freezing), all protocol-identical, each at the sweep config
-closest to the shape run's target loss (matched plasticity). TruthfulQA, three
-seeds (42/43/44, mean ± sd); downstream forgetting is the mean risk gap over the
-five held-out benchmarks:
+(3) Baselines and scope (also Q4). The paper contributes a diagnostic framework;
+the shape regularizer (Sec. 5.4) tests whether acting on the diagnosis helps, not
+state-of-the-art continual learning. Replay matches this single-adapter,
+single-task setting (same reference data, schedule, compute). We add weight-space
+(EWC, L2-SP) and architectural (layer-freezing) baselines under the same protocol,
+selecting each sweep config closest to the shape run's target loss (matched
+plasticity). TruthfulQA, three seeds (42/43/44, mean ± sd); downstream forgetting
+is the mean risk gap over five held-out benchmarks:
 
 | method | downstream forgetting | target-task loss |
 |:--|--:|--:|
@@ -1882,23 +1879,19 @@ five held-out benchmarks:
 
 The shape penalty forgets least among the methods that learn the task comparably;
 layer-freezing's lower gap is bought at target loss 0.924, trading plasticity for
-retention. The four cited methods
-(SLoRA, two-phase CIT, CLAIM, ArMA) are specialized for sequential
-continual-instruction tuning (a task stream), whereas we mitigate forgetting
-within a single LoRA run; a fair comparison means moving to their benchmarks
+retention. The cited SLoRA, two-phase CIT, CLAIM and ArMA target sequential
+continual-instruction tuning (task streams), whereas we study one LoRA training
+run; a fair comparison means moving to their benchmarks
 rather than adding a baseline here. App. I already lists continual learning as
 future work; the revision cites all four there.
 
-(4) Reference-set sensitivity, which is Q3, on both sides. On the
-regularizer side we ran the ablation at the paper's own operating point
-(Llama-TruthfulQA, trace at lambda 1.0, lr 1e-5, seed 42, step 300), so its
-numbers sit beside Table 2's 0.681 on the same scale. We varied only what the
-question asks about, which sequences form D_ref: four draws per size, disjoint
-windows of one fixed shuffle of the task's own held-out split, verified pairwise
-disjoint. One correction: Sec. 5.1 calls D_ref "32 pre-training sequences", a
-wording error. The code draws, and every number here was produced with, 32
-held-out sequences of the fine-tuned task, disjoint from its training split; the
-revision fixes it.
+(4) Reference-set sensitivity (Q3). For the regularizer, we ablate at the
+paper's operating point (Llama-TruthfulQA, trace at lambda 1.0, lr 1e-5, seed 42,
+step 300), placing the results beside Table 2's 0.681. We vary only D_ref: four
+pairwise-disjoint draws per size from a fixed shuffle of the task's held-out
+split. One correction: Sec. 5.1 calls D_ref "32 pre-training sequences", a wording
+error. The code and every result here use 32 held-out sequences of the fine-tuned
+task, disjoint from training; the revision fixes it.
 
 | reference size | mean downstream forgetting |
 |:--|--:|
