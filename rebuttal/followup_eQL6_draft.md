@@ -4,14 +4,15 @@ as $(Z_P,H_P)\mapsto(Z_PA,A^{-1}H_P)$, $A\in GL(d)$, and choosing a diagnostic
 alignment $W\in O(d)$ for a fixed artifact. We apologize for the confusion and
 excess detail.
 
-**(1) Function-level versus artifact-level diagnosis.** Your counterexample is
+**(1) Coordinate dependence of the diagnosis.** Your counterexample is
 correct: PRISM's attribution is not invariant over the full $GL(d)$ equivalence
 class. Functionally equivalent parameterizations can receive different axis
 diagnoses, so there is no coordinate-free "true" split. Our evaluated setting
 fixes the convention by construction: target and proxy are stored variants of
-the same checkpoint, compared at the same post-final-norm interface, and none of
-the studied PTQ or frozen-head LoRA procedures inserts a compensating basis
-change before the prediction head. This limits the interpretation; it does not
+the same checkpoint, compared at the same final hidden-state interface
+immediately before the prediction head, and none of the studied PTQ or
+frozen-head LoRA procedures inserts a compensating basis change at that
+interface. This limits the interpretation; it does not
 affect Theorem 1, which remains valid for every stated $W\in O(d)$, including
 $W=I$ and the reported $W_N$. We will replace "identifiable from the bound's
 decomposition" with "measured under the stated coordinate and alignment
