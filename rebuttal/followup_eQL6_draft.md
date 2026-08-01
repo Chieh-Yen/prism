@@ -4,22 +4,18 @@ as $(Z_P,H_P)\mapsto(Z_PA,A^{-1}H_P)$, $A\in GL(d)$, and choosing a diagnostic
 alignment $W\in O(d)$ for a fixed artifact. We apologize for the confusion and
 excess detail.
 
-**(1) What the counterexample establishes.** The paired $GL(d)$ transformation
-preserves the proxy logits but can change PRISM's axis values and, in general,
-the resulting certificate value. Thus, two $GL(d)$-related parameterizations can
-receive different axis diagnoses. Without a fixed coordinate convention, there
-is no unique function-level "true" split; each diagnosis is relative to its
-representation coordinates and stated $W$. We therefore agree that PRISM's
-attribution is not invariant over the full $GL(d)$ equivalence class. **Our
-evaluated setting fixes the coordinate convention by construction: each
-target--proxy pair consists of stored variants of the same checkpoint, compared
-at the same post-final-norm interface, and none of the studied PTQ or frozen-head
-LoRA procedures inserts a compensating change of basis before the prediction
-head.** This is a limitation of interpretation, not theorem validity: Theorem 1
-provides a valid certificate for every specified $W\in O(d)$, including $W=I$
-and any selected $W_N$. We will state this scope explicitly and replace
-"identifiable from the bound's decomposition" with "measured under the stated
-coordinate and alignment convention."
+**(1) Function-level versus artifact-level diagnosis.** Your counterexample is
+correct: PRISM's attribution is not invariant over the full $GL(d)$ equivalence
+class. Functionally equivalent parameterizations can receive different axis
+diagnoses, so there is no coordinate-free "true" split. Our evaluated setting
+fixes the convention by construction: target and proxy are stored variants of
+the same checkpoint, compared at the same post-final-norm interface, and none of
+the studied PTQ or frozen-head LoRA procedures inserts a compensating basis
+change before the prediction head. This limits the interpretation; it does not
+affect Theorem 1, which remains valid for every stated $W\in O(d)$, including
+$W=I$ and the reported $W_N$. We will replace "identifiable from the bound's
+decomposition" with "measured under the stated coordinate and alignment
+convention."
 
 **(2) The exact invariance boundary.** The reviewer's $A$ reparameterizes the
 model artifact, whereas PRISM's $W$ is a diagnostic alignment. Undoing a general
