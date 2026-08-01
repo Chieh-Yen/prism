@@ -42,8 +42,12 @@ measures: LRH suggests that linearly accessible directions can carry meaningful
 variables, while PRH suggests that relational geometry can be comparable across
 learned representations. Together with the model's actual linear `lm_head`,
 these observations motivate testing a linear bridge through the hybrid logits
-$Z_PWH_T$. They do not imply that $W\in O(d)$ or that same-base variants must be
-related by an isometry.
+$Z_PWH_T$. Intuitively, $W$ maps proxy features into target coordinates:
+$Z_PW$ can be compared with $Z_T$, while $WH_T$ expresses the target readout in
+proxy coordinates for comparison with $H_P$. This tests whether one orthogonal
+map can jointly align the observed feature directions; it does not assume that
+individual coordinates encode individual concepts. Neither hypothesis requires
+$W\in O(d)$ or guarantees that the resulting alignment residual is small.
 
 The orthogonal restriction instead comes from the geometry PRISM preserves and
 decomposes. Among linear maps, $O(d)$ is exactly the group preserving the
