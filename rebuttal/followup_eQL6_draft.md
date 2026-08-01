@@ -17,22 +17,20 @@ $W=I$ and the reported $W_N$. We will replace "identifiable from the bound's
 decomposition" with "measured under the stated coordinate and alignment
 convention."
 
-**(2) The exact invariance boundary.** The reviewer's $A$ reparameterizes the
-model artifact, whereas PRISM's $W$ is a diagnostic alignment. Undoing a general
-$A$ in the feature comparison would require $\widetilde W=A^{-1}W$, which need
-not be orthogonal; an orthogonal $W$ therefore cannot generally undo a
-non-orthogonal $A$. If $A=Q\in O(d)$, however, let
-$\widetilde Z_P=Z_PQ$, $\widetilde H_P=Q^\top H_P$, and
-$\widetilde W=Q^\top W$. Then $\widetilde Z_P\widetilde W=Z_PW$ and
+**(2) What remains invariant under $O(d)$.** For a general $A$, transporting the
+alignment gives $\widetilde W=A^{-1}W$, which generally falls outside $O(d)$.
+If $A=Q\in O(d)$, set $\widetilde Z_P=Z_PQ$,
+$\widetilde H_P=Q^\top H_P$, and $\widetilde W=Q^\top W$. Then
 $$
+\widetilde Z_P\widetilde W=Z_PW,\qquad
 \widetilde\Sigma_P^{1/2}
 (\widetilde W H_T-\widetilde H_P)
 =Q^\top\Sigma_P^{1/2}(WH_T-H_P).
 $$
-Hence the scale, shape, and head terms are unchanged. In plain terms, a jointly
-transported orthogonal reparameterization only relabels coordinates; this
-equivariance is not guaranteed for general $A\in GL(d)$ or when $W$ is held
-fixed. We will add this statement as a formal remark.
+Because $Q$ preserves Frobenius norms, the scale, shape, and head terms are
+unchanged. Thus, the attribution is invariant to orthogonal coordinate changes
+when $W$ is transported with them, but not in general to $GL(d)$ changes or when
+$W$ is held fixed. We will add this boundary as a formal remark.
 
 **(3) Scope of the reported diagnosis.** Within this fixed convention, we use
 $W=I$ for axis-level diagnosis and the regularizer, and report the
@@ -69,6 +67,6 @@ Finally, "tool" meant PRISM, and "workflow" meant screening same-lineage
 variants in their inherited coordinates; neither is a mathematical premise. We
 will remove the original phrase.
 
-We would value knowing whether the explicit $GL(d)$ limitation, the exact
-$O(d)$-equivariance boundary, and the native-coordinate scope resolve the
-ambiguity you identified.
+Your counterexample helped us sharpen this theoretical boundary. We would value
+knowing whether the explicit $GL(d)$ limitation, the exact $O(d)$-equivariance
+boundary, and the native-coordinate scope resolve the ambiguity you identified.
