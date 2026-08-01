@@ -49,22 +49,14 @@ map can jointly align the observed feature directions; it does not assume that
 individual coordinates encode individual concepts. Neither hypothesis requires
 $W\in O(d)$ or guarantees that the resulting alignment residual is small.
 
-The orthogonal restriction instead comes from the geometry PRISM preserves and
-decomposes. Among linear maps, $O(d)$ is exactly the group preserving the
-standard Euclidean inner product, and hence norms, distances, and angles.
-Allowing anisotropic scale or shear would let $W$ absorb the very scale and
-shape changes PRISM aims to measure. Orthogonality therefore yields Proposition
-1's exact scale--shape identity and the equivariance above. We will revise the
-motivation to distinguish this empirical inspiration from the mathematical
-design choice.
-
-By "cheap," we meant only the empirical cost of excluding anisotropic scale and
-shear after factoring out one global scale, not proof of orthogonality or
-raw-bound tightness. In a separate top-$r$ Llama test, an unconstrained linear
-least-squares map reduces the Q2_K residual by 18.3% on average over MMLU and
-SQuAD relative to rotation plus one global scale. This is limited evidence of
-adequacy in the measured subspaces; it neither resolves the $GL(d)$ ambiguity
-nor bears on theorem validity.
+We restrict $W$ to $O(d)$ to preserve the Euclidean geometry PRISM decomposes.
+These are precisely the linear maps that preserve the standard Euclidean inner
+product, and therefore norms, distances, and angles. A general linear map could
+absorb scaling and shear, so those changes would be partly fitted away rather
+than reflected in PRISM's scale and shape terms. This preservation yields
+Proposition 1's exact scale--shape identity and the equivariance above. We will
+revise the motivation to distinguish this empirical inspiration from the
+mathematical design choice.
 
 Finally, "tool" meant PRISM, and "workflow" meant screening same-lineage
 variants in their inherited coordinates; neither is a mathematical premise. We
