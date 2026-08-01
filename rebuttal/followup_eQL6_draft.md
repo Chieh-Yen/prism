@@ -1,35 +1,33 @@
-Thank you for the precise counterexample. You are correct: it exposes that our
-previous response conflated two different operations---choosing an alignment
-$W$ for fixed artifacts, and first reparameterizing the proxy artifact by
-$(Z_P,H_P)\mapsto(Z_PA,A^{-1}H_P)$. We apologize for the unclear and overlong
-explanation.
+Thank you for the precise counterexample. It exposed that our previous response
+conflated choosing $W$ for fixed artifacts with reparameterizing the artifacts
+themselves; we apologize for the resulting confusion and unnecessary exposition.
 
-**(1) Correction to our previous response.** We agree that our previous
-identifiability rationale was too strong. Your counterexample shows that a
-general $GL(d)$ reparameterization can preserve the proxy logits while changing
+**(1) Correction to our previous response.** Our previous identifiability
+rationale was too strong. Your counterexample shows that a general $GL(d)$
+reparameterization can preserve the proxy logits while changing
 the numerical split across PRISM's three axes. The precise conclusion is that
 the attribution is defined relative to specified representation coordinates
 and a stated orthogonal alignment $W$, rather than being determined solely by
 the input--output function. This narrows the interpretation of the
 decomposition, while Theorem 1 provides a valid certificate for every chosen
 $W\in O(d)$, including $W=I$ and the reported $W_N$ specialization. We will
-make this scope explicit and replace the paper's informal phrase ``identifiable
-from the bound's decomposition'' with ``isolated by the bound's
-decomposition.''
+make this scope explicit and replace the paper's informal phrase "identifiable
+from the bound's decomposition" with "isolated by the bound's
+decomposition."
 
 **(2) What does hold under $O(d)$.** Let $Q\in O(d)$ and reparameterize the
-proxy as $\widetilde Z_P=Z_PQ$ and $\widetilde H_P=Q^\top H_P$. For every
-$W\in O(d)$, transport the alignment as $\widetilde W=Q^\top W$. Then
-$\widetilde Z_P\widetilde W=Z_PW$, so the feature residual, $\rho_P$, and
+proxy as $\widetilde{Z}_P=Z_PQ$ and $\widetilde{H}_P=Q^\top H_P$. For every
+$W\in O(d)$, transport the alignment as $\widetilde{W}=Q^\top W$. Then
+$\widetilde{Z}_P\widetilde{W}=Z_PW$, so the feature residual, $\rho_P$, and
 $\delta$ are unchanged. Moreover,
-\[
-\widetilde\Sigma_P=Q^\top\Sigma_PQ,
-\qquad
-\widetilde\Sigma_P^{1/2}
-(\widetilde W H_T-\widetilde H_P)
-=Q^\top\Sigma_P^{1/2}(WH_T-H_P),
-\]
-which gives $\widetilde\gamma(\widetilde W)=\gamma(W)$. Hence
+$$
+\widetilde{\Sigma}_P = Q^\top \Sigma_P Q,\qquad
+\widetilde{\Sigma}_P^{1/2}
+\left(\widetilde{W}H_T-\widetilde{H}_P\right)
+=
+Q^\top\Sigma_P^{1/2}\left(WH_T-H_P\right).
+$$
+Therefore, $\widetilde{\gamma}(\widetilde{W})=\gamma(W)$. Hence
 $W\mapsto Q^\top W$ is a bijection between the two certificate families, and
 the feature-optimal values $\Omega_N$ and $\delta_N$ are invariant.
 Geometrically, $\delta(W)$ is the residual after mapping proxy features to target
@@ -52,25 +50,28 @@ Comparisons after an independent change of representation coordinates,
 including deliberately $GL(d)$-reparameterized artifacts, are outside the
 validated scope and will be stated as a limitation.
 
-**(4) Why we use $O(d)$, and where the representation hypotheses enter.** You
-are right that neither hypothesis implies an orthogonal map between pre- and
-post-trained checkpoints. LRH concerns linear concept representations and does
-not privilege the Euclidean inner product; PRH concerns convergence of
-relational structure. We will withdraw the implication and cite them only as
-context. The actual reasons for choosing $O(d)$ are two provable properties:
-orthogonal maps preserve the Euclidean geometry used by the axes and yield
-Proposition 1's exact scale--shape identity, and the certificate family has the
-$O(d)$-equivariance shown above. A general linear alignment carries scale and
-shear itself, so it can absorb those components into the fitted map and no
-longer supports the same axis interpretation. As a limited empirical check, not
-a resolution of the $GL(d)$ ambiguity, our top-$r$ Llama ablation compares an
-unrestricted linear map with a scaled-orthogonal map, factoring out the global
-scale modeled separately by PRISM. The unrestricted map reduces the Q2_K
-residual by 18.3% on average over MMLU and SQuAD; this supports adequacy in the
-measured subspaces only, not theorem validity. Theorem 1 remains valid for every
-$W\in O(d)$.
+**(4) Where the representation hypotheses enter, more precisely.** You are
+right that our previous response moved too quickly from shared structure to an
+orthogonal map. LRH suggests linearly accessible concept directions; PRH
+suggests that learned representations may share relational structure. Together,
+they motivate testing an explicit map $W$ as a bridge between the spaces,
+operationalized by the hybrid logits $Z_PWH_T$; they motivate the bridge, not
+its restriction to $O(d)$.
 
-Finally, by the previous phrase ``the workflow the tool serves,'' we meant only
+That restriction comes from the geometry PRISM aims to preserve. Its axes use
+Euclidean norms, distances, and angles, which orthogonal maps preserve; a
+general linear fit can absorb scale and shear into $W$, so the residual loses
+the same axis interpretation. This yields Proposition 1's exact scale--shape
+identity and the $O(d)$-equivariance above.
+
+By "cheap," we meant the empirical cost at the feature-alignment level, not
+that LRH/PRH prove orthogonality or that the raw bound is tight. In our top-$r$
+Llama ablation, unrestricted alignment reduces the Q2_K residual by 18.3% on
+average over MMLU and SQuAD relative to scaled-orthogonal alignment. This is
+limited evidence of adequacy in the measured subspaces; it neither resolves the
+$GL(d)$ ambiguity nor bears on theorem validity.
+
+Finally, by the previous phrase "the workflow the tool serves," we meant only
 PRISM's intended use: screening same-lineage post-trained variants and
 attributing drift in their inherited coordinates. It was operational context,
 not a mathematical premise, and we will remove that phrase.
