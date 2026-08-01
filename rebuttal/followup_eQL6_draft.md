@@ -58,9 +58,12 @@ Proposition 1's exact scale--shape identity and the equivariance above. We will
 revise the motivation to distinguish this empirical inspiration from the
 mathematical design choice.
 
-Finally, "tool" meant PRISM, and "workflow" meant screening same-lineage
-variants in their inherited coordinates; neither is a mathematical premise. We
-will remove the original phrase.
+Finally, we agree that the quoted sentence was opaque. By "tool" we meant
+PRISM; by "workflow" we meant screening same-lineage variants in their inherited
+coordinates with one teacher-forced pass per variant and reporting axis-level
+drift. That use case explains our evaluation setting, but it is not the
+mathematical justification for restricting $W$ to $O(d)$; we will remove the
+original sentence.
 
 Your counterexample helped us sharpen this theoretical boundary. We would value
 knowing whether the explicit $GL(d)$ limitation, the exact $O(d)$-equivariance
