@@ -27,7 +27,8 @@ $$
 (\widetilde W H_T-\widetilde H_P)
 =Q^\top\Sigma_P^{1/2}(WH_T-H_P).
 $$
-Because $Q$ preserves Frobenius norms, the scale, shape, and head terms are
+Orthogonal invariance of the Frobenius norm, together with
+$\widetilde Z_P\widetilde W=Z_PW$, leaves the scale, shape, and head terms
 unchanged. Thus, the attribution is invariant to orthogonal coordinate changes
 when $W$ is transported with them, but not in general to $GL(d)$ changes or when
 $W$ is held fixed. We will add this boundary as a formal remark.
