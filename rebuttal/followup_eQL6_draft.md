@@ -35,19 +35,24 @@ unchanged. Thus, the attribution is invariant to orthogonal coordinate changes
 when $W$ is transported with them, but not in general to $GL(d)$ changes or when
 $W$ is held fixed. We will add this boundary as a formal remark.
 
-**(3) Where the representation hypotheses enter.** You are also right that
-neither LRH nor PRH by itself implies an orthogonal relation between pre- and
-post-trained checkpoints. LRH motivates testing whether linearly accessible
-semantic directions correspond across same-base checkpoints; PRH motivates
-testing whether their relational geometry remains comparable. Together, they
-motivate testing a linear bridge through the hybrid logits $Z_PWH_T$, but not
-the restriction $W\in O(d)$.
+**(3) Where the representation hypotheses enter.** You are right that neither
+LRH nor PRH implies an orthogonal relation between pre- and post-trained
+checkpoints. We use them only as high-level motivation for the structure PRISM
+measures: LRH suggests that linearly accessible directions can carry meaningful
+variables, while PRH suggests that relational geometry can be comparable across
+learned representations. Together with the model's actual linear `lm_head`,
+these observations motivate testing a linear bridge through the hybrid logits
+$Z_PWH_T$. They do not imply that $W\in O(d)$ or that same-base variants must be
+related by an isometry.
 
-That restriction instead preserves the geometry PRISM decomposes: orthogonal
-maps preserve Euclidean norms, distances, and angles, whereas a general linear
-fit can absorb scale and shear into $W$ and thereby change the axes'
-interpretation. Orthogonality also yields Proposition 1's exact scale--shape
-identity and the equivariance above.
+The orthogonal restriction instead comes from the geometry PRISM preserves and
+decomposes. Among linear maps, $O(d)$ is exactly the group preserving the
+standard Euclidean inner product, and hence norms, distances, and angles.
+Allowing anisotropic scale or shear would let $W$ absorb the very scale and
+shape changes PRISM aims to measure. Orthogonality therefore yields Proposition
+1's exact scale--shape identity and the equivariance above. We will revise the
+motivation to distinguish this empirical inspiration from the mathematical
+design choice.
 
 By "cheap," we meant only the empirical cost of excluding anisotropic scale and
 shear after factoring out one global scale, not proof of orthogonality or
