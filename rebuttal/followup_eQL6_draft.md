@@ -4,18 +4,18 @@ $W$ for fixed artifacts, and first reparameterizing the proxy artifact by
 $(Z_P,H_P)\mapsto(Z_PA,A^{-1}H_P)$. We apologize for the unclear and overlong
 explanation.
 
-**(1) What the $GL(d)$ counterexample establishes.** For a general
-$A\in GL(d)$,
-\[
-    (Z_PA)(A^{-1}H_P)=Z_PH_P,
-\]
-so the logits and risk gap are unchanged, whereas $\delta$ and $\gamma$ generally
-change. Each parameterization still gives a valid, potentially different upper
-bound on the same $|\Delta\mathcal R|$, but the three-axis attribution is not an
-invariant of the input--output function over the full $GL(d)$ equivalence class.
-Thus, without a specified gauge, there is no unique function-level ``true
-failure.'' We will state this limitation explicitly and replace our formal
-identifiability claim with a coordinate-relative one.
+**(1) Correction to our previous response.** We agree: the counterexample shows
+that the function-level identifiability rationale we introduced in our previous
+response was too strong. Under an arbitrary $GL(d)$ reparameterization that
+preserves the same logits, PRISM may allocate the mismatch differently across
+its three axes. These attributions are relative to the chosen representation
+coordinates; neither is privileged until those coordinates are specified. This
+does not affect Theorem 1 or PRISM's within-coordinate-system diagnosis. The
+submitted paper does not state $GL(d)$-invariant identifiability as a theorem;
+nevertheless, we will replace its informal phrase ``identifiable from the
+bound's decomposition'' with ``isolated by the bound's decomposition'' and
+explicitly scope our empirical diagnoses to the native coordinates inherited
+from the shared base checkpoint.
 
 **(2) What does hold under $O(d)$.** Let $Q\in O(d)$ and reparameterize the
 proxy as $\widetilde Z_P=Z_PQ$ and $\widetilde H_P=Q^\top H_P$. For every
@@ -36,16 +36,16 @@ not extend to a general $A$, and it requires transporting $W$: if the proxy is
 rotated while $W=I$ is kept fixed, the reported split can change. We will add
 this precise equivariance statement as a formal remark.
 
-**(3) The operational gauge in this paper.** Our experiments explicitly use
-the native coordinates inherited from a shared base checkpoint. PTQ rounding,
-GGUF, BnB, and frozen-head LoRA perturb that checkpoint without inserting a
-compensating $(A,A^{-1})$ pair at the backbone--head interface; $Z_P$ is the
-post-final-norm state measured in those native coordinates. We therefore read
-$W=I$ as a fixed-coordinate diagnosis for the same-lineage variants studied,
-and the corresponding interventions (e.g., retaining the base `lm_head`) are
-defined in that same coordinate system. Comparisons across independently chosen
-gauges, or deliberately $GL(d)$-reparameterized artifacts, are outside the
-validated scope and will be stated as a limitation.
+**(3) The representation coordinates used in this paper.** Our experiments
+explicitly use the native coordinates inherited from a shared base checkpoint.
+PTQ rounding, GGUF, BnB, and frozen-head LoRA perturb that checkpoint without
+inserting a compensating $(A,A^{-1})$ pair at the backbone--head interface;
+$Z_P$ is the post-final-norm state measured in those native coordinates. We
+therefore read $W=I$ as a fixed-coordinate diagnosis for the same-lineage
+variants studied, and the corresponding interventions (e.g., retaining the base `lm_head`) are
+defined in that same coordinate system. Comparisons after an independent change
+of representation coordinates, including deliberately $GL(d)$-reparameterized
+artifacts, are outside the validated scope and will be stated as a limitation.
 
 **(4) Why we use $O(d)$, and where the representation hypotheses enter.** You
 are right that neither hypothesis implies an orthogonal map between pre- and
