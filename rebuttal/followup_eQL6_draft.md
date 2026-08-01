@@ -11,11 +11,13 @@ fixes the convention by construction: target and proxy are stored variants of
 the same checkpoint, compared at the same final hidden-state interface
 immediately before the prediction head, and none of the studied PTQ or
 frozen-head LoRA procedures inserts a compensating basis change at that
-interface. This limits the interpretation; it does not
-affect Theorem 1, which remains valid for every stated $W\in O(d)$, including
-$W=I$ and the reported $W_N$. We will replace "identifiable from the bound's
-decomposition" with "measured under the stated coordinate and alignment
-convention."
+interface. This limits the interpretation; it does not affect Theorem 1, which
+remains valid for every stated $W\in O(d)$. In the reported experiments, $W=I$
+is the fixed convention for axis-level diagnosis and regularization; $W_N$ is
+reported separately in the ranking ablation as an orthogonal Procrustes solution
+minimizing the feature-alignment residual. We will replace "identifiable from
+the bound's decomposition" with "measured under the stated coordinate and
+alignment convention."
 
 **(2) What remains invariant under $O(d)$.** For a general $A$, transporting the
 alignment gives $\widetilde W=A^{-1}W$, which generally falls outside $O(d)$.
@@ -33,16 +35,7 @@ unchanged. Thus, the attribution is invariant to orthogonal coordinate changes
 when $W$ is transported with them, but not in general to $GL(d)$ changes or when
 $W$ is held fixed. We will add this boundary as a formal remark.
 
-**(3) Scope of the reported diagnosis.** Within this fixed convention, we use
-$W=I$ for axis-level diagnosis and the regularizer, and report the
-feature-optimal $W_N$ specialization for ranking, with the alignment stated in
-each case. The reported attributions are therefore well-defined for these fixed
-artifacts. The theorem still applies to a reparameterized artifact for each
-specified orthogonal $W$; what we do not claim is coordinate-free attribution
-across deliberately $GL(d)$-reparameterized artifacts. We will state this
-limitation explicitly.
-
-**(4) Where the representation hypotheses enter.** You are also right that
+**(3) Where the representation hypotheses enter.** You are also right that
 neither LRH nor PRH by itself implies an orthogonal relation between pre- and
 post-trained checkpoints. LRH motivates testing whether linearly accessible
 semantic directions correspond across same-base checkpoints; PRH motivates
