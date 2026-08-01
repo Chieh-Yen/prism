@@ -31,10 +31,13 @@ $\delta$ are unchanged. Moreover,
 \]
 which gives $\widetilde\gamma(\widetilde W)=\gamma(W)$. Hence
 $W\mapsto Q^\top W$ is a bijection between the two certificate families, and
-the feature-optimal values $\Omega_N$ and $\delta_N$ are invariant. This does
-not extend to a general $A$, and it requires transporting $W$: if the proxy is
-rotated while $W=I$ is kept fixed, the reported split can change. We will add
-this precise equivariance statement as a formal remark.
+the feature-optimal values $\Omega_N$ and $\delta_N$ are invariant.
+Geometrically, $\delta(W)$ is the residual after mapping proxy features to target
+coordinates, whereas $\gamma(W)$ compares $H_P$ with the target head transported
+by $W$ on directions supported by $Z_P$; reducing one need not reduce the other.
+This equivariance does not extend to a general $A$, and it requires transporting
+$W$: if the proxy is rotated while $W=I$ is kept fixed, the reported split can
+change. We will add this precise equivariance statement as a formal remark.
 
 **(3) The representation coordinates used in this paper.** Our experiments
 explicitly use the native coordinates inherited from a shared base checkpoint.
