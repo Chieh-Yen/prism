@@ -28,9 +28,13 @@ $$
 \widetilde Z_P\widetilde W=Z_PW,\qquad
 \widetilde\Sigma_P=Q^\top\Sigma_PQ.
 $$
-Because $\widetilde W\in O(d)$, orthogonal invariance also gives
-$\widetilde\rho_P=\rho_P$ and
-$\widetilde\Omega_{\widetilde W}=\Omega_W$.
+Since right-multiplication by $Q$ preserves the Frobenius norm,
+$\widetilde\rho_P=\rho_P$. Together,
+$\widetilde Z_P\widetilde W=Z_PW$ and
+$\|\widetilde Z_P\|_F=\|Z_P\|_F$ give
+$\widetilde\Omega_{\widetilde W}=\Omega_W$. Moreover,
+$\widetilde W=Q^\top W\in O(d)$, so the transported alignment remains in
+Theorem 1's admissible family.
 For the principal PSD square root,
 $\widetilde\Sigma_P^{1/2}=Q^\top\Sigma_P^{1/2}Q$, and hence
 $$
@@ -62,17 +66,17 @@ We restrict $W$ to $O(d)$ to preserve the Euclidean geometry PRISM decomposes.
 The elements of $O(d)$ are precisely the linear maps that preserve the standard
 Euclidean inner product, and therefore norms, distances, and angles. A general
 linear map can absorb scaling and shear into $W$, so the residual no longer has
-the same scale--shape interpretation. This preservation yields Proposition 1's
-exact scale--shape identity and the equivariance above. We will revise Secs. 2–3,
-Appendix C, and the checklist to distinguish this empirical inspiration from the
-mathematical design choice.
+the same scale–shape interpretation. This preservation yields Proposition 1's
+exact scale–shape identity and the equivariance above. We will revise Secs. 2–3,
+Appendix C, and the limitation statement to distinguish this empirical inspiration
+from the mathematical design choice.
 
 Finally, we agree that the quoted sentence was opaque. By "tool" we meant
 PRISM; by "workflow" we meant screening same-lineage variants in their inherited
 coordinates with one teacher-forced pass per variant and reporting axis-level
 drift. That use case explains our evaluation setting, but it is not the
-mathematical justification for restricting $W$ to $O(d)$; we will remove the
-original sentence.
+mathematical justification for restricting $W$ to $O(d)$; we withdraw that
+sentence.
 
 Your counterexample helped us sharpen this theoretical boundary. We would value
 knowing whether the explicit $GL(d)$ limitation, the exact $O(d)$-equivariance
