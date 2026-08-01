@@ -6,9 +6,10 @@ exposition.
 **(1) Coordinate dependence of the diagnosis.** Your counterexample is
 correct: PRISM's attribution is not invariant over the full $GL(d)$ equivalence
 class. Functionally equivalent parameterizations can receive different axis
-diagnoses, so there is no coordinate-free "true" split. Our evaluated setting
-fixes the convention by construction: target and proxy are stored variants of
-the same checkpoint, compared at the same final hidden-state interface
+diagnoses, so PRISM does not define a coordinate-free "true" split over that
+equivalence class. Our evaluated setting fixes the convention by construction:
+target and proxy are stored variants of the same checkpoint, compared at the
+same final hidden-state interface
 immediately before the prediction head, and none of the studied PTQ or
 frozen-head LoRA procedures inserts a compensating basis change at that
 interface. This limits the interpretation; it does not affect Theorem 1, which
@@ -25,13 +26,21 @@ If $A=Q\in O(d)$, set $\widetilde Z_P=Z_PQ$,
 $\widetilde H_P=Q^\top H_P$, and $\widetilde W=Q^\top W$. Then
 $$
 \widetilde Z_P\widetilde W=Z_PW,\qquad
+\widetilde\Sigma_P=Q^\top\Sigma_PQ.
+$$
+Because $\widetilde W\in O(d)$, orthogonal invariance also gives
+$\widetilde\rho_P=\rho_P$ and
+$\widetilde\Omega_{\widetilde W}=\Omega_W$.
+For the principal PSD square root,
+$\widetilde\Sigma_P^{1/2}=Q^\top\Sigma_P^{1/2}Q$, and hence
+$$
 \widetilde\Sigma_P^{1/2}
 (\widetilde W H_T-\widetilde H_P)
 =Q^\top\Sigma_P^{1/2}(WH_T-H_P).
 $$
-Orthogonal invariance of the Frobenius norm, together with
-$\widetilde Z_P\widetilde W=Z_PW$, leaves the scale, shape, and head terms
-unchanged. Thus, the attribution is invariant to orthogonal coordinate changes
+These equalities, together with orthogonal invariance of the Frobenius norm,
+leave the scale, shape, and head terms unchanged. Thus, the attribution is
+invariant to orthogonal coordinate changes
 when $W$ is transported with them, but not in general to $GL(d)$ changes or when
 $W$ is held fixed. We will add this boundary as a formal remark.
 
@@ -44,18 +53,18 @@ learned representations. Together with the model's actual linear `lm_head`,
 these observations motivate testing a linear bridge through the hybrid logits
 $Z_PWH_T$. Intuitively, $W$ maps proxy features into target coordinates:
 $Z_PW$ can be compared with $Z_T$, while $WH_T$ expresses the target readout in
-proxy coordinates for comparison with $H_P$. This tests whether one orthogonal
-map can jointly align the observed feature directions; it does not assume that
-individual coordinates encode individual concepts. Neither hypothesis requires
-$W\in O(d)$ or guarantees that the resulting alignment residual is small.
+proxy coordinates for comparison with $H_P$. The construction uses one shared
+$W$ across all observed feature directions; it does not equate coordinate axes
+with individual concepts. Neither hypothesis guarantees that the resulting
+alignment residual is small.
 
 We restrict $W$ to $O(d)$ to preserve the Euclidean geometry PRISM decomposes.
-These are precisely the linear maps that preserve the standard Euclidean inner
-product, and therefore norms, distances, and angles. A general linear map could
-absorb scaling and shear, so those changes would be partly fitted away rather
-than reflected in PRISM's scale and shape terms. This preservation yields
-Proposition 1's exact scale--shape identity and the equivariance above. We will
-revise the motivation to distinguish this empirical inspiration from the
+The elements of $O(d)$ are precisely the linear maps that preserve the standard
+Euclidean inner product, and therefore norms, distances, and angles. A general
+linear map can absorb scaling and shear into $W$, so the residual no longer has
+the same scale--shape interpretation. This preservation yields Proposition 1's
+exact scale--shape identity and the equivariance above. We will revise Secs. 2–3,
+Appendix C, and the checklist to distinguish this empirical inspiration from the
 mathematical design choice.
 
 Finally, we agree that the quoted sentence was opaque. By "tool" we meant
