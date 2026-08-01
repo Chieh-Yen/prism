@@ -1,8 +1,7 @@
-Thank you for the precise counterexample. You are correct that our previous
-response conflated two different operations: reparameterizing the proxy artifact
-as $(Z_P,H_P)\mapsto(Z_PA,A^{-1}H_P)$, $A\in GL(d)$, and choosing a diagnostic
-alignment $W\in O(d)$ for a fixed artifact. We apologize for the confusion and
-excess detail.
+Thank you for the precise follow-up. Our previous response conflated
+reparameterizing the proxy representation/head pair with choosing an alignment
+for a fixed pair; we apologize for the resulting confusion and unnecessary
+exposition.
 
 **(1) Coordinate dependence of the diagnosis.** Your counterexample is
 correct: PRISM's attribution is not invariant over the full $GL(d)$ equivalence
