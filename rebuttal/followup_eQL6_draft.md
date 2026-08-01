@@ -1,83 +1,78 @@
-Thank you for the precise counterexample. It showed that our previous response
-conflated choosing $W$ for a fixed $(Z_P,H_P)$ with replacing that pair by the
-functionally equivalent $(Z_PA,A^{-1}H_P)$, $A\in GL(d)$; we apologize for the
-confusion and excess detail.
+Thank you for the precise counterexample. You are correct that our previous
+response conflated two different operations: reparameterizing the proxy artifact
+as $(Z_P,H_P)\mapsto(Z_PA,A^{-1}H_P)$, $A\in GL(d)$, and choosing a diagnostic
+alignment $W\in O(d)$ for a fixed artifact. We apologize for the confusion and
+excess detail.
 
-**(1) Correction to our previous response.** Our previous function-level
-identifiability rationale was too strong. Such a paired $GL(d)$
-reparameterization preserves the proxy logits but can change the numerical
-split across PRISM's three axes. Thus, the attribution is defined relative to
-specified representation coordinates and a stated orthogonal alignment $W$,
-rather than being determined solely by the input--output function. This narrows
-the interpretation of the decomposition, while Theorem 1 provides a valid
-certificate for each specified $W\in O(d)$, including $W=I$ and the reported
-$W_N$ specialization. We will make this scope explicit and replace the paper's
-informal phrase "identifiable
-from the bound's decomposition" with "isolated by the bound's
-decomposition."
+**(1) What the counterexample establishes.** The paired $GL(d)$ transformation
+preserves the proxy logits but can change PRISM's axis values and, in general,
+the resulting certificate value. Thus, two $GL(d)$-related parameterizations can
+receive different axis diagnoses. Without a fixed coordinate convention, there
+is no unique function-level "true" split; each diagnosis is relative to its
+representation coordinates and stated $W$. We therefore agree that PRISM's
+attribution is not invariant over the full $GL(d)$ equivalence class. **Our
+evaluated setting fixes the coordinate convention by construction: each
+target--proxy pair consists of stored variants of the same checkpoint, compared
+at the same post-final-norm interface, and none of the studied PTQ or frozen-head
+LoRA procedures inserts a compensating change of basis before the prediction
+head.** This is a limitation of interpretation, not theorem validity: Theorem 1
+provides a valid certificate for every specified $W\in O(d)$, including $W=I$
+and any selected $W_N$. We will state this scope explicitly and replace
+"identifiable from the bound's decomposition" with "measured under the stated
+coordinate and alignment convention."
 
-**(2) What does hold under $O(d)$.** Let $Q\in O(d)$ and reparameterize the
-proxy as $\widetilde{Z}_P=Z_PQ$ and $\widetilde{H}_P=Q^\top H_P$. For every
-$W\in O(d)$, transport the alignment as $\widetilde{W}=Q^\top W$. Then
-$\widetilde{Z}_P\widetilde{W}=Z_PW$, so the feature residual, $\rho_P$, and
-$\delta$ are unchanged. Moreover,
+**(2) The exact invariance boundary.** The reviewer's $A$ reparameterizes the
+model artifact, whereas PRISM's $W$ is a diagnostic alignment. Undoing a general
+$A$ in the feature comparison would require $\widetilde W=A^{-1}W$, which need
+not be orthogonal; an orthogonal $W$ therefore cannot generally undo a
+non-orthogonal $A$. If $A=Q\in O(d)$, however, let
+$\widetilde Z_P=Z_PQ$, $\widetilde H_P=Q^\top H_P$, and
+$\widetilde W=Q^\top W$. Then $\widetilde Z_P\widetilde W=Z_PW$ and
 $$
-\widetilde{\Sigma}_P = Q^\top \Sigma_P Q,\qquad
-\widetilde{\Sigma}_P^{1/2}
-\left(\widetilde{W}H_T-\widetilde{H}_P\right)
-=
-Q^\top\Sigma_P^{1/2}\left(WH_T-H_P\right).
+\widetilde\Sigma_P^{1/2}
+(\widetilde W H_T-\widetilde H_P)
+=Q^\top\Sigma_P^{1/2}(WH_T-H_P).
 $$
-Thus $\widetilde{\gamma}(\widetilde{W})=\gamma(W)$, and $W\mapsto Q^\top W$
-bijects the certificate families, leaving $\Omega_N$ and $\delta_N$ invariant.
-In plain terms, after transporting $W$, an orthogonal reparameterization only
-relabels coordinates; the certificate and feature/head split are unchanged.
-Geometrically, $\delta(W)$ is the residual after mapping proxy features to target
-coordinates, whereas $\gamma(W)$ compares $H_P$ with the target head transported
-by $W$ on directions supported by $Z_P$; reducing one need not reduce the other.
-This equivariance is guaranteed for $Q\in O(d)$ when the alignment is
-transported as $\widetilde{W}=Q^\top W$; it need not hold for a general
-$A\in GL(d)$ or when $W$ is held fixed. We will state these conditions
-explicitly.
+Hence the scale, shape, and head terms are unchanged. In plain terms, a jointly
+transported orthogonal reparameterization only relabels coordinates; this
+equivariance is not guaranteed for general $A\in GL(d)$ or when $W$ is held
+fixed. We will add this statement as a formal remark.
 
-**(3) The representation coordinates used in this paper.** Our experiments use
-the native coordinates inherited from a shared base checkpoint.
-PTQ rounding, GGUF, BnB, and frozen-head LoRA perturb that checkpoint without
-inserting a compensating $(A,A^{-1})$ pair at the backbone--head interface;
-$Z_P$ is the post-final-norm state measured in those native coordinates. Within
-this coordinate system, we use $W=I$ for axis-level diagnosis and the
-regularizer, and separately report the feature-optimal $W_N$ specialization for
-ranking, with the alignment stated in each case. The corresponding interventions
-(e.g., retaining the base `lm_head`) are defined in the same coordinates.
-Comparisons after an independent change of representation coordinates,
-including deliberately $GL(d)$-reparameterized artifacts, are outside the
-validated scope and will be stated as a limitation.
+**(3) Scope of the reported diagnosis.** Within this fixed convention, we use
+$W=I$ for axis-level diagnosis and the regularizer, and report the
+feature-optimal $W_N$ specialization for ranking, with the alignment stated in
+each case. The reported attributions are therefore well-defined for these fixed
+artifacts. The theorem still applies to a reparameterized artifact for each
+specified orthogonal $W$; what we do not claim is coordinate-free attribution
+across deliberately $GL(d)$-reparameterized artifacts. We will state this
+limitation explicitly.
 
-**(4) Where the representation hypotheses enter, more precisely.** You are
-right that our previous response moved too quickly from shared structure to an
-orthogonal map. LRH suggests that semantic variables can be linearly accessible;
-for checkpoints from the same base, this motivates testing whether such
-directions correspond. PRH suggests that learned representations may share
-relational structure; here it motivates testing whether same-lineage checkpoints
-preserve comparable geometry. Together, they motivate testing $W$ as a bridge
-via the hybrid logits $Z_PWH_T$, but not restricting it to $O(d)$.
+**(4) Where the representation hypotheses enter.** You are also right that
+neither LRH nor PRH by itself implies an orthogonal relation between pre- and
+post-trained checkpoints. LRH motivates testing whether linearly accessible
+semantic directions correspond across same-base checkpoints; PRH motivates
+testing whether their relational geometry remains comparable. Together, they
+motivate testing a linear bridge through the hybrid logits $Z_PWH_T$, but not
+the restriction $W\in O(d)$.
 
-That restriction comes from the geometry PRISM aims to preserve. Its axes use
-Euclidean norms, distances, and angles, which orthogonal maps preserve; a
-general linear fit can absorb scale and shear into $W$, so the residual loses
-the same axis interpretation. This yields Proposition 1's exact scale--shape
-identity and the $O(d)$-equivariance above.
+That restriction instead preserves the geometry PRISM decomposes: orthogonal
+maps preserve Euclidean norms, distances, and angles, whereas a general linear
+fit can absorb scale and shear into $W$ and thereby change the axes'
+interpretation. Orthogonality also yields Proposition 1's exact scale--shape
+identity and the equivariance above.
 
-By "cheap," we meant empirical feature-alignment cost, not proof of
-orthogonality or raw-bound tightness. In our top-$r$ Llama ablation,
-unrestricted alignment reduces the Q2_K residual by 18.3% on
-average over MMLU and SQuAD relative to scaled-orthogonal alignment. This is
-limited evidence of adequacy in the measured subspaces; it neither resolves the
-$GL(d)$ ambiguity nor bears on theorem validity.
+By "cheap," we meant only the empirical cost of excluding anisotropic scale and
+shear after factoring out one global scale, not proof of orthogonality or
+raw-bound tightness. In a separate top-$r$ Llama test, an unconstrained linear
+least-squares map reduces the Q2_K residual by 18.3% on average over MMLU and
+SQuAD relative to rotation plus one global scale. This is limited evidence of
+adequacy in the measured subspaces; it neither resolves the $GL(d)$ ambiguity
+nor bears on theorem validity.
 
-Finally, "the workflow the tool serves" meant only same-lineage screening in
-inherited coordinates, not a mathematical premise; we will remove that phrase.
+Finally, "tool" meant PRISM, and "workflow" meant screening same-lineage
+variants in their inherited coordinates; neither is a mathematical premise. We
+will remove the original phrase.
 
-We would value knowing whether the explicit $GL(d)$ limitation, the
-$O(d)$-equivariance statement, and the native-coordinate scope resolve the
+We would value knowing whether the explicit $GL(d)$ limitation, the exact
+$O(d)$-equivariance boundary, and the native-coordinate scope resolve the
 ambiguity you identified.
