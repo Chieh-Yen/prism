@@ -44,9 +44,10 @@ $$
 $$
 These equalities, together with orthogonal invariance of the Frobenius norm,
 leave the scale, shape, and head terms unchanged. Thus, the attribution is
-invariant to orthogonal coordinate changes
-when $W$ is transported with them, but not in general to $GL(d)$ changes or when
-$W$ is held fixed. We will add this boundary as a formal remark.
+invariant under a paired orthogonal reparameterization of the proxy
+representation and head, provided that $W$ is transported accordingly; this
+invariance does not extend in general to $GL(d)$ reparameterizations or to a
+fixed $W$. We will add this boundary as a formal remark.
 
 **(3) Where the representation hypotheses enter.** You are right that neither
 LRH nor PRH implies an orthogonal relation between pre- and post-trained
