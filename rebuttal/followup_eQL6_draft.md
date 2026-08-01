@@ -1,17 +1,18 @@
-Thank you for the precise counterexample. It exposed that our previous response
-conflated choosing $W$ for fixed artifacts with reparameterizing the artifacts
-themselves; we apologize for the resulting confusion and unnecessary exposition.
+Thank you for the precise counterexample. It showed that our previous response
+conflated choosing $W$ for a fixed $(Z_P,H_P)$ with replacing that pair by the
+functionally equivalent $(Z_PA,A^{-1}H_P)$, $A\in GL(d)$; we apologize for the
+confusion and excess detail.
 
-**(1) Correction to our previous response.** Our previous identifiability
-rationale was too strong. Your counterexample shows that a general $GL(d)$
-reparameterization can preserve the proxy logits while changing
-the numerical split across PRISM's three axes. The precise conclusion is that
-the attribution is defined relative to specified representation coordinates
-and a stated orthogonal alignment $W$, rather than being determined solely by
-the input--output function. This narrows the interpretation of the
-decomposition, while Theorem 1 provides a valid certificate for every chosen
-$W\in O(d)$, including $W=I$ and the reported $W_N$ specialization. We will
-make this scope explicit and replace the paper's informal phrase "identifiable
+**(1) Correction to our previous response.** Our previous function-level
+identifiability rationale was too strong. Such a paired $GL(d)$
+reparameterization preserves the proxy logits but can change the numerical
+split across PRISM's three axes. Thus, the attribution is defined relative to
+specified representation coordinates and a stated orthogonal alignment $W$,
+rather than being determined solely by the input--output function. This narrows
+the interpretation of the decomposition, while Theorem 1 provides a valid
+certificate for each specified $W\in O(d)$, including $W=I$ and the reported
+$W_N$ specialization. We will make this scope explicit and replace the paper's
+informal phrase "identifiable
 from the bound's decomposition" with "isolated by the bound's
 decomposition."
 
@@ -34,9 +35,10 @@ relabels coordinates; the certificate and feature/head split are unchanged.
 Geometrically, $\delta(W)$ is the residual after mapping proxy features to target
 coordinates, whereas $\gamma(W)$ compares $H_P$ with the target head transported
 by $W$ on directions supported by $Z_P$; reducing one need not reduce the other.
-This equivariance does not extend to a general $A$, and it requires transporting
-$W$: if the proxy is rotated while $W=I$ is kept fixed, the reported split can
-change. We will add this precise equivariance statement as a formal remark.
+This equivariance is guaranteed for $Q\in O(d)$ when the alignment is
+transported as $\widetilde{W}=Q^\top W$; it need not hold for a general
+$A\in GL(d)$ or when $W$ is held fixed. We will state these conditions
+explicitly.
 
 **(3) The representation coordinates used in this paper.** Our experiments use
 the native coordinates inherited from a shared base checkpoint.
