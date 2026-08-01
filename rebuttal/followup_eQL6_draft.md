@@ -57,11 +57,13 @@ orthogonal maps preserve the Euclidean geometry used by the axes and yield
 Proposition 1's exact scale--shape identity, and the certificate family has the
 $O(d)$-equivariance shown above. A general linear alignment carries scale and
 shear itself, so it can absorb those components into the fitted map and no
-longer supports the same axis interpretation. Near-isometry evidence supports
-only the empirical adequacy of this modeling choice: in our top-$r$ Llama
-ablation, unrestricted linear alignment reduces the Q2_K residual by 18.3% on
-average relative to scaled-orthogonal alignment over MMLU and SQuAD. This bears
-on tightness, not validity; Theorem 1 remains valid for every $W\in O(d)$.
+longer supports the same axis interpretation. As a limited empirical check, not
+a resolution of the $GL(d)$ ambiguity, our top-$r$ Llama ablation compares an
+unrestricted linear map with a scaled-orthogonal map, factoring out the global
+scale modeled separately by PRISM. The unrestricted map reduces the Q2_K
+residual by 18.3% on average over MMLU and SQuAD; this supports adequacy in the
+measured subspaces only, not theorem validity. Theorem 1 remains valid for every
+$W\in O(d)$.
 
 Finally, by the previous phrase ``the workflow the tool serves,'' we meant only
 PRISM's intended use: screening same-lineage post-trained variants and
