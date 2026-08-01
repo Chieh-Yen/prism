@@ -21,27 +21,27 @@ the bound's decomposition" with "measured under the stated coordinate and
 alignment convention."
 
 **(2) What remains invariant under $O(d)$.** For a general $A$, transporting the
-alignment gives $\widetilde W=A^{-1}W$, which generally falls outside $O(d)$.
-If $A=Q\in O(d)$, set $\widetilde Z_P=Z_PQ$,
-$\widetilde H_P=Q^\top H_P$, and $\widetilde W=Q^\top W$. Then
+alignment gives $\widetilde{W}=A^{-1}W$, which generally falls outside $O(d)$.
+If $A=Q\in O(d)$, set $\widetilde{Z}_P=Z_PQ$, $\widetilde{H}_P=Q^\top H_P$,
+and $\widetilde{W}=Q^\top W$. Then
+
 $$
-\widetilde Z_P\widetilde W=Z_PW,\qquad
-\widetilde\Sigma_P=Q^\top\Sigma_PQ.
+\widetilde{Z}_P\widetilde{W}=Z_PW,\qquad
+\widetilde{\Sigma}_P=Q^\top\Sigma_PQ.
 $$
-Since right-multiplication by $Q$ preserves the Frobenius norm,
-$\widetilde\rho_P=\rho_P$. Together,
-$\widetilde Z_P\widetilde W=Z_PW$ and
-$\|\widetilde Z_P\|_F=\|Z_P\|_F$ give
-$\widetilde\Omega_{\widetilde W}=\Omega_W$. Moreover,
-$\widetilde W=Q^\top W\in O(d)$, so the transported alignment remains in
-Theorem 1's admissible family.
-For the principal PSD square root,
-$\widetilde\Sigma_P^{1/2}=Q^\top\Sigma_P^{1/2}Q$, and hence
+
+Since right-multiplication by $Q$ preserves the Frobenius norm, the proxy scale
+is unchanged. Together with the first equality above, this also leaves the trace
+similarity unchanged. Moreover, $Q^\top W\in O(d)$, so the transported alignment
+remains in Theorem 1's admissible family. For the principal PSD square root,
+
 $$
-\widetilde\Sigma_P^{1/2}
-(\widetilde W H_T-\widetilde H_P)
+\widetilde{\Sigma}_P^{1/2}=Q^\top\Sigma_P^{1/2}Q,\qquad
+\widetilde{\Sigma}_P^{1/2}
+(\widetilde{W} H_T-\widetilde{H}_P)
 =Q^\top\Sigma_P^{1/2}(WH_T-H_P).
 $$
+
 These equalities, together with orthogonal invariance of the Frobenius norm,
 leave the scale, shape, and head terms unchanged. Thus, the attribution is
 invariant under a paired orthogonal reparameterization of the proxy
