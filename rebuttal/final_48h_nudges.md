@@ -2,9 +2,11 @@
 
 規則:零新數字(每個數字都已在已貼回覆中);每則 ~1500 字元(30 秒導讀,
 不是第三份 rebuttal——每 bullet 一個結論 + 一個數字,論證留在 thread 裡);
-不寫 "raise your score",寫 "reflected in your final assessment";
-T-24h 後不再主動貼文,只回答。
-貼文順序:1) 8VrD → 2) pCi8 → 3) G3T9 → 4) AC/global 導讀。eQL6 條件觸發(見末)。
+不寫 "raise your score",寫 "reflected in your final assessment"。
+時程:T-48h 貼 1) 8VrD → 2) pCi8 → 3) G3T9;**AC/global 導讀留到 T-24h~T-12h
+再貼**(AC 在窗口關閉後才行動,晚貼零損失,且可吸收最後一天的 reviewer 發展、
+確保作者整理是 thread 的收尾;硬底線 T-12h,不要更晚)。eQL6 條件觸發(見末)。
+reviewer nudge 貼出後,T-24h 前只回答不再主動貼;AC 導讀是唯一例外。
 
 --------------------------------------------------------------------------------
 ## 1. 8VrD thread(最優先;advocate)
@@ -59,13 +61,13 @@ With the window closing soon, a short map from each point to its posted answer; 
 If these resolve the motivation and evaluation concerns, we would be grateful if that is reflected in your final assessment; if anything remains, we would value the chance to address it before the window closes.
 
 --------------------------------------------------------------------------------
-## 4. Global / AC thread(reviewer 懶人包之後貼)
+## 4. Global / AC thread(**T-24h~T-12h 再貼**;貼前檢查是否有 reviewer 新回應要先處理)
 
 Title 欄:Closing Index: Evidence Against the Five Meta-Review Points
 
 **Before the discussion closes: a one-screen index of the evidence**
 
-With the discussion window closing in about 48 hours, we offer a short index of what was delivered against the meta-review's five points. Every number below was posted earlier in this thread; nothing here is new.
+As the discussion window closes, we offer a short index of what was delivered against the meta-review's five points. Every number below was posted earlier in this thread; nothing here is new.
 
 | point | headline result | where |
 |:--|:--|:--|
@@ -76,6 +78,10 @@ With the discussion window closing in about 48 hours, we offer a short index of 
 | **E.** failures and mixed results | All 20 LoRA cells reported (mean +0.71, median +0.93, 18/20 positive); both negative cells mechanistically explained; the one genuine Table 22 exception owned | "Point E" |
 
 One development since those posts: reviewer eQL6's follow-up led to a theoretical sharpening we adopted. The diagnosis is provably invariant under paired orthogonal reparameterization, and explicitly coordinate-relative beyond O(d); a formal remark and an explicit limitation are both committed to the revision. We believe the framework is more precisely scoped for it.
+
+[發展插槽:貼出前檢查最後一天的 thread。若有 reviewer 正面確認,僅在屬實時加一行,
+例:"Reviewer [X] has since confirmed that [W?/Q?] are resolved." 若有新問題,先在
+該 thread 答完再貼本索引,讓這份整理是 thread 的收尾;無發展則整段刪除。]
 
 If any point is still judged partial, there is time remaining and we would welcome the chance to complete it. Thank you again for a review process that has concretely improved the paper.
 
@@ -91,9 +97,10 @@ Thank you again for the exchange on coordinate dependence. As the window closes 
 - [ ] 每則數字 grep 一次已貼回覆(必須全部命中;零新數字)
 - [ ] 每 bullet ≤2 行:結論 + 一個數字;不重演論證(論證在 thread 裡)
 - [ ] Title 欄照各節「Title 欄:」行填;body 從粗體標題行開始
-- [ ] "about 48 hours" 改成貼文當下的實際剩餘時間
 - [ ] "final assessment" 句每個 thread 全程只出現這一次;不加 sincerely/署名;
       respectfully 不再使用(global response 已用過一次)
-- [ ] 順序:8VrD → pCi8 → G3T9 → global;eQL6 條件觸發(T-24h 仍無回覆才貼)
-- [ ] T-24h 後只回覆、不再主動貼
+- [ ] T-48h:8VrD → pCi8 → G3T9;**AC 導讀留到 T-24h~T-12h**(硬底線 T-12h),
+      貼前處理發展插槽;eQL6 條件觸發(T-24h 仍無回覆才貼)
+- [ ] AC 導讀貼出前,若有未回答的 reviewer 新問題,先答完再貼(讓索引收尾)
+- [ ] reviewer nudge 之後、AC 導讀之外,不再主動貼文,只回答
 - [ ] 任何 reviewer 回覆後數小時內回應(即使只是致謝 + 修訂承諾確認)
