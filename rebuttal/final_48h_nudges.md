@@ -56,7 +56,7 @@ With the window closing soon, a short map from each point to its posted answer; 
 - **W2** (teacher-forcing; benchmark inputs; reference ablation): 8 sequences rank the variants as 512 do (r_s 0.932 at both, three fresh seeds); the input-conditioned scope is stated as the narrowing the meta-review invites; the rollout-conditioned test reaches +0.947 vs +0.958 teacher-forced.
 - **W3** (CKA/SVCCA; simpler regularizers): on identical features, a statistical tie at full size, stated as parity rather than a win, with PRISM highest at n=8 (0.932 vs 0.903 and 0.083); the simplest feature-preserving penalty nearly coincides with the shape penalty (Prop. 1), so the distinct families added are weight-space and architectural, at matched plasticity.
 - **W4** (loose bound): slack quantified (median 1597x) and calibrated per cell to MAE 0.055 nats, precision >= 0.8 in 49/55 cells.
-- **Q1 + Q2** (full FT/RLHF; mixed-task): validity is recipe-agnostic, calibrated tightness deferred (App. C.3); the base-to-instruct sanity check holds in all 10 cells with the head term engaging as predicted.
+- **Q1 + Q2** (full FT/RLHF; mixed-task): validity is recipe-agnostic; calibrated tightness and coordinate-comparable attribution are both deferred there (App. C.3 and the Reviewer eQL6 thread); the base-to-instruct validity check holds in all 10 cells with the head term engaging as predicted.
 
 If these resolve the motivation and evaluation concerns, we would be grateful if that is reflected in your final assessment; if anything remains, we would value the chance to address it before the window closes.
 
@@ -86,11 +86,15 @@ One development since those posts: reviewer eQL6's follow-up led to a theoretica
 If any point is still judged partial, there is time remaining and we would welcome the chance to complete it. Thank you again for a review process that has concretely improved the paper.
 
 --------------------------------------------------------------------------------
-## 5. eQL6(條件觸發:T-24h 仍無回覆才貼;否則不貼)
+## 5. eQL6 —— **已作廢(superseded)**
 
-Title 欄:Closing Note on the Coordinate-Dependence Exchange
-
-Thank you again for the exchange on coordinate dependence. As the window closes soon: we hope the O(d)-equivariance boundary, the explicit GL(d) limitation, and the native-coordinate scope resolve the ambiguity you identified; if anything remains unclear, we are glad to address it today. If your concerns are resolved, we would be grateful if that is reflected in your final assessment.
+eQL6 已於 08-03 10:25 回覆(major-weakness follow-up)。改用
+`rebuttal/followup2_eQL6_draft.md` 回應(scope 讓步 + frozen-assumption 糾正 +
+主文承諾);**本節條件 nudge 不再貼**。該回覆不含 final-assessment 句
+(作者決定:對最技術性的 reviewer 不做 ask;ask 留在其他三個 thread)。
+可選:結尾可加一句不提分數的 resolution-check:"We would value knowing whether
+this boundary statement resolves the concern while the window is open."
+若 eQL6 再回覆確認,簡短致謝 + 確認修訂承諾,不加任何 ask。
 
 --------------------------------------------------------------------------------
 ## 貼文前 checklist
