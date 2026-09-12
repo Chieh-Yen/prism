@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Trace-norm forgetting decomposition for \textbf{Llama-3.1-8B} fine-tuned on \textbf{Social IQA} under identity alignment ($W{=}I$).  Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model).  Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
+\label{tab:trace_norm_llama_social_iqa}
+\resizebox{0.85\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{$\boldsymbol{\lambda}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_T}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_P}$} & \multicolumn{1}{c}{$\boldsymbol{\Omega}$} & \multicolumn{1}{c}{$\boldsymbol{\delta}$} & \multicolumn{1}{c}{$\boldsymbol{\gamma}$} & \multicolumn{1}{c}{$\boldsymbol{\mathcal{B}}$} & \multicolumn{1}{c}{$\boldsymbol{|\Delta\mathcal{R}|}$} \\
+\midrule
+ARC & $\lambda{=}0.0$ & 137.55 & 134.70 & \cellcolor{red!18} 0.9453 & \cellcolor{red!18} 45.1263 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 45.1263 & \cellcolor{red!18} 0.0727 \\
+ & $\lambda{=}0.1$ & 137.55 & 136.65 & \textbf{0.9677} & 34.8546 & \cellcolor{cyan!12} $0$ & 91.1008 & \textbf{0.0464} \\
+ & $\lambda{=}0.5$ & 137.55 & 137.46 & 0.9786 & 28.4701 & \cellcolor{cyan!12} $0$ & 74.4135 & 0.0498 \\
+\midrule
+MMLU & $\lambda{=}0.0$ & 138.91 & 135.81 & \cellcolor{red!18} 0.9424 & \cellcolor{red!18} 46.7185 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 46.7185 & \cellcolor{red!18} 0.0649 \\
+ & $\lambda{=}0.1$ & 138.91 & 138.27 & 0.9690 & 34.4912 & \cellcolor{cyan!12} $0$ & 90.1510 & 0.0562 \\
+ & $\lambda{=}0.5$ & 138.91 & 139.02 & \textbf{0.9798} & 27.9262 & \cellcolor{cyan!12} $0$ & 72.9920 & \textbf{0.0558} \\
+\midrule
+SQuAD & $\lambda{=}0.0$ & 138.20 & 138.82 & \cellcolor{red!18} 0.9391 & \cellcolor{red!18} 48.3583 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 48.3583 & \cellcolor{red!18} 0.5335 \\
+ & $\lambda{=}0.1$ & 138.20 & 139.01 & 0.9623 & 38.0900 & \cellcolor{cyan!12} $0$ & 99.5575 & 0.2697 \\
+ & $\lambda{=}0.5$ & 138.20 & 138.93 & \textbf{0.9670} & 35.5977 & \cellcolor{cyan!12} $0$ & 93.0432 & \textbf{0.2498} \\
+\midrule
+TriviaQA & $\lambda{=}0.0$ & 140.93 & 141.01 & \textbf{0.9868} & 22.8978 & \cellcolor{cyan!12} $0$ & 22.8978 & \textbf{0.0003} \\
+ & $\lambda{=}0.1$ & 140.93 & 140.96 & 0.9917 & 18.1857 & \cellcolor{cyan!12} $0$ & 47.5326 & 0.0198 \\
+ & $\lambda{=}0.5$ & 140.93 & 140.97 & 0.9935 & 16.1320 & \cellcolor{cyan!12} $0$ & 42.1650 & 0.0107 \\
+\midrule
+GSM8K & $\lambda{=}0.0$ & 137.15 & 137.29 & 1.0000 & 0.1404 & \cellcolor{cyan!12} $0$ & 0.1404 & 0.0241 \\
+ & $\lambda{=}0.1$ & 137.15 & 137.30 & 1.0000 & 0.1574 & \cellcolor{cyan!12} $0$ & 0.4115 & 0.0151 \\
+ & $\lambda{=}0.5$ & 137.15 & 137.31 & \textbf{1.0000} & 0.1594 & \cellcolor{cyan!12} $0$ & 0.4167 & \textbf{0.0096} \\
+\bottomrule
+\end{tabular}}
+\end{table}

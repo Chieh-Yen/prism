@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{\textbf{Component-wise ablation: PRISM ranks variants strongly under both alignments.} Rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $r_s$ = better ranking; \textbf{bold} / \underline{underline}: 1st / 2nd-best within each block. Top block: identity $W{=}I$ (main text default; $\mathcal{B}$ reaches $r_s{=}0.82$). Bottom block: Procrustes-optimal $W{=}W_N$ ($\mathcal{B}_N$ reaches $r_s{=}0.91$, modestly tighter since $W_N$ minimizes the alignment residual). The main text adopts $W{=}I$ for SVD-free differentiability and the $H_T{=}H_P$ head-term simplification in frozen-\texttt{lm\_head} regimes.}
+\label{tab:baseline_combined}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l cc c}
+\toprule
+\multicolumn{1}{c}{\textbf{Metric}} & \multicolumn{1}{c}{\textbf{Llama}} & \multicolumn{1}{c}{\textbf{Qwen3}} & \multicolumn{1}{c}{\textbf{Mean} $\boldsymbol{r_s}$} \\
+ & \scriptsize (5 benchmarks) & \scriptsize (5 benchmarks) & \scriptsize (10 cells) \\
+\midrule
+\makebox[2.1em][l]{$\Omega$}{\scriptsize (shape similarity; baseline)} & 0.825 & 0.783 & 0.804 \\
+\makebox[2.1em][l]{$\delta$}{\scriptsize (+ scale; feature alignment error)} & \textbf{0.881} & \textbf{0.855} & \textbf{0.868} \\
+\makebox[2.1em][l]{$\mathcal{B}$}{\scriptsize (+ head; full bound, $W{=}I$)} & \underline{0.828} & \underline{0.813} & \underline{0.820} \\
+\midrule
+\makebox[2.1em][l]{$\Omega_N$}{\scriptsize (shape similarity; baseline)} & 0.839 & 0.773 & 0.806 \\
+\makebox[2.1em][l]{$\delta_N$}{\scriptsize (+ scale; feature alignment error)} & \underline{0.898} & \underline{0.847} & \underline{0.873} \\
+\makebox[2.1em][l]{$\mathcal{B}_N$}{\scriptsize (+ head; full bound, $W{=}W_N$)} & \textbf{0.927} & \textbf{0.896} & \textbf{0.912} \\
+\bottomrule
+\end{tabular}
+\end{table}

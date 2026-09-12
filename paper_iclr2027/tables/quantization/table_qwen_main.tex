@@ -1,0 +1,33 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Qwen3-8B-Base} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:qwen_decomposition_main}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 332.87 & 333.00 & 1.0000 & 0.1246 & \cellcolor{cyan!12} $0$ & 0.4310 & 0.0057 \\
+{\small ($\mathbf{r_s{=}0.87}$)} & GGUF & Q8\_0 & 332.87 & 332.73 & 1.0000 & 0.1463 & 18.9548 & 27.3120 & 0.0044 \\
+ &  & Q6\_K & 332.87 & 332.12 & 1.0000 & 0.7540 & 60.1581 & 87.6841 & 0.0087 \\
+ &  & Q5\_K\_M & 332.87 & 332.02 & 0.9995 & 10.4878 & 60.1161 & 121.2869 & 0.0500 \\
+ &  & Q4\_K\_M & 332.87 & 333.30 & 0.9989 & 15.8100 & 60.3727 & 140.0554 & 0.0754 \\
+ &  & Q3\_K\_M & 332.87 & 324.42 & 0.9931 & 39.5282 & 58.6394 & 219.6281 & 0.0274 \\
+ &  & Q2\_K & 332.87 & 336.88 & 0.9819 & 63.7574 & 60.9749 & 306.7224 & 0.4521 \\
+ & BnB & INT8 & 332.87 & 332.24 & 0.9992 & 13.1825 & \cellcolor{cyan!12} $0$ & 45.5886 & 0.0159 \\
+ &  & NF4 & 332.87 & 329.71 & 0.9966 & 27.6565 & \cellcolor{cyan!12} $0$ & 95.6438 & 0.1076 \\
+ &  & FP4 & 332.87 & 332.87 & 0.9938 & 37.1370 & \cellcolor{cyan!12} $0$ & 128.4300 & 0.1483 \\
+\midrule
+TriviaQA & -- & FP16 & 241.01 & 240.83 & 1.0000 & 0.1833 & \cellcolor{cyan!12} $0$ & 0.6338 & 0.0022 \\
+{\small ($\mathbf{r_s{=}0.90}$)} & GGUF & Q8\_0 & 241.01 & 241.22 & 1.0000 & 0.2113 & 13.4137 & 19.7007 & 0.0158 \\
+ &  & Q6\_K & 241.01 & 241.79 & 1.0000 & 0.7774 & 42.5021 & 62.7955 & 0.0556 \\
+ &  & Q5\_K\_M & 241.01 & 239.98 & 0.9996 & 6.6875 & 42.1234 & 82.6986 & 0.0776 \\
+ &  & Q4\_K\_M & 241.01 & 241.74 & 0.9972 & 18.1291 & 42.4684 & 122.7549 & 0.0325 \\
+ &  & Q3\_K\_M & 241.01 & 235.11 & 0.9804 & 47.5370 & 41.0700 & 222.4779 & 0.3429 \\
+ &  & Q2\_K & 241.01 & 253.07 & \cellcolor{red!18} 0.9351 & \cellcolor{red!18} 89.8118 & 44.8357 & \cellcolor{red!18} 374.0012 & \cellcolor{red!18} 0.4199 \\
+ & BnB & INT8 & 241.01 & 239.25 & 0.9989 & 11.3354 & \cellcolor{cyan!12} $0$ & 39.2009 & 0.0145 \\
+ &  & NF4 & 241.01 & 241.11 & 0.9921 & 30.2526 & \cellcolor{cyan!12} $0$ & 104.6219 & 0.1900 \\
+ &  & FP4 & 241.01 & 241.03 & 0.9832 & 44.1714 & \cellcolor{cyan!12} $0$ & 152.7570 & 0.2615 \\
+\bottomrule
+\end{tabular}}
+\end{table}

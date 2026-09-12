@@ -1,0 +1,43 @@
+我完全同意這個重構方向。以下是我的建議：
+
+  結構建議
+
+  Theorem 1 → Trace 版本（主角）
+
+  新的 Section 3.2 流程：
+
+  1. Step 1: Risk decomposition（不變，general $W$）
+  2. Step 2: 對 general $W$ 展開 $|Z_T - Z_P W|_F^2$，引入 alignment-dependent similarity：
+  $$\Omega_W := \frac{\operatorname{Tr}(Z_T^\top Z_P, W)}{|Z_T|_F,|Z_P|F}$$
+  然後 Proposition 給出 general decomposition（scale + shape），特化到 $W=I$ 得到 $\Omega{\mathrm{tr}}$
+  3. Step 3: Bound $\gamma$ with $W=I$ → 直接得到 $|\Sigma_P^{1/2}(H_T - H_P)|_F$
+  4. Theorem 1: 用 $W=I$ 和 $\Omega_{\mathrm{tr}}$ 寫出 main bound
+
+  Remark → Procrustes / Nuclear Norm（理論景觀）
+
+  Remark 的敘事邏輯：
+  - 「Proposition 的 decomposition 對任意 $W \in \mathcal{O}(d)$ 成立」
+  - 「對 feature term 單獨做極值：$\max_W \Omega_W = \Omega$（nuclear norm），由 $W^* = VU^\top$ 達成」
+  - 「Nuclear norm $\ge$ Frobenius norm $\ge$ Trace → 連結 CKA 文獻」
+  - 「但 $W^*$ 會膨脹 $\gamma$；joint $\inf_W[\delta + \gamma]$ 是非凸問題（Appendix X）」
+  - 「在本文的 quantization/LoRA regime，$W=I$ 是 physically motivated 且 sufficient 的選擇」
+
+  Joint Minimization 放哪裡
+
+  Remark 裡用一句話帶過 + 指向 Appendix。 理由：
+
+  1. Remark 是討論 $W$ 選擇空間的自然位置，joint problem 一句話就夠：「The joint minimization is a non-convex problem on the Stiefel manifold without closed-form solution
+  (Appendix~\ref{app:joint_opt}).」
+  2. 不會打斷主線——讀者看 Theorem → Remark → Geometric Interpretation 是順暢的
+  3. 有興趣的 reviewer 去 Appendix 看完整推導（isotropic special case、RGD、為什麼在我們的 regime 不需要）
+
+  Appendix 相應調整
+
+  - Appendix A Step 3（proof）：簡化為 $W=I$ 的展開，不需 SVD
+  - 原 Appendix C（Trace Specialization）：內容已被 main body 吸收，改為 Procrustes Optimality 的推導——證明 $W^*$ 最大化 $\Omega_W$、nuclear norm 的由來、與 CKA 的關係
+  - Appendix D（Joint Optimization）：維持不變
+
+  ---
+  這個結構的好處是：讀者先看到實際使用的工具（$W=I$, $\Omega_{\mathrm{tr}}$），再在 Remark 獲得理論全景（nuclear norm 是 feature term 的極值，但有 trade-off）。邏輯是「主結果 →
+  為什麼不用更緊的 bound → 因為 trade-off + 物理意義」。
+

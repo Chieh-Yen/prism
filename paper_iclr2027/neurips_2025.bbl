@@ -1,0 +1,194 @@
+\begin{thebibliography}{26}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Burns et~al.(2024)Burns, Izmailov, Kirchner, Baker, Gao,
+  Aschenbrenner, Chen, Ecoffet, Man{\'e}, Oleg, et~al.]{burns2023weak}
+Collin Burns, Pavel Izmailov, Jan~Hendrik Kirchner, Bowen Baker, Leo Gao,
+  Leopold Aschenbrenner, Yining Chen, Adrien Ecoffet, Manolis Man{\'e}, Klimov
+  Oleg, et~al.
+\newblock Weak-to-strong generalization: Eliciting strong capabilities with
+  weak supervision.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Davari et~al.(2023)Davari, Horoi, Natik, Lajoie, Wolf, and
+  Belilovsky]{davari2023reliability}
+MohammadReza Davari, Stefan Horoi, Amine Natik, Guillaume Lajoie, Guy Wolf, and
+  Eugene Belilovsky.
+\newblock Reliability of {CKA} as a similarity measure in deep learning.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2023.
+
+\bibitem[Dettmers et~al.(2022)Dettmers, Lewis, Belkada, and
+  Zettlemoyer]{dettmers2022gpt3}
+Tim Dettmers, Mike Lewis, Younes Belkada, and Luke Zettlemoyer.
+\newblock {GPT3.int8(): 8-bit Matrix Multiplication for Transformers at Scale}.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, volume~35, pages 4390--4401, 2022.
+
+\bibitem[Ding et~al.(2021)Ding, Denain, and Steinhardt]{ding2021grounding}
+Frances Ding, Jean-Stanislas Denain, and Jacob Steinhardt.
+\newblock Grounding representation similarity through statistical testing.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2021.
+
+\bibitem[Ethayarajh(2019)]{ethayarajh2019contextual}
+Kawin Ethayarajh.
+\newblock How contextual are contextualized word representations? {C}omparing
+  the geometry of {BERT}, {ELMo}, and {GPT}-2 embeddings.
+\newblock In \emph{Proceedings of the 2019 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}, 2019.
+
+\bibitem[Frantar et~al.(2023)Frantar, Ashkboos, Hoefler, and
+  Alistarh]{frantar2022gptq}
+Elias Frantar, Saleh Ashkboos, Torsten Hoefler, and Dan Alistarh.
+\newblock Gptq: Accurate post-training quantization for generative pre-trained
+  transformers.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2023.
+
+\bibitem[Gower and Dijksterhuis(2004)]{gower2004procrustes}
+John~C Gower and Garmt~B Dijksterhuis.
+\newblock \emph{Procrustes Problems}.
+\newblock Oxford University Press, 2004.
+
+\bibitem[Grattafiori et~al.(2024)Grattafiori, Dubey, Jauhri, Pandey, Kadian,
+  Al-Dahle, Letman, Mathur, Schelten, Yang, et~al.]{grattafiori2024llama}
+Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek
+  Kadian, Ahmad Al-Dahle, Aieleen Letman, Akhil Mathur, Alan Schelten, Amy
+  Yang, et~al.
+\newblock The llama 3 herd of models.
+\newblock \emph{arXiv preprint arXiv:2407.21783}, 2024.
+
+\bibitem[Harvey et~al.(2024)Harvey, Lipshutz, and Williams]{harvey2024what}
+Sarah~E Harvey, David Lipshutz, and Alex~H Williams.
+\newblock What representational similarity measures imply about decodable
+  information.
+\newblock In \emph{Proceedings of UniReps: Unifying Representations in Neural
+  Models Workshop (NeurIPS)}, 2024.
+
+\bibitem[Hoffmann et~al.(2022)Hoffmann, Borgeaud, Mensch, Buchatskaya, Cai,
+  Rutherford, de~Las~Casas, Hendricks, Welbl, Clark,
+  et~al.]{hoffmann2022training}
+Jordan Hoffmann, Sebastian Borgeaud, Arthur Mensch, Elena Buchatskaya, Trevor
+  Cai, Eliza Rutherford, Diego de~Las~Casas, Lisa~Anne Hendricks, Johannes
+  Welbl, Aidan Clark, et~al.
+\newblock Training compute-optimal large language models.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2022.
+
+\bibitem[Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and
+  Chen]{hu2022lora}
+Edward~J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
+  Wang, Lu~Wang, and Weizhu Chen.
+\newblock {LoRA: Low-Rank Adaptation of Large Language Models}.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2022.
+
+\bibitem[Huh et~al.(2024)Huh, Cheung, Wang, and Isola]{huh2024platonic}
+Minyoung Huh, Brian Cheung, Tongzhou Wang, and Phillip Isola.
+\newblock The platonic representation hypothesis.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Kaplan et~al.(2020)Kaplan, McCandlish, Henighan, Brown, Chess, Child,
+  Gray, Radford, Wu, and Amodei]{kaplan2020scaling}
+Jared Kaplan, Sam McCandlish, Tom Henighan, Tom~B Brown, Benjamin Chess, Rewon
+  Child, Scott Gray, Alec Radford, Jeffrey Wu, and Dario Amodei.
+\newblock Scaling laws for neural language models.
+\newblock \emph{arXiv preprint arXiv:2001.08361}, 2020.
+
+\bibitem[Kirkpatrick et~al.(2017)Kirkpatrick, Pascanu, Rabinowitz, Veness,
+  Desjardins, Rusu, Milan, Quan, Ramalho, Grabska-Barwinska,
+  et~al.]{kirkpatrick2017overcoming}
+James Kirkpatrick, Razvan Pascanu, Neil Rabinowitz, Joel Veness, Guillaume
+  Desjardins, Andrei~A Rusu, Kieran Milan, John Quan, Tiago Ramalho, Agnieszka
+  Grabska-Barwinska, et~al.
+\newblock Overcoming catastrophic forgetting in neural networks.
+\newblock \emph{Proceedings of the National Academy of Sciences (PNAS)},
+  114\penalty0 (13):\penalty0 3521--3526, 2017.
+
+\bibitem[Klabunde et~al.(2023)Klabunde, Schumacher, Strohmaier, and
+  Lemmerich]{klabunde2023similarity}
+Max Klabunde, Tobias Schumacher, Markus Strohmaier, and Florian Lemmerich.
+\newblock Similarity of neural network models: A survey of functional and
+  representational measures.
+\newblock \emph{arXiv preprint arXiv:2305.06329}, 2023.
+
+\bibitem[Kornblith et~al.(2019)Kornblith, Norouzi, Lee, and
+  Hinton]{kornblith2019similarity}
+Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton.
+\newblock Similarity of neural network representations revisited.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2019.
+
+\bibitem[Moschella et~al.(2022)Moschella, Maiorca, Fumero, Norelli, Locatello,
+  and Rodol{\`a}]{moschella2022relative}
+Luca Moschella, Valentino Maiorca, Marco Fumero, Antonio Norelli, Francesco
+  Locatello, and Emanuele Rodol{\`a}.
+\newblock Relative representations enable zero-shot latent space communication.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2022.
+
+\bibitem[Park et~al.(2023)Park, Choe, and Jindal]{park2023linear}
+Kiho Park, Yo~Joong Choe, and Veeru Jindal.
+\newblock The linear representation hypothesis and the geometry of large
+  language models.
+\newblock \emph{arXiv preprint arXiv:2311.03658}, 2023.
+
+\bibitem[Perlitz et~al.(2024)Perlitz, Bandel, Gera, Arviv, Ein-Dor,
+  Shmueli-Scheuer, Shnarch, Slonim, and Choshen]{perlitz2024efficient}
+Yotam Perlitz, Elron Bandel, Ariel Gera, Ofir Arviv, Liat Ein-Dor, Michal
+  Shmueli-Scheuer, Eyal Shnarch, Noam Slonim, and Leshem Choshen.
+\newblock Efficient benchmarking of language models.
+\newblock In \emph{Proceedings of the 2024 Conference of the North American
+  Chapter of the Association for Computational Linguistics (NAACL)}, 2024.
+
+\bibitem[Polo et~al.(2024)Polo, Weber, Choshen, Sun, Xu, and
+  Yurochkin]{polo2024tinybenchmarks}
+Felipe~Maia Polo, Lucas Weber, Leshem Choshen, Yuekai Sun, Gongjun Xu, and
+  Mikhail Yurochkin.
+\newblock {tinyBenchmarks}: Evaluating {LLMs} with fewer examples.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[{Qwen Team}(2025)]{qwen2025qwen3}
+{Qwen Team}.
+\newblock Qwen3 technical report.
+\newblock \emph{arXiv preprint arXiv:2505.09388}, 2025.
+
+\bibitem[Raghu et~al.(2017)Raghu, Gilmer, Yosinski, and
+  Sohl-Dickstein]{raghu2017svcca}
+Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein.
+\newblock Svcca: Singular vector canonical correlation analysis for deep
+  learning dynamics and interpretability.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2017.
+
+\bibitem[Sch{\"o}nemann(1966)]{schonemann1966generalized}
+Peter~H Sch{\"o}nemann.
+\newblock A generalized solution of the orthogonal {P}rocrustes problem.
+\newblock \emph{Psychometrika}, 31\penalty0 (1):\penalty0 1--10, 1966.
+
+\bibitem[Steele(2026)]{steele2026subspace}
+Brady Steele.
+\newblock Subspace geometry governs catastrophic forgetting in low-rank
+  adaptation.
+\newblock \emph{arXiv preprint arXiv:2603.02224}, 2026.
+
+\bibitem[Williams et~al.(2021)Williams, Kunz, Kornblith, and
+  Linderman]{williams2021generalized}
+Alex~H Williams, Erin Kunz, Simon Kornblith, and Scott~W Linderman.
+\newblock Generalized shape metrics on neural representations.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2021.
+
+\bibitem[Xiao et~al.(2023)Xiao, Lin, Seznec, Wu, Demouth, and
+  Han]{xiao2023smoothquant}
+Guangxuan Xiao, Ji~Lin, Mickael Seznec, Hao Wu, Julien Demouth, and Song Han.
+\newblock {SmoothQuant: Accurate and Efficient Post-Training Quantization for
+  Large Language Models}.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, pages
+  38087--38099. PMLR, 2023.
+
+\end{thebibliography}

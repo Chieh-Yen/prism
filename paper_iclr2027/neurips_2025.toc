@@ -1,0 +1,104 @@
+\@ifundefined {etoctocstyle}{\let \etoc@startlocaltoc \@gobble \let \etoc@settocdepth \@gobble \let \etoc@depthtag \@gobble \let \etoc@setlocaltop \@gobble }{}
+\setcounter {tocdepth}{0}
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {paragraph}{Contributions.}{2}{section*.1}%
+\contentsline {section}{\numberline {2}Related Work}{2}{section.2}%
+\contentsline {paragraph}{Representational Similarity and Procrustes Shape Metrics.}{2}{section*.2}%
+\contentsline {paragraph}{Post-Training Quantization and Its Evaluation.}{2}{section*.3}%
+\contentsline {paragraph}{Catastrophic Forgetting under Parameter-Efficient Fine-Tuning.}{3}{section*.4}%
+\contentsline {paragraph}{Efficient Evaluation and Performance Forecasting.}{3}{section*.5}%
+\contentsline {section}{\numberline {3}A Geometric Bound on the Cross-Entropy Risk Gap}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Setup}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Unified Risk Bound}{4}{subsection.3.2}%
+\contentsline {paragraph}{Feature error $\delta $.}{4}{section*.6}%
+\contentsline {paragraph}{Head error $\gamma $.}{4}{section*.7}%
+\contentsline {subsection}{\numberline {3.3}Three Diagnostic Axes}{4}{subsection.3.3}%
+\contentsline {paragraph}{Scale mismatch $\Delta \rho $.}{4}{section*.8}%
+\contentsline {paragraph}{Shape mismatch $1-\Omega _W$.}{4}{section*.9}%
+\contentsline {paragraph}{Head divergence $\|\Sigma _P^{1/2}(W H_T - H_P)\|_F$.}{4}{section*.10}%
+\contentsline {paragraph}{PRISM admits a family of Procrustes similarities.}{5}{section*.11}%
+\contentsline {subsection}{\numberline {3.4}Extension to Autoregressive Generation}{5}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}From Diagnostic to Training: Shape Regularization}{5}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Applications: Post-Training Quantization and LoRA Forgetting}{5}{section.4}%
+\contentsline {paragraph}{Quantization quality estimation.}{5}{section*.12}%
+\contentsline {paragraph}{Geometric monitoring of catastrophic forgetting.}{5}{section*.13}%
+\contentsline {section}{\numberline {5}Experiments}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Experimental Setup}{6}{subsection.5.1}%
+\contentsline {paragraph}{Models.}{6}{section*.14}%
+\contentsline {paragraph}{Quantization Protocols.}{6}{section*.15}%
+\contentsline {paragraph}{Fine-Tuning Tasks.}{6}{section*.16}%
+\contentsline {paragraph}{Benchmarks and Scoring.}{6}{section*.17}%
+\contentsline {paragraph}{Calibration and Hyperparameters.}{6}{section*.18}%
+\contentsline {subsection}{\numberline {5.2}Predictiveness: The Bound Tracks the Risk Gap}{6}{subsection.5.2}%
+\contentsline {paragraph}{Quantization.}{6}{section*.19}%
+\contentsline {paragraph}{LoRA forgetting.}{7}{section*.20}%
+\contentsline {subsection}{\numberline {5.3}Decomposability: Three Axes, Three Failure Modes}{8}{subsection.5.3}%
+\contentsline {paragraph}{Shape distortion (low-bit PTQ).}{8}{section*.21}%
+\contentsline {paragraph}{Head divergence (GGUF k-quant tiers that touch \texttt {lm\_head}).}{8}{section*.22}%
+\contentsline {paragraph}{Scale-axis separability (LoRA cross-task contrast).}{8}{section*.23}%
+\contentsline {paragraph}{From diagnosis to remediation.}{9}{section*.24}%
+\contentsline {subsection}{\numberline {5.4}Actionability: From Diagnostic to Training Objective}{9}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Ablation: Component-Wise Contributions}{10}{subsection.5.5}%
+\contentsline {section}{\numberline {6}Conclusion and Future Work}{10}{section.6}%
+\contentsline {paragraph}{Scope and limitations.}{11}{section*.25}%
+\contentsline {paragraph}{Future Work.}{11}{section*.26}%
+\setcounter {tocdepth}{2}
+\contentsline {section}{\numberline {A}Proof of the Unified Risk Bound (Theorem~\ref {thm:unified_bound})}{15}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Relation to Classical Procrustes Shape Metrics}{15}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Step 1: Risk Decomposition via Triangle Inequality}{15}{subsection.A.2}%
+\contentsline {paragraph}{Setup.}{15}{section*.29}%
+\contentsline {paragraph}{Decomposition.}{15}{section*.30}%
+\contentsline {subsection}{\numberline {A.3}Step 2: Bounding the Feature Alignment Error $\delta $}{15}{subsection.A.3}%
+\contentsline {paragraph}{Lipschitz Property of Cross-Entropy with Respect to Features.}{15}{section*.31}%
+\contentsline {paragraph}{Computing the Gradient.}{15}{section*.32}%
+\contentsline {paragraph}{Simplex Polarization.}{16}{section*.33}%
+\contentsline {paragraph}{Remark.}{16}{section*.34}%
+\contentsline {paragraph}{From Gradient Bound to Lipschitz Inequality.}{16}{section*.35}%
+\contentsline {paragraph}{Applying the Lipschitz Bound.}{16}{section*.36}%
+\contentsline {subsection}{\numberline {A.4}Step 3: Exact Geometric Decomposition}{16}{subsection.A.4}%
+\contentsline {paragraph}{General Identity.}{17}{section*.37}%
+\contentsline {paragraph}{Specialization 1: $W = I$ (identity alignment, main text).}{17}{section*.38}%
+\contentsline {paragraph}{Specialization 2: $W = W_N$ (Procrustes-optimal, ablation).}{17}{section*.39}%
+\contentsline {paragraph}{Assembling the Feature Bound.}{17}{section*.40}%
+\contentsline {subsection}{\numberline {A.5}Step 4: Bounding the Head Discrepancy $\gamma $}{18}{subsection.A.5}%
+\contentsline {paragraph}{Lipschitz Property with Respect to Logits.}{18}{section*.41}%
+\contentsline {paragraph}{Deriving the Second-Moment Projection.}{18}{section*.42}%
+\contentsline {paragraph}{Interpretation.}{18}{section*.43}%
+\contentsline {subsection}{\numberline {A.6}Step 5: Assembling the Unified Bound}{18}{subsection.A.6}%
+\contentsline {section}{\numberline {B}Tightness of Nuclear Norm over Frobenius Norm}{19}{appendix.B}%
+\contentsline {paragraph}{Definitions.}{19}{section*.44}%
+\contentsline {paragraph}{Statement.}{19}{section*.45}%
+\contentsline {paragraph}{Proof.}{19}{section*.46}%
+\contentsline {paragraph}{Consequence for Risk Bounding.}{19}{section*.47}%
+\contentsline {paragraph}{Relation to CKA.}{19}{section*.48}%
+\contentsline {section}{\numberline {C}Extension to General Orthogonal Alignments}{19}{appendix.C}%
+\contentsline {subsection}{\numberline {C.1}The General Bound for Arbitrary $W$}{20}{subsection.C.1}%
+\contentsline {subsection}{\numberline {C.2}The Trace Specialization ($W = I$)}{20}{subsection.C.2}%
+\contentsline {paragraph}{Ordering of Similarities.}{20}{section*.49}%
+\contentsline {paragraph}{When does $\Omega = \Omega _N$?}{20}{section*.50}%
+\contentsline {paragraph}{Full Bound under $W = I$.}{20}{section*.51}%
+\contentsline {paragraph}{Relation to CKA.}{20}{section*.52}%
+\contentsline {subsection}{\numberline {C.3}Joint Optimization on the Stiefel Manifold}{21}{subsection.C.3}%
+\contentsline {paragraph}{Why No Closed-Form Solution Exists.}{21}{section*.53}%
+\contentsline {paragraph}{Special Case: Isotropic Features.}{21}{section*.54}%
+\contentsline {paragraph}{Numerical Solution.}{21}{section*.55}%
+\contentsline {paragraph}{Practical Irrelevance for This Paper's Regimes.}{21}{section*.56}%
+\contentsline {section}{\numberline {D}Extension to Autoregressive Generation}{21}{appendix.D}%
+\contentsline {paragraph}{From tokens to matrices.}{21}{section*.57}%
+\contentsline {section}{\numberline {E}Model and Quantization Details}{22}{appendix.E}%
+\contentsline {subsection}{\numberline {E.1}Target Models}{22}{subsection.E.1}%
+\contentsline {subsection}{\numberline {E.2}Quantization Backends and Bit-Widths}{22}{subsection.E.2}%
+\contentsline {subsection}{\numberline {E.3}Per-Model GPTQ Repositories}{22}{subsection.E.3}%
+\contentsline {subsection}{\numberline {E.4}GGUF Repositories}{22}{subsection.E.4}%
+\contentsline {subsection}{\numberline {E.5}Backend Coverage Summary}{23}{subsection.E.5}%
+\contentsline {paragraph}{Experiment scope.}{23}{section*.58}%
+\contentsline {section}{\numberline {F}Quantization Replication, Feature-Only Scatter, and Per-Model Tables}{24}{appendix.F}%
+\contentsline {subsection}{\numberline {F.1}Replication on Ministral and DeepSeek}{24}{subsection.F.1}%
+\contentsline {subsection}{\numberline {F.2}Feature-Only Scatter}{24}{subsection.F.2}%
+\contentsline {subsection}{\numberline {F.3}Per-Model Decomposition Tables}{24}{subsection.F.3}%
+\contentsline {paragraph}{Per-benchmark variability in correlation strength.}{24}{section*.59}%
+\contentsline {section}{\numberline {G}Qwen3-8B Forgetting and Shape-Regularization Replications}{35}{appendix.G}%
+\contentsline {subsection}{\numberline {G.1}Forgetting: Bound Tracks Cross-Task Drift on Qwen3-8B}{35}{subsection.G.1}%
+\contentsline {paragraph}{Per-subplot variability under low-forgetting regimes.}{35}{section*.60}%
+\contentsline {subsection}{\numberline {G.2}Shape Regularization: Qwen3-8B Replication}{36}{subsection.G.2}%
+\contentsline {subsection}{\numberline {G.3}Additional Trace-Norm Decomposition Tables}{36}{subsection.G.3}%

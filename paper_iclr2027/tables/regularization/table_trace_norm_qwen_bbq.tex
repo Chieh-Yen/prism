@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Trace-norm forgetting decomposition for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{BBQ} under identity alignment ($W{=}I$).  Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model).  Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
+\label{tab:trace_norm_qwen_bbq}
+\resizebox{0.85\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{$\boldsymbol{\lambda}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_T}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_P}$} & \multicolumn{1}{c}{$\boldsymbol{\Omega}$} & \multicolumn{1}{c}{$\boldsymbol{\delta}$} & \multicolumn{1}{c}{$\boldsymbol{\gamma}$} & \multicolumn{1}{c}{$\boldsymbol{\mathcal{B}}$} & \multicolumn{1}{c}{$\boldsymbol{|\Delta\mathcal{R}|}$} \\
+\midrule
+ARC & $\lambda{=}0.0$ & 332.98 & 323.65 & \textbf{0.9966} & 28.6389 & \cellcolor{cyan!12} $0$ & 28.6389 & \textbf{0.2959} \\
+ & $\lambda{=}0.1$ & 332.98 & 325.07 & 0.9977 & 23.6218 & \cellcolor{cyan!12} $0$ & 81.6908 & 0.2983 \\
+ & $\lambda{=}0.5$ & 332.98 & 325.89 & 0.9983 & 20.4425 & \cellcolor{cyan!12} $0$ & 70.6960 & 0.2999 \\
+\midrule
+MMLU & $\lambda{=}0.0$ & 333.53 & 327.67 & 0.9986 & 18.4691 & \cellcolor{cyan!12} $0$ & 18.4691 & 0.0959 \\
+ & $\lambda{=}0.1$ & 333.53 & 328.63 & 0.9990 & 15.5053 & \cellcolor{cyan!12} $0$ & 53.6217 & 0.0879 \\
+ & $\lambda{=}0.5$ & 333.53 & 329.21 & \textbf{0.9990} & 15.3953 & \cellcolor{cyan!12} $0$ & 53.2413 & \textbf{0.0822} \\
+\midrule
+SQuAD & $\lambda{=}0.0$ & 297.68 & 285.26 & 0.9978 & 23.0185 & \cellcolor{cyan!12} $0$ & 23.0185 & 0.1444 \\
+ & $\lambda{=}0.1$ & 297.68 & 286.07 & 0.9985 & 19.7367 & \cellcolor{cyan!12} $0$ & 68.2550 & 0.1337 \\
+ & $\lambda{=}0.5$ & 297.68 & 287.07 & \textbf{0.9990} & 16.9506 & \cellcolor{cyan!12} $0$ & 58.6198 & \textbf{0.1312} \\
+\midrule
+TriviaQA & $\lambda{=}0.0$ & 240.42 & 235.37 & 0.9989 & 12.1057 & \cellcolor{cyan!12} $0$ & 12.1057 & 0.0023 \\
+ & $\lambda{=}0.1$ & 240.42 & 235.44 & \textbf{0.9991} & 11.1248 & \cellcolor{cyan!12} $0$ & 38.4726 & \textbf{0.0013} \\
+ & $\lambda{=}0.5$ & 240.42 & 235.67 & 0.9992 & 10.5391 & \cellcolor{cyan!12} $0$ & 36.4471 & 0.0055 \\
+\midrule
+GSM8K & $\lambda{=}0.0$ & 269.06 & 260.69 & \textbf{1.0000} & 8.3704 & \cellcolor{cyan!12} $0$ & 8.3704 & \textbf{0.0233} \\
+ & $\lambda{=}0.1$ & 269.06 & 261.31 & 1.0000 & 7.7529 & \cellcolor{cyan!12} $0$ & 26.8118 & 0.0254 \\
+ & $\lambda{=}0.5$ & 269.06 & 262.16 & 1.0000 & 6.8995 & \cellcolor{cyan!12} $0$ & 23.8602 & 0.0242 \\
+\bottomrule
+\end{tabular}}
+\end{table}

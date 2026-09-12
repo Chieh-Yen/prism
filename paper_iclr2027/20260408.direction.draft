@@ -1,0 +1,11 @@
+需要先推導出 PRISM trace 的版本
+加一個 Remark, 說單 feature 這一項的最佳解會倒出 nuclear norm, 可以和原本文章的 CKA 一起討論
+要仔細定義 W 需要滿足的條件 (正交, ...)
+
+$W_{\text{riemannian}}$ 的版本推導會放在 appendix (包含 initialization + Riemannian Gradient Descent), 但他會混淆直接的物理意義 (backbone, head)
+
+
+PRISM 的重要目的是為了做 insight 與解釋性上的分析
+所以在 quantization 與 lora fine-tune 上使用 W = I 的版本
+以便觀察 model 幾何上的改變
+

@@ -1,0 +1,64 @@
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {A}Proof of the Unified Risk Bound (Theorem~\ref {thm:unified_bound})}{\reset@font\ptcSfont 13}{appendix.A}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {A.1}Relation to Classical Procrustes Shape Metrics}{\reset@font\ptcSSfont 14}{subsection.A.1}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {A.2}Step 1: Risk Decomposition via Triangle Inequality}{\reset@font\ptcSSfont 14}{subsection.A.2}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Setup.}{\reset@font\ptcPfont 14}{subsection.A.2}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Decomposition.}{\reset@font\ptcPfont 14}{equation.9}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {A.3}Step 2: Bounding the Feature Alignment Error $\delta $}{\reset@font\ptcSSfont 14}{subsection.A.3}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Lipschitz Property of Cross-Entropy with Respect to Features.}{\reset@font\ptcPfont 14}{subsection.A.3}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Computing the Gradient.}{\reset@font\ptcPfont 14}{equation.11}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Simplex Polarization.}{\reset@font\ptcPfont 15}{equation.13}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Remark.}{\reset@font\ptcPfont 15}{equation.17}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax From Gradient Bound to Lipschitz Inequality.}{\reset@font\ptcPfont 15}{equation.17}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Applying the Lipschitz Bound.}{\reset@font\ptcPfont 15}{equation.17}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Empirical values.}{\reset@font\ptcPfont 15}{equation.19}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {A.4}Step 3: Exact Geometric Decomposition}{\reset@font\ptcSSfont 15}{subsection.A.4}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax General Identity.}{\reset@font\ptcPfont 16}{subsection.A.4}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Specialization 1: $W = I$ (identity alignment, main text).}{\reset@font\ptcPfont 16}{equation.23}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Specialization 2: $W = W_N$ (Procrustes-optimal, ablation).}{\reset@font\ptcPfont 16}{equation.24}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Assembling the Feature Bound.}{\reset@font\ptcPfont 17}{remark.1}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {A.5}Step 4: Bounding the Head Discrepancy $\gamma $}{\reset@font\ptcSSfont 17}{subsection.A.5}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Lipschitz Property with Respect to Logits.}{\reset@font\ptcPfont 17}{subsection.A.5}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Deriving the Covariance Projection.}{\reset@font\ptcPfont 17}{equation.31}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Interpretation.}{\reset@font\ptcPfont 18}{equation.35}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {A.6}Step 5: Assembling the Unified Bound}{\reset@font\ptcSSfont 18}{subsection.A.6}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {B}Tightness of Nuclear Norm over Frobenius Norm}{\reset@font\ptcSfont 18}{appendix.B}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Definitions.}{\reset@font\ptcPfont 18}{appendix.B}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Statement.}{\reset@font\ptcPfont 18}{equation.37}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Proof.}{\reset@font\ptcPfont 18}{equation.38}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Consequence for Risk Bounding.}{\reset@font\ptcPfont 19}{equation.40}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Relation to CKA.}{\reset@font\ptcPfont 19}{equation.41}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {C}Extension to General Orthogonal Alignments}{\reset@font\ptcSfont 19}{appendix.C}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {C.1}The General Bound for Arbitrary $W$}{\reset@font\ptcSSfont 19}{subsection.C.1}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {C.2}The Trace Specialization ($W = I$)}{\reset@font\ptcSSfont 19}{subsection.C.2}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Ordering of Similarities.}{\reset@font\ptcPfont 19}{subsection.C.2}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax When does $\Omega = \Omega _N$?}{\reset@font\ptcPfont 19}{equation.43}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Head-side simplification.}{\reset@font\ptcPfont 20}{equation.43}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {C.3}Joint Optimization on the Stiefel Manifold}{\reset@font\ptcSSfont 20}{subsection.C.3}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Why No Closed-Form Solution Exists.}{\reset@font\ptcPfont 20}{equation.44}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Special Case: Isotropic Features.}{\reset@font\ptcPfont 20}{equation.44}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Numerical Solution.}{\reset@font\ptcPfont 20}{equation.44}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Practical Irrelevance for This Paper's Regimes.}{\reset@font\ptcPfont 20}{equation.44}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {D}Extension to Autoregressive Generation}{\reset@font\ptcSfont 20}{appendix.D}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax From tokens to matrices.}{\reset@font\ptcPfont 20}{appendix.D}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {E}Model and Quantization Details}{\reset@font\ptcSfont 21}{appendix.E}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {E.1}Target Models}{\reset@font\ptcSSfont 21}{subsection.E.1}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {E.2}Quantization Backends and Bit-Widths}{\reset@font\ptcSSfont 21}{subsection.E.2}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {E.3}Per-Model GPTQ Repositories}{\reset@font\ptcSSfont 22}{subsection.E.3}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {E.4}GGUF Repositories}{\reset@font\ptcSSfont 22}{subsection.E.4}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {E.5}Backend Coverage Summary}{\reset@font\ptcSSfont 22}{subsection.E.5}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Experiment scope.}{\reset@font\ptcPfont 22}{table.9}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {F}Quantization Replication, Feature-Only Scatter, and Per-Model Tables}{\reset@font\ptcSfont 23}{appendix.F}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {F.1}Replication on Ministral and DeepSeek}{\reset@font\ptcSSfont 23}{subsection.F.1}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {F.2}Feature-Only Scatter}{\reset@font\ptcSSfont 23}{subsection.F.2}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {F.3}Per-Model Decomposition Tables}{\reset@font\ptcSSfont 23}{subsection.F.3}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {G}Qwen3-8B Forgetting and Shape-Regularization Replications}{\reset@font\ptcSfont 32}{appendix.G}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {G.1}Forgetting: Bound Tracks Cross-Task Drift on Qwen3-8B}{\reset@font\ptcSSfont 32}{subsection.G.1}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Per-subplot variability under low-forgetting regimes.}{\reset@font\ptcPfont 33}{figure.7}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {G.2}Shape Regularization: Qwen3-8B Replication}{\reset@font\ptcSSfont 33}{subsection.G.2}}
+{\reset@font\ptcSSfont\mtc@string\contentsline{subsection}{\noexpand \leavevmode \numberline {G.3}Additional Trace-Norm Decomposition Tables}{\reset@font\ptcSSfont 33}{subsection.G.3}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {H}When Shape Regularization Helps: Task-Dependence}{\reset@font\ptcSfont 33}{appendix.H}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Geometric mechanism remains intact.}{\reset@font\ptcPfont 33}{appendix.H}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Per-benchmark wins on shape-driven cells.}{\reset@font\ptcPfont 34}{appendix.H}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax When to apply: empirical validation of the gating signal.}{\reset@font\ptcPfont 35}{appendix.H}}
+{\reset@font\ptcPfont\mtc@string\contentsline{paragraph}{\noexpand \leavevmode \relax Empirical confirmation: Qwen3-8B replication.}{\reset@font\ptcPfont 36}{table.22}}
+{\reset@font\ptcSfont\mtc@string\contentsline{section}{\noexpand \leavevmode \numberline {I}Future Work}{\reset@font\ptcSfont 36}{appendix.I}}

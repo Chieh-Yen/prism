@@ -1,0 +1,424 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{frantar2022gptq}
+\citation{dettmers2022gpt3}
+\citation{hu2022lora}
+\citation{grattafiori2024llama,qwen2025qwen3}
+\citation{raghu2017svcca}
+\citation{kornblith2019similarity}
+\citation{ding2021grounding,davari2023reliability,klabunde2023similarity}
+\citation{harvey2024what}
+\citation{moschella2022relative,park2023linear}
+\def\@LN@column{1}
+\@writefile{toc}{\@ifundefined {etoctocstyle}{\let \etoc@startlocaltoc \@gobble \let \etoc@settocdepth \@gobble \let \etoc@depthtag \@gobble \let \etoc@setlocaltop \@gobble }{}}
+\@writefile{toc}{\setcounter {tocdepth}{0}}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\citation{raghu2017svcca}
+\citation{kornblith2019similarity}
+\citation{williams2021generalized}
+\citation{ding2021grounding,davari2023reliability,klabunde2023similarity}
+\citation{harvey2024what}
+\citation{moschella2022relative,park2023linear}
+\citation{huh2024platonic}
+\citation{frantar2022gptq}
+\citation{dettmers2022gpt3}
+\citation{xiao2023smoothquant}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{Contributions.}{2}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Representational Similarity and Procrustes Shape Metrics.}{2}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Post-Training Quantization and Its Evaluation.}{2}{section*.3}\protected@file@percent }
+\citation{hu2022lora}
+\citation{kirkpatrick2017overcoming}
+\citation{steele2026subspace}
+\citation{kaplan2020scaling,hoffmann2022training}
+\citation{polo2024tinybenchmarks,perlitz2024efficient}
+\citation{burns2023weak}
+\def\@LN@column{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal  {R}_T{-}\mathcal  {R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta $ and a head discrepancy $\gamma $ (Thm.~\ref {thm:unified_bound}). Under Procrustes alignment $W^{*}{=}\arg \min _{W\in \mathcal  {O}(d)}\|Z_T{-}Z_PW\|_F$, $\delta $ decomposes exactly into \emph  {scale mismatch} $(\Delta \rho )^{2}{=}(\rho _T{-}\rho _P)^{2}$ and \emph  {shape mismatch} $2\rho _T\rho _P(1{-}\Omega )$ (Prop.~\ref {prop:exact_decomposition}); $\gamma $ measures $\Delta H{=}W^{*}H_T{-}H_P$ re-weighted by the proxy covariance $\Sigma _P$, vanishing when $H_T{=}H_P$ (frozen-head LoRA). Each axis localizes a distinct empirical regime: shape distortion at low-bit PTQ, output-embedding head divergence at GGUF Q6/Q8 tiers that quantize the \texttt  {lm\_head} (Qwen3-Base Q6\_K on MMLU in Table~\ref {tab:qwen_decomposition_all}: $\delta {=}0.75$ vs.\ $\gamma {=}60.16$; absent under BnB/GPTQ where $\gamma {\equiv }0$), and scale-axis separability under LoRA forgetting via the BBQ-vs-TruthfulQA drift contrast (Sec.~\ref {subsec:forget_exp}).}}{3}{figure.1}\protected@file@percent }
+\newlabel{fig:prism_concept}{{1}{3}{\textbf {PRISM decomposition of the risk gap.} The cross-entropy risk gap $|\mathcal {R}_T{-}\mathcal {R}_P|$ between target $T$ and proxy $P$ is bounded by a feature alignment error $\delta $ and a head discrepancy $\gamma $ (Thm.~\ref {thm:unified_bound}). Under Procrustes alignment $W^{*}{=}\arg \min _{W\in \mathcal {O}(d)}\|Z_T{-}Z_PW\|_F$, $\delta $ decomposes exactly into \emph {scale mismatch} $(\Delta \rho )^{2}{=}(\rho _T{-}\rho _P)^{2}$ and \emph {shape mismatch} $2\rho _T\rho _P(1{-}\Omega )$ (Prop.~\ref {prop:exact_decomposition}); $\gamma $ measures $\Delta H{=}W^{*}H_T{-}H_P$ re-weighted by the proxy covariance $\Sigma _P$, vanishing when $H_T{=}H_P$ (frozen-head LoRA). Each axis localizes a distinct empirical regime: shape distortion at low-bit PTQ, output-embedding head divergence at GGUF Q6/Q8 tiers that quantize the \texttt {lm\_head} (Qwen3-Base Q6\_K on MMLU in Table~\ref {tab:qwen_decomposition_all}: $\delta {=}0.75$ vs.\ $\gamma {=}60.16$; absent under BnB/GPTQ where $\gamma {\equiv }0$), and scale-axis separability under LoRA forgetting via the BBQ-vs-TruthfulQA drift contrast (Sec.~\ref {subsec:forget_exp})}{figure.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Catastrophic Forgetting under Parameter-Efficient Fine-Tuning.}{3}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Efficient Evaluation and Performance Forecasting.}{3}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}A Geometric Bound on the Cross-Entropy Risk Gap}{3}{section.3}\protected@file@percent }
+\newlabel{sec:geometric_foundation}{{3}{3}{A Geometric Bound on the Cross-Entropy Risk Gap}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Setup}{3}{subsection.3.1}\protected@file@percent }
+\newlabel{subsec:problem_setup}{{3.1}{3}{Setup}{subsection.3.1}{}}
+\citation{moschella2022relative,park2023linear}
+\citation{dettmers2022gpt3,xiao2023smoothquant}
+\def\@LN@column{1}
+\newlabel{eq:ce_def}{{2}{4}{Setup}{equation.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}The Unified Risk Bound}{4}{subsection.3.2}\protected@file@percent }
+\newlabel{subsec:unified_bound}{{3.2}{4}{The Unified Risk Bound}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Feature error $\delta $.}{4}{section*.6}\protected@file@percent }
+\newlabel{prop:exact_decomposition}{{1}{4}{Exact Scale--Shape Decomposition}{proposition.1}{}}
+\newlabel{eq:exact_equality}{{3}{4}{Exact Scale--Shape Decomposition}{equation.3}{}}
+\newlabel{eq:omega_def}{{4}{4}{Exact Scale--Shape Decomposition}{equation.4}{}}
+\newlabel{eq:delta_bound}{{5}{4}{Feature error $\delta $}{equation.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Head error $\gamma $.}{4}{section*.7}\protected@file@percent }
+\newlabel{thm:unified_bound}{{1}{4}{Unified Risk Bound}{theorem.1}{}}
+\newlabel{eq:unified_bound}{{6}{4}{Unified Risk Bound}{equation.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Three Diagnostic Axes}{4}{subsection.3.3}\protected@file@percent }
+\newlabel{subsec:interpretation}{{3.3}{4}{Three Diagnostic Axes}{subsection.3.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Scale mismatch $\Delta \rho $.}{4}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Shape mismatch $1-\Omega _W$.}{4}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Head divergence $\|\Sigma _P^{1/2}(W H_T - H_P)\|_F$.}{4}{section*.10}\protected@file@percent }
+\citation{hu2022lora}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{PRISM admits a family of Procrustes similarities.}{5}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Extension to Autoregressive Generation}{5}{subsection.3.4}\protected@file@percent }
+\newlabel{subsec:ar_extension}{{3.4}{5}{Extension to Autoregressive Generation}{subsection.3.4}{}}
+\newlabel{eq:ar_risk}{{7}{5}{Extension to Autoregressive Generation}{equation.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}From Diagnostic to Training: Shape Regularization}{5}{subsection.3.5}\protected@file@percent }
+\newlabel{subsec:shape_reg}{{3.5}{5}{From Diagnostic to Training: Shape Regularization}{subsection.3.5}{}}
+\newlabel{eq:lora_bound}{{8}{5}{From Diagnostic to Training: Shape Regularization}{equation.8}{}}
+\newlabel{eq:shape_reg}{{9}{5}{From Diagnostic to Training: Shape Regularization}{equation.9}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Applications: Post-Training Quantization and LoRA Forgetting}{5}{section.4}\protected@file@percent }
+\newlabel{sec:applications}{{4}{5}{Applications: Post-Training Quantization and LoRA Forgetting}{section.4}{}}
+\newlabel{subsec:quantization}{{4}{5}{Quantization quality estimation}{section*.12}{}}
+\@writefile{toc}{\contentsline {paragraph}{Quantization quality estimation.}{5}{section*.12}\protected@file@percent }
+\newlabel{subsec:forgetting}{{4}{5}{Geometric monitoring of catastrophic forgetting}{section*.13}{}}
+\@writefile{toc}{\contentsline {paragraph}{Geometric monitoring of catastrophic forgetting.}{5}{section*.13}\protected@file@percent }
+\citation{grattafiori2024llama}
+\citation{qwen2025qwen3}
+\citation{frantar2022gptq}
+\citation{dettmers2022gpt3}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Experiments}{6}{section.5}\protected@file@percent }
+\newlabel{sec:experiments}{{5}{6}{Experiments}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Experimental Setup}{6}{subsection.5.1}\protected@file@percent }
+\newlabel{subsec:exp_setup}{{5.1}{6}{Experimental Setup}{subsection.5.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Models.}{6}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Quantization Protocols.}{6}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Fine-Tuning Tasks.}{6}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Benchmarks and Scoring.}{6}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Calibration and Hyperparameters.}{6}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Predictiveness: The Bound Tracks the Risk Gap}{6}{subsection.5.2}\protected@file@percent }
+\newlabel{subsec:predict}{{5.2}{6}{Predictiveness: The Bound Tracks the Risk Gap}{subsection.5.2}{}}
+\newlabel{subsec:quant_exp}{{5.2}{6}{Predictiveness: The Bound Tracks the Risk Gap}{subsection.5.2}{}}
+\newlabel{subsec:forget_exp}{{5.2}{6}{Predictiveness: The Bound Tracks the Risk Gap}{subsection.5.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Quantization.}{6}{section*.19}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {The PRISM bound $\mathcal  {B}$ tracks the empirical risk gap across two model families and five benchmarks.} Each subplot scatters the PRISM bound $\mathcal  {B}$ (x-axis, log) against the empirical cross-entropy risk gap $|\Delta \mathcal  {R}|$ (y-axis, log). Each point is one quantization variant; colors denote PTQ family (GGUF / GPTQ / BitsAndBytes). Rows: Llama-3.1-8B, Qwen3-8B. Columns: ARC, MMLU, SQuAD, TriviaQA, GSM8K. Per-subplot Spearman $r_s$ is annotated in each panel (mean $|r_s|{\approx }0.82$ across the 2{$\times $}5 grid; per-component breakdown in Sec.~\ref {subsec:ablation}); the red dashed $y{=}x$ line marks bound tightness, and the \textcolor {green!50!black}{green shaded region below it} is the safe zone where the bound provably holds. Replication on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B: Fig.~\ref {fig:quant_grid_bound_extra} (Appendix~\ref {app:quant_tables}).}}{7}{figure.2}\protected@file@percent }
+\newlabel{fig:quant_grid_bound}{{2}{7}{\textbf {The PRISM bound $\mathcal {B}$ tracks the empirical risk gap across two model families and five benchmarks.} Each subplot scatters the PRISM bound $\mathcal {B}$ (x-axis, log) against the empirical cross-entropy risk gap $|\Delta \mathcal {R}|$ (y-axis, log). Each point is one quantization variant; colors denote PTQ family (GGUF / GPTQ / BitsAndBytes). Rows: Llama-3.1-8B, Qwen3-8B. Columns: ARC, MMLU, SQuAD, TriviaQA, GSM8K. Per-subplot Spearman $r_s$ is annotated in each panel (mean $|r_s|{\approx }0.82$ across the 2{$\times $}5 grid; per-component breakdown in Sec.~\ref {subsec:ablation}); the red dashed $y{=}x$ line marks bound tightness, and the \textcolor {green!50!black}{green shaded region below it} is the safe zone where the bound provably holds. Replication on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B: Fig.~\ref {fig:quant_grid_bound_extra} (Appendix~\ref {app:quant_tables})}{figure.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Geometric decomposition for \textbf  {Llama-3.1-8B} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{7}{table.1}\protected@file@percent }
+\newlabel{tab:llama_decomposition_main}{{1}{7}{Geometric decomposition for \textbf {Llama-3.1-8B} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{LoRA forgetting.}{7}{section*.20}\protected@file@percent }
+\citation{xiao2023smoothquant}
+\def\@LN@column{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Llama-3.1-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the bound $\mathcal  {B}$ (x-axis, log) against the empirical forgetting $|\Delta \mathcal  {R}|$ (y-axis, log) on a downstream benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: downstream benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Under LoRA's frozen \texttt  {lm\_head}, $\gamma {=}0$ so $\mathcal  {B}$ reduces to backbone scale ($\Delta \rho $) and shape ($1{-}\Omega $) drift. Spearman $r_s$ per subplot is annotated in each panel. Qwen3-8B replication: Appendix~\ref {app:qwen_forgetting}.}}{8}{figure.3}\protected@file@percent }
+\newlabel{fig:forget_grid_llama}{{3}{8}{\textbf {Llama-3.1-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the bound $\mathcal {B}$ (x-axis, log) against the empirical forgetting $|\Delta \mathcal {R}|$ (y-axis, log) on a downstream benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: downstream benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Under LoRA's frozen \texttt {lm\_head}, $\gamma {=}0$ so $\mathcal {B}$ reduces to backbone scale ($\Delta \rho $) and shape ($1{-}\Omega $) drift. Spearman $r_s$ per subplot is annotated in each panel. Qwen3-8B replication: Appendix~\ref {app:qwen_forgetting}}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Decomposability: Three Axes, Three Failure Modes}{8}{subsection.5.3}\protected@file@percent }
+\newlabel{subsec:decompose}{{5.3}{8}{Decomposability: Three Axes, Three Failure Modes}{subsection.5.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Shape distortion (low-bit PTQ).}{8}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Head divergence (GGUF k-quant tiers that touch \texttt  {lm\_head}).}{8}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Scale-axis separability (LoRA cross-task contrast).}{8}{section*.23}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {PRISM-guided shape regularization on Llama-3.1-8B.} LoRA fine-tuning with the auxiliary penalty $\lambda (1-\Omega (Z_0^{\mathrm  {ref}}, Z_t^{\mathrm  {ref}}))$ (Eq.~\ref {eq:shape_reg}) on TruthfulQA (top row) and BBQ (bottom row). At step $300$: downstream forgetting $|\Delta \mathcal  {R}|$ across the downstream benchmarks under $\lambda \in \{0.0, 0.1, 0.5\}$, decreasing as $\lambda $ rises across benchmarks (Table~\ref {tab:trace_norm_llama_truthfulqa}). Qwen3-8B replication: Appendix~\ref {app:qwen_forgetting}.}}{9}{figure.4}\protected@file@percent }
+\newlabel{fig:shape_reg_combined_llama}{{4}{9}{\textbf {PRISM-guided shape regularization on Llama-3.1-8B.} LoRA fine-tuning with the auxiliary penalty $\lambda (1-\Omega (Z_0^{\mathrm {ref}}, Z_t^{\mathrm {ref}}))$ (Eq.~\ref {eq:shape_reg}) on TruthfulQA (top row) and BBQ (bottom row). At step $300$: downstream forgetting $|\Delta \mathcal {R}|$ across the downstream benchmarks under $\lambda \in \{0.0, 0.1, 0.5\}$, decreasing as $\lambda $ rises across benchmarks (Table~\ref {tab:trace_norm_llama_truthfulqa}). Qwen3-8B replication: Appendix~\ref {app:qwen_forgetting}}{figure.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Trace-norm forgetting decomposition for \textbf  {Llama-3.1-8B} fine-tuned on \textbf  {TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal  {R}|$ is marked: both $|\Delta \mathcal  {R}|$ and the corresponding $\Omega $ are in bold.}}{9}{table.2}\protected@file@percent }
+\newlabel{tab:trace_norm_llama_truthfulqa}{{2}{9}{Trace-norm forgetting decomposition for \textbf {Llama-3.1-8B} fine-tuned on \textbf {TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal {R}|$ is marked: both $|\Delta \mathcal {R}|$ and the corresponding $\Omega $ are in bold}{table.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{From diagnosis to remediation.}{9}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Actionability: From Diagnostic to Training Objective}{9}{subsection.5.4}\protected@file@percent }
+\newlabel{subsec:action}{{5.4}{9}{Actionability: From Diagnostic to Training Objective}{subsection.5.4}{}}
+\newlabel{subsec:shape_reg_exp}{{5.4}{9}{Actionability: From Diagnostic to Training Objective}{subsection.5.4}{}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces \textbf  {Component-wise ablation under both alignment conventions.} Top block: identity-alignment form ($W{=}I$, used throughout the main text). Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell Spearman protocol throughout. Within each block, rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $|r_s|$ = better variant ranking; bold = best in column \emph  {within its block}. The $W{=}W_N$ block ranks modestly better on the full bound, as expected since $W_N$ minimizes the alignment residual; the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the head-term simplification $H_T = H_P$ that holds in our frozen-\texttt  {lm\_head} regimes.}}{10}{table.3}\protected@file@percent }
+\newlabel{tab:baseline_combined}{{3}{10}{\textbf {Component-wise ablation under both alignment conventions.} Top block: identity-alignment form ($W{=}I$, used throughout the main text). Bottom block: Procrustes-optimal $W{=}W_N$ form. Same per-cell Spearman protocol throughout. Within each block, rows add bound components cumulatively (shape $\to +$ scale $\to +$ head); larger $|r_s|$ = better variant ranking; bold = best in column \emph {within its block}. The $W{=}W_N$ block ranks modestly better on the full bound, as expected since $W_N$ minimizes the alignment residual; the main text adopts the identity alignment $W{=}I$ for autograd compatibility and for the head-term simplification $H_T = H_P$ that holds in our frozen-\texttt {lm\_head} regimes}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Ablation: Component-Wise Contributions}{10}{subsection.5.5}\protected@file@percent }
+\newlabel{subsec:ablation}{{5.5}{10}{Ablation: Component-Wise Contributions}{subsection.5.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion and Future Work}{10}{section.6}\protected@file@percent }
+\newlabel{sec:conclusion}{{6}{10}{Conclusion and Future Work}{section.6}{}}
+\citation{huh2024platonic}
+\bibstyle{plainnat}
+\bibdata{paper}
+\bibcite{burns2023weak}{{1}{2024}{{Burns et~al.}}{{Burns, Izmailov, Kirchner, Baker, Gao, Aschenbrenner, Chen, Ecoffet, Man{\'e}, Oleg, et~al.}}}
+\bibcite{davari2023reliability}{{2}{2023}{{Davari et~al.}}{{Davari, Horoi, Natik, Lajoie, Wolf, and Belilovsky}}}
+\bibcite{dettmers2022gpt3}{{3}{2022}{{Dettmers et~al.}}{{Dettmers, Lewis, Belkada, and Zettlemoyer}}}
+\bibcite{ding2021grounding}{{4}{2021}{{Ding et~al.}}{{Ding, Denain, and Steinhardt}}}
+\bibcite{ethayarajh2019contextual}{{5}{2019}{{Ethayarajh}}{{}}}
+\bibcite{frantar2022gptq}{{6}{2023}{{Frantar et~al.}}{{Frantar, Ashkboos, Hoefler, and Alistarh}}}
+\bibcite{gower2004procrustes}{{7}{2004}{{Gower and Dijksterhuis}}{{}}}
+\bibcite{grattafiori2024llama}{{8}{2024}{{Grattafiori et~al.}}{{Grattafiori, Dubey, Jauhri, Pandey, Kadian, Al-Dahle, Letman, Mathur, Schelten, Yang, et~al.}}}
+\bibcite{harvey2024what}{{9}{2024}{{Harvey et~al.}}{{Harvey, Lipshutz, and Williams}}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{Scope and limitations.}{11}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Future Work.}{11}{section*.26}\protected@file@percent }
+\bibcite{hoffmann2022training}{{10}{2022}{{Hoffmann et~al.}}{{Hoffmann, Borgeaud, Mensch, Buchatskaya, Cai, Rutherford, de~Las~Casas, Hendricks, Welbl, Clark, et~al.}}}
+\bibcite{hu2022lora}{{11}{2022}{{Hu et~al.}}{{Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and Chen}}}
+\bibcite{huh2024platonic}{{12}{2024}{{Huh et~al.}}{{Huh, Cheung, Wang, and Isola}}}
+\bibcite{kaplan2020scaling}{{13}{2020}{{Kaplan et~al.}}{{Kaplan, McCandlish, Henighan, Brown, Chess, Child, Gray, Radford, Wu, and Amodei}}}
+\bibcite{kirkpatrick2017overcoming}{{14}{2017}{{Kirkpatrick et~al.}}{{Kirkpatrick, Pascanu, Rabinowitz, Veness, Desjardins, Rusu, Milan, Quan, Ramalho, Grabska-Barwinska, et~al.}}}
+\bibcite{klabunde2023similarity}{{15}{2023}{{Klabunde et~al.}}{{Klabunde, Schumacher, Strohmaier, and Lemmerich}}}
+\bibcite{kornblith2019similarity}{{16}{2019}{{Kornblith et~al.}}{{Kornblith, Norouzi, Lee, and Hinton}}}
+\bibcite{moschella2022relative}{{17}{2022}{{Moschella et~al.}}{{Moschella, Maiorca, Fumero, Norelli, Locatello, and Rodol{\`a}}}}
+\bibcite{park2023linear}{{18}{2023}{{Park et~al.}}{{Park, Choe, and Jindal}}}
+\bibcite{perlitz2024efficient}{{19}{2024}{{Perlitz et~al.}}{{Perlitz, Bandel, Gera, Arviv, Ein-Dor, Shmueli-Scheuer, Shnarch, Slonim, and Choshen}}}
+\bibcite{polo2024tinybenchmarks}{{20}{2024}{{Polo et~al.}}{{Polo, Weber, Choshen, Sun, Xu, and Yurochkin}}}
+\bibcite{qwen2025qwen3}{{21}{2025}{{Qwen Team}}{{}}}
+\bibcite{raghu2017svcca}{{22}{2017}{{Raghu et~al.}}{{Raghu, Gilmer, Yosinski, and Sohl-Dickstein}}}
+\bibcite{schonemann1966generalized}{{23}{1966}{{Sch{\"o}nemann}}{{}}}
+\bibcite{steele2026subspace}{{24}{2026}{{Steele}}{{}}}
+\bibcite{williams2021generalized}{{25}{2021}{{Williams et~al.}}{{Williams, Kunz, Kornblith, and Linderman}}}
+\bibcite{xiao2023smoothquant}{{26}{2023}{{Xiao et~al.}}{{Xiao, Lin, Seznec, Wu, Demouth, and Han}}}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\@writefile{toc}{\setcounter {tocdepth}{2}}
+\citation{williams2021generalized}
+\citation{harvey2024what}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Proof of the Unified Risk Bound (Theorem~\ref {thm:unified_bound})}{15}{appendix.A}\protected@file@percent }
+\newlabel{app:detailed_proofs}{{A}{15}{Proof of the Unified Risk Bound (Theorem~\ref {thm:unified_bound})}{appendix.A}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Relation to Classical Procrustes Shape Metrics}{15}{subsection.A.1}\protected@file@percent }
+\newlabel{app:shape_metrics_relation}{{A.1}{15}{Relation to Classical Procrustes Shape Metrics}{subsection.A.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Step 1: Risk Decomposition via Triangle Inequality}{15}{subsection.A.2}\protected@file@percent }
+\newlabel{app:risk_decomp}{{A.2}{15}{Step 1: Risk Decomposition via Triangle Inequality}{subsection.A.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Setup.}{15}{section*.29}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Decomposition.}{15}{section*.30}\protected@file@percent }
+\newlabel{eq:app_triangle}{{11}{15}{Decomposition}{equation.11}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Step 2: Bounding the Feature Alignment Error $\delta $}{15}{subsection.A.3}\protected@file@percent }
+\newlabel{app:kfeat}{{A.3}{15}{Step 2: Bounding the Feature Alignment Error $\delta $}{subsection.A.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Lipschitz Property of Cross-Entropy with Respect to Features.}{15}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Computing the Gradient.}{15}{section*.32}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{Simplex Polarization.}{16}{section*.33}\protected@file@percent }
+\newlabel{eq:kfeat_tight}{{18}{16}{Simplex Polarization}{equation.18}{}}
+\@writefile{toc}{\contentsline {paragraph}{Remark.}{16}{section*.34}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{From Gradient Bound to Lipschitz Inequality.}{16}{section*.35}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Applying the Lipschitz Bound.}{16}{section*.36}\protected@file@percent }
+\newlabel{eq:delta_lipschitz}{{20}{16}{Applying the Lipschitz Bound}{equation.20}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Step 3: Exact Geometric Decomposition}{16}{subsection.A.4}\protected@file@percent }
+\newlabel{app:procrustes}{{A.4}{16}{Step 3: Exact Geometric Decomposition}{subsection.A.4}{}}
+\citation{schonemann1966generalized,gower2004procrustes}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{General Identity.}{17}{section*.37}\protected@file@percent }
+\newlabel{eq:procrustes_expand}{{22}{17}{General Identity}{equation.22}{}}
+\newlabel{eq:exact_decomposition_general}{{24}{17}{General Identity}{equation.24}{}}
+\@writefile{toc}{\contentsline {paragraph}{Specialization 1: $W = I$ (identity alignment, main text).}{17}{section*.38}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Specialization 2: $W = W_N$ (Procrustes-optimal, ablation).}{17}{section*.39}\protected@file@percent }
+\newlabel{eq:W_optimal}{{28}{17}{Specialization 2: $W = W_N$ (Procrustes-optimal, ablation)}{equation.28}{}}
+\@writefile{toc}{\contentsline {paragraph}{Assembling the Feature Bound.}{17}{section*.40}\protected@file@percent }
+\newlabel{eq:delta_final}{{30}{17}{Assembling the Feature Bound}{equation.30}{}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.5}Step 4: Bounding the Head Discrepancy $\gamma $}{18}{subsection.A.5}\protected@file@percent }
+\newlabel{app:head_bound}{{A.5}{18}{Step 4: Bounding the Head Discrepancy $\gamma $}{subsection.A.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Lipschitz Property with Respect to Logits.}{18}{section*.41}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Deriving the Second-Moment Projection.}{18}{section*.42}\protected@file@percent }
+\newlabel{eq:gamma_final}{{36}{18}{Deriving the Second-Moment Projection}{equation.36}{}}
+\@writefile{toc}{\contentsline {paragraph}{Interpretation.}{18}{section*.43}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.6}Step 5: Assembling the Unified Bound}{18}{subsection.A.6}\protected@file@percent }
+\newlabel{app:assembly}{{A.6}{18}{Step 5: Assembling the Unified Bound}{subsection.A.6}{}}
+\citation{kornblith2019similarity}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Tightness of Nuclear Norm over Frobenius Norm}{19}{appendix.B}\protected@file@percent }
+\newlabel{app:tightness}{{B}{19}{Tightness of Nuclear Norm over Frobenius Norm}{appendix.B}{}}
+\@writefile{toc}{\contentsline {paragraph}{Definitions.}{19}{section*.44}\protected@file@percent }
+\newlabel{eq:omega_nuclear}{{38}{19}{Definitions}{equation.38}{}}
+\@writefile{toc}{\contentsline {paragraph}{Statement.}{19}{section*.45}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Proof.}{19}{section*.46}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Consequence for Risk Bounding.}{19}{section*.47}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Relation to CKA.}{19}{section*.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {C}Extension to General Orthogonal Alignments}{19}{appendix.C}\protected@file@percent }
+\newlabel{app:general_W}{{C}{19}{Extension to General Orthogonal Alignments}{appendix.C}{}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}The General Bound for Arbitrary $W$}{20}{subsection.C.1}\protected@file@percent }
+\newlabel{app:general_bound}{{C.1}{20}{The General Bound for Arbitrary $W$}{subsection.C.1}{}}
+\newlabel{eq:omega_W_def}{{44}{20}{The General Bound for Arbitrary $W$}{equation.44}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}The Trace Specialization ($W = I$)}{20}{subsection.C.2}\protected@file@percent }
+\newlabel{app:trace_specialization}{{C.2}{20}{The Trace Specialization ($W = I$)}{subsection.C.2}{}}
+\newlabel{eq:omega_tr}{{46}{20}{The Trace Specialization ($W = I$)}{equation.46}{}}
+\@writefile{toc}{\contentsline {paragraph}{Ordering of Similarities.}{20}{section*.49}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{When does $\Omega = \Omega _N$?}{20}{section*.50}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Full Bound under $W = I$.}{20}{section*.51}\protected@file@percent }
+\newlabel{eq:bound_identity}{{48}{20}{Full Bound under $W = I$}{equation.48}{}}
+\@writefile{toc}{\contentsline {paragraph}{Relation to CKA.}{20}{section*.52}\protected@file@percent }
+\citation{gower2004procrustes}
+\citation{ethayarajh2019contextual,dettmers2022gpt3}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Joint Optimization on the Stiefel Manifold}{21}{subsection.C.3}\protected@file@percent }
+\newlabel{app:joint_opt}{{C.3}{21}{Joint Optimization on the Stiefel Manifold}{subsection.C.3}{}}
+\newlabel{eq:joint_obj}{{49}{21}{Joint Optimization on the Stiefel Manifold}{equation.49}{}}
+\@writefile{toc}{\contentsline {paragraph}{Why No Closed-Form Solution Exists.}{21}{section*.53}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Special Case: Isotropic Features.}{21}{section*.54}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Numerical Solution.}{21}{section*.55}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Practical Irrelevance for This Paper's Regimes.}{21}{section*.56}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {D}Extension to Autoregressive Generation}{21}{appendix.D}\protected@file@percent }
+\newlabel{app:ar_extension}{{D}{21}{Extension to Autoregressive Generation}{appendix.D}{}}
+\@writefile{toc}{\contentsline {paragraph}{From tokens to matrices.}{21}{section*.57}\protected@file@percent }
+\newlabel{cor:ar_bound}{{1}{21}{Autoregressive Risk Bound}{corollary.1}{}}
+\newlabel{eq:ar_bound}{{50}{21}{Autoregressive Risk Bound}{equation.50}{}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {E}Model and Quantization Details}{22}{appendix.E}\protected@file@percent }
+\newlabel{app:model_details}{{E}{22}{Model and Quantization Details}{appendix.E}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.1}Target Models}{22}{subsection.E.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Target models used in quantization experiments. All models are loaded in BF16.}}{22}{table.4}\protected@file@percent }
+\newlabel{tab:target_models}{{4}{22}{Target models used in quantization experiments. All models are loaded in BF16}{table.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.2}Quantization Backends and Bit-Widths}{22}{subsection.E.2}\protected@file@percent }
+\newlabel{app:quant_tiers}{{E.2}{22}{Quantization Backends and Bit-Widths}{subsection.E.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Shared quantization tiers applied to all target models. GGUF quants use the \texttt  {llama.cpp} k-quant scheme; BnB quants use on-the-fly quantization from the full-precision checkpoint.}}{22}{table.5}\protected@file@percent }
+\newlabel{tab:quant_tiers}{{5}{22}{Shared quantization tiers applied to all target models. GGUF quants use the \texttt {llama.cpp} k-quant scheme; BnB quants use on-the-fly quantization from the full-precision checkpoint}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.3}Per-Model GPTQ Repositories}{22}{subsection.E.3}\protected@file@percent }
+\newlabel{app:gptq_awq}{{E.3}{22}{Per-Model GPTQ Repositories}{subsection.E.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.4}GGUF Repositories}{22}{subsection.E.4}\protected@file@percent }
+\newlabel{app:gguf_repos}{{E.4}{22}{GGUF Repositories}{subsection.E.4}{}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Pre-quantized GPTQ checkpoints per model. One repository per model, corresponding to the variant actually loaded in our experiments; ``---'' indicates no GPTQ checkpoint was evaluated for that model. $^\ddagger $Post-quantization fine-tuned on distillation data; may not reflect clean quantization error.}}{23}{table.6}\protected@file@percent }
+\newlabel{tab:gptq_awq}{{6}{23}{Pre-quantized GPTQ checkpoints per model. One repository per model, corresponding to the variant actually loaded in our experiments; ``---'' indicates no GPTQ checkpoint was evaluated for that model. $^\ddagger $Post-quantization fine-tuned on distillation data; may not reflect clean quantization error}{table.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces GGUF repositories and filename templates. Each repository provides quants \texttt  {Q8\_0}, \texttt  {Q6\_K}, \texttt  {Q5\_K\_M}, \texttt  {Q4\_K\_M}, \texttt  {Q3\_K\_M}, and \texttt  {Q2\_K} unless otherwise noted.}}{23}{table.7}\protected@file@percent }
+\newlabel{tab:gguf_repos}{{7}{23}{GGUF repositories and filename templates. Each repository provides quants \texttt {Q8\_0}, \texttt {Q6\_K}, \texttt {Q5\_K\_M}, \texttt {Q4\_K\_M}, \texttt {Q3\_K\_M}, and \texttt {Q2\_K} unless otherwise noted}{table.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.5}Backend Coverage Summary}{23}{subsection.E.5}\protected@file@percent }
+\newlabel{app:coverage}{{E.5}{23}{Backend Coverage Summary}{subsection.E.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Quantization backend coverage per model. {\fontfamily  {pzd}\fontencoding  {U}\fontseries  {m}\fontshape  {n}\selectfont  \char 51}\ = included in our experiments; --- = not evaluated in this study.}}{23}{table.8}\protected@file@percent }
+\newlabel{tab:coverage}{{8}{23}{Quantization backend coverage per model. \cmark \ = included in our experiments; --- = not evaluated in this study}{table.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{Experiment scope.}{23}{section*.58}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {F}Quantization Replication, Feature-Only Scatter, and Per-Model Tables}{24}{appendix.F}\protected@file@percent }
+\newlabel{app:quant_tables}{{F}{24}{Quantization Replication, Feature-Only Scatter, and Per-Model Tables}{appendix.F}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {F.1}Replication on Ministral and DeepSeek}{24}{subsection.F.1}\protected@file@percent }
+\newlabel{app:replication_mistral_deepseek}{{F.1}{24}{Replication on Ministral and DeepSeek}{subsection.F.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {PTQ replication on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B.} Counterpart of main-text Fig.~\ref {fig:quant_grid_bound} (Llama-3.1-8B and Qwen3-8B), with identical axes, PTQ family color coding, and benchmark set. Rows: Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B. Columns: ARC, MMLU, SQuAD, TriviaQA, GSM8K. Per-subplot Spearman $r_s$ is annotated in each panel.}}{24}{figure.5}\protected@file@percent }
+\newlabel{fig:quant_grid_bound_extra}{{5}{24}{\textbf {PTQ replication on Ministral-3-8B and DeepSeek-R1-Distill-Llama-8B.} Counterpart of main-text Fig.~\ref {fig:quant_grid_bound} (Llama-3.1-8B and Qwen3-8B), with identical axes, PTQ family color coding, and benchmark set. Rows: Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B. Columns: ARC, MMLU, SQuAD, TriviaQA, GSM8K. Per-subplot Spearman $r_s$ is annotated in each panel}{figure.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {F.2}Feature-Only Scatter}{24}{subsection.F.2}\protected@file@percent }
+\newlabel{app:feature_only}{{F.2}{24}{Feature-Only Scatter}{subsection.F.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {F.3}Per-Model Decomposition Tables}{24}{subsection.F.3}\protected@file@percent }
+\newlabel{app:per_model_tables}{{F.3}{24}{Per-Model Decomposition Tables}{subsection.F.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Per-benchmark variability in correlation strength.}{24}{section*.59}\protected@file@percent }
+\gdef \LT@i {\LT@entry 
+    {5}{57.76967pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{48.49963pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{37.25pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Feature alignment error $\delta $ alone is already highly predictive of the risk gap.} Identical layout to Fig.~\ref {fig:quant_grid_bound} but with x-axis replaced by the feature-only term $\delta $. Because most protocols retain the \texttt  {lm\_head} in FP16, the head-discrepancy term $\gamma $ is zero for GPTQ and BitsAndBytes and small for GGUF configurations that quantize output embeddings; $\delta $ therefore captures most of the predictive signal of Fig.~\ref {fig:quant_grid_bound}, confirming that scale collapse $(\Delta \rho )^2$ and shape mismatch $(1-\Omega )$ are the dominant degradation channels under PTQ (Sec.~\ref {subsec:quantization}).}}{25}{figure.6}\protected@file@percent }
+\newlabel{fig:quant_grid_feature}{{6}{25}{\textbf {Feature alignment error $\delta $ alone is already highly predictive of the risk gap.} Identical layout to Fig.~\ref {fig:quant_grid_bound} but with x-axis replaced by the feature-only term $\delta $. Because most protocols retain the \texttt {lm\_head} in FP16, the head-discrepancy term $\gamma $ is zero for GPTQ and BitsAndBytes and small for GGUF configurations that quantize output embeddings; $\delta $ therefore captures most of the predictive signal of Fig.~\ref {fig:quant_grid_bound}, confirming that scale collapse $(\Delta \rho )^2$ and shape mismatch $(1-\Omega )$ are the dominant degradation channels under PTQ (Sec.~\ref {subsec:quantization})}{figure.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{Geometric decomposition for \textbf  {Llama-3.1-8B} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{25}{table.9}\protected@file@percent }
+\newlabel{tab:llama_decomposition_ext}{{9}{25}{Geometric decomposition for \textbf {Llama-3.1-8B} under identity alignment ($W{=}I$) --- ext task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.9}{}}
+\gdef \LT@ii {\LT@entry 
+    {5}{57.76967pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{42.49684pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{Geometric decomposition for \textbf  {Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{26}{table.10}\protected@file@percent }
+\newlabel{tab:mistral_decomposition_all}{{10}{26}{Geometric decomposition for \textbf {Ministral-3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.10}{}}
+\def\@LN@column{1}
+\gdef \LT@iii {\LT@entry 
+    {5}{57.76967pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{42.49684pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{39.5pt}\LT@entry 
+    {5}{37.25pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{Geometric decomposition for \textbf  {Qwen3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{28}{table.11}\protected@file@percent }
+\newlabel{tab:qwen_decomposition_all}{{11}{28}{Geometric decomposition for \textbf {Qwen3-8B-Base} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.11}{}}
+\gdef \LT@iv {\LT@entry 
+    {5}{57.76967pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{48.49963pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{37.25pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{Geometric decomposition for \textbf  {DeepSeek-R1-Distill-Llama-8B} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{29}{table.12}\protected@file@percent }
+\newlabel{tab:deepseek_decomposition_all}{{12}{29}{Geometric decomposition for \textbf {DeepSeek-R1-Distill-Llama-8B} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.12}{}}
+\gdef \LT@v {\LT@entry 
+    {5}{57.76967pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{48.49963pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{37.25pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {13}{Geometric decomposition for \textbf  {Llama-3.1-8B-Instruct} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{30}{table.13}\protected@file@percent }
+\newlabel{tab:llama_instruct_decomposition_all}{{13}{30}{Geometric decomposition for \textbf {Llama-3.1-8B-Instruct} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.13}{}}
+\def\@LN@column{1}
+\gdef \LT@vi {\LT@entry 
+    {5}{57.76967pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{42.49684pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{Geometric decomposition for \textbf  {Ministral-3-8B-Instruct} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{32}{table.14}\protected@file@percent }
+\newlabel{tab:mistral_instruct_decomposition_all}{{14}{32}{Geometric decomposition for \textbf {Ministral-3-8B-Instruct} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.14}{}}
+\gdef \LT@vii {\LT@entry 
+    {5}{59.23715pt}\LT@entry 
+    {1}{33.37068pt}\LT@entry 
+    {5}{48.49963pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{32.75pt}\LT@entry 
+    {5}{35.0pt}\LT@entry 
+    {5}{39.5pt}\LT@entry 
+    {5}{37.25pt}\LT@entry 
+    {5}{44.0pt}\LT@entry 
+    {5}{35.0pt}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {15}{Geometric decomposition for \textbf  {Qwen3-8B-Instruct} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal  {R}|)$ across all quantization variants.}}{33}{table.15}\protected@file@percent }
+\newlabel{tab:qwen_instruct_decomposition_all}{{15}{33}{Geometric decomposition for \textbf {Qwen3-8B-Instruct} under identity alignment ($W{=}I$) --- all task group. Each benchmark section reports Spearman's $r_s(\delta ,\,|\Delta \mathcal {R}|)$ across all quantization variants}{table.15}{}}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {G}Qwen3-8B Forgetting and Shape-Regularization Replications}{35}{appendix.G}\protected@file@percent }
+\newlabel{app:qwen_forgetting}{{G}{35}{Qwen3-8B Forgetting and Shape-Regularization Replications}{appendix.G}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {G.1}Forgetting: Bound Tracks Cross-Task Drift on Qwen3-8B}{35}{subsection.G.1}\protected@file@percent }
+\newlabel{app:qwen_forget_grid}{{G.1}{35}{Forgetting: Bound Tracks Cross-Task Drift on Qwen3-8B}{subsection.G.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Qwen3-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the PRISM bound $\mathcal  {B}$ (x-axis, log) against the empirical forgetting $|\Delta \mathcal  {R}|$ (y-axis, log) on a held-out benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: held-out evaluation benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Because LoRA keeps the \texttt  {lm\_head} frozen, the head-discrepancy term $\gamma $ vanishes and the bound is governed entirely by backbone scale ($\Delta \rho $) and shape ($1-\Omega $) drift, as predicted by Sec.~\ref {subsec:forgetting}. Spearman $r_s$ per subplot is annotated in each panel. This replicates Fig.~\ref {fig:forget_grid_llama} on a different family, whose pre-training corpus, depth, vocabulary size, and tokenizer family all differ from Llama-3.1-8B.}}{35}{figure.7}\protected@file@percent }
+\newlabel{fig:forget_grid_qwen}{{7}{35}{\textbf {Qwen3-8B: the PRISM bound tracks catastrophic forgetting across LoRA fine-tuning steps.} Each subplot scatters the PRISM bound $\mathcal {B}$ (x-axis, log) against the empirical forgetting $|\Delta \mathcal {R}|$ (y-axis, log) on a held-out benchmark, with one point per LoRA checkpoint colored by training step. Rows: fine-tuning task (TruthfulQA, BBQ). Columns: held-out evaluation benchmark (ARC, MMLU, SQuAD, TriviaQA, GSM8K). Because LoRA keeps the \texttt {lm\_head} frozen, the head-discrepancy term $\gamma $ vanishes and the bound is governed entirely by backbone scale ($\Delta \rho $) and shape ($1-\Omega $) drift, as predicted by Sec.~\ref {subsec:forgetting}. Spearman $r_s$ per subplot is annotated in each panel. This replicates Fig.~\ref {fig:forget_grid_llama} on a different family, whose pre-training corpus, depth, vocabulary size, and tokenizer family all differ from Llama-3.1-8B}{figure.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{Per-subplot variability under low-forgetting regimes.}{35}{section*.60}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Trace-norm forgetting decomposition for \textbf  {Llama-3.1-8B} fine-tuned on \textbf  {BBQ} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal  {R}|$ is marked: both $|\Delta \mathcal  {R}|$ and the corresponding $\Omega $ are in bold.}}{36}{table.16}\protected@file@percent }
+\newlabel{tab:trace_norm_llama_bbq}{{16}{36}{Trace-norm forgetting decomposition for \textbf {Llama-3.1-8B} fine-tuned on \textbf {BBQ} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal {R}|$ is marked: both $|\Delta \mathcal {R}|$ and the corresponding $\Omega $ are in bold}{table.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {G.2}Shape Regularization: Qwen3-8B Replication}{36}{subsection.G.2}\protected@file@percent }
+\newlabel{app:qwen_shape_reg}{{G.2}{36}{Shape Regularization: Qwen3-8B Replication}{subsection.G.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces \textbf  {PRISM-guided shape regularization on Qwen3-8B (replication of Fig.~\ref {fig:shape_reg_combined_llama}).} LoRA fine-tuning on TruthfulQA (top row) and BBQ (bottom row) with the auxiliary penalty $\lambda (1-\Omega (Z_0^{\mathrm  {ref}}, Z_t^{\mathrm  {ref}}))$ at $\lambda \in \{0.0, 0.1, 0.5\}$ and analysis step $300$. The uniform downstream-forgetting reduction and the monotone trade-off between target-task fit and downstream damage seen on Llama hold on Qwen3-8B as well, confirming that the shape regularizer of Sec.~\ref {subsec:shape_reg} is not family-specific.}}{36}{figure.8}\protected@file@percent }
+\newlabel{fig:shape_reg_combined_qwen}{{8}{36}{\textbf {PRISM-guided shape regularization on Qwen3-8B (replication of Fig.~\ref {fig:shape_reg_combined_llama}).} LoRA fine-tuning on TruthfulQA (top row) and BBQ (bottom row) with the auxiliary penalty $\lambda (1-\Omega (Z_0^{\mathrm {ref}}, Z_t^{\mathrm {ref}}))$ at $\lambda \in \{0.0, 0.1, 0.5\}$ and analysis step $300$. The uniform downstream-forgetting reduction and the monotone trade-off between target-task fit and downstream damage seen on Llama hold on Qwen3-8B as well, confirming that the shape regularizer of Sec.~\ref {subsec:shape_reg} is not family-specific}{figure.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {G.3}Additional Trace-Norm Decomposition Tables}{36}{subsection.G.3}\protected@file@percent }
+\newlabel{app:trace_norm_tables}{{G.3}{36}{Additional Trace-Norm Decomposition Tables}{subsection.G.3}{}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Trace-norm forgetting decomposition for \textbf  {Qwen3-8B-Base} fine-tuned on \textbf  {TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal  {R}|$ is marked: both $|\Delta \mathcal  {R}|$ and the corresponding $\Omega $ are in bold.}}{37}{table.17}\protected@file@percent }
+\newlabel{tab:trace_norm_qwen_truthfulqa}{{17}{37}{Trace-norm forgetting decomposition for \textbf {Qwen3-8B-Base} fine-tuned on \textbf {TruthfulQA} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal {R}|$ is marked: both $|\Delta \mathcal {R}|$ and the corresponding $\Omega $ are in bold}{table.17}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Trace-norm forgetting decomposition for \textbf  {Qwen3-8B-Base} fine-tuned on \textbf  {BBQ} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal  {R}|$ is marked: both $|\Delta \mathcal  {R}|$ and the corresponding $\Omega $ are in bold.}}{37}{table.18}\protected@file@percent }
+\newlabel{tab:trace_norm_qwen_bbq}{{18}{37}{Trace-norm forgetting decomposition for \textbf {Qwen3-8B-Base} fine-tuned on \textbf {BBQ} under identity alignment ($W{=}I$). Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model). Within each benchmark the row with the smallest $|\Delta \mathcal {R}|$ is marked: both $|\Delta \mathcal {R}|$ and the corresponding $\Omega $ are in bold}{table.18}{}}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\citation{grattafiori2024llama}
+\citation{qwen2025qwen3}
+\citation{frantar2022gptq}
+\citation{dettmers2022gpt3}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\gdef \@abspage@last{44}

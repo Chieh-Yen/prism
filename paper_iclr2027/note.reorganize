@@ -1,0 +1,149 @@
+  (1) One-Step Classification: Benchmarks & Models
+
+  你的 formulation $f_M(x) = h_M(\varphi_M(x))$ 在 one-step 下最自然的對應就是 backbone 抽 feature $z$，再接一個 linear head 做分類。關鍵是模型必須能乾淨地拆成這兩部分。
+
+  最吻合的組合
+
+  Vision (最乾淨的 decomposition):
+
+  ┌──────────────────────────────────────┬─────────────────────────────────┬───────────────────────────────────────────────────────┐
+  │             Model Family             │        Linear Head 結構         │                    推薦 Benchmark                     │
+  ├──────────────────────────────────────┼─────────────────────────────────┼───────────────────────────────────────────────────────┤
+  │ ViT-B/16, ViT-L/16 (timm pretrained) │ [CLS] token → linear classifier │ ImageNet-1K, CIFAR-100                                │
+  ├──────────────────────────────────────┼─────────────────────────────────┼───────────────────────────────────────────────────────┤
+  │ CLIP ViT-L/14 (你 codebase 已有)     │ visual encoder → linear probe   │ SUN397, EuroSAT, Stanford Cars, DTD (codebase 已支援) │
+  ├──────────────────────────────────────┼─────────────────────────────────┼───────────────────────────────────────────────────────┤
+  │ DeiT-III                             │ 同 ViT                          │ ImageNet-1K                                           │
+  └──────────────────────────────────────┴─────────────────────────────────┴───────────────────────────────────────────────────────┘
+
+  Vision 的好處：decomposition 完全 explicit，[CLS] → Linear(d, C) 就是你 Theorem 2 的精確 instantiation。而且你 codebase 的 merging experiment 已經用 CLIP 做了，直接擴展即可。
+
+  Text Classification (用 LLM 但仍是 one-step):
+
+  ┌───────────────────────┬─────────────────────────────────────────────────────────┬───────────────────────────┐
+  │         Model         │                          做法                           │         Benchmark         │
+  ├───────────────────────┼─────────────────────────────────────────────────────────┼───────────────────────────┤
+  │ Qwen3-0.6B/1.7B/4B/8B │ last token hidden state → lm_head 的 A/B/C/D 對應 logit │ MMLU, ARC (codebase 已有) │
+  ├───────────────────────┼─────────────────────────────────────────────────────────┼───────────────────────────┤
+  │ Llama-2-7B/13B        │ 同上                                                    │ MMLU, ARC, HellaSwag      │
+  ├───────────────────────┼─────────────────────────────────────────────────────────┼───────────────────────────┤
+  │ Gemma-2-2B/4B         │ 同上                                                    │ MMLU, ARC                 │
+  └───────────────────────┴─────────────────────────────────────────────────────────┴───────────────────────────┘
+
+  重要觀察：MMLU 和 ARC 本質上是 classification——模型看完 context 後，只需要在 {A, B, C, D} 上做一次 softmax。此時 $z$ = last token hidden state，$h$ = lm_head 投影到 4 個 answer token 的
+  row，完全符合你的 one-step formulation。你 codebase 的 z_mode: last_context_token, loss_mode: answer 已經在做這件事了。
+
+  我的建議
+
+  在論文中用 CLIP linear probing (vision) + MMLU/ARC (LLM classification) 作為 one-step 的主實驗：
+  - Vision 展示 formulation 最純粹的形式
+  - MMLU/ARC 展示同一 framework 也適用於 LLM 的 classification setting
+  - 兩者你的 codebase 都已經支援
+
+  ---
+  (2) Multi-Step Autoregressive 的 Efficiency 問題
+
+  這是你論文最關鍵的技術點。你的擔心是對的，但其實 可以完美解決：
+
+  核心觀察：Teacher-Forcing 讓 multi-step 的計算成本 = single forward pass
+
+  Autoregressive generation 確實需要 $O(T)$ 次 sequential forward pass。但 evaluation（計算 cross-entropy loss）在 teacher-forcing 下是 一次 forward pass 就能算出所有 token 的 loss：
+
+  $$\mathcal{R} = \frac{1}{T}\sum_{t=1}^{T} \ell\bigl(\text{softmax}(z_t \cdot H), y_t\bigr)$$
+
+  其中所有 $z_t = \varphi_M(x_{<t})$ 在 causal attention 下是平行計算的。所以：
+
+  - $Z_T \in \mathbb{R}^{(n \cdot T) \times d}$ 和 $Z_P$ 都只需要 一次 forward pass 就能提取
+  - Procrustes similarity $\Omega$、scale $\rho$、head discrepancy $\gamma$ 的計算完全不需要 autoregressive decoding
+  - PRISM 的 efficiency argument 完全成立
+
+  論文中的寫法建議
+
+  Multi-step formulation 可以這樣推導：
+
+  Step 1: 將 per-token risk 寫出來
+  $$\mathcal{R}M = \mathbb{E}{x}\left[\frac{1}{T}\sum_{t=1}^{T} \ell\bigl(h_M(\varphi_M(x_{<t})),; x_t\bigr)\right]$$
+
+  Step 2: Apply Theorem 2 per token position, then average
+  $$|\mathcal{R}T - \mathcal{R}P| \leq \frac{1}{T}\sum{t=1}^{T}\left[K\text{feat}\cdot\delta_t + K_\text{pred}\cdot\gamma_t\right]$$
+
+  Step 3: 用 aggregated feature matrix $Z = [z_1; z_2; \ldots; z_T]$ 統一表達
+  $$\leq K_\text{feat}\cdot\sqrt{(\rho_T - \rho_P)^2 + 2\rho_T\rho_P(1-\Omega)} + K_\text{pred}\cdot\gamma$$
+
+  其中 $\Omega$ 現在是在 所有 token positions 的 feature 上 計算的 Procrustes similarity。
+
+  關鍵 remark（必須在論文中強調）：
+
+  ▎ Remark (Computational Cost). Although the autoregressive formulation involves sequential token predictions, computing the PRISM bound requires only a single forward pass under teacher
+  forcing. The feature matrices $Z_T, Z_P \in \mathbb{R}^{nT \times d}$ are extracted in parallel via causal attention, and all geometric quantities ($\Omega$, $\rho$, $\gamma$) are computed
+  in closed form. The cost is thus $O(1)$ forward passes regardless of sequence length, preserving the efficiency advantage over full evaluation.
+
+  另一個角度：Generation vs Evaluation 的區分
+
+  在論文中可以明確區分兩個 use case：
+  1. Evaluating proxy quality（PRISM 在做的事）：只需要 teacher-forcing，$O(1)$ forward pass
+  2. Actual generation（downstream task）：需要 $O(T)$ decoding steps，但這不是 PRISM 要解決的問題
+
+  PRISM 的價值是：不用跑完整 evaluation pipeline（可能包含 sampling + scoring），只用一次 forward pass on calibration data 就能預測 target 的 performance。
+
+  ---
+  (3) 論文結構建議
+
+  是的，one-step → multi-step 的結構非常適合 NeurIPS。 這是 theory paper 的標準寫法：先建立簡單 case 的直覺，再推廣到一般情況。
+
+  建議的結構
+
+  Section 3: Geometric Framework
+    3.1 Problem Setup & Model Decomposition
+        - f_M(x) = h_M(φ_M(x)), define z, H
+
+    3.2 Single-Step Formulation (Classification)
+        - Lemma 1: Risk decomposition
+        - Theorem 1: Procrustes exact decomposition (Ω, ρ)
+        - Proposition 1: Head discrepancy bound
+        - Theorem 2: Unified bound
+        - 直覺清晰：一個 z 對一個 y
+
+    3.3 Extension to Autoregressive Sequence Modeling
+        - Per-token risk decomposition
+        - Aggregated bound over token positions
+        - Remark: teacher-forcing preserves O(1) efficiency
+        - Discuss: bound tightness 可能隨 T 變化
+
+    3.4 Directional Dynamics (保留你現有的 Section 7)
+
+  Section 6: Experiments
+    6.1 One-Step Validation
+        - Vision: CLIP linear probing (quantization, merging)
+        - LLM Classification: MMLU, ARC (quantization, cross-scale)
+        - 驗證 Theorem 2 的 tightness
+
+    6.2 Autoregressive Validation
+        - Language Modeling: WikiText, C4 (perplexity)
+        - Structured Generation: GSM8K (reasoning chain)
+        - 驗證 multi-step bound
+        - 比較 one-step vs multi-step bound tightness
+
+    6.3 Efficiency Analysis
+        - PRISM (1 forward pass) vs full eval pipeline
+        - 展示 Pareto frontier
+
+  為什麼這個結構好
+
+  1. Pedagogically clear：reviewer 先理解簡單的 classification case（不需要處理 sequence 的 complexity），再接受 autoregressive 的推廣
+  2. Theoretically rigorous：multi-step 不是 heuristic extension，而是 per-token bound 的 formal aggregation
+  3. Experimentally complete：one-step 和 multi-step 都有實驗，展示 framework 的 generality
+  4. Efficiency story 更強：
+    - One-step: PRISM 顯然高效（一次 forward pass vs 跑整個 test set）
+    - Multi-step: 強調 teacher-forcing insight，PRISM 同樣只需一次 forward pass，而 full evaluation 可能需要 autoregressive generation + scoring
+
+  額外建議
+
+  - Theorem numbering：one-step 的 Theorem 2 (Unified Bound) 保持不動，multi-step 寫成 Corollary 或 Theorem 3，明確標示這是 Theorem 2 的推廣
+  - Ablation：比較 one-step bound 和 multi-step bound 在相同 LLM task 上的 tightness（例如在 MMLU 上，one-step bound 應該更 tight；在 WikiText perplexity 上，multi-step bound 是必要的）
+  - 不要把 one-step 寫成 "special case" 或 "simplified version"——它是一個 complete, self-contained result，multi-step 是 extension to sequential prediction。這樣 reviewer 不會覺得 one-step
+  只是 toy example
+
+  ---
+  總結：你的直覺完全正確。One-step（classification）+ multi-step（autoregressive）的雙軌結構既 rigorous 又 complete。Efficiency 的擔憂透過 teacher-forcing argument 完美化解。這個結構對
+  NeurIPS 來說很有說服力。

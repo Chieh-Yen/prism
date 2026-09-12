@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Trace-norm forgetting decomposition for \textbf{Qwen3-8B-Base} fine-tuned on \textbf{TruthfulQA} under identity alignment ($W{=}I$).  Rows group by evaluation benchmark; each benchmark lists metrics at step 300 for $\lambda \in \{0.0, 0.1, 0.5\}$ (target $=$ base model).  Within each benchmark the row with the smallest $|\Delta\mathcal{R}|$ is marked: both $|\Delta\mathcal{R}|$ and the corresponding $\Omega$ are in bold.}
+\label{tab:trace_norm_qwen_truthfulqa}
+\resizebox{0.85\textwidth}{!}{%
+\begin{tabular}{l l rrrrrrr}
+\toprule
+\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{$\boldsymbol{\lambda}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_T}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_P}$} & \multicolumn{1}{c}{$\boldsymbol{\Omega}$} & \multicolumn{1}{c}{$\boldsymbol{\delta}$} & \multicolumn{1}{c}{$\boldsymbol{\gamma}$} & \multicolumn{1}{c}{$\boldsymbol{\mathcal{B}}$} & \multicolumn{1}{c}{$\boldsymbol{|\Delta\mathcal{R}|}$} \\
+\midrule
+ARC & $\lambda{=}0.0$ & 332.98 & 316.08 & 0.9854 & 58.0426 & \cellcolor{cyan!12} $0$ & 58.0426 & 0.2211 \\
+ & $\lambda{=}0.1$ & 332.98 & 326.97 & 0.9958 & 30.8029 & \cellcolor{cyan!12} $0$ & 106.5250 & 0.1727 \\
+ & $\lambda{=}0.5$ & 332.98 & 327.34 & \textbf{0.9958} & 30.8393 & \cellcolor{cyan!12} $0$ & 106.6508 & \textbf{0.1678} \\
+\midrule
+MMLU & $\lambda{=}0.0$ & 333.53 & 323.66 & 0.9938 & 37.9230 & \cellcolor{cyan!12} $0$ & 37.9230 & 0.1110 \\
+ & $\lambda{=}0.1$ & 333.53 & 328.73 & 0.9983 & 19.9632 & \cellcolor{cyan!12} $0$ & 69.0384 & 0.1117 \\
+ & $\lambda{=}0.5$ & 333.53 & 328.95 & \textbf{0.9983} & 19.8459 & \cellcolor{cyan!12} $0$ & 68.6326 & \textbf{0.1103} \\
+\midrule
+SQuAD & $\lambda{=}0.0$ & 297.68 & 277.66 & 0.9777 & 63.9596 & \cellcolor{cyan!12} $0$ & 63.9596 & 2.0940 \\
+ & $\lambda{=}0.1$ & 297.68 & 292.49 & 0.9927 & 36.0801 & \cellcolor{cyan!12} $0$ & 124.7748 & 0.9542 \\
+ & $\lambda{=}0.5$ & 297.68 & 292.84 & \textbf{0.9930} & 35.3768 & \cellcolor{cyan!12} $0$ & 122.3427 & \textbf{0.9197} \\
+\midrule
+TriviaQA & $\lambda{=}0.0$ & 240.42 & 201.68 & \cellcolor{red!18} 0.8815 & \cellcolor{red!18} 113.9728 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 113.9728 & \cellcolor{red!18} 1.3422 \\
+ & $\lambda{=}0.1$ & 240.42 & 224.47 & 0.9655 & 63.0973 & \cellcolor{cyan!12} $0$ & 218.2079 & 0.1921 \\
+ & $\lambda{=}0.5$ & 240.42 & 224.99 & \textbf{0.9661} & 62.4935 & \cellcolor{cyan!12} $0$ & 216.1197 & \textbf{0.1794} \\
+\midrule
+GSM8K & $\lambda{=}0.0$ & 269.06 & 251.07 & 1.0000 & 17.9976 & \cellcolor{cyan!12} $0$ & 17.9976 & 0.1352 \\
+ & $\lambda{=}0.1$ & 269.06 & 272.59 & \textbf{1.0000} & 3.5224 & \cellcolor{cyan!12} $0$ & 12.1813 & \textbf{0.0047} \\
+ & $\lambda{=}0.5$ & 269.06 & 272.33 & 1.0000 & 3.2676 & \cellcolor{cyan!12} $0$ & 11.3001 & 0.0055 \\
+\bottomrule
+\end{tabular}}
+\end{table}

@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Qwen3-8B-Instruct} under identity alignment ($W{=}I$) --- main task group. Each benchmark section reports Spearman's $r_s(\delta,\,|\Delta\mathcal{R}|)$ across all quantization variants.}
+\label{tab:qwen_instruct_decomposition_main}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+Dataset & Family & Method & $\rho_T$ & $\rho_P$ & $\Omega$ & $\delta$ & $\gamma$ & $\mathcal{B}$ & $|\Delta\mathcal{R}|$ \\
+\midrule
+MMLU & -- & FP16 & 159.12 & 159.07 & 1.0000 & 0.0476 & \cellcolor{cyan!12} $0$ & 0.1622 & 0.0045 \\
+{\small ($\mathbf{r_s{=}0.72}$)} & GGUF & Q8\_0 & 159.12 & 159.35 & 0.9997 & 3.5975 & 8.5121 & 24.3041 & 0.0013 \\
+ &  & Q6\_K & 159.12 & 160.10 & 0.9979 & 10.4631 & 27.4813 & 74.5398 & 0.0219 \\
+ &  & Q5\_K\_M & 159.12 & 159.94 & 0.9952 & 15.5966 & 27.4944 & 92.0616 & 0.0075 \\
+ &  & Q4\_K\_M & 159.12 & 157.23 & 0.9888 & 23.7090 & 27.0322 & 119.0684 & 0.0812 \\
+ & BnB & INT8 & 159.12 & 161.47 & 0.9927 & 19.5555 & \cellcolor{cyan!12} $0$ & 66.6772 & 0.0537 \\
+ &  & NF4 & 159.12 & 161.29 & 0.9773 & 34.1801 & \cellcolor{cyan!12} $0$ & 116.5416 & 0.0214 \\
+ &  & FP4 & 159.12 & 161.12 & \cellcolor{red!18} 0.9465 & \cellcolor{red!18} 52.4286 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 178.7626 & \cellcolor{red!18} 0.0455 \\
+ & GPTQ & GPTQ-8bit & 159.12 & 158.63 & 0.9998 & 3.5519 & \cellcolor{cyan!12} $0$ & 12.1107 & 0.0027 \\
+\midrule
+TriviaQA & -- & FP16 & 151.01 & 150.98 & 1.0000 & 0.0214 & \cellcolor{cyan!12} $0$ & 0.0731 & 0.0102 \\
+{\small ($\mathbf{r_s{=}0.62}$)} & GGUF & Q8\_0 & 151.01 & 151.12 & 0.9999 & 2.4011 & 7.8083 & 19.2294 & 0.0260 \\
+ &  & Q6\_K & 151.01 & 150.65 & 0.9975 & 10.6129 & 24.6840 & 71.0945 & 0.0351 \\
+ &  & Q5\_K\_M & 151.01 & 151.41 & 0.9935 & 17.2703 & 24.7983 & 93.9557 & 0.0280 \\
+ &  & Q4\_K\_M & 151.01 & 149.70 & 0.9820 & 28.5797 & 24.5577 & 132.1764 & 0.0152 \\
+ & BnB & INT8 & 151.01 & 151.53 & 0.9907 & 20.6894 & \cellcolor{cyan!12} $0$ & 70.5433 & 0.2055 \\
+ &  & NF4 & 151.01 & 153.15 & 0.9571 & 44.6209 & \cellcolor{cyan!12} $0$ & 152.1411 & 0.5815 \\
+ &  & FP4 & 151.01 & 151.49 & \cellcolor{red!18} 0.9338 & \cellcolor{red!18} 55.0382 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 187.6604 & \cellcolor{red!18} 0.4596 \\
+ & GPTQ & GPTQ-8bit & 151.01 & 150.97 & 0.9999 & 2.3989 & \cellcolor{cyan!12} $0$ & 8.1793 & 0.0421 \\
+\bottomrule
+\end{tabular}}
+\end{table}

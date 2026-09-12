@@ -1,0 +1,29 @@
+論文中的建議寫法
+
+我建議分三個層次處理：
+
+1. 加強 Theorem 1（或加 Remark）
+
+在 Theorem 1 之後加一個 remark，指出 bound 的最一般形式：
+
+Remark. The bound in Theorem 1 holds for \emph{any} orthogonal alignment W∈O(d)W∈O(d), not only the Procrustes solution W∗W∗. The tightest bound is thus the infimum over all alignments: ∣RT−RP∣≤inf⁡W∈O(d)[Kf⋅δ(W)+Kp⋅γ(W)].∣RT​−RP​∣≤infW∈O(d)​[Kf​⋅δ(W)+Kp​⋅γ(W)]. The Procrustes solution W∗W∗ minimizes δδ but may inflate γγ; conversely, the identity W=IW=I preserves head coherence but may not minimize feature error. In practice, we evaluate both candidates and report min⁡{B(I),B(W∗)}min{B(I),B(W∗)} as a tractable upper bound on the infimum.
+
+2. 在 Section 4.1（Quantization）中解釋為什麼 W=I 更好
+
+目前的 footnote 5 已經提到了 W=I 的問題（trace vs nuclear norm），可以在這裡擴充：
+
+In the quantization regime, the feature error is dominated by scale mismatch (Δρ)2(Δρ)2 (since Ω≈1Ω≈1 for both W=IW=I and W∗W∗), making δδ nearly invariant to the choice of alignment. The bound tightness is therefore governed by the head term γ(W)γ(W), which is minimized by W=IW=I when HT≈HPHT​≈HP​. Empirically, B(I)B(I) is consistently 3–10× tighter than B(W∗)B(W∗) across all quantization formats.
+
+3. 如果想做得更完整（optional appendix）
+
+提一下 joint optimization 的可能性：
+
+Joint optimization of B(W)B(W) over the Stiefel manifold is possible via Riemannian gradient methods but does not admit a closed-form solution, as δ(W)δ(W) is concave and γ(W)γ(W) is convex in WW. In the two primary regimes—quantization (γγ dominates, W=IW=I optimal) and frozen-head fine-tuning (γ=0γ=0, W∗W∗ optimal)—the simple two-candidate minimum is empirically indistinguishable from the full infimum.
+總結
+
+你的觀察完全正確 — 這不是 bug，而是理論上的固有 trade-off。最好的處理方式是：
+
+把 Theorem 1 推廣到 (\inf_W)
+解釋 (W^*) 和 (W=I) 分別在什麼場景最佳
+實務上 (\min(B(I), B(W^*))) 已經是很好的近似
+這反而成為一個 insight：quantization 保持 head 一致，所以 identity alignment 自然是最緊的

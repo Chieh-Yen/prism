@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Qwen3-8B-Instruct} under identity alignment ($W{=}I$) on MMLU. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants. Shading: \colorbox{red!35}{$\Omega{<}0.80$} / \colorbox{red!18}{$\Omega{<}0.95$} on $(\Omega,\delta,\mathcal{B},|\Delta\mathcal{R}|)$; \colorbox{cyan!12}{$\gamma{=}0$} when the head is preserved ($H_T{=}H_P$).}
+\label{tab:qwen_instruct_decomposition_main_bound}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{\textbf{Family}} & \multicolumn{1}{c}{\textbf{Method}} & \multicolumn{1}{c}{$\boldsymbol{\rho_T}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_P}$} & \multicolumn{1}{c}{$\boldsymbol{\Omega}$} & \multicolumn{1}{c}{$\boldsymbol{\delta}$} & \multicolumn{1}{c}{$\boldsymbol{\gamma}$} & \multicolumn{1}{c}{\textbf{PRISM} $\boldsymbol{\mathcal{B}}$} & \multicolumn{1}{c}{$\boldsymbol{|\Delta\mathcal{R}|}$} \\
+\midrule
+MMLU & -- & FP16 & 159.12 & 159.07 & 1.0000 & 0.1622 & \cellcolor{cyan!12} $0$ & 0.1622 & 0.0045 \\
+{\small ($\mathbf{r_s{=}0.68}$)} & GGUF & Q8\_0 & 159.12 & 159.35 & 0.9997 & 12.2662 & 12.0379 & 24.3041 & 0.0013 \\
+ &  & Q6\_K & 159.12 & 160.10 & 0.9979 & 35.6754 & 38.8644 & 74.5398 & 0.0219 \\
+ &  & Q5\_K\_M & 159.12 & 159.94 & 0.9952 & 53.1786 & 38.8830 & 92.0616 & 0.0075 \\
+ &  & Q4\_K\_M & 159.12 & 157.23 & 0.9888 & 80.8392 & 38.2293 & 119.0684 & 0.0812 \\
+ & BnB & INT8 & 159.12 & 161.47 & 0.9927 & 66.6772 & \cellcolor{cyan!12} $0$ & 66.6772 & 0.0537 \\
+ &  & NF4 & 159.12 & 161.29 & 0.9773 & 116.5416 & \cellcolor{cyan!12} $0$ & 116.5416 & 0.0214 \\
+ &  & FP4 & 159.12 & 161.12 & \cellcolor{red!18} 0.9465 & \cellcolor{red!18} 178.7626 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 178.7626 & \cellcolor{red!18} 0.0455 \\
+ & GPTQ & GPTQ-8bit & 159.12 & 158.63 & 0.9998 & 12.1107 & \cellcolor{cyan!12} $0$ & 12.1107 & 0.0027 \\
+\bottomrule
+\end{tabular}}
+\end{table}

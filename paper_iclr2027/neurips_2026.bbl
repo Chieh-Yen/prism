@@ -1,0 +1,262 @@
+\begin{thebibliography}{33}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Frantar et~al.(2023)Frantar, Ashkboos, Hoefler, and
+  Alistarh]{frantar2022gptq}
+Elias Frantar, Saleh Ashkboos, Torsten Hoefler, and Dan Alistarh.
+\newblock {GPTQ}: Accurate post-training quantization for generative
+  pre-trained transformers.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2023.
+
+\bibitem[Dettmers et~al.(2022)Dettmers, Lewis, Belkada, and
+  Zettlemoyer]{dettmers2022gpt3}
+Tim Dettmers, Mike Lewis, Younes Belkada, and Luke Zettlemoyer.
+\newblock {LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale}.
+\newblock In S.~Koyejo, S.~Mohamed, A.~Agarwal, D.~Belgrave, K.~Cho, and A.~Oh,
+  editors, \emph{Advances in Neural Information Processing Systems}, volume~35,
+  pages 30318--30332. Curran Associates, Inc., 2022.
+
+\bibitem[Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and
+  Chen]{hu2022lora}
+Edward~J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
+  Wang, Lu~Wang, and Weizhu Chen.
+\newblock {LoRA: Low-Rank Adaptation of Large Language Models}.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2022.
+
+\bibitem[Hinton et~al.(2015)Hinton, Vinyals, and Dean]{hinton2015distilling}
+Geoffrey Hinton, Oriol Vinyals, and Jeff Dean.
+\newblock Distilling the knowledge in a neural network.
+\newblock \emph{arXiv preprint arXiv:1503.02531}, 2015.
+
+\bibitem[Grattafiori et~al.(2024)Grattafiori, Dubey, Jauhri, Pandey, Kadian,
+  Al-Dahle, Letman, Mathur, Schelten, Yang, et~al.]{grattafiori2024llama}
+Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek
+  Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Amy Yang,
+  et~al.
+\newblock The {Llama 3} herd of models.
+\newblock \emph{arXiv preprint arXiv:2407.21783}, 2024.
+
+\bibitem[{Qwen Team}(2025)]{qwen2025qwen3}
+{Qwen Team}.
+\newblock {Qwen3} technical report.
+\newblock \emph{arXiv preprint arXiv:2505.09388}, 2025.
+
+\bibitem[Raghu et~al.(2017)Raghu, Gilmer, Yosinski, and
+  Sohl-Dickstein]{raghu2017svcca}
+Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein.
+\newblock {SVCCA}: Singular vector canonical correlation analysis for deep
+  learning dynamics and interpretability.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2017.
+
+\bibitem[Kornblith et~al.(2019)Kornblith, Norouzi, Lee, and
+  Hinton]{kornblith2019similarity}
+Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton.
+\newblock Similarity of neural network representations revisited.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2019.
+
+\bibitem[Ding et~al.(2021)Ding, Denain, and Steinhardt]{ding2021grounding}
+Frances Ding, Jean-Stanislas Denain, and Jacob Steinhardt.
+\newblock Grounding representation similarity with statistical testing.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2021.
+
+\bibitem[Davari et~al.(2023)Davari, Horoi, Natik, Lajoie, Wolf, and
+  Belilovsky]{davari2023reliability}
+MohammadReza Davari, Stefan Horoi, Amine Natik, Guillaume Lajoie, Guy Wolf, and
+  Eugene Belilovsky.
+\newblock Reliability of {CKA} as a similarity measure in deep learning.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2023.
+
+\bibitem[Klabunde et~al.(2025)Klabunde, Schumacher, Strohmaier, and
+  Lemmerich]{klabunde2023similarity}
+Max Klabunde, Tobias Schumacher, Markus Strohmaier, and Florian Lemmerich.
+\newblock Similarity of neural network models: A survey of functional and
+  representational measures.
+\newblock \emph{ACM Computing Surveys}, 57\penalty0 (9):\penalty0 1--52, 2025.
+\newblock \doi{10.1145/3728458}.
+
+\bibitem[Park et~al.(2024)Park, Choe, and Veitch]{park2023linear}
+Kiho Park, Yo~Joong Choe, and Victor Veitch.
+\newblock The linear representation hypothesis and the geometry of large
+  language models.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Moschella et~al.(2023)Moschella, Maiorca, Fumero, Norelli, Locatello,
+  and Rodol{\`a}]{moschella2022relative}
+Luca Moschella, Valentino Maiorca, Marco Fumero, Antonio Norelli, Francesco
+  Locatello, and Emanuele Rodol{\`a}.
+\newblock Relative representations enable zero-shot latent space communication.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2023.
+
+\bibitem[Williams et~al.(2021)Williams, Kunz, Kornblith, and
+  Linderman]{williams2021generalized}
+Alex~H Williams, Erin Kunz, Simon Kornblith, and Scott~W Linderman.
+\newblock Generalized shape metrics on neural representations.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2021.
+
+\bibitem[Harvey et~al.(2024)Harvey, Lipshutz, and Williams]{harvey2024what}
+Sarah~E Harvey, David Lipshutz, and Alex~H Williams.
+\newblock What representational similarity measures imply about decodable
+  information.
+\newblock In \emph{Proceedings of UniReps: Unifying Representations in Neural
+  Models Workshop (NeurIPS)}, 2024.
+
+\bibitem[Huh et~al.(2024)Huh, Cheung, Wang, and Isola]{huh2024platonic}
+Minyoung Huh, Brian Cheung, Tongzhou Wang, and Phillip Isola.
+\newblock Position: The platonic representation hypothesis.
+\newblock In \emph{Proceedings of the 41st International Conference on Machine
+  Learning}, volume 235 of \emph{Proceedings of Machine Learning Research},
+  pages 20617--20642. PMLR, 2024.
+
+\bibitem[Xiao et~al.(2023)Xiao, Lin, Seznec, Wu, Demouth, and
+  Han]{xiao2023smoothquant}
+Guangxuan Xiao, Ji~Lin, Mickael Seznec, Hao Wu, Julien Demouth, and Song Han.
+\newblock {SmoothQuant: Accurate and Efficient Post-Training Quantization for
+  Large Language Models}.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, pages
+  38087--38099. PMLR, 2023.
+
+\bibitem[Kirkpatrick et~al.(2017)Kirkpatrick, Pascanu, Rabinowitz, Veness,
+  Desjardins, Rusu, Milan, Quan, Ramalho, Grabska-Barwinska,
+  et~al.]{kirkpatrick2017overcoming}
+James Kirkpatrick, Razvan Pascanu, Neil Rabinowitz, Joel Veness, Guillaume
+  Desjardins, Andrei~A Rusu, Kieran Milan, John Quan, Tiago Ramalho, Agnieszka
+  Grabska-Barwinska, et~al.
+\newblock Overcoming catastrophic forgetting in neural networks.
+\newblock \emph{Proceedings of the National Academy of Sciences (PNAS)},
+  114\penalty0 (13):\penalty0 3521--3526, 2017.
+
+\bibitem[Kaplan et~al.(2020)Kaplan, McCandlish, Henighan, Brown, Chess, Child,
+  Gray, Radford, Wu, and Amodei]{kaplan2020scaling}
+Jared Kaplan, Sam McCandlish, Tom Henighan, Tom~B Brown, Benjamin Chess, Rewon
+  Child, Scott Gray, Alec Radford, Jeffrey Wu, and Dario Amodei.
+\newblock Scaling laws for neural language models.
+\newblock \emph{arXiv preprint arXiv:2001.08361}, 2020.
+
+\bibitem[Hoffmann et~al.(2022)Hoffmann, Borgeaud, Mensch, Buchatskaya, Cai,
+  Rutherford, de~Las~Casas, Hendricks, Welbl, Clark,
+  et~al.]{hoffmann2022training}
+Jordan Hoffmann, Sebastian Borgeaud, Arthur Mensch, Elena Buchatskaya, Trevor
+  Cai, Eliza Rutherford, Diego de~Las~Casas, Lisa~Anne Hendricks, Johannes
+  Welbl, Aidan Clark, et~al.
+\newblock Training compute-optimal large language models.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2022.
+
+\bibitem[Polo et~al.(2024)Polo, Weber, Choshen, Sun, Xu, and
+  Yurochkin]{polo2024tinybenchmarks}
+Felipe~Maia Polo, Lucas Weber, Leshem Choshen, Yuekai Sun, Gongjun Xu, and
+  Mikhail Yurochkin.
+\newblock {tinyBenchmarks}: Evaluating {LLMs} with fewer examples.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Perlitz et~al.(2024)Perlitz, Bandel, Gera, Arviv, Ein-Dor, Shnarch,
+  Slonim, Shmueli-Scheuer, and Choshen]{perlitz2024efficient}
+Yotam Perlitz, Elron Bandel, Ariel Gera, Ofir Arviv, Liat Ein-Dor, Eyal
+  Shnarch, Noam Slonim, Michal Shmueli-Scheuer, and Leshem Choshen.
+\newblock Efficient benchmarking (of language models).
+\newblock In \emph{Proceedings of the 2024 Conference of the North American
+  Chapter of the Association for Computational Linguistics: Human Language
+  Technologies (Volume 1: Long Papers)}, pages 2519--2536, Mexico City, Mexico,
+  2024. Association for Computational Linguistics.
+\newblock \doi{10.18653/v1/2024.naacl-long.139}.
+
+\bibitem[Burns et~al.(2024)Burns, Izmailov, Kirchner, Baker, Gao,
+  Aschenbrenner, Chen, Ecoffet, Joglekar, Leike, Sutskever, and
+  Wu]{burns2023weak}
+Collin Burns, Pavel Izmailov, Jan~Hendrik Kirchner, Bowen Baker, Leo Gao,
+  Leopold Aschenbrenner, Yining Chen, Adrien Ecoffet, Manas Joglekar, Jan
+  Leike, Ilya Sutskever, and Jeffrey Wu.
+\newblock Weak-to-strong generalization: Eliciting strong capabilities with
+  weak supervision.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Lin et~al.(2022)Lin, Hilton, and Evans]{lin2022truthfulqa}
+Stephanie Lin, Jacob Hilton, and Owain Evans.
+\newblock {T}ruthful{QA}: Measuring how models mimic human falsehoods.
+\newblock In \emph{Proceedings of the 60th Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 3214--3252,
+  Dublin, Ireland, 2022. Association for Computational Linguistics.
+\newblock \doi{10.18653/v1/2022.acl-long.229}.
+
+\bibitem[Parrish et~al.(2022)Parrish, Chen, Nangia, Padmakumar, Phang,
+  Thompson, Htut, and Bowman]{parrish2022bbq}
+Alicia Parrish, Angelica Chen, Nikita Nangia, Vishakh Padmakumar, Jason Phang,
+  Jana Thompson, Phu~Mon Htut, and Samuel~R. Bowman.
+\newblock {BBQ}: A hand-built bias benchmark for question answering.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  ACL 2022}, pages 2086--2105, Dublin, Ireland, 2022. Association for
+  Computational Linguistics.
+\newblock \doi{10.18653/v1/2022.findings-acl.165}.
+
+\bibitem[Hendrycks et~al.(2021)Hendrycks, Burns, Basart, Zou, Mazeika, Song,
+  and Steinhardt]{hendrycks2021measuring}
+Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn
+  Song, and Jacob Steinhardt.
+\newblock Measuring massive multitask language understanding.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2021.
+
+\bibitem[Clark et~al.(2018)Clark, Cowhey, Etzioni, Khot, Sabharwal, Schoenick,
+  and Tafjord]{clark2018think}
+Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa
+  Schoenick, and Oyvind Tafjord.
+\newblock Think you have solved question answering? {T}ry {ARC}, the {AI2}
+  reasoning challenge.
+\newblock \emph{arXiv preprint arXiv:1803.05457}, 2018.
+
+\bibitem[Joshi et~al.(2017)Joshi, Choi, Weld, and
+  Zettlemoyer]{joshi2017triviaqa}
+Mandar Joshi, Eunsol Choi, Daniel~S. Weld, and Luke Zettlemoyer.
+\newblock {T}rivia{QA}: A large scale distantly supervised challenge dataset
+  for reading comprehension.
+\newblock In \emph{Proceedings of the 55th Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 1601--1611,
+  Vancouver, Canada, 2017. Association for Computational Linguistics.
+\newblock \doi{10.18653/v1/P17-1147}.
+
+\bibitem[Rajpurkar et~al.(2016)Rajpurkar, Zhang, Lopyrev, and
+  Liang]{rajpurkar2016squad}
+Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and Percy Liang.
+\newblock {SQuAD}: 100,000+ questions for machine comprehension of text.
+\newblock In \emph{Proceedings of the 2016 Conference on Empirical Methods in
+  Natural Language Processing}, pages 2383--2392, Austin, Texas, 2016.
+  Association for Computational Linguistics.
+\newblock \doi{10.18653/v1/D16-1264}.
+
+\bibitem[Cobbe et~al.(2021)Cobbe, Kosaraju, Bavarian, Chen, Jun, Kaiser,
+  Plappert, Tworek, Hilton, Nakano, Hesse, and Schulman]{cobbe2021training}
+Karl Cobbe, Vineet Kosaraju, Mo~Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser,
+  Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher
+  Hesse, and John Schulman.
+\newblock Training verifiers to solve math word problems.
+\newblock \emph{arXiv preprint arXiv:2110.14168}, 2021.
+
+\bibitem[Sch{\"o}nemann(1966)]{schonemann1966generalized}
+Peter~H Sch{\"o}nemann.
+\newblock A generalized solution of the orthogonal {P}rocrustes problem.
+\newblock \emph{Psychometrika}, 31\penalty0 (1):\penalty0 1--10, 1966.
+
+\bibitem[Gower and Dijksterhuis(2004)]{gower2004procrustes}
+John~C Gower and Garmt~B Dijksterhuis.
+\newblock \emph{Procrustes Problems}.
+\newblock Oxford University Press, 2004.
+
+\bibitem[Ethayarajh(2019)]{ethayarajh2019contextual}
+Kawin Ethayarajh.
+\newblock How contextual are contextualized word representations? {C}omparing
+  the geometry of {BERT}, {ELMo}, and {GPT}-2 embeddings.
+\newblock In \emph{Proceedings of the 2019 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}, 2019.
+
+\end{thebibliography}

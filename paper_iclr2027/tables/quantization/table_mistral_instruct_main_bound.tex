@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Geometric decomposition for \textbf{Ministral-3-8B-Instruct} under identity alignment ($W{=}I$) on MMLU. Each benchmark section reports Spearman's $r_s(\mathcal{B},\,|\Delta\mathcal{R}|)$ across all quantization variants. Shading: \colorbox{red!35}{$\Omega{<}0.80$} / \colorbox{red!18}{$\Omega{<}0.95$} on $(\Omega,\delta,\mathcal{B},|\Delta\mathcal{R}|)$; \colorbox{cyan!12}{$\gamma{=}0$} when the head is preserved ($H_T{=}H_P$).}
+\label{tab:mistral_instruct_decomposition_main_bound}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll l rrrrrrr}
+\toprule
+\multicolumn{1}{c}{\textbf{Dataset}} & \multicolumn{1}{c}{\textbf{Family}} & \multicolumn{1}{c}{\textbf{Method}} & \multicolumn{1}{c}{$\boldsymbol{\rho_T}$} & \multicolumn{1}{c}{$\boldsymbol{\rho_P}$} & \multicolumn{1}{c}{$\boldsymbol{\Omega}$} & \multicolumn{1}{c}{$\boldsymbol{\delta}$} & \multicolumn{1}{c}{$\boldsymbol{\gamma}$} & \multicolumn{1}{c}{\textbf{PRISM} $\boldsymbol{\mathcal{B}}$} & \multicolumn{1}{c}{$\boldsymbol{|\Delta\mathcal{R}|}$} \\
+\midrule
+MMLU & -- & FP16 & 189.50 & 189.50 & 0.9999 & 2.1498 & \cellcolor{cyan!12} $0$ & 2.1498 & 0.0000 \\
+{\small ($\mathbf{r_s{=}0.76}$)} & GGUF & Q8\_0 & 189.50 & 189.43 & 0.9968 & 13.9973 & 3.9804 & 17.9777 & 0.0037 \\
+ &  & Q6\_K & 189.50 & 189.44 & 0.9959 & 15.9304 & 12.3332 & 28.2635 & 0.0170 \\
+ &  & Q5\_K\_M & 189.50 & 189.78 & 0.9936 & 19.9564 & 12.3393 & 32.2957 & 0.0267 \\
+ &  & Q4\_K\_M & 189.50 & 189.47 & 0.9835 & 31.9547 & 12.3388 & 44.2935 & 0.0119 \\
+ &  & Q3\_K\_M & 189.50 & 187.06 & 0.9625 & 47.9109 & 12.2310 & 60.1419 & 0.0236 \\
+ &  & Q2\_K & 189.50 & 187.52 & \cellcolor{red!18} 0.8842 & \cellcolor{red!18} 84.2055 & 12.2532 & \cellcolor{red!18} 96.4587 & \cellcolor{red!18} 0.1117 \\
+ & BnB & INT8 & 189.50 & 189.33 & 0.9952 & 17.1379 & \cellcolor{cyan!12} $0$ & 17.1379 & 0.0101 \\
+ &  & NF4 & 189.50 & 189.63 & 0.9625 & 48.1985 & \cellcolor{cyan!12} $0$ & 48.1985 & 0.0066 \\
+ &  & FP4 & 189.50 & 189.18 & \cellcolor{red!18} 0.9441 & \cellcolor{red!18} 58.7507 & \cellcolor{cyan!12} $0$ & \cellcolor{red!18} 58.7507 & \cellcolor{red!18} 0.0564 \\
+\bottomrule
+\end{tabular}}
+\end{table}

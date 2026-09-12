@@ -1,0 +1,35 @@
+\section{Introduction}
+
+%\paragraph{The diagnostic gap in the post-training LLM lifecycle.}
+As LLMs move from research to deployment, a new comparison bottleneck emerges after pre-training: a single base checkpoint now yields many post-training variants---quantized (GPTQ~\cite{frantar2022gptq}, GGUF, BitsAndBytes~\cite{dettmers2022gpt3}), LoRA-adapted~\cite{hu2022lora}, or distilled---each requiring comparison before release~\cite{grattafiori2024llama, qwen2025qwen3}.
+Aggregate accuracy flags a degraded variant but does not explain why---forcing developers into blind trial-and-error rather than targeted correction; we need a diagnostic that pinpoints which part has drifted from its base.
+
+%\paragraph{Similarity scores without risk, without mechanism.}
+A natural shortcut is to borrow a representational similarity metric: SVCCA~\cite{raghu2017svcca}, CKA~\cite{kornblith2019similarity}, and related Frobenius-norm metrics each reduce two activation matrices to a single alignment score.
+These scores, however, neither predict downstream behavior~\cite{ding2021grounding, davari2023reliability, klabunde2023similarity} nor identify an axis for diagnosis.
+Such a diagnostic requires a geometric quantity that lifts into a risk bound while preserving a structural decomposition.
+
+%\paragraph{Three obstacles to a usable risk bound.}
+Constructing such a bound faces three technical obstacles. (i)~No prior representational similarity---CKA, SVCCA, or generalized shape metrics---has been lifted to bound cross-entropy risk on the deployed prediction head; existing decodability work~\cite{harvey2024what} routes through a freshly-trained linear probe instead. (ii)~Cross-entropy is Lipschitz in features, but the naive constant scales with the head's full spectral norm---too loose to be informative over an LLM vocabulary of size $V \sim 10^5$. (iii)~A scalar bound signals \emph{that} a variant has degraded, not \emph{why}; to be diagnostic, the bound must decompose into interpretable axes.
+Yet LLM structure supplies the leverage to overcome all three.
+
+%\paragraph{What makes LLM geometry analytically tractable.}
+Our analysis pivots on two observations about modern LLMs:
+\textbf{(i) Algebraic decoupling at the head.} Transformer LLMs factor into a non-linear backbone and a linear prediction head (\texttt{lm\_head}); this clean interface lets feature-side and head-side errors decouple analytically.
+\textbf{(ii) Near-isometric features in the backbone.} The Linear Representation Hypothesis~\cite{park2023linear}, together with empirical isometry across same-family encoders~\cite{moschella2022relative}, implies feature manifolds related by a near-isometric linear map.
+Combining (i) and (ii), we propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping; Fig.~\ref{fig:prism_concept}): a closed-form upper bound on $|\mathcal{R}_T - \mathcal{R}_P|$ along three independently measurable axes.
+
+%\paragraph{PRISM: a bound with three actionable axes.}
+The three axes are scale mismatch $\Delta\rho$ (activation-magnitude collapse), shape mismatch $1-\Omega$ (feature-manifold distortion)---the two arms of an exact Procrustes residual decomposition---and a covariance-weighted head discrepancy $\gamma$. We sharpen the feature-side Lipschitz constant $K_{\mathrm{feat}}$ beyond the naive spectral bound, keeping it informative at LLM vocabulary scale (Sec~\ref{subsec:unified_bound}). So the dominant axis points to a specific \emph{direction}, not just a flag: scale-dominated failures point to outlier-channel corruption, shape-dominated to distorted token geometry, and head-dominated to prediction-head perturbation.
+
+%\paragraph{From diagnostic to training signal.}
+Beyond diagnosis, the shape arm doubles as a training signal: under frozen-head LoRA the head term vanishes and $\Omega$ captures backbone shape drift differentiably, so a weighted penalty on $1-\Omega$ converts the bound into an active regularizer against catastrophic forgetting (Sec.~\ref{subsec:shape_reg_exp}).
+
+\paragraph{Contributions.}
+\begin{enumerate}[leftmargin=*,nosep,topsep=2pt]
+    \item \textbf{Theory: a closed-form CE risk bound with three diagnostic axes.} $|\mathcal{R}_T - \mathcal{R}_P|$ admits a closed-form upper bound as a sum of three axes: scale $(\Delta\rho)^2$ and shape $2\rho_T\rho_P(1{-}\Omega)$ (from an exact Procrustes residual decomposition), plus a covariance-weighted head-discrepancy term (Theorem~\ref{thm:unified_bound}; Fig.~\ref{fig:prism_concept}).
+
+    \item \textbf{Framework: a unified diagnostic that doubles as a training objective.} Computed from features and head weights alone, the bound applies across both PTQ and frozen-head LoRA; the differentiable trace form $\Omega$ further turns it into a training-time regularizer against catastrophic forgetting (Sec.~\ref{subsec:action}).
+
+    \item \textbf{Empirical: rank-consistent across both settings, with axis-level localization.} On the cross-family Llama--Qwen pair (Ministral and DeepSeek in Appendix~\ref{app:per_model_tables}) over five benchmarks, the bound ranks PTQ variants ($r_s{\approx}0.82$) and LoRA checkpoints ($r_s{\approx}0.83$) consistently (\emph{predictiveness}); its axes separate failure modes---shape distortion at Q2/Q3 PTQ, head divergence at Qwen3 Q6\_K/Q8\_0, scale-axis separability under cross-task LoRA drift (\emph{decomposability}); and a shape regularizer outperforms a replay baseline at mitigating downstream forgetting (\emph{actionability}).
+\end{enumerate}
