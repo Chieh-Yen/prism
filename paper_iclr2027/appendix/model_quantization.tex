@@ -16,6 +16,7 @@ All targets are loaded in BF16 as the reference precision; an FP16 proxy is addi
 \caption{Target models used in quantization experiments. All models are loaded in BF16.}
 \label{tab:target_models}
 \small
+\resizebox{\linewidth}{!}{% ICLR: Courier \texttt is wider than cmtt; scale to text width
 \begin{tabular}{@{}clllrrr@{}}
 \toprule
 \multicolumn{1}{c}{\textbf{\#}} & \multicolumn{1}{c}{\textbf{Family}} & \multicolumn{1}{c}{\textbf{HuggingFace ID}} & \multicolumn{1}{c}{\textbf{Variant}} & \multicolumn{1}{c}{\textbf{Params}} & \multicolumn{1}{c}{$\boldsymbol{d}$} & \multicolumn{1}{c}{$\boldsymbol{|V|}$} \\
@@ -32,7 +33,7 @@ All targets are loaded in BF16 as the reference precision; an FP16 proxy is addi
 % 10 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-v0.3}                 & Base      & 7B   & 4096 & 33K  \\
 % 11 & Mistral 0.3 & \texttt{mistralai/Mistral-7B-Instruct-v0.3}        & Instruct  & 7B   & 4096 & 33K  \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \noindent
@@ -84,7 +85,7 @@ GPTQ bit-width is 4-bit (the canonical setting reported in Sec.~\ref{subsec:exp_
 \label{tab:gptq_awq}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}cl p{8cm}@{}}
+\begin{tabular}{@{}cl l@{}}% ICLR: natural-width column so long Courier repo IDs do not overflow a fixed p{8cm} cell
 \toprule
 \multicolumn{1}{c}{\textbf{\#}} & \multicolumn{1}{c}{\textbf{Model}} & \multicolumn{1}{c}{\textbf{GPTQ Repository}} \\
 \midrule

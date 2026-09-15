@@ -45,13 +45,13 @@ W_{\mathrm{opt}} = \arg\min_{W \in \mathcal{O}(d)}
 \underbrace{K_{\mathrm{pred}}\,\|\Sigma_P^{1/2}(W H_T - H_P)\|_F}_{\gamma(W)}
 \Big].
 \end{equation}
-Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admits the closed-form $W_N = VU^\top$), the addition of $\gamma(W)$ introduces a quadratic dependence on $W$ through the head term, related to the \emph{Weighted Orthogonal Procrustes Problem} (WOPP)~\cite{gower2004procrustes}.
+Unlike the standard Procrustes problem (which minimizes $\delta$ alone and admits the closed-form $W_N = VU^\top$), the addition of $\gamma(W)$ introduces a quadratic dependence on $W$ through the head term, related to the \emph{Weighted Orthogonal Procrustes Problem} (WOPP)~\citep{gower2004procrustes}.
 
 \paragraph{Why no closed-form solution exists.}
 The feature term $\delta(W)$ is concave in $\operatorname{Tr}(Z_T^\top Z_P W)$, while $\gamma(W)$ is convex in $W$. Their sum is neither convex nor concave on $\mathcal{O}(d)$, precluding a simple variational characterization.
 
 \paragraph{Special case: isotropic features.}
-If $\Sigma_P \approx \lambda I$, the head term simplifies to $K_{\mathrm{pred}}\sqrt{\lambda}\,\|W H_T - H_P\|_F$, which still depends on $W$ through the cross-term $\operatorname{Tr}(H_P^\top W H_T)$ when $\|W H_T - H_P\|_F^2$ is expanded. The joint objective then minimizes $K_{\mathrm{feat}}\sqrt{\|Z_T - Z_P W\|_F^2/n} + K_{\mathrm{pred}}\sqrt{\lambda}\|W H_T - H_P\|_F$, and each term individually admits a closed-form Procrustes minimizer; the sum does not. The isotropic assumption is, in any case, unrealistic for LLM representations, which exhibit well-documented anisotropy~\cite{ethayarajh2019contextual}.
+If $\Sigma_P \approx \lambda I$, the head term simplifies to $K_{\mathrm{pred}}\sqrt{\lambda}\,\|W H_T - H_P\|_F$, which still depends on $W$ through the cross-term $\operatorname{Tr}(H_P^\top W H_T)$ when $\|W H_T - H_P\|_F^2$ is expanded. The joint objective then minimizes $K_{\mathrm{feat}}\sqrt{\|Z_T - Z_P W\|_F^2/n} + K_{\mathrm{pred}}\sqrt{\lambda}\|W H_T - H_P\|_F$, and each term individually admits a closed-form Procrustes minimizer; the sum does not. The isotropic assumption is, in any case, unrealistic for LLM representations, which exhibit well-documented anisotropy~\citep{ethayarajh2019contextual}.
 
 \paragraph{Numerical solution.}
 For the general case, $W_{\mathrm{opt}}$ can be approximated via Riemannian gradient descent on the Stiefel manifold, but this entangles scale, shape, and head components, destroying the clean physical interpretation.

@@ -15,7 +15,7 @@ We provide the complete proof of Theorem~\ref{thm:unified_bound}, which the main
 \subsection{Relation to classical Procrustes shape metrics}
 \label{app:shape_metrics_relation}
 
-The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\cite{williams2021generalized} and its recent decodability analysis~\cite{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega_N)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Section~\ref{sec:applications} (Quantization and LoRA Forgetting paragraphs) shows that the two arms of this split have qualitatively different practical meanings and dominate the risk gap under different LLM lifecycle settings.
+The left-hand side of Eq.~(\ref{eq:exact_equality}) at $W = W_N$ is the squared Procrustes size-and-shape distance $d_1^2(Z_T, Z_P)$ studied in the generalized shape metrics framework~\citep{williams2021generalized} and its recent decodability analysis~\citep{harvey2024what}. Expanding $d_1^2$ reveals that the nuclear norm $\|Z_T^\top Z_P\|_*$ appears inside any Procrustes-based similarity; accordingly, our contribution is \emph{not} the Procrustes distance itself. Rather, it is (a)~the explicit split of this residual into the scale term $(\rho_T-\rho_P)^2$ and the shape term $2\rho_T\rho_P(1-\Omega_N)$, which the shape-metric literature treats jointly as a single descriptive dissimilarity, and (b)~its lifting to a functional-risk bound (Theorem~\ref{thm:unified_bound}). Section~\ref{sec:applications} (Quantization and LoRA Forgetting paragraphs) shows that the two arms of this split have qualitatively different practical meanings and dominate the risk gap under different LLM lifecycle settings.
 
 
 \subsection{Step 1: risk decomposition via triangle inequality}
@@ -143,7 +143,7 @@ Setting $W = I$ gives the trace form $\Omega \equiv \Omega_{W=I} = \operatorname
 which is the form used throughout the main-text experiments and the regularizer of Sec.~\ref{subsec:shape_reg}.
 
 \paragraph{Specialization 2: $W = W_N$ (Procrustes-optimal, ablation).}
-The alignment that minimizes the residual is the classical orthogonal Procrustes problem~\cite{schonemann1966generalized, gower2004procrustes}:
+The alignment that minimizes the residual is the classical orthogonal Procrustes problem~\citep{schonemann1966generalized, gower2004procrustes}:
 \begin{equation}
 W_N := \arg\min_{W \in \mathcal{O}(d)} \|Z_T - Z_P W\|_F^2 = \arg\max_{W \in \mathcal{O}(d)} \operatorname{Tr}(Z_T^\top Z_P W),
 \end{equation}
