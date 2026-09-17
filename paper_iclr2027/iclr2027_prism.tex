@@ -138,15 +138,35 @@ Chieh-Yen Lin$^{1}$ \quad
 \ifarxiv\lhead{Preprint. Under review.}\fi
 % \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 
+% --- previous (long) version, kept for reference -------------------------
+% \begin{abstract}
+% A single base LLM now comes with dozens of post-training variants: quantized to different bit-widths, LoRA-adapted, distilled.
+% Before any of them is released, someone has to decide whether it still behaves like the base and, when it does not, where it broke.
+% Existing answers are one-sided: benchmark scores and likelihood screens tell us \emph{that} a variant has degraded but not \emph{which part} of it has, while representational similarity scores (CKA, SVCCA) describe the geometry without any link to the risk of the deployed prediction head.
+% We show that two structural properties of LLMs close this gap: a linear head on a non-linear backbone, and backbone features that related models align by rotation.
+% Exploiting them, we derive \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a closed-form upper bound on the cross-entropy risk gap between a base and its variant that decomposes \emph{exactly} into three independently measurable axes: \emph{scale mismatch}, \emph{shape mismatch}, and \emph{head divergence}.
+% Each axis maps to a distinct failure mode (shape distortion at low-bit quantization, head divergence when the output head is quantized, scale separability under LoRA forgetting), so the dominant axis points to a remediation rather than a flag, and controlled single-axis interventions move only their own term.
+% Because the shape term is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting.
+% Across two model families and five benchmarks, PRISM ranks variants with mean Spearman $r_s{=}0.82$ for post-training quantization and $0.83$ for LoRA forgetting; eight reference sequences already rank variants as well as 512 do; and where the diagnosis indicates shape drift, the shape regularizer reduces downstream forgetting below experience replay and EWC at lower target-task loss.
+% \end{abstract}
+% --- NeurIPS 2026 version, kept for reference ------------------------------
+% \begin{abstract}
+% Comparing post-training LLM variants---quantized, LoRA-adapted, distilled---needs a diagnostic that pinpoints \emph{how} the variant has drifted, not just \emph{that} it has; existing similarity scores (CKA, SVCCA) flag degradation without linking to risk or mechanism.
+% We propose \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), exploiting LLMs' linear head and empirically near-isometric backbone to derive a closed-form upper bound on the cross-entropy risk gap $|\mathcal{R}_T-\mathcal{R}_P|$, calibrated for variant ranking, that decomposes drift into three independently measurable axes: \emph{scale mismatch}, \emph{shape mismatch}, and a \emph{head divergence}.
+% Each axis maps to a distinct failure mode (shape distortion at low-bit quantization, scale separability under LoRA forgetting, head divergence at GGUF k-quant), so the dominant axis points to a remediation direction rather than a flag.
+% Because the shape term is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting.
+% Across two model families and five benchmarks, PRISM ranks variants with mean Spearman $r_s{=}0.820$ (PTQ) and $0.831$ (LoRA forgetting), and the axis-guided shape regularizer outperforms experience replay in aggregate at mitigating downstream forgetting.
+% \end{abstract}
+% ---------------------------------------------------------------------------
+
 \begin{abstract}
-A single base LLM now comes with dozens of post-training variants: quantized to different bit-widths, LoRA-adapted, distilled.
-Before any of them is released, someone has to decide whether it still behaves like the base and, when it does not, where it broke.
-Existing answers are one-sided: benchmark scores and likelihood screens tell us \emph{that} a variant has degraded but not \emph{which part} of it has, while representational similarity scores (CKA, SVCCA) describe the geometry without any link to the risk of the deployed prediction head.
-We show that two structural properties of LLMs close this gap: a linear head on a non-linear backbone, and backbone features that related models align by rotation.
-Exploiting them, we derive \textbf{PRISM} (Proxy Risk Inference via Structural Mapping), a closed-form upper bound on the cross-entropy risk gap between a base and its variant that decomposes \emph{exactly} into three independently measurable axes: \emph{scale mismatch}, \emph{shape mismatch}, and \emph{head divergence}.
-Each axis maps to a distinct failure mode (shape distortion at low-bit quantization, head divergence when the output head is quantized, scale separability under LoRA forgetting), so the dominant axis points to a remediation rather than a flag, and controlled single-axis interventions move only their own term.
-Because the shape term is differentiable, the same geometry doubles as a training-time regularizer against catastrophic forgetting.
-Across two model families and five benchmarks, PRISM ranks variants with mean Spearman $r_s{=}0.82$ for post-training quantization and $0.83$ for LoRA forgetting; eight reference sequences already rank variants as well as 512 do; and where the diagnosis indicates shape drift, the shape regularizer reduces downstream forgetting below experience replay and EWC at lower target-task loss.
+A single base LLM now comes with dozens of post-training variants, quantized, LoRA-adapted, or distilled, and each has to be checked before release.
+Existing checks answer only half the question: benchmark scores and likelihood screens say \emph{that} a variant has degraded, similarity scores such as CKA and SVCCA say \emph{how} its features moved, and nothing connects the two.
+We show that two structural facts about LLMs close this gap: the prediction head is linear, and the features of related models align by a rotation.
+From these two facts we derive \textbf{PRISM}, a closed-form upper bound on the cross-entropy risk gap between a base and its variant, and prove that it splits \emph{exactly} into three measurable axes: scale, shape, and head.
+Each axis names a failure mode and where to intervene: LoRA fine-tuning shifts activation scale, low-bit quantization distorts shape, and quantizing the output head inflates the head term.
+Because the shape term is differentiable, the same geometry becomes a regularizer that curbs catastrophic forgetting more than experience replay.
+Across two model families and five benchmarks, PRISM ranks quantized and fine-tuned variants from a single forward pass at mean Spearman above $0.8$, and eight reference sequences rank them as well as several hundred.
 \end{abstract}
 
 % \input{text/intro}
@@ -431,32 +451,46 @@ responsibility for the final content of this work, including text, claims or
 artifacts produced with the aid of generative AI.}
 
 \subsection*{Ethics statement}
-\placeholder{[PLACEHOLDER; recommended; edit or remove.] This work develops a
-diagnostic bound for comparing post-training variants of publicly available
-language models. It involves no human subjects, no personal data, and no new
-dataset release. All models, quantized checkpoints, and benchmarks used are
-publicly available under their respective licenses; the BBQ dataset is used
-only as a fine-tuning task for measuring representational drift and no claims
-about social groups are made. We do not foresee direct negative societal
-impact beyond that of the underlying models.}
+This work develops a diagnostic bound for comparing post-training variants of
+publicly released language models. It releases no new model, dataset, or
+scraped corpus, involves no human subjects, crowdsourcing, or personal data,
+and therefore required no IRB review. All assets are used under their published
+licenses: the base and instruction-tuned checkpoints of Llama-3.1-8B (Llama
+Community License), Qwen3-8B, Ministral-3-8B, and DeepSeek-R1-Distill-Llama-8B
+(Apache~2.0 or MIT), the public GGUF, GPTQ, and BitsAndBytes quantized variants
+listed in Appendix~\ref{app:model_details}, and the MMLU, ARC, TriviaQA, SQuAD,
+GSM8K, TruthfulQA, and BBQ benchmarks, each cited at first use in
+Section~\ref{subsec:exp_setup}. BBQ and TruthfulQA serve only as fine-tuning
+tasks for measuring representational drift; we make no claims about social
+groups or about the truthfulness of any model. Large language models are the
+\emph{subject} of study here, not a component of the method. The intended
+impact is positive: PRISM ranks quantized and fine-tuned variants from one
+teacher-forced pass, which lowers the evaluation compute spent on deployment
+selection and points remediation at the axis that drifted. Because it is a
+diagnostic applied to existing models, it introduces no misuse pathway beyond
+those already inherent to the underlying LLMs; its limitations (a loose bound
+used for ordering, attribution stated in the models' inherited coordinates, and
+low-signal cells such as GSM8K under quantization) are stated in
+Section~\ref{sec:conclusion} so that it is not mistaken for a safety certificate.
 
 \subsection*{Reproducibility statement}
-\placeholder{[PLACEHOLDER; recommended; edit before submission.]
-Section~\ref{subsec:exp_setup} specifies the model families
-(Llama-3.1-8B, Qwen3-8B, Ministral-3-8B, DeepSeek-R1-Distill-Llama-8B), the three
-PTQ families and bit-widths (GGUF \texttt{Q2\_K}--\texttt{Q8\_0}, GPTQ 4-bit,
-BitsAndBytes INT8/NF4/FP4), the two LoRA fine-tuning tasks, the five downstream
-benchmarks, the calibration sample counts ($512$ for PTQ, $256$ for LoRA
-forgetting), the LoRA configuration, the regularizer $\lambda$ sweeps, and the
-checkpoint cadence. Complete proofs of Proposition~\ref{prop:exact_decomposition}
-and Theorem~\ref{thm:unified_bound} are given in Appendix~\ref{app:detailed_proofs},
-with the constants $K_{\mathrm{feat}}$ and $K_{\mathrm{pred}}$ derived in
-Appendices~\ref{app:kfeat} and~\ref{app:head_bound}; the quantized checkpoints
-are listed in Appendix~\ref{app:model_details}. All base models and datasets are
-publicly available. Code for computing the PRISM bound and for the LoRA training
-pipeline (including the trace-norm shape regularizer and the replay-CE baseline)
-[is provided as anonymized supplementary material / is available at an anonymous
-repository: URL].}
+Complete proofs of Proposition~\ref{prop:exact_decomposition} and
+Theorem~\ref{thm:unified_bound}, with their assumptions and the constants
+$K_{\mathrm{feat}}$ and $K_{\mathrm{pred}}$, are given in
+Appendix~\ref{app:detailed_proofs} (per-model constants in
+Table~\ref{tab:lipschitz_constants}). Section~\ref{subsec:exp_setup} specifies
+the models, quantization tiers, fine-tuning tasks, benchmarks, reference-set
+sizes, LoRA and regularizer hyperparameters, and checkpoint cadence; the exact
+public checkpoint of every quantized variant is listed in
+Appendix~\ref{app:model_details}, and the per-variant decompositions behind
+every figure are tabulated in Appendices~\ref{app:quant_tables}
+and~\ref{app:qwen_forgetting}. Teacher-forced scoring on fixed held-out subsets
+is deterministic, so all reported bounds and risk gaps are exactly recomputable.
+All experiments ran on a single NVIDIA RTX~5090 (32~GB) with PyTorch~2.10 and
+\texttt{transformers}~5.2. Code for computing the PRISM bound and its
+decomposition, running the quantization sweep, and training LoRA with the shape
+regularizer and the replay baseline is provided as anonymized supplementary
+material with pinned dependencies, and will be released on acceptance.
 
 
 % tocbibind picks up natbib's \bibname ("Bibliography"); ICLR expects a
