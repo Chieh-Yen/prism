@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# PRISM — Quantization Experiment Suite (paper Sec.~5.2)
+# PRISM — Quantization Experiment Suite (paper Sec.~4.2)
 # 5 datasets × 7 models (4 base + 3 instruct) × all PTQ variants.
 #
 # Source of truth for model/dataset matrix:

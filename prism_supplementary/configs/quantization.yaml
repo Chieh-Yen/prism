@@ -53,7 +53,7 @@ proxy:
     - Q2_K
 
 data:
-  task: mmlu          # one of {mmlu, arc, triviaqa, squad, gsm8k} — paper Sec.~5.1
+  task: mmlu          # one of {mmlu, arc, triviaqa, squad, gsm8k} — paper Sec.~4.1
   # z_modes resolution in QuantizationExperiment:
   #   data.z_modes (if provided) >
   #   data.z_mode (if provided) >

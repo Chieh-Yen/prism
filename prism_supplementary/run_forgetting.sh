@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================
-# PRISM Forgetting — Regularization Sweep (Replay + Trace-Norm)
+# PRISM Forgetting — Regularization Sweep (Replay + Shape Regularizer)
 #
 # Wraps run_forgetting_one.sh to sweep λ for two regularizers
 # across {truthfulqa, bbq} on Llama, then on Qwen. Replay (CE on the
 # 32 fixed reference samples) is run first as the apples-to-apples
-# baseline; trace-norm (1−Ω_I shape regularizer) follows.
+# baseline; the shape regularizer (1−Ω_I) follows.
 #
 # Run order (sequential):
 #   for MODEL in llama, qwen:
@@ -18,7 +18,7 @@
 # (model, task) combos via the prism_forgetting_metrics.json check).
 #
 # Default λ grids (override via env vars). These match the ranges in
-# Sec.~5.1 of the paper, with λ=0 added to the replay grid as the no-reg
+# Sec.~4.1 of the paper, with λ=0 added to the replay grid as the no-reg
 # anchor (the regularizer is computed but contributes 0 to the loss, so
 # training is functionally equivalent to unregularized fine-tuning).
 #
@@ -26,7 +26,7 @@
 #   SHAPE : {0.01, 0.05, 0.1, 0.5, 1.0}
 #
 # A single invocation of this wrapper covers every configuration reported
-# in Sec.~5.4 (no-reg + replay sweep + trace-norm sweep, both models, both
+# in Sec.~4.5 (no-reg + replay sweep + shape-regularizer sweep, both models, both
 # fine-tuning tasks).
 #
 # Environment knobs:
@@ -121,7 +121,7 @@ for MODEL in $MODELS_ORDER; do
     done
 
     log ""
-    log "── Phase 2 — SHAPE (trace-norm) ──"
+    log "── Phase 2 — SHAPE (shape regularizer) ──"
     for TASK in $TASKS_ORDER; do
         for L in $SHAPE_LAMBDAS; do
             run_one "$MODEL" "$TASK" "shape" "$L"

@@ -135,7 +135,7 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
 # Task registry — maps short names to HuggingFace dataset identifiers
 # ======================================================================
 TASK_REGISTRY: Dict[str, Dict] = {
-    # Structured Q&A benchmarks (PTQ + LoRA-forgetting evaluation, paper Sec.~5.1).
+    # Structured Q&A benchmarks (PTQ + LoRA-forgetting evaluation, paper Sec.~4.1).
     # All use concat z_mode so Z and loss are uniformly token-level; for
     # single-token answers like MMLU/ARC this is mathematically equivalent to
     # last_context_token.
@@ -149,7 +149,7 @@ TASK_REGISTRY: Dict[str, Dict] = {
                       "z_mode": "concat", "loss_mode": "answer"},
     "gsm8k":         {"hf_id": "openai/gsm8k",         "hf_subset": "main",          "formatter": "gsm8k",    "split_map": {"test": "test"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    # LoRA fine-tuning sources (paper Sec.~5.4).
+    # LoRA fine-tuning sources (paper Sec.~4.5).
     "truthfulqa":    {"hf_id": "truthful_qa",          "hf_subset": "generation",    "formatter": "truthfulqa", "split_map": {"test": "validation[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "bbq":           {"hf_id": "lighteval/bbq_helm",   "hf_subset": "all",           "formatter": "bbq",      "split_map": {"test": "test[80%:]"},

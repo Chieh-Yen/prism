@@ -3,7 +3,7 @@
 LoRA fine-tune a base model on a single task and compute PRISM forgetting
 metrics online at every checkpoint (no separate inference stage needed).
 
-The paper (Sec.~5.4) fine-tunes on **TruthfulQA** and **BBQ**; additional
+The paper (Sec.~4.5) fine-tunes on **TruthfulQA** and **BBQ**; additional
 task configurations are kept in TASK_CONFIGS for users who wish to extend
 the experiment to other fine-tuning sources, but the paper's reported
 results use only those two.
@@ -320,9 +320,9 @@ class ShapeRegularizedTrainer(Trainer):
         Z_T = self.Z_T_ref.to(Z_P.device)                   # (n_tok, d) GPU
 
         # Trace-based Ω_I (W = I): Frobenius cosine similarity
-        trace = (Z_T * Z_P).sum()                            # ⟨Z_T, Z_P⟩_F
-        denom = Z_T.norm("fro") * Z_P.norm("fro")
-        omega_I = trace / denom.clamp(min=1e-12)
+        trace = (Z_T * Z_P).sum(dim=1).double().sum()
+        denom = (Z_T * Z_T).sum(dim=1).double().sum().sqrt() * (Z_P * Z_P).sum(dim=1).double().sum().sqrt()
+        omega_I = (trace / denom.clamp(min=1e-12)).float()
 
         shape_loss = 1.0 - omega_I
         return shape_loss, omega_I.item()
@@ -399,7 +399,7 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
 # ── Task-specific dataset configuration ───────────────────────────────────
 
 TASK_CONFIGS = {
-    # ── Fine-tuning tasks (paper Sec.~5.4) ───────────────────────────
+    # ── Fine-tuning tasks (paper Sec.~4.5) ───────────────────────────
     "truthfulqa": {
         "hf_id": "truthful_qa",
         "hf_subset": "generation",
@@ -773,7 +773,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         for task in self.eval_tasks:
             Z = self.base_features[task]["Z"]
             import math
-            rho = Z.norm("fro").item() / math.sqrt(Z.shape[0])
+            rho = PRISMMetrics.rms_scale(Z.float())
             base_summary[task] = {
                 "rho": rho,
                 "loss_full": self.base_features[task]["loss_full"],

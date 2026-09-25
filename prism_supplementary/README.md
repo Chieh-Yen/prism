@@ -2,8 +2,8 @@
 
 Reproducibility package for the paper *PRISM: Decomposing Geometric Drift for
 Risk Diagnosis in LLM Variants*. This package is **run-only**: it contains
-the experiment pipelines for the two main experiments (PTQ grid in §5.2 and
-LoRA forgetting + regularization in §5.4).
+the experiment pipelines for the two main experiments (PTQ grid in Sec.~4.2 and
+LoRA forgetting + regularization in Sec.~4.5).
 
 
 ## Layout
@@ -14,10 +14,10 @@ LoRA forgetting + regularization in §5.4).
 ├── requirements.txt           # pinned Python dependencies
 ├── install.sh                 # one-shot environment setup
 │
-├── run_quantization.sh        # entry: PTQ grid (Sec. 5.2)
+├── run_quantization.sh        # entry: PTQ grid (Sec. 4.2)
 ├── run_quantization.py        # PTQ Python entry (called by run_quantization.sh)
 │
-├── run_forgetting.sh          # entry: LoRA reg sweep (Sec. 5.4)
+├── run_forgetting.sh          # entry: LoRA reg sweep (Sec. 4.5)
 ├── run_forgetting_one.sh      # internal: single-config LoRA driver
 ├── train_forgetting.py        # internal: LoRA training + online PRISM eval
 │
@@ -30,7 +30,7 @@ LoRA forgetting + regularization in §5.4).
     ├── core/        bounds.py, metrics.py
     ├── data/        loaders.py
     ├── models/      extractors.py
-    └── experiments/ quantization.py, forgetting.py
+    └── experiments/ quantization.py
 ```
 
 
@@ -71,13 +71,13 @@ pip install GPTQModel==5.7.0 --no-build-isolation
 ```
 
 
-## Experiment 1 — Quantization Grid (Sec. 5.2)
+## Experiment 1 — Quantization Grid (Sec. 4.2)
 
 The PTQ matrix (four base 8B families × three PTQ families across bit-widths
 2–8 × five benchmarks) is enumerated by `configs/quantization_matrix.yaml`
 and dispatched by `run_quantization.sh`. Each run loads the BF16 base
-(target) and the quantized variant (proxy) on a shared $N{=}512$-token
-calibration subset, computes
+(target) and the quantized variant (proxy) on a shared held-out subset of
+$512$ examples, computes
 $\rho_T,\,\rho_P,\,\Omega,\,\delta,\,\gamma,\,\mathcal{B}$
 in a single forward pass, and writes a per-(model, dataset, method) JSON
 record under `results/quantization/`.
@@ -94,7 +94,7 @@ MULTI_GPU=1              bash run_quantization.sh   # 2 GPUs
 ```
 
 
-## Experiment 2 — LoRA Forgetting + Regularization Sweep (Sec. 5.4)
+## Experiment 2 — LoRA Forgetting + Regularization Sweep (Sec. 4.5)
 
 `run_forgetting.sh` is the **one-stop** entry point: it runs
 both regularizers, on both models, on both fine-tuning tasks, sweeping
@@ -107,12 +107,12 @@ so there is no separate inference stage.
 bash run_forgetting.sh
 ```
 
-Default $\lambda$ grids match Sec. 5.1 of the paper:
+Default $\lambda$ grids match Sec. 4.1 of the paper:
 
 | Regularizer       | $\lambda$ grid                                    |
 |-------------------|--------------------------------------------------|
 | replay-CE         | `0  0.001  0.005  0.01  0.05  0.1` (λ=0 = no-reg anchor) |
-| trace-norm shape  | `0.01  0.05  0.1  0.5  1.0`                      |
+| shape regularizer | `0.01  0.05  0.1  0.5  1.0`                      |
 
 Override via env vars:
 
@@ -146,7 +146,7 @@ above; it can be invoked directly for a single configuration:
 # baseline (no regularization)
 bash run_forgetting_one.sh
 
-# trace-norm shape regularizer
+# shape regularizer
 SHAPE_REG=1 LAMBDA_SHAPE=1.0 bash run_forgetting_one.sh
 
 # replay-CE baseline
@@ -172,10 +172,10 @@ if both are set).
   `huggingface-cli login` or the `HF_TOKEN` environment variable before
   first use.
 - **Quantized-checkpoint sources.** GPTQ checkpoints come from the
-  Hugging Face repositories listed in Appendix~F of the paper; GGUF
-  artifacts are produced on-the-fly from the BF16 base via `llama.cpp`'s
-  `quantize` tool; BnB variants are produced on-the-fly from BF16 via
-  the `bitsandbytes` backend.
+  Hugging Face repositories listed in Appendix~E of the paper; GGUF
+  variants are loaded from the public GGUF repositories listed there
+  (set in `configs/quantization_matrix.yaml`); BnB variants are produced
+  on-the-fly from BF16 via the `bitsandbytes` backend.
 - **Anonymity.** This package contains no author identifiers (no email,
   no institution, no path-derived names). The Hugging Face cache directory
   defaults to `$HF_HOME` or `$XDG_CACHE_HOME/huggingface` and is never
@@ -186,6 +186,6 @@ if both are set).
 
 | Experiment                                    | Time      |
 |-----------------------------------------------|-----------|
-| PTQ grid (Sec. 5.2, full default)             | ≈ 18 h    |
-| LoRA forgetting regularization sweep (Sec. 5.4)| ≈ 22 h    |
+| PTQ grid (Sec. 4.2, full default)             | ≈ 18 h    |
+| LoRA forgetting regularization sweep (Sec. 4.5)| ≈ 22 h    |
 | **Total**                                     | **≈ 40 h**|

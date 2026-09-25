@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# PRISM — Single-config LoRA Forgetting Experiment (paper Sec.~5.4)
+# PRISM — Single-config LoRA Forgetting Experiment (paper Sec.~4.5)
 #
 # LoRA fine-tune 2 base models × 2 fine-tuning tasks (TruthfulQA, BBQ).
 # PRISM forgetting metrics (Ω, δ, γ, Bound, |ΔR|) are computed online at
@@ -29,7 +29,7 @@
 #
 # Examples:
 #   bash run_forgetting_one.sh                                  # no-reg baseline
-#   SHAPE_REG=1 LAMBDA_SHAPE=1.0 bash run_forgetting_one.sh     # trace-norm
+#   SHAPE_REG=1 LAMBDA_SHAPE=1.0 bash run_forgetting_one.sh     # shape regularizer
 #   REPLAY_REG=1 LAMBDA_REPLAY=0.01 bash run_forgetting_one.sh  # replay
 # ============================================================
 set -euo pipefail

@@ -44,6 +44,14 @@ class PRISMResult:
 class PRISMMetrics:
     """Pure-function collection of all PRISM geometric metrics."""
 
+    @staticmethod
+    def _rowdot_sum(A: Tensor, B: Tensor) -> float:
+        return (A * B).sum(dim=1).double().sum().item()
+
+    @staticmethod
+    def _fro(Z: Tensor) -> float:
+        return math.sqrt(PRISMMetrics._rowdot_sum(Z, Z))
+
     # ------------------------------------------------------------------
     # Procrustes Similarity  (Eq. 3)
     # ------------------------------------------------------------------
@@ -55,7 +63,7 @@ class PRISMMetrics:
         """
         cross = Z_T.T @ Z_P  # (d_T, d_P)
         nuclear_norm = torch.linalg.svdvals(cross).sum().item()
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
         if denom < 1e-12:
             return 0.0
         return min(nuclear_norm / denom, 1.0)
@@ -80,7 +88,7 @@ class PRISMMetrics:
     @staticmethod
     def rms_scale(Z: Tensor) -> float:
         n = Z.shape[0]
-        return Z.norm("fro").item() / math.sqrt(n)
+        return PRISMMetrics._fro(Z) / math.sqrt(n)
 
     # ------------------------------------------------------------------
     # Decomposed mismatch terms  (Theorem 1)
@@ -150,7 +158,7 @@ class PRISMMetrics:
         Uses O(d²) element-wise product instead of O(d³) matrix multiply.
         """
         cross = Z_P.T @ Z_T                         # (d_P, d_T)
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
         if denom < 1e-12:
             return 0.0
         omega = (W * cross).sum().item() / denom
@@ -208,7 +216,7 @@ class PRISMMetrics:
             W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
 
         # Ω(W) = tr(W · cross) / (‖Z_T‖_F ‖Z_P‖_F)
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
         omega = (W_use * cross).sum().item() / max(denom, 1e-12)
         omega = max(min(omega, 1.0), -1.0)
 
@@ -272,7 +280,7 @@ class PRISMMetrics:
         else:
             W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
 
-        denom = Z_T.norm("fro").item() * Z_P.norm("fro").item()
+        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
         omega = (W_use * cross).sum().item() / max(denom, 1e-12)
         omega = max(min(omega, 1.0), -1.0)
 
