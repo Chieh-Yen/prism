@@ -439,16 +439,24 @@ We describe future directions in detail in Appendix~\ref{app:future_work}, inclu
 %=========================================================================
 
 \subsection*{AI use statement}
-\placeholder{[PLACEHOLDER; required by ICLR 2027; replace before submission.]
-In this work, we used generative AI tools for [tasks with required disclosure].
-We have not used generative AI tools for [other tasks with required disclosure],
-and [the rest of the required disclosure tasks] are not applicable to this work.
-Additionally, we used generative AI tools for [tasks with recommended disclosure].
-We have reviewed all AI-assisted work. [Elaborate. For example, ``LLM-generated
-code was verified and tested for correctness by the authors'', ``LLM-edited text
-was checked against the underlying results by the authors''.] We take
-responsibility for the final content of this work, including text, claims or
-artifacts produced with the aid of generative AI.}
+In this work, we used generative AI tools to clean and reformat datasets
+(preparing benchmark subsets and result tables). We have not used generative AI
+tools to generate synthetic data sets, help develop theoretical models or
+conceptual frameworks, formulate mathematical claims, provide critical
+ingredients for proving mathematical claims, assist in the writing of proofs,
+propose or refine hypotheses, design or provide feedback on research
+methodology or experiments, implement methods, or interpret results; the PRISM
+bound, its decomposition, and the training objective were designed and
+implemented by the authors. Assisting with translation and supporting
+qualitative and thematic data analysis are not applicable to this work.
+Additionally, we used generative AI tools to create and edit software code for
+running experiments, evaluating checkpoints, aggregating results, and plotting
+figures, and to edit the author-written text for readability. We have reviewed
+all AI-assisted work: LLM-generated code was verified and tested for correctness
+by the authors, and LLM-edited text was checked against the underlying results
+by the authors. We take responsibility
+for the final content of this work, including text, claims, or artifacts
+produced with the aid of generative AI.
 
 \subsection*{Ethics statement}
 This work develops a diagnostic bound for comparing post-training variants of
@@ -487,10 +495,11 @@ every figure are tabulated in Appendices~\ref{app:quant_tables}
 and~\ref{app:qwen_forgetting}. Teacher-forced scoring on fixed held-out subsets
 is deterministic, so all reported bounds and risk gaps are exactly recomputable.
 All experiments ran on a single NVIDIA RTX~5090 (32~GB) with PyTorch~2.10 and
-\texttt{transformers}~5.2. Code for computing the PRISM bound and its
-decomposition, running the quantization sweep, and training LoRA with the shape
-regularizer and the replay baseline is provided as anonymized supplementary
-material with pinned dependencies, and will be released on acceptance.
+\texttt{transformers}~5.2. All base models, quantized checkpoints, and
+benchmarks used are publicly available. Code for computing the PRISM bound and
+its decomposition, running the quantization sweep, and training LoRA with the
+shape regularizer and the replay baseline is included as anonymized
+supplementary material with pinned dependencies.
 
 
 % tocbibind picks up natbib's \bibname ("Bibliography"); ICLR expects a
