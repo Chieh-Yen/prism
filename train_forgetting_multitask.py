@@ -444,7 +444,7 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
 TASK_CONFIGS = {
     # ── New tasks (safety / truthfulness / social reasoning) ─────────
     "truthfulqa": {
-        "hf_id": "truthful_qa",
+        "hf_id": "truthfulqa/truthful_qa",
         "hf_subset": "generation",
         "train_split": "validation[:80%]",   # only split; first 80% for train (~653)
         "eval_split": "validation[80%:]",    # last 20% for eval (~164)
@@ -505,7 +505,7 @@ TASK_CONFIGS = {
         "default_save_steps": 25,
     },
     "triviaqa": {
-        "hf_id": "trivia_qa",
+        "hf_id": "mandarjoshi/trivia_qa",
         "hf_subset": "rc.nocontext",
         "train_split": "train",
         "eval_split": "validation",

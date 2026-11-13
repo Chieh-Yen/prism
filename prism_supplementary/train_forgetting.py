@@ -52,6 +52,11 @@ from prism.core.metrics import PRISMMetrics
 from prism.data.loaders import get_task_metadata, load_task_data
 from prism.models.extractors import LLMExtractor
 
+# Remote code is opt-in (PRISM_TRUST_REMOTE_CODE=1). Every model family used in
+# the paper is native to the pinned transformers release, so the default is off.
+_TRUST_REMOTE_CODE = os.environ.get("PRISM_TRUST_REMOTE_CODE", "0") == "1"
+from prism.experiments.quantization import pinned_revision  # configs/model_revisions.yaml
+
 
 # ── Formatters — identical to prism/data/loaders.py for consistency ───────
 
@@ -401,7 +406,7 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
 TASK_CONFIGS = {
     # ── Fine-tuning tasks (paper Sec.~4.5) ───────────────────────────
     "truthfulqa": {
-        "hf_id": "truthful_qa",
+        "hf_id": "truthfulqa/truthful_qa",
         "hf_subset": "generation",
         "train_split": "validation[:80%]",   # only split; first 80% for train (~653)
         "eval_split": "validation[80%:]",    # last 20% for eval (~164)
@@ -452,7 +457,7 @@ TASK_CONFIGS = {
         "default_save_steps": 25,
     },
     "triviaqa": {
-        "hf_id": "trivia_qa",
+        "hf_id": "mandarjoshi/trivia_qa",
         "hf_subset": "rc.nocontext",
         "train_split": "train",
         "eval_split": "validation",
@@ -1152,7 +1157,9 @@ def main() -> None:
 
     # ── Tokenizer ────────────────────────────────────────────────────
     print(f"\nLoading tokenizer: {args.model}")
-    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model, trust_remote_code=_TRUST_REMOTE_CODE,
+        revision=pinned_revision(args.model))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
@@ -1163,7 +1170,8 @@ def main() -> None:
         args.model,
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
-        trust_remote_code=True,
+        trust_remote_code=_TRUST_REMOTE_CODE,
+        revision=pinned_revision(args.model),
     )
     model.config.use_cache = False
 
@@ -1253,6 +1261,20 @@ def main() -> None:
         seed=args.seed,
     )
     print(f"  Eval size:  {len(eval_dataset):,} examples")
+    # The reference set used by the shape and held-out-CE arms is drawn from this
+    # same held-out slice (prism.data.loaders split_map "test", shuffled with seed
+    # args.seed + 1000, first --reg_samples rows). Remove those rows from the
+    # target-task eval set for every arm, so the reported target-task loss is on
+    # sequences that no arm sees during training.
+    if max_eval_samples is None:
+        _n = len(eval_dataset)
+        _ref = set(
+            eval_dataset.add_column("_row", list(range(_n)))
+            .shuffle(seed=args.seed + 1000).select(range(args.reg_samples))["_row"]
+        )
+        eval_dataset = eval_dataset.select([i for i in range(_n) if i not in _ref])
+        print(f"  Eval size after removing the {len(_ref)} reference rows: "
+              f"{len(eval_dataset):,} examples")
 
     # ── PRISM callback ───────────────────────────────────────────────
     prism_callback = PRISMCheckpointCallback(

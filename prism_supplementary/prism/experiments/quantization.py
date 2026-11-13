@@ -48,6 +48,34 @@ from ..core.metrics import PRISMMetrics
 from ..data.loaders import load_task_data
 from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
+import os
+from pathlib import Path
+
+# Remote code is opt-in (PRISM_TRUST_REMOTE_CODE=1). Every model family used in
+# the paper is native to the pinned transformers release, so the default is off.
+_TRUST_REMOTE_CODE = os.environ.get("PRISM_TRUST_REMOTE_CODE", "0") == "1"
+
+# ----------------------------------------------------------------------
+# Pinned revisions (configs/model_revisions.yaml): every HF repo is loaded at
+# a fixed commit so a re-run sees the same weights, tokenizer and config.
+# ----------------------------------------------------------------------
+_REVISIONS_PATH = Path(__file__).resolve().parents[2] / "configs" / "model_revisions.yaml"
+_REVISIONS: Dict[str, str] | None = None
+
+
+def pinned_revision(model_id: str) -> str | None:
+    """Commit hash for ``model_id`` from configs/model_revisions.yaml, or None."""
+    global _REVISIONS
+    if os.environ.get("PRISM_UNPINNED", "0") == "1":
+        return None
+    if _REVISIONS is None:
+        try:
+            import yaml
+            with open(_REVISIONS_PATH) as f:
+                _REVISIONS = yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            _REVISIONS = {}
+    return _REVISIONS.get(model_id)
 
 
 # ======================================================================
@@ -287,6 +315,7 @@ def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
     ``AutoModelForCausalLM``.  The ``LLMExtractor`` handles VL model
     structures transparently by navigating to the text backbone.
     """
+    kwargs.setdefault("revision", pinned_revision(model_id))
     try:
         return AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
     except ValueError as exc:
@@ -294,7 +323,8 @@ def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
             raise
         cfg = AutoConfig.from_pretrained(
             model_id,
-            trust_remote_code=kwargs.get("trust_remote_code", True),
+            trust_remote_code=kwargs.get("trust_remote_code", _TRUST_REMOTE_CODE),
+            revision=kwargs.get("revision"),
         )
         if not hasattr(cfg, "text_config"):
             raise
@@ -325,7 +355,7 @@ class QuantizationExperiment(BaseExperiment):
             gguf_file=filename,
             dtype=self.model_dtype,
             device_map=self.device,
-            trust_remote_code=True,
+            trust_remote_code=_TRUST_REMOTE_CODE,
             **self._attn_impl_kwargs(),
         )
         return proxy
@@ -340,7 +370,9 @@ class QuantizationExperiment(BaseExperiment):
                 f"Available: {sorted(_BNB_CONFIGS)}"
             )
         print(f"  Loading proxy: {model_id} [bnb:{bnb_tag}] ...")
-        config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+        config = AutoConfig.from_pretrained(
+            model_id, trust_remote_code=_TRUST_REMOTE_CODE,
+            revision=pinned_revision(model_id))
         existing_quant = getattr(config, "quantization_config", None)
 
         if existing_quant is None:
@@ -348,7 +380,7 @@ class QuantizationExperiment(BaseExperiment):
                 model_id,
                 quantization_config=_BNB_CONFIGS[bnb_tag](),
                 device_map=self.device,
-                trust_remote_code=True,
+                trust_remote_code=_TRUST_REMOTE_CODE,
                 **self._attn_impl_kwargs(),
             )
         else:
@@ -356,7 +388,7 @@ class QuantizationExperiment(BaseExperiment):
                 model_id,
                 dtype=torch.bfloat16,
                 device_map="cpu",
-                trust_remote_code=True,
+                trust_remote_code=_TRUST_REMOTE_CODE,
             )
             proxy = _bnb_requantize(proxy, _BNB_CONFIGS[bnb_tag](), self.device)
         return proxy
@@ -365,11 +397,12 @@ class QuantizationExperiment(BaseExperiment):
         self, repo: str, revision: str | None, backend: str,
     ) -> torch.nn.Module:
         """Load a pre-quantised GPTQ or AWQ model from HuggingFace."""
+        revision = revision or pinned_revision(repo)
         rev_tag = f" @{revision}" if revision else ""
         print(f"  Loading proxy: {repo}{rev_tag} [{backend}] ...")
         kwargs: dict = dict(
             device_map=self.device,
-            trust_remote_code=True,
+            trust_remote_code=_TRUST_REMOTE_CODE,
             **self._attn_impl_kwargs(),
         )
         if revision:
@@ -396,7 +429,7 @@ class QuantizationExperiment(BaseExperiment):
             model_id,
             dtype=dtype,
             device_map=self.device,
-            trust_remote_code=True,
+            trust_remote_code=_TRUST_REMOTE_CODE,
             **self._attn_impl_kwargs(),
         )
         return proxy
@@ -516,7 +549,9 @@ class QuantizationExperiment(BaseExperiment):
         print(f"  Data   : {task_name}  z_modes={z_modes}  loss_mode={loss_mode}")
 
         print(f"Loading tokenizer from {target_model_id} ...")
-        tokenizer = AutoTokenizer.from_pretrained(target_model_id, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            target_model_id, trust_remote_code=_TRUST_REMOTE_CODE,
+            revision=pinned_revision(target_model_id))
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
@@ -532,7 +567,7 @@ class QuantizationExperiment(BaseExperiment):
         print(f"Loading target ({target_dtype_label}): {target_model_id} ...")
         target_model = _load_model(
             target_model_id, dtype=self.model_dtype, device_map=self.device,
-            trust_remote_code=True,
+            trust_remote_code=_TRUST_REMOTE_CODE,
             **self._attn_impl_kwargs(),
         )
         target_model.eval()
