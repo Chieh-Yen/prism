@@ -65,13 +65,18 @@ from ..core.bounds import UnifiedBound
 from ..data.loaders import get_task_metadata, load_task_data
 from ..models.extractors import LLMExtractor
 from .base import BaseExperiment
+import os
+
+# Remote code is opt-in (PRISM_TRUST_REMOTE_CODE=1). Every model family used in
+# the paper is native to the pinned transformers release, so the default is off.
+_TRUST_REMOTE_CODE = os.environ.get("PRISM_TRUST_REMOTE_CODE", "0") == "1"
 
 
 # ======================================================================
 # Helpers
 # ======================================================================
 
-def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool = True, **kwargs):
+def _load_causal_lm(model_id: str, dtype, device_map, trust_remote_code: bool | None = None, **kwargs):
     """Load a CausalLM with a fallback for config types not yet in AutoModelForCausalLM.
 
     Some newly-released models have their config class registered in transformers
@@ -323,7 +328,7 @@ class CrossScaleExperiment(BaseExperiment):
         # ----------------------------------------------------------------
         print(f"\nLoading tokenizer from {target_model_id} ...")
         tokenizer = AutoTokenizer.from_pretrained(
-            target_model_id, trust_remote_code=True,
+            target_model_id, trust_remote_code=_TRUST_REMOTE_CODE,
         )
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -463,7 +468,7 @@ class CrossScaleExperiment(BaseExperiment):
                 # ---- per-proxy tokenizer and dataloader ----
                 print(f"  Loading proxy tokenizer from {proxy_model_id} ...")
                 proxy_tokenizer = AutoTokenizer.from_pretrained(
-                    proxy_model_id, trust_remote_code=True,
+                    proxy_model_id, trust_remote_code=_TRUST_REMOTE_CODE,
                 )
                 if proxy_tokenizer.pad_token is None:
                     proxy_tokenizer.pad_token = proxy_tokenizer.eos_token
