@@ -39,7 +39,6 @@ class BaseExperiment:
         os.makedirs(self.output_dir, exist_ok=True)
 
         cfg_computing = config.get("computing", {})
-        self.logit_chunk_size = cfg_computing.get("logit_chunk_size", 2048)
         self.model_dtype = getattr(torch, cfg_computing.get("model_dtype", "float16"))
         self.use_flash_attention = cfg_computing.get("use_flash_attention", False)
 
@@ -172,7 +171,6 @@ class BaseExperiment:
             "delta_I", "delta_W",
             "gamma_I", "gamma_W",
             "Bound_I", "Bound_W", "Bound",
-            "EBound_I", "EBound_W", "EBound",
         ]
 
         loss_fields = ["|dR|", "Loss_T", "Loss_P", "PPL_T", "PPL_P"]
@@ -180,8 +178,7 @@ class BaseExperiment:
         if has_answer:
             loss_fields += ["|AdR|", "ALoss_T", "ALoss_P", "APPL_T", "APPL_P"]
 
-        k_fields = ["K_f", "K_f_grad_p95", "K_f_grad_max", "K_f_grad_mean",
-                     "K_f(pw)", "K_p", "K_p(emp)"]
+        k_fields = ["K_f", "K_p"]
         fieldnames = geo_fields + dual_w_fields + loss_fields + k_fields
 
         with open(path, "w", newline="") as f:
@@ -206,17 +203,9 @@ class BaseExperiment:
                     "Bound_I": r.extra.get("bound_I_th", ""),
                     "Bound_W": r.extra.get("bound_W_th", ""),
                     "Bound": r.extra.get("bound_th", r.risk_bound_total if r.risk_bound_total is not None else ""),
-                    "EBound_I": r.extra.get("bound_I_emp", ""),
-                    "EBound_W": r.extra.get("bound_W_emp", ""),
-                    "EBound": r.extra.get("bound_emp", ""),
                     # Lipschitz constants
                     "K_f": r.extra.get("K_feat_tight", ""),
-                    "K_f_grad_p95": r.extra.get("K_feat_grad_p95", ""),
-                    "K_f_grad_max": r.extra.get("K_feat_grad_max", ""),
-                    "K_f_grad_mean": r.extra.get("K_feat_grad_mean", ""),
-                    "K_f(pw)": r.extra.get("K_feat_empirical", ""),
                     "K_p": r.extra.get("K_pred_theory", ""),
-                    "K_p(emp)": r.extra.get("K_pred_empirical", ""),
                 }
                 if not absorbed:
                     row["Scale"] = r.scale_mismatch

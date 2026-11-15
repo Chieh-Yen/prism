@@ -1,26 +1,24 @@
-# PRISM — Quantization Quality Estimation
-# Identity Regime: W = I, same architecture, different precision.
+# PRISM: quantization experiment, default configuration
+# Same architecture, different precision. Every comparison is evaluated under
+# the identity alignment (W = I) and under the Procrustes alignment.
 #
 # Quantisation backends (mix freely in quantization_bits):
 #   No prefix  → GGUF file from proxy.model repo   (e.g. Q8_0, Q4_K_M)
 #   bnb:       → bitsandbytes from target.model     (e.g. bnb:nf4, bnb:int8)
 #   gptq:      → pre-quantised GPTQ model           (e.g. gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit)
-#               optionally with branch: gptq:REPO@REVISION
+#               loaded at the revision pinned in configs/model_revisions.yaml;
+#               gptq:REPO@COMMIT loads the given commit instead
 #   dtype:     → target model loaded at a different native dtype (e.g. dtype:float16)
 #               used to measure BF16→FP16 precision gap as a reference proxy
 #
 # Supported bnb: tags: int8, nf4, fp4, nf4-dq
 #
-# Usage (Llama-3.1-8B-Base, default; matches paper Sec. 5.2):
+# Usage (Llama-3.1-8B, default; the quantization grid of Sec. 4.2):
 #   python run_quantization.py --config configs/quantization.yaml
 #
 # Usage (mixed GGUF + bitsandbytes + GPTQ):
 #   python run_quantization.py --config configs/quantization.yaml \
 #       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit]'
-#
-# Usage (GPTQ with specific branch):
-#   python run_quantization.py --config configs/quantization.yaml \
-#       'proxy.quantization_bits=[gptq:shuyuej/Meta-Llama-3.1-8B-GPTQ@main]'
 #
 # Usage (Qwen3-8B with NF4 only — no GGUF repo needed):
 #   python run_quantization.py --config configs/quantization.yaml \
@@ -29,19 +27,16 @@
 #       data.max_length=512
 #
 # GGUF filename template (auto-derived from proxy.model):
-#   TheBloke repos  → {stem}.{quant}.gguf   (lowercase, dot separator)
-#   Official repos  → {Stem}-{quant}.gguf   (original case, dash separator)
+#   Org/{Stem}-GGUF → {Stem}-{quant}.gguf   (original case, dash separator)
 #   Override with proxy.gguf_template if needed.
 
 experiment: quantization
 
 target:
   model: meta-llama/Meta-Llama-3.1-8B
-  extractor: llm
 
 proxy:
   model: QuantFactory/Meta-Llama-3.1-8B-GGUF
-  extractor: llm
   gguf_template: "Meta-Llama-3.1-8B.{quant}.gguf"
   quantization_bits:
     - dtype:float16    # FP16 reference proxy (target is BF16)
@@ -53,28 +48,24 @@ proxy:
     - Q2_K
 
 data:
-  task: mmlu          # one of {mmlu, arc, triviaqa, squad, gsm8k} — paper Sec.~4.1
+  task: mmlu          # one of {mmlu, arc, triviaqa, squad, gsm8k} (Sec. 4.1)
   # z_modes resolution in QuantizationExperiment:
   #   data.z_modes (if provided) >
   #   data.z_mode (if provided) >
   #   TASK_REGISTRY[task].z_mode (default)
-  split: test
   num_samples: 512    # paper default
   batch_size: 8
   max_length: 2048
 
 alignment:
-  type: identity
-  scale_absorbed: false   # true → ε_feat = √(2(1−Ω)), scale folded into head
+  scale_absorbed: false   # true → feature term ρ_T · √(2(1−Ω)), scale folded into head
 
 output:
   dir: ./results/quantization
-  save_features: true
 
 computing:
-  logit_chunk_size: 1024       # reduce to 512 on ≤24GB GPUs
-  model_dtype: bfloat16        # bf16 is the experiment standard; float16 is added as a proxy entry
-  use_flash_attention: false   # set true on Ampere+ GPUs (A100/L40/H100) after: pip install flash-attn --no-build-isolation
+  model_dtype: bfloat16        # dtype of the target; float16 is evaluated as a proxy entry (dtype:float16)
+  use_flash_attention: false   # optional; needs the flash-attn package
 
 device: cuda
 seed: 42

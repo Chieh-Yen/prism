@@ -1,25 +1,32 @@
 """
-Quantization Quality Estimation — Identity Regime (W = I).
+Quantization experiment: target against quantized proxies of the same
+architecture.
 
-Target = full-precision model (BF16 by default; configurable via computing.model_dtype).
-Proxy  = quantized model at each bit width.
-The alignment map W degenerates to the identity.
+Target = the model loaded at ``computing.model_dtype``.  The code default of
+that key is ``float16`` (BaseExperiment); ``configs/quantization.yaml`` sets
+``bfloat16``, which is the target precision of the paper's runs.
+Proxy  = one quantized variant per entry of ``proxy.quantization_bits``.
 
-The simplified bound (Eq. 6) becomes:
-    |R_F − R_Q| ≈ K_feat · √[ (ρ_F − ρ_Q)² + 2 ρ_F ρ_Q (1 − Ω) ]
+Every comparison is evaluated under the identity alignment W = I and under
+the Procrustes alignment (PRISMMetrics.compute_all).  With identical heads
+and W = I the head term is zero and the bound is the feature term
+    K_feat · √[ (ρ_T − ρ_P)² + 2 ρ_T ρ_P (1 − Ω) ].
 
-Quantisation backends
----------------------
-Three backends are supported, selected by a **prefix** in each quant tag:
+Proxy kinds
+-----------
+The kind of a proxy is selected by the **prefix** of its quant tag:
 
-* **No prefix** (e.g. ``Q8_0``, ``Q4_K_M``) → load from a GGUF repo.
-* **``bnb:``** prefix (e.g. ``bnb:nf4``, ``bnb:int8``) → load from the
-  *target* model with bitsandbytes on-the-fly quantisation.
-* **``gptq:``** prefix (e.g. ``gptq:TheBloke/Llama-2-7B-GPTQ``) → load a
-  pre-quantised GPTQ model.  Optionally specify a branch with ``@``:
-  ``gptq:TheBloke/Llama-2-7B-GPTQ@gptq-4bit-32g-actorder_True``.
-* **``awq:``** prefix (e.g. ``awq:TheBloke/Llama-2-7B-AWQ``) → load a
-  pre-quantised AWQ model.  Optionally specify a branch with ``@``.
+* **No prefix** (e.g. ``Q8_0``, ``Q4_K_M``) → GGUF file of ``proxy.model``.
+* **``bnb:``** prefix (e.g. ``bnb:nf4``, ``bnb:int8``) → the *target*
+  checkpoint, quantized on the fly by bitsandbytes.
+* **``gptq:``** prefix (e.g. ``gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit``)
+  → a pre-quantised GPTQ repository, loaded at the revision pinned in
+  ``configs/model_revisions.yaml``.  ``gptq:REPO@REVISION`` loads the given
+  commit instead of the pinned one.
+* **``awq:``** prefix → a pre-quantised AWQ repository, same ``@`` syntax.
+  No AWQ variant is part of the paper's grid.
+* **``dtype:``** prefix (e.g. ``dtype:float16``) → the target checkpoint
+  loaded at another native dtype.
 
 Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``, ``nf4-dq``
 (NF4 with double quantisation, aka QLoRA-style).
@@ -56,17 +63,47 @@ from pathlib import Path
 _TRUST_REMOTE_CODE = os.environ.get("PRISM_TRUST_REMOTE_CODE", "0") == "1"
 
 # ----------------------------------------------------------------------
-# Pinned revisions (configs/model_revisions.yaml): every HF repo is loaded at
-# a fixed commit so a re-run sees the same weights, tokenizer and config.
+# Pinned revisions (configs/model_revisions.yaml): every HF repo listed there
+# is loaded at a fixed commit so a re-run sees the same weights, tokenizer and
+# config. A repo that is not listed is loaded at its head; pinned_revision
+# prints which of the two applies, once per repository.
 # ----------------------------------------------------------------------
 _REVISIONS_PATH = Path(__file__).resolve().parents[2] / "configs" / "model_revisions.yaml"
 _REVISIONS: Dict[str, str] | None = None
+_REVISION_REPORTED: set = set()      # repositories already reported by pinned_revision
 
 
 def pinned_revision(model_id: str) -> str | None:
-    """Commit hash for ``model_id`` from configs/model_revisions.yaml, or None."""
+    """Commit hash for ``model_id`` from configs/model_revisions.yaml, or None.
+
+    The first time a repository is asked for, the outcome is printed:
+
+      * listed in the file: one line on stdout with the revision used;
+      * not pinned: a warning on stderr. This happens when PRISM_UNPINNED=1 is
+        set, when configs/model_revisions.yaml is missing, or when
+        ``model_id`` is not listed in it. The function then returns None; a
+        caller that has no revision of its own then passes none, and the
+        load uses the head of the repository (or a local path as it is).
+
+    No exception is raised in either case, and the return value is the same
+    as without the messages.
+    """
     global _REVISIONS
+    import sys
+
+    def _report(revision, reason=None):
+        if model_id in _REVISION_REPORTED:
+            return
+        _REVISION_REPORTED.add(model_id)
+        if revision is not None:
+            print(f"[revision] {model_id}: pinned revision {revision}")
+        else:
+            print(f"[revision] WARNING: no pinned revision for {model_id} "
+                  f"({reason}); unless the caller passes one, the head of the "
+                  f"repository is loaded.", file=sys.stderr)
+
     if os.environ.get("PRISM_UNPINNED", "0") == "1":
+        _report(None, "PRISM_UNPINNED=1")
         return None
     if _REVISIONS is None:
         try:
@@ -75,7 +112,14 @@ def pinned_revision(model_id: str) -> str | None:
                 _REVISIONS = yaml.safe_load(f) or {}
         except FileNotFoundError:
             _REVISIONS = {}
-    return _REVISIONS.get(model_id)
+    revision = _REVISIONS.get(model_id)
+    if revision is not None:
+        _report(revision)
+    elif not _REVISIONS_PATH.exists():
+        _report(None, f"{_REVISIONS_PATH} not found")
+    else:
+        _report(None, f"not listed in {_REVISIONS_PATH.name}")
+    return revision
 
 
 # ======================================================================
@@ -171,23 +215,14 @@ def _gguf_filename(template: str, quant: str) -> str:
 def _derive_gguf_template(quant_repo: str) -> str:
     """Auto-derive a GGUF filename template from a HuggingFace repo name.
 
-    Two conventions are handled:
-
-    1. **TheBloke** — ``TheBloke/{ModelName}-GGUF``
-       files:  ``{model-name}.{QUANT}.gguf``  (lowercased, dot separator)
-       Example: ``TheBloke/Llama-2-7b-GGUF`` → ``llama-2-7b.{quant}.gguf``
-
-    2. **Official** — ``Org/{ModelName}-GGUF``
-       files:  ``{ModelName}-{QUANT}.gguf``  (original case, dash separator)
-       Example: ``Qwen/Qwen3-8B-GGUF`` → ``Qwen3-8B-{quant}.gguf``
+    ``Org/{ModelName}-GGUF`` → files ``{ModelName}-{QUANT}.gguf`` (original
+    case, dash separator).
+    Example: ``Qwen/Qwen3-8B-GGUF`` → ``Qwen3-8B-{quant}.gguf``
 
     Override via ``proxy.gguf_template`` in the YAML config to skip this.
     """
     name = quant_repo.split("/")[-1]
     stem = re.sub(r"-GGUF$", "", name, flags=re.IGNORECASE)
-    org = quant_repo.split("/")[0] if "/" in quant_repo else ""
-    if org.lower() == "thebloke":
-        return f"{stem.lower()}.{{quant}}.gguf"
     return f"{stem}-{{quant}}.gguf"
 
 
@@ -315,16 +350,21 @@ def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
     ``AutoModelForCausalLM``.  The ``LLMExtractor`` handles VL model
     structures transparently by navigating to the text backbone.
     """
-    kwargs.setdefault("revision", pinned_revision(model_id))
+    # An explicit revision (gptq:REPO@COMMIT) takes precedence over the pin.
+    if "revision" not in kwargs:
+        _rev = pinned_revision(model_id)
+        if _rev is not None:
+            kwargs["revision"] = _rev
     try:
         return AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
     except ValueError as exc:
         if "Unrecognized configuration class" not in str(exc):
             raise
+        _cfg_kwargs = {"revision": kwargs["revision"]} if "revision" in kwargs else {}
         cfg = AutoConfig.from_pretrained(
             model_id,
             trust_remote_code=kwargs.get("trust_remote_code", _TRUST_REMOTE_CODE),
-            revision=kwargs.get("revision"),
+            **_cfg_kwargs,
         )
         if not hasattr(cfg, "text_config"):
             raise
@@ -462,17 +502,20 @@ class QuantizationExperiment(BaseExperiment):
         proxy.eval()
         return proxy
 
-    # ------------------------------------------------------------------
-    # Helpers for multi-z_mode paired-loss selection
-    # ------------------------------------------------------------------
     @staticmethod
-    def _select_paired_losses(zm, loss_mode, loss_stats):
-        """Return the losses tensor correctly paired with Z for K_feat estimation."""
-        if zm == "concat" and loss_stats["token_losses"] is not None:
-            return loss_stats["token_losses"]
-        if loss_mode == "answer" and loss_stats["has_answer_loss"]:
-            return loss_stats["answer_losses"]
-        return loss_stats["losses"]
+    def _check_token_rows(Z_dict, stats, who: str) -> None:
+        """The token-level gap pairs row t of Z (``concat`` mode) with entry t
+        of ``token_losses``; raise if the two counts differ."""
+        tok = stats.get("token_losses")
+        if "concat" not in Z_dict or tok is None:
+            return
+        n_z, n_tok = Z_dict["concat"].shape[0], tok.numel()
+        if n_z != n_tok:
+            raise RuntimeError(
+                f"{who}: {n_z} feature rows but {n_tok} token losses. The "
+                f"token-level features and losses must cover the same "
+                f"positions; this happens when the batches are not padded "
+                f"on the right.")
 
     def run(self) -> list:
         """Cache target features/loss, free VRAM, then load proxies one at a time."""
@@ -481,11 +524,22 @@ class QuantizationExperiment(BaseExperiment):
         cfg_data = self.config.get("data", {})
         cfg_align = self.config.get("alignment", {})
 
-        target_model_id = cfg_target.get("model", "NousResearch/Llama-2-7b-hf")
-        quant_repo = cfg_proxy.get("model", "TheBloke/Llama-2-7b-GGUF")
+        target_model_id = cfg_target.get("model")
+        if not target_model_id:
+            raise ValueError("configuration key 'target.model' is missing")
         quant_bits: List[str] = cfg_proxy.get("quantization_bits", [
             "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K",
         ])
+        # proxy.model is the GGUF repository; it is needed when a GGUF variant
+        # (a tag without prefix) is requested.
+        quant_repo = cfg_proxy.get("model")
+        if not quant_repo:
+            if any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q)
+                   and not _is_dtype(q) for q in quant_bits):
+                raise ValueError(
+                    "configuration key 'proxy.model' (the GGUF repository) is "
+                    "missing, and proxy.quantization_bits lists GGUF variants")
+            quant_repo = ""
         gguf_tpl: str = cfg_proxy.get("gguf_template") or _derive_gguf_template(quant_repo)
         absorbed: bool = cfg_align.get("scale_absorbed", False)
 
@@ -493,11 +547,6 @@ class QuantizationExperiment(BaseExperiment):
         num_samples = cfg_data.get("num_samples", 256)
         batch_size = cfg_data.get("batch_size", 8)
         max_length = cfg_data.get("max_length", 512)
-
-        # --- Control Variate ablation config ---
-        cfg_cv = self.config.get("cv_ablation", {})
-        cv_cal_sizes: List[int] = cfg_cv.get("calibration_sizes", [])
-        cv_n_trials: int = cfg_cv.get("n_trials", 20)
 
         # --- Dataset-specific Z extraction and loss modes ---
         from ..data.loaders import get_task_metadata
@@ -554,6 +603,9 @@ class QuantizationExperiment(BaseExperiment):
             revision=pinned_revision(target_model_id))
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
+        # The feature and loss extraction assumes right padding (position t of
+        # a sequence is column t of the batch).
+        tokenizer.padding_side = "right"
 
         print(f"Loading data: {task_name} (n={num_samples}) ...")
         dataloader = load_task_data(
@@ -576,9 +628,9 @@ class QuantizationExperiment(BaseExperiment):
         print(f"Caching target features and loss (single forward pass, z_modes={z_modes}) ...")
         Z_dict_T, loss_stats = extractor.extract_features_and_loss_per_sample(
             target_model, dataloader, self.tensor_device,
-            chunk_size=self.logit_chunk_size,
             z_modes=z_modes,
         )
+        self._check_token_rows(Z_dict_T, loss_stats, "target")
         H_T = extractor.extract_head(target_model)
 
         # Compute both full-text and answer-only losses (stored for CSV).
@@ -596,9 +648,7 @@ class QuantizationExperiment(BaseExperiment):
             sample_loss_target = answer_loss_target
         else:
             sample_loss_target = full_loss_target
-        # Token-level loss for concat z_mode — matches per-token K_feat
-        # estimation so the bound is verified against the same risk
-        # definition that K_feat was estimated under.
+        # Token-level loss for concat z_mode.
         _tok_T = loss_stats["token_losses"]
         token_loss_target = (_tok_T.mean().item()
                              if _tok_T is not None and _tok_T.numel() > 0
@@ -619,7 +669,6 @@ class QuantizationExperiment(BaseExperiment):
         K_theory = UnifiedBound.theoretical_K(H_T)
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
-        K_pred_empirical = loss_stats["grad_norm_p95"]
 
         # Move everything to CPU — full GPU is now free for proxy models.
         # Z_dict_T is already CPU (features moved in extractor).
@@ -632,50 +681,30 @@ class QuantizationExperiment(BaseExperiment):
         print("  Target model freed; tensors moved to CPU.")
 
         # --- Lipschitz constants per z_mode (all on CPU) ---
-        K_feat_grad = loss_stats.get("feat_grad_norm_p95")
-
         rho_T_per_zm: Dict[str, float] = {}
-        K_emp_per_zm: Dict[str, Dict] = {}
         lipschitz_per_zm: Dict[str, Dict] = {}
 
         for zm in z_modes:
             Z_T_zm = Z_dict_T[zm]
             rho_T = PRISMMetrics.rms_scale(Z_T_zm)
             rho_T_per_zm[zm] = rho_T
-            paired = self._select_paired_losses(zm, loss_mode, loss_stats)
-            K_emp = UnifiedBound.estimate_lipschitz_lm(Z_T_zm, paired)
-            K_emp_per_zm[zm] = K_emp
             lipschitz_per_zm[zm] = {
                 "K_feat_tight": K_feat,
                 "K_feat_naive": K_theory["K_feat_naive"],
-                "K_feat_empirical": K_emp["K_feat_empirical"],
-                "K_feat_empirical_median": K_emp["median"],
-                "K_feat_empirical_max": K_emp["max"],
-                "K_feat_grad_p95": K_feat_grad,
-                "K_feat_grad_max": loss_stats.get("feat_grad_norm_max"),
-                "K_feat_grad_mean": loss_stats.get("feat_grad_norm_mean"),
                 "K_pred_theory": K_pred,
-                "K_pred_empirical": K_pred_empirical,
-                "K_pred_empirical_mean": loss_stats["grad_norm_mean"],
-                "K_pred_empirical_max": loss_stats["grad_norm_max"],
                 "H_T_spectral": K_theory["H_T_spectral"],
                 "max_pairwise_dist": K_theory["max_pairwise_dist"],
                 "rho_T": rho_T,
             }
 
         print(f"\n  Lipschitz constants:")
-        print(f"    Theoretical : K_feat={K_feat:.8f}  K_pred={K_pred:.8f}")
-        if K_feat_grad is not None:
-            print(f"    Gradient    : K_feat_grad(p95)={K_feat_grad:.8f}  "
-                  f"K_pred_emp(p95)={K_pred_empirical:.8f}")
+        print(f"    K_feat={K_feat:.8f}  K_pred={K_pred:.8f}")
         for zm in z_modes:
-            rho_T = rho_T_per_zm[zm]
-            K_emp = K_emp_per_zm[zm]
-            print(f"    [{zm}]  ρ_T={rho_T:.8f}  K_feat_pw(p95)={K_emp['p95']:.8f}  "
-                  f"(median={K_emp['median']:.8f}, max={K_emp['max']:.8f})")
+            print(f"    [{zm}]  ρ_T={rho_T_per_zm[zm]:.8f}")
 
         # --- Phase 2: load each proxy one at a time ---
         results = []
+        skipped: List[str] = []     # variants that produced no result, with the reason
         for i, bit_label in enumerate(quant_bits):
             disp = _display_label(bit_label)
             base_label = f"{target_dtype_label} vs {disp}"
@@ -688,15 +717,16 @@ class QuantizationExperiment(BaseExperiment):
 
                 Z_dict_P, proxy_stats = extractor.extract_features_and_loss_per_sample(
                     proxy_model, dataloader, self.tensor_device,
-                    chunk_size=self.logit_chunk_size,
                     z_modes=z_modes,
                 )
+                self._check_token_rows(Z_dict_P, proxy_stats, disp)
 
                 # Z_dict_P features are already on CPU from extractor.
                 # Check all z_modes for NaN/Inf.
                 bad = [zm for zm in z_modes if not torch.isfinite(Z_dict_P[zm]).all()]
                 if bad:
                     print(f"  WARNING: proxy features contain NaN/Inf in {bad} — skipping {disp}")
+                    skipped.append(f"{disp}: features contain NaN/Inf")
                     continue
 
                 H_P = extractor.extract_head(proxy_model)
@@ -740,7 +770,6 @@ class QuantizationExperiment(BaseExperiment):
                 # --- One result per z_mode (dual-W: W=I and W=opt) ---
                 for zm in z_modes:
                     rho_T = rho_T_per_zm[zm]
-                    K_emp = K_emp_per_zm[zm]
                     Z_T_zm, Z_P_zm = Z_dict_T[zm], Z_dict_P[zm]
                     d = Z_T_zm.shape[1]
                     W_I = torch.eye(d, dtype=torch.float32)
@@ -762,23 +791,11 @@ class QuantizationExperiment(BaseExperiment):
                     bound_W_th = result_W.risk_bound_total
                     bound_th = min(bound_I_th, bound_W_th)
 
-                    # Empirical bounds (gradient-based K_feat + empirical K_pred)
-                    if K_feat_grad is not None:
-                        bound_I_emp = (K_feat_grad * result_I.feature_error
-                                       + K_pred_empirical * result_I.head_discrepancy)
-                        bound_W_emp = (K_feat_grad * result_W.feature_error
-                                       + K_pred_empirical * result_W.head_discrepancy)
-                    else:
-                        bound_I_emp = bound_I_th
-                        bound_W_emp = bound_W_th
-                    bound_emp = min(bound_I_emp, bound_W_emp)
-
                     # Primary result — whichever W gives tighter theoretical bound
                     result = result_I if bound_I_th <= bound_W_th else result_W
                     result.risk_bound_total = bound_th
 
-                    # Token-level loss for concat (consistent with per-token
-                    # K_feat estimation); sample-level for other z_modes.
+                    # Token-level loss for concat; sample-level for other z_modes.
                     if zm == "concat" and loss_stats["token_losses"] is not None:
                         zm_loss_t, zm_loss_p = token_loss_target, token_loss_proxy
                     else:
@@ -808,10 +825,7 @@ class QuantizationExperiment(BaseExperiment):
                     result.extra["gamma_W"] = result_W.head_discrepancy
                     result.extra["bound_I_th"] = bound_I_th
                     result.extra["bound_W_th"] = bound_W_th
-                    result.extra["bound_I_emp"] = bound_I_emp
-                    result.extra["bound_W_emp"] = bound_W_emp
                     result.extra["bound_th"] = bound_th
-                    result.extra["bound_emp"] = bound_emp
 
                     result.extra.update(lipschitz_per_zm[zm])
                     result.extra["dataset"] = task_name
@@ -829,56 +843,18 @@ class QuantizationExperiment(BaseExperiment):
                     print(f"  [{zm:<20s}] ρ_T={rho_T:.8f} ρ_P={rho_P:.8f}")
                     print(f"    W=I:   Ω={result_I.omega:.8f} δ={result_I.feature_error:.8f} "
                           f"γ={result_I.head_discrepancy:.8f}  "
-                          f"Bnd={bound_I_th:.8f}/{bound_I_emp:.8f}")
+                          f"Bnd={bound_I_th:.8f}")
                     print(f"    W=opt: Ω={result_W.omega:.8f} δ={result_W.feature_error:.8f} "
                           f"γ={result_W.head_discrepancy:.8f}  "
-                          f"Bnd={bound_W_th:.8f}/{bound_W_emp:.8f}")
-                    print(f"    → min  Bnd(th)={bound_th:.8f} Bnd(emp)={bound_emp:.8f} "
+                          f"Bnd={bound_W_th:.8f}")
+                    print(f"    → min  Bnd={bound_th:.8f} "
                           f"|dR|={dr:.8f} {status}"
                           + (f"  ({elapsed:.1f}s)" if zm == z_modes[0] else ""))
-
-                # --- Control Variate Ablation ---
-                if cv_cal_sizes:
-                    if loss_mode == "answer" and has_answer:
-                        persample_T = loss_stats["answer_losses"]
-                        persample_P = proxy_stats["answer_losses"]
-                    else:
-                        persample_T = loss_stats["losses"]
-                        persample_P = proxy_stats["losses"]
-
-                    N_full = persample_T.shape[0]
-                    R_T_full = persample_T.mean().item()
-                    R_P_full = persample_P.mean().item()
-
-                    cv_results_for_proxy = []
-                    for n_cal in cv_cal_sizes:
-                        if n_cal >= N_full:
-                            continue
-                        errors = []
-                        for trial in range(cv_n_trials):
-                            rng = torch.Generator().manual_seed(self.seed + trial)
-                            idx = torch.randperm(N_full, generator=rng)[:n_cal]
-                            delta_hat = persample_T[idx].mean().item() - persample_P[idx].mean().item()
-                            R_T_hat = R_P_full + delta_hat
-                            errors.append(abs(R_T_hat - R_T_full))
-                        mean_err = sum(errors) / len(errors)
-                        std_err = (sum((e - mean_err) ** 2 for e in errors) / len(errors)) ** 0.5
-                        cv_results_for_proxy.append({
-                            "n_cal": n_cal,
-                            "mean_abs_error": mean_err,
-                            "std_abs_error": std_err,
-                            "R_T_full": R_T_full,
-                            "R_P_full": R_P_full,
-                        })
-                        print(f"    CV n_cal={n_cal:5d}: |R̂_T - R_T| = {mean_err:.8f} ± {std_err:.8f}")
-
-                    # Store CV ablation in the first z_mode's result
-                    if cv_results_for_proxy:
-                        results[-len(z_modes)].extra["cv_ablation"] = cv_results_for_proxy
 
             except Exception as e:
                 elapsed = time.time() - t0
                 print(f"  ERROR processing {disp}: {e}  ({elapsed:.1f}s) — skipping")
+                skipped.append(f"{disp}: {type(e).__name__}: {str(e).splitlines()[0] if str(e) else ''}")
 
             finally:
                 del proxy_model
@@ -903,11 +879,18 @@ class QuantizationExperiment(BaseExperiment):
             stem = f"prism_{model_slug}_{task_name}_n{num_samples}_{zm}{abs_tag}"
             self.save(zm_results, filename=f"{stem}.json")
             self.save_csv(zm_results, filename=f"{stem}.csv", loss_mode=loss_mode)
+
+        # One line per variant that produced no result (the loader or the
+        # extraction raised, or the features were not finite). The prefix
+        # "[skipped]" is what run_quantization.sh counts.
+        print(f"Variants with a result: {len(quant_bits) - len(skipped)} of {len(quant_bits)}")
+        for item in skipped:
+            print(f"[skipped] {target_model_id} | {task_name} | {item}")
         return results
 
     @staticmethod
     def report(results: list) -> None:
-        """Print dual-W summary table with theoretical/empirical bounds."""
+        """Print the dual-W summary table."""
         if not results:
             print("(no results)")
             return
@@ -920,7 +903,7 @@ class QuantizationExperiment(BaseExperiment):
             f"{'Ω_I':>12s} {'Ω_W':>12s} "
             f"{'δ_I':>12s} {'δ_W':>12s} "
             f"{'γ_I':>12s} {'γ_W':>12s} "
-            f"{'Bnd(th)':>12s} {'Bnd(em)':>12s} "
+            f"{'Bnd':>12s} "
             f"{'|dR|':>12s} "
             f"{'Loss_T':>12s} {'Loss_P':>12s}"
         )
@@ -944,20 +927,10 @@ class QuantizationExperiment(BaseExperiment):
         if "K_feat_tight" in r0.extra:
             K_f = r0.extra["K_feat_tight"]
             K_fn = r0.extra.get("K_feat_naive")
-            K_fg_p95 = r0.extra.get("K_feat_grad_p95")
-            K_fg_max = r0.extra.get("K_feat_grad_max")
-            K_fg_mean = r0.extra.get("K_feat_grad_mean")
-            K_fe = r0.extra.get("K_feat_empirical")
             K_p = r0.extra.get("K_pred_theory")
-            K_pe = r0.extra.get("K_pred_empirical")
             print(f"  K_feat:  {K_f:.8f} (tight)  "
-                  + (f"{K_fn:.8f} (naive)  " if K_fn is not None else "")
-                  + (f"{K_fe:.8f} (pw-emp)" if K_fe is not None else ""))
-            if K_fg_p95 is not None:
-                print(f"  K_feat(grad): p95={K_fg_p95:.8f}  "
-                      f"max={K_fg_max:.8f}  mean={K_fg_mean:.8f}")
-            print(f"  K_pred:  {K_p:.8f} (theory) "
-                  + (f"{K_pe:.8f} (emp)" if K_pe is not None else ""))
+                  + (f"{K_fn:.8f} (naive)" if K_fn is not None else ""))
+            print(f"  K_pred:  {K_p:.8f}")
             print(sep)
 
         print(header)
@@ -979,19 +952,18 @@ class QuantizationExperiment(BaseExperiment):
             g_W = f"{r.extra.get('gamma_W', r.head_discrepancy):.8f}"
 
             bnd_th = f"{r.extra.get('bound_th', r.risk_bound_total):.8f}" if r.risk_bound_total is not None else "—"
-            bnd_emp = f"{r.extra.get('bound_emp', ''):.8f}" if r.extra.get("bound_emp") is not None else "—"
 
             print(
                 f"{r.label:<20s} {rho_t_s:>13s} {rho_p_s:>13s} "
                 f"{o_I:>12s} {o_W:>12s} "
                 f"{d_I:>12s} {d_W:>12s} "
                 f"{g_I:>12s} {g_W:>12s} "
-                f"{bnd_th:>12s} {bnd_emp:>12s} "
+                f"{bnd_th:>12s} "
                 f"{dr_s:>12s} "
                 f"{lt:>12s} {lp:>12s}"
             )
 
-        # Bound validation (theoretical)
+        # Bound validation
         valid = [(r, abs(r.loss_target - r.loss_proxy))
                  for r in results
                  if r.loss_target is not None and r.loss_proxy is not None and r.risk_bound_total is not None]
@@ -999,14 +971,7 @@ class QuantizationExperiment(BaseExperiment):
             print(sep)
             loss_mode = r0.extra.get("loss_mode", "full")
             holds_th = sum(1 for r, dr in valid if r.risk_bound_total >= dr)
-            holds_emp = sum(1 for r, dr in valid
-                           if r.extra.get("bound_emp") is not None
-                           and r.extra["bound_emp"] >= dr)
-            n_emp = sum(1 for r, _ in valid if r.extra.get("bound_emp") is not None)
-            print(f"  Bound(th) holds (loss_mode={loss_mode}): {holds_th}/{len(valid)}  "
+            print(f"  Bound holds (loss_mode={loss_mode}): {holds_th}/{len(valid)}  "
                   f"({'ALL PASS' if holds_th == len(valid) else 'SOME VIOLATED'})")
-            if n_emp > 0:
-                print(f"  Bound(emp) holds: {holds_emp}/{n_emp}  "
-                      f"({'ALL PASS' if holds_emp == n_emp else 'SOME VIOLATED'})")
 
         print(f"{'=' * len(header)}\n")

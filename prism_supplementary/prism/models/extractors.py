@@ -8,7 +8,6 @@ Returns (Z, H):
 
 from __future__ import annotations
 
-import gc
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
@@ -40,13 +39,18 @@ class FeatureExtractor(ABC):
 
 
 class LLMExtractor(FeatureExtractor):
-    """Feature extraction for causal language models (Llama, Mistral, Gemma, …).
+    """Feature extraction for causal language models.
 
     Z = last hidden state after the final layer norm  (n_tokens, d)
     H = lm_head weight transposed to  (d, vocab_size)
 
-    Supported model structures
-    --------------------------
+    Model structures the probes recognise
+    -------------------------------------
+    The experiments of the paper use the Llama-3.1, Qwen3,
+    DeepSeek-R1-Distill-Llama and Ministral-3 families.  The GPT-2 and Gemma
+    layouts below are probed by the code and were not part of the
+    experiments.
+
     Standard causal LM (Llama / Mistral / Gemma-2 / Qwen / OLMo …):
         model.model.embed_tokens   — transformer backbone at model.model
         model.lm_head              — language model head
@@ -168,16 +172,6 @@ class LLMExtractor(FeatureExtractor):
             return hidden[torch.arange(bsz, device=device), lengths]
         return hidden[:, -1, :]
 
-    @staticmethod
-    def _get_lm_weight(model: torch.nn.Module):
-        """Return lm_head weight tensor (V, d) — direct reference, no copy."""
-        if hasattr(model, "lm_head"):
-            return model.lm_head.weight.data
-        if (hasattr(model, "language_model")
-                and hasattr(model.language_model, "lm_head")):
-            return model.language_model.lm_head.weight.data
-        return None
-
     def extract_features(
         self,
         model: torch.nn.Module,
@@ -214,7 +208,6 @@ class LLMExtractor(FeatureExtractor):
         dataloader: DataLoader,
         device: str = "cuda",
         *,
-        chunk_size: int = 2048,
         z_mode: str = "last_token",
         z_modes: Optional[List[str]] = None,
     ):
@@ -237,7 +230,6 @@ class LLMExtractor(FeatureExtractor):
                                        (present when ``"concat"`` is among z_modes)
             ``answer_losses``        — (n,) answer-only loss, or None
             ``has_answer_loss``
-            ``grad_norm_p95 / _max / _mean`` — empirical K_pred proxy
         """
         _return_dict = z_modes is not None
         if z_modes is None:
@@ -250,10 +242,6 @@ class LLMExtractor(FeatureExtractor):
         answer_losses: List[float] = []
         has_prompt = False
         is_concat = ("concat" in z_modes)
-        all_grad_norms: List[Tensor] = []
-        all_feat_grad_norms: List[Tensor] = []
-        lm_weight = self._get_lm_weight(model)  # (V, d) or None
-        CHUNK = chunk_size
 
         _checked = False
         _use_combined = True
@@ -354,52 +342,16 @@ class LLMExtractor(FeatureExtractor):
                     batch_ans = (ce_per_token * ans_valid).sum(dim=1) / ans_counts
                     answer_losses.extend(batch_ans.tolist())
 
-                # Per-token gradient norms (empirical K_pred)
-                # ||p - e_y||^2 = ||p||^2 - 2*p_y + 1  (avoids one-hot alloc)
-                for j in range(bsz):
-                    gn_logits = all_logits[j, :-1, :]               # (T-1, V)
-                    gn_targets = shift_labels[j]                     # (T-1,)
-                    if masks is not None:
-                        token_mask = masks[j, 1:].bool()
-                        gn_logits = gn_logits[token_mask]
-                        gn_targets = gn_targets[token_mask]
-                    gn_len = gn_logits.shape[0]
-                    for s in range(0, gn_len, CHUNK):
-                        e = min(s + CHUNK, gn_len)
-                        p = torch.softmax(gn_logits[s:e].float(), dim=-1)
-                        p_y = p[torch.arange(e - s, device=p.device), gn_targets[s:e]]
-                        gnorms = (p.pow(2).sum(dim=-1) - 2 * p_y + 1).clamp(min=0).sqrt()
-                        all_grad_norms.append(gnorms)
-
-                        # K_feat gradient: ||H(p - e_y)||_2 = ||p @ W - W[y]||_2
-                        # where W = lm_head.weight (V, d) = H^T
-                        if lm_weight is not None:
-                            chunk_tgt = gn_targets[s:e]
-                            p_lm = p.to(lm_weight.dtype) @ lm_weight  # (chunk, d)
-                            h_y = lm_weight[chunk_tgt]                 # (chunk, d)
-                            all_feat_grad_norms.append(
-                                (p_lm - h_y).float().norm(dim=-1)
-                            )
-
                 del all_logits
 
         Z_dict = {zm: torch.cat(all_features[zm], dim=0) for zm in z_modes}
-        all_gn = torch.cat(all_grad_norms) if all_grad_norms else torch.zeros(1)
         _tok_losses = torch.cat(token_losses) if token_losses else None
 
-        all_fgn = (torch.cat(all_feat_grad_norms)
-                   if all_feat_grad_norms else None)
         loss_stats: Dict = {
             "losses": torch.tensor(sample_losses),
             "token_losses": _tok_losses,
             "answer_losses": torch.tensor(answer_losses) if has_prompt else None,
             "has_answer_loss": has_prompt,
-            "grad_norm_p95": torch.quantile(all_gn, 0.95).item(),
-            "grad_norm_max": all_gn.max().item(),
-            "grad_norm_mean": all_gn.mean().item(),
-            "feat_grad_norm_p95": torch.quantile(all_fgn, 0.95).item() if all_fgn is not None else None,
-            "feat_grad_norm_max": all_fgn.max().item() if all_fgn is not None else None,
-            "feat_grad_norm_mean": all_fgn.mean().item() if all_fgn is not None else None,
         }
         if _return_dict:
             return Z_dict, loss_stats
@@ -414,8 +366,8 @@ class LLMExtractor(FeatureExtractor):
 
         Returns a contiguous copy so it does NOT keep the model alive
         after the caller deletes the model.  Stays in model dtype (e.g.
-        BF16) to avoid a large float32 allocation on GPU — callers that
-        need float32 (metrics, bounds) convert after moving to CPU.
+        BF16) to avoid a large float32 allocation on GPU; callers (metrics,
+        bounds) cast it themselves.
         """
         if hasattr(model, "lm_head"):
             w = model.lm_head.weight.data  # (vocab, d)

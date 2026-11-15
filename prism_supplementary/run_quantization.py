@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PRISM — Quantization experiment runner.
+PRISM: quantization experiment runner.
 
 This is the Python dispatcher invoked by run_quantization.sh.
 It loads a YAML config, instantiates the corresponding experiment class
@@ -101,7 +101,7 @@ def build_config(args: argparse.Namespace) -> Dict[str, Any]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PRISM — Proxy Risk Estimation via Isomorphic Spectral Matching",
+        description="PRISM quantization experiment runner",
         usage="python run_quantization.py --config CONFIG [key=value ...]",
     )
     parser.add_argument(

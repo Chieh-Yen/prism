@@ -2,13 +2,13 @@
 Unified task-based data loading.
 
 Provides a single ``load_task_data`` function that returns a PyTorch DataLoader
-for any registered task (HuggingFace datasets, image classification, text, …).
+for the tasks registered in ``TASK_REGISTRY`` (Hugging Face text datasets: the
+five benchmarks, the two fine-tuning tasks and WikiText).
 """
 
 from __future__ import annotations
 
-import os
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -135,7 +135,7 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
 # Task registry — maps short names to HuggingFace dataset identifiers
 # ======================================================================
 TASK_REGISTRY: Dict[str, Dict] = {
-    # Structured Q&A benchmarks (PTQ + LoRA-forgetting evaluation, paper Sec.~4.1).
+    # Structured Q&A benchmarks (PTQ + LoRA-forgetting evaluation, paper Sec. 4.1).
     # All use concat z_mode so Z and loss are uniformly token-level; for
     # single-token answers like MMLU/ARC this is mathematically equivalent to
     # last_context_token.
@@ -149,11 +149,18 @@ TASK_REGISTRY: Dict[str, Dict] = {
                       "z_mode": "concat", "loss_mode": "answer"},
     "gsm8k":         {"hf_id": "openai/gsm8k",         "hf_subset": "main",          "formatter": "gsm8k",    "split_map": {"test": "test"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    # LoRA fine-tuning sources (paper Sec.~4.5).
+    # LoRA fine-tuning sources (paper Sec. 4.5).
     "truthfulqa":    {"hf_id": "truthfulqa/truthful_qa",        "hf_subset": "generation",    "formatter": "truthfulqa", "split_map": {"test": "validation[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "bbq":           {"hf_id": "lighteval/bbq_helm",   "hf_subset": "all",           "formatter": "bbq",      "split_map": {"test": "test[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
+    # Raw-text corpus used only as a reference/replay source by the LoRA
+    # trainers (--replay_source generic, --ref_task wikitext).  No formatter,
+    # hence no prompt/answer split: Z covers every next-token position and
+    # the loss is the full-text loss.
+    "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1",
+                      "text_key": "text", "split_map": {"test": "test", "train": "train"},
+                      "z_mode": "concat", "loss_mode": "full"},
 }
 
 
@@ -174,7 +181,7 @@ class TextDataset(Dataset):
     """Wraps a HuggingFace text dataset into tokenised batches.
 
     Supports two modes:
-      1. ``text_key`` — read a named column directly (C4, WikiText, LAMBADA …).
+      1. ``text_key``: read a named column directly (WikiText).
       2. ``formatter`` — apply a callable ``row → str`` for structured
          datasets (GSM8K, MMLU, ARC, …).
 
@@ -320,6 +327,7 @@ def load_task_data(
     max_length: int = 512,
     shuffle: bool = False,
     seed: Optional[int] = None,
+    offset: int = 0,
 ) -> DataLoader:
     """Load a task dataset and return a ready-to-use DataLoader.
 
@@ -333,6 +341,11 @@ def load_task_data(
         shuffle:     Whether to shuffle the DataLoader across epochs.
         seed:        Random seed for reproducible dataset-level shuffling
                      before selecting ``num_samples``.
+        offset:      Row offset into the shuffled pool.  ``offset=0`` (default)
+                     takes the first ``num_samples`` rows, so smaller draws are
+                     prefixes of larger ones.  Distinct multiples of
+                     ``num_samples`` give disjoint same-size draws of one
+                     fixed shuffle.
     """
     from datasets import load_dataset  # lazy import to keep startup fast
 
@@ -351,7 +364,16 @@ def load_task_data(
     # reproducible. Skip when seed is None to preserve legacy behaviour.
     if seed is not None:
         hf_dataset = hf_dataset.shuffle(seed=seed)
-    if num_samples is not None and num_samples < len(hf_dataset):
+    if offset:
+        if num_samples is None:
+            raise ValueError("offset requires num_samples")
+        if offset + num_samples > len(hf_dataset):
+            raise ValueError(
+                f"offset {offset} + num_samples {num_samples} exceeds the "
+                f"{len(hf_dataset)}-row '{task_name}' {split} pool "
+                f"(hf split '{hf_split}')")
+        hf_dataset = hf_dataset.select(range(offset, offset + num_samples))
+    elif num_samples is not None and num_samples < len(hf_dataset):
         hf_dataset = hf_dataset.select(range(num_samples))
 
     if tokenizer is None:

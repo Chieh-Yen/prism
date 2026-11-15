@@ -3,7 +3,7 @@
 LoRA fine-tune a base model on a single task and compute PRISM forgetting
 metrics online at every checkpoint (no separate inference stage needed).
 
-The paper (Sec.~4.5) fine-tunes on **TruthfulQA** and **BBQ**; additional
+The paper (Sec. 4.5) fine-tunes on **TruthfulQA** and **BBQ**; additional
 task configurations are kept in TASK_CONFIGS for users who wish to extend
 the experiment to other fine-tuning sources, but the paper's reported
 results use only those two.
@@ -12,16 +12,36 @@ Models in the paper: meta-llama/Meta-Llama-3.1-8B, Qwen/Qwen3-8B-Base.
 The script accepts any causal LM whose backbone exposes hidden states.
 
 Under LoRA the lm_head is frozen (H_t = H_0), so PRISM's head divergence
-term vanishes under identity alignment, isolating forgetting entirely in
-backbone geometry (Eq.~8 in the paper).
+term vanishes under identity alignment and the bound of Theorem 1 (Eq. 4 in
+the paper) reduces to its feature term (Sec. 3.4).
 
-Usage:
+Usage (the paper's runs: learning rate 1e-5, 300 optimizer steps; both must be
+passed explicitly, because the defaults of this script differ: learning rate
+2e-4, or 1e-4 for Qwen models, and 700 steps for TruthfulQA and BBQ):
     python train_forgetting.py \\
-        --model meta-llama/Meta-Llama-3.1-8B --task truthfulqa
+        --model meta-llama/Meta-Llama-3.1-8B --task truthfulqa \\
+        --lr 1e-5 --max_steps 300
 
     python train_forgetting.py \\
         --model Qwen/Qwen3-8B-Base --task bbq \\
-        --lambda_shape 1.0
+        --lr 1e-5 --max_steps 300 --lambda_shape 1.0
+
+Methods (see the trainer selection in main() and --help):
+    --lambda_shape L                           shape regularizer 1 - Omega_I
+    --lambda_replay L --replay_source task     anchor-CE (CE on the anchor set)
+    --lambda_replay L --replay_source generic  generic replay (CE on WikiText)
+    --lambda_shape 1e-9                        unregularized, same training loop
+    (both lambdas 0)                           unregularized, stock Trainer
+
+Target-task evaluation rows.  The Trainer's eval set is the held-out slice of
+the fine-tuning task (TASK_CONFIGS eval_split).  By default the 32 rows of the
+anchor draw are removed from it (unified protocol, scripts/response/forgetting/);
+with --eval_keep_anchor_rows the whole slice is evaluated, as in the λ sweeps of
+the submission (run_forgetting.sh passes the flag).  The flag changes `eval_loss`
+only; see the comment at the eval-set construction in main().
+
+Set PRISM_EVAL_SIMILARITY=1 to add linear CKA and SVCCA (similarity_baselines.py)
+to every PRISM evaluation record.
 """
 
 from __future__ import annotations
@@ -45,6 +65,7 @@ from transformers import (
     TrainerControl,
     TrainerState,
     TrainingArguments,
+    set_seed,
 )
 
 from prism.core.bounds import UnifiedBound
@@ -225,17 +246,44 @@ class ShapeRegularizedTrainer(Trainer):
         Ω_I = tr(Z_T^T Z_P) / (‖Z_T‖_F · ‖Z_P‖_F)
 
     Every ``reg_every_k`` micro-steps, a forward pass is run on a fixed
-    reference set to extract Z_P, and the shape loss 1 − Ω_I is backprop'd
+    anchor set to extract Z_P, and the shape loss 1 − Ω_I is backprop'd
     into the current parameter gradient buffer.  Z_T (base model features)
     is pre-computed and frozen.
 
-    CE and shape losses have **separate backward paths** (see ``training_step``):
-    CE goes through parent ``Trainer``'s normal flow and is divided by
-    ``gradient_accumulation_steps`` before backward, so the per-micro-batch
-    CE gradient averages correctly.  Shape loss is backprop'd once per
-    optimizer step with **no** grad-accumulation division, so the gradient
-    contribution is exactly ``self._lambda`` × ∂(1-Ω_I)/∂θ — the nominal λ
-    matches the effective signal.
+    Loss scaling under gradient accumulation
+    ----------------------------------------
+    The cross-entropy and the penalty have separate backward calls (see
+    ``training_step``).  With G = ``gradient_accumulation_steps`` and the
+    default ``reg_every_k == G`` (one penalty evaluation per optimizer
+    step), the gradient accumulated for one optimizer step is
+
+        (1/G) · [ Σ_{m=1..G} ∇CE_m  +  λ · ∇P ]
+
+    where CE_m is the mean answer-token cross-entropy of micro-batch m and
+    P is the penalty (here 1 − Ω_I).  This follows from three facts, stated
+    for the pinned library versions (transformers 5.2.0, accelerate 1.12.0;
+    see requirements.txt):
+
+      * ``compute_loss`` returns the model's own micro-batch mean CE and
+        does not forward ``num_items_in_batch`` to the model.
+      * ``Trainer.training_step`` is nevertheless called with
+        ``num_items_in_batch``, and in that case it applies no division by
+        ``gradient_accumulation_steps`` of its own.
+      * Both backward calls go through ``accelerator.backward``, which
+        divides by the accumulation steps registered with the Accelerator
+        (G).
+
+    For comparison, the stock ``Trainer`` (selected in ``main`` only when
+    both λ are 0) passes ``num_items_in_batch`` to the model, so its CE is
+    the token-level mean over all G micro-batches, CE_tok, and its
+    accumulated gradient is (1/G) · ∇CE_tok.  The CE term of this class is
+    therefore about G times that of the stock ``Trainer`` (exactly G times
+    when every micro-batch has the same number of answer tokens).
+
+    Every subclass (``ReplayCETrainer`` here, and the baseline trainers in
+    scripts/rounds/train_forgetting_baselines.py) overrides only the penalty
+    P, so all regularized methods, and the same-loop unregularized reference
+    (this class with a negligible λ; see ``main``), share this scaling.
     """
 
     def __init__(
@@ -263,8 +311,11 @@ class ShapeRegularizedTrainer(Trainer):
 
     # ------------------------------------------------------------------
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-        """Pure CE loss.  Shape regularizer lives in ``training_step`` so it
-        can bypass HF's gradient-accumulation division (see class docstring)."""
+        """Micro-batch mean CE as returned by the model.
+
+        ``num_items_in_batch`` (passed by the ``Trainer`` in ``kwargs``) is not
+        forwarded to the model.  The penalty is added in ``training_step``
+        with its own backward call (see class docstring for the scaling)."""
         outputs = model(**inputs)
         ce_loss = outputs.loss
         if return_outputs:
@@ -273,15 +324,14 @@ class ShapeRegularizedTrainer(Trainer):
 
     # ------------------------------------------------------------------
     def training_step(self, model, inputs, *args, **kwargs):
-        """Run parent's CE training step, then add a separately-scaled
-        shape-loss backward once per optimizer step.
+        """Run the parent's CE training step, then add the penalty with a
+        separate backward call every ``reg_every_k`` micro-steps.
 
-        Parent's ``training_step`` does CE forward + backward with the
-        standard ``loss /= gradient_accumulation_steps`` division.  We then
-        compute the shape loss and call ``accelerator.backward`` directly
-        on ``λ · (1 − Ω_I)`` — no grad-accum division — so the shape
-        gradient is accumulated into the same buffer as the averaged CE
-        gradient at its nominal weight.
+        The parent's ``training_step`` does the CE forward and
+        ``accelerator.backward(CE_m)``.  On micro-steps 0, k, 2k, … the
+        penalty is then computed on the anchor set and
+        ``accelerator.backward(λ · P)`` accumulates its gradient into the
+        same buffer.  The resulting scaling is given in the class docstring.
         """
         loss_tensor = super().training_step(model, inputs, *args, **kwargs)
 
@@ -352,23 +402,34 @@ class ShapeRegularizedTrainer(Trainer):
 # ── Replay-CE Trainer (data-replay baseline) ──────────────────────────────
 
 class ReplayCETrainer(ShapeRegularizedTrainer):
-    """Data-replay baseline: L = L_CE + λ · CE_ref.
+    """Cross-entropy rehearsal on a fixed set: L = L_CE + λ · CE_ref.
 
-    Same scheduling and backward path as ``ShapeRegularizedTrainer`` (every
-    optimizer step, separate backward outside grad-accum division), but the
-    regularizer is the next-token cross-entropy on a fixed reference set
-    rather than 1 − Ω_I. This is the apples-to-apples baseline for the
-    PRISM shape-regularizer claim: same 32 reference instances, same compute,
-    only the loss form differs.
+    Same scheduling, backward path and loss scaling as
+    ``ShapeRegularizedTrainer`` (see its docstring); only the penalty
+    differs: the next-token cross-entropy on a fixed set of sequences
+    instead of 1 − Ω_I.  Which sequences depends on ``--replay_source``
+    (see ``build_ref_dataloader``):
+
+      * ``task``:     the anchor set itself, i.e. the same sequences the
+                      shape regularizer reads ("anchor-CE"; the same-data
+                      control, differing from the regularizer only in the
+                      penalty);
+      * ``generic``:  the same number of WikiText sequences ("generic
+                      replay").
 
     Z_T_ref is unused (CE only depends on the current-model output).
-    Prompt tokens are masked from the CE target (set to -100) so the loss
-    measures response-token reconstruction, matching how the fine-tuning CE
-    is computed by ``AnswerOnlyDataCollator``.
+    When the batch carries ``prompt_length`` (the task source), prompt
+    tokens are masked from the CE target (set to -100), matching how the
+    fine-tuning CE is computed by ``AnswerOnlyDataCollator``; WikiText rows
+    have no prompt, so all their non-padding tokens are targets.
     """
 
     def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
-        """Override: mean next-token CE on the reference set (response tokens only)."""
+        """Override: next-token CE on the fixed set, averaged over its batches.
+
+        Targets are the answer tokens when the batch carries ``prompt_length``
+        (source ``task``), and all non-padding tokens otherwise (source
+        ``generic``)."""
         total = torch.zeros((), device=self._device_str)
         n_batches = 0
         for batch in self._ref_dl:
@@ -376,7 +437,7 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
             prompt_lens = b.pop("prompt_length", None)
             labels = b["input_ids"].clone()
             if prompt_lens is not None:
-                # Mask prompt tokens so CE measures response-token loss only.
+                # Mask prompt tokens: the CE targets are the answer tokens.
                 for i, plen in enumerate(prompt_lens):
                     labels[i, :int(plen)] = -100
             attn = b.get("attention_mask")
@@ -401,15 +462,88 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
         Trainer.log(self, logs, *args, **kwargs)
 
 
+# ── Anchor / replay set construction ──────────────────────────────────────
+
+def build_ref_dataloader(args, tokenizer):
+    """Build the fixed set of sequences the penalty is computed on.
+
+    ``--replay_source task`` (default), and always when the shape regularizer
+    is active: the anchor set, ``args.reg_samples`` sequences of the
+    fine-tuning task's held-out slice (prism.data.loaders split "test"),
+    taken as the first rows after shuffling that slice with seed
+    ``args.seed + 1000``.  The draw depends only on (task, seed,
+    reg_samples), so every method sees the same rows at a given seed, and
+    the rows are redrawn for each seed.
+
+    ``--replay_source generic`` (replay-CE only): ``args.reg_samples``
+    WikiText sequences (wikitext-2-raw-v1, train split).
+
+    Both sources yield the same number of sequences, truncated at the same
+    length, min(max_length, reg_max_length).
+    """
+    from torch.utils.data import DataLoader, Subset
+
+    max_len = min(args.max_length, args.reg_max_length)
+    src = getattr(args, "replay_source", "task")
+
+    if src == "task" or args.lambda_shape > 0:
+        # The shape regularizer always reads the fine-tuning task's held-out
+        # slice: its anchor set defines the geometry being preserved.
+        if args.lambda_shape > 0 and src != "task":
+            print(f"[ref] shape regularizer active: forcing replay_source=task "
+                  f"(requested '{src}' applies to the replay-CE trainer only)")
+        return load_task_data(
+            args.task, split="test",
+            num_samples=args.reg_samples,
+            batch_size=args.reg_batch_size,
+            tokenizer=tokenizer,
+            max_length=max_len,
+            seed=args.seed + 1000,
+        )
+
+    # src == "generic".  WikiText rows include blank lines and section
+    # headers; draw a larger pool (reg_samples * 40 rows, shuffled with seed
+    # args.seed + 1000) and keep the first `reg_samples` rows with at least
+    # MIN_TOK tokens, so this source delivers as many usable sequences as the
+    # task source.
+    MIN_TOK = 64
+    pool = load_task_data(
+        "wikitext", split="train",
+        num_samples=args.reg_samples * 40,
+        batch_size=args.reg_batch_size,
+        tokenizer=tokenizer,
+        max_length=max_len,
+        seed=args.seed + 1000,
+    )
+    ds = pool.dataset
+    keep, tok_total = [], 0
+    for i in range(len(ds)):
+        ex = ds[i]
+        n_tok = int(ex["attention_mask"].sum())
+        if n_tok >= MIN_TOK:
+            keep.append(i); tok_total += n_tok
+        if len(keep) == args.reg_samples:
+            break
+    if len(keep) < args.reg_samples:
+        raise RuntimeError(
+            f"generic replay pool too small: {len(keep)} usable rows "
+            f"(need {args.reg_samples}); raise the pool multiplier")
+    print(f"[ref] generic old-domain replay: wikitext train, "
+          f"{len(keep)} sequences, {tok_total} tokens "
+          f"(>= {MIN_TOK} tokens each)")
+    return DataLoader(Subset(ds, keep), batch_size=args.reg_batch_size,
+                      shuffle=False, num_workers=0)
+
+
 # ── Task-specific dataset configuration ───────────────────────────────────
 
 TASK_CONFIGS = {
-    # ── Fine-tuning tasks (paper Sec.~4.5) ───────────────────────────
+    # ── Fine-tuning tasks (paper Sec. 4.5) ───────────────────────────
     "truthfulqa": {
         "hf_id": "truthfulqa/truthful_qa",
         "hf_subset": "generation",
-        "train_split": "validation[:80%]",   # only split; first 80% for train (~653)
-        "eval_split": "validation[80%:]",    # last 20% for eval (~164)
+        "train_split": "validation[:80%]",   # only split; first 80% for train (654 rows)
+        "eval_split": "validation[80%:]",    # last 20% for eval (163 rows)
         "max_train_samples": None,
         "max_eval_samples": None,
         "default_max_steps": 700,
@@ -542,7 +676,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         self.device = device
         self.experiment_config = experiment_config
 
-        # Tight Lipschitz constants for paper Eq. 8 bound (see Appendix A):
+        # Tight Lipschitz constants of the bound of Theorem 1 (Eq. 4; Appendix A):
         #   K_feat = max_{j,k} ||h_j - h_k||_2   (simplex polarisation)
         #   K_pred = sqrt(2)                     (CE gradient in logit space)
         # Stored once; H_T is the frozen base head and is identical across tasks.
@@ -595,9 +729,8 @@ class PRISMCheckpointCallback(TrainerCallback):
             total_tasks = len(self.eval_tasks)
             for idx, task in enumerate(self.eval_tasks, start=1):
                 dl, z_mode = self.eval_dataloaders[task]
-                marker = " *" if task == self.trained_task else ""
                 task_t0 = time.time()
-                print(f"  [{idx}/{total_tasks}] {task:<10s} (z_mode={z_mode}){marker} ... ", end="", flush=True)
+                print(f"  [{idx}/{total_tasks}] {task:<10s} (z_mode={z_mode}) ... ", end="", flush=True)
 
                 # Proxy features + loss (single forward pass)
                 Z_P, loss_stats_P = self.extractor.extract_features_and_loss_per_sample(
@@ -640,7 +773,6 @@ class PRISMCheckpointCallback(TrainerCallback):
 
                 # Primary |ΔR|: use answer-only loss because Z is extracted
                 # from answer-region tokens only (concat mode + prompt mask).
-                # The bound applies to the same token positions as Z.
                 primary_dr = delta_risk_answer if delta_risk_answer is not None else delta_risk_full
                 loss_s = (
                     f"loss_answer={loss_P_answer:.4f}"
@@ -658,7 +790,19 @@ class PRISMCheckpointCallback(TrainerCallback):
                     f"{bound_s}  ({elapsed:.1f}s)"
                 )
 
+                sim_scores = {}
+                if os.environ.get("PRISM_EVAL_SIMILARITY", "0") == "1":
+                    # Linear CKA and SVCCA on the same features (Z_T, Z_P) the
+                    # PRISM terms above are computed from, with the same
+                    # estimators as the quantization-cell similarity baselines.
+                    from similarity_baselines import linear_cka, svcca
+                    _zt = Z_T.float()
+                    _zp = Z_P.float().cpu()
+                    sim_scores["cka"] = linear_cka(_zt, _zp)
+                    sim_scores["svcca"] = svcca(_zt, _zp)
+
                 task_results[task] = {
+                    **sim_scores,
                     # Geometry  (paper notation)
                     "omega": prism.omega,                       # Ω_I  (identity-aligned similarity)
                     "rho_T": prism.rho_target,                  # ρ_T  (target RMS scale)
@@ -667,7 +811,7 @@ class PRISMCheckpointCallback(TrainerCallback):
                     "shape": prism.shape_mismatch,              # 2 ρ_T ρ_P (1 − Ω)
                     "delta": prism.feature_error,               # δ/K_feat = √(Scale + Shape)
                     "gamma": prism.head_discrepancy,            # γ/K_pred = ‖Σ^½(WH_T−H_P)‖_F
-                    # Tight Lipschitz constants (paper Eq. 8, Appendix A)
+                    # Tight Lipschitz constants (Theorem 1 / Eq. 4, Appendix A)
                     "K_feat": self.K_feat,                      # max_{j,k} ‖h_j − h_k‖₂  (from base H_T)
                     "K_pred": self.K_pred,                      # √2
                     # Bound (using tight K_feat, K_pred above)
@@ -708,11 +852,11 @@ class PRISMCheckpointCallback(TrainerCallback):
         print(f"  train_loss={tl_s}  eval_loss({self.trained_task})={el_s}  "
               f"prism_eval={elapsed:.1f}s")
         print(f"  (All losses are answer-only CE. eval_loss is Trainer validation on")
-        print(f"   training-task data; PRISM metrics below use separate eval data.)")
+        print(f"   the fine-tuning task's held-out rows; PRISM metrics below use the benchmarks.)")
 
         # ── Table A: Geometry ────────────────────────────────────────
         print()
-        print(f"  [Geometry]  δ = √(Scale+Shape),  γ = ‖Σ^½(WH_T−H_P)‖,  Bound = δ+γ  (K=1)")
+        print(f"  [Geometry]  δ = √(Scale+Shape),  γ = ‖Σ^½(WH_T−H_P)‖,  Bound = K_feat·δ + K_pred·γ")
         hdr_a = (
             f"  {'Task':<11s}"
             f"  {'ρ_T':>8s}  {'ρ_P':>8s}"
@@ -724,11 +868,10 @@ class PRISMCheckpointCallback(TrainerCallback):
 
         for task in self.eval_tasks:
             r = task_results[task]
-            marker = " *" if task == self.trained_task else "  "
             bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] is not None else "       —"
 
             print(
-                f"  {task:<9s}{marker}"
+                f"  {task:<9s}  "
                 f"  {r['rho_T']:8.2f}  {r['rho_P']:8.2f}"
                 f"  {r['omega']:10.6f}  {r['scale']:10.6f}  {r['shape']:10.6f}"
                 f"  {r['delta']:8.4f}  {r['gamma']:8.4f}  {bound_s}"
@@ -747,21 +890,20 @@ class PRISMCheckpointCallback(TrainerCallback):
 
         for task in self.eval_tasks:
             r = task_results[task]
-            marker = " *" if task == self.trained_task else "  "
             bound_s = f"{r['bound_total']:8.4f}" if r["bound_total"] is not None else "       —"
             holds = r.get("bound_holds")
             holds_s = "  yes" if holds is True else "   no" if holds is False else "    —"
 
             if r["loss_T"] is not None:
                 print(
-                    f"  {task:<9s}{marker}"
+                    f"  {task:<9s}  "
                     f"  {r['loss_T']:8.4f}  {r['loss_P']:8.4f}  {r['delta_risk']:8.4f}"
                     f"  {bound_s}  {holds_s}"
                 )
             else:
                 # Fallback to full-sequence if answer-only unavailable
                 print(
-                    f"  {task:<9s}{marker}"
+                    f"  {task:<9s}  "
                     f"  {r['loss_T_full']:8.4f}  {r['loss_P_full']:8.4f}  {r['delta_risk_full']:8.4f}"
                     f"  {bound_s}  {holds_s}  (full-seq)"
                 )
@@ -777,7 +919,6 @@ class PRISMCheckpointCallback(TrainerCallback):
         base_summary = {}
         for task in self.eval_tasks:
             Z = self.base_features[task]["Z"]
-            import math
             rho = PRISMMetrics.rms_scale(Z.float())
             base_summary[task] = {
                 "rho": rho,
@@ -797,17 +938,27 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "delta": "√(scale + shape) — feature alignment error (δ/K_feat) under W=I",
                 "gamma": "‖Σ_P^½ (H_T − H_P)‖_F — head discrepancy (γ/K_pred) under W=I",
                 "K_feat": "max_{j,k} ‖h_j − h_k‖₂ — simplex-polarization Lipschitz of CE in features (from base H_T, Appendix A)",
-                "K_pred": "√2 — Lipschitz of CE in logits (Proposition 1)",
+                "K_pred": "√2: Lipschitz of CE in logits (Appendix A)",
                 "bound_feature": "K_feat × δ — feature term of the unified bound",
                 "bound_head": "K_pred × γ — head term of the unified bound",
-                "bound_total": "K_feat·δ + K_pred·γ — unified risk bound (Eq. 8)",
+                "bound_total": "K_feat·δ + K_pred·γ: unified risk bound (Theorem 1, Eq. 4)",
                 "loss_T": "R(θ₀) — base model answer-only CE loss",
                 "loss_P": "R(θ_t) — fine-tuned model answer-only CE loss",
                 "delta_risk": "|R(θ_t) − R(θ₀)| — empirical forgetting (answer-only)",
                 "loss_T_full": "full-sequence CE loss (supplementary)",
                 "loss_P_full": "full-sequence CE loss (supplementary)",
-                "train_loss": "Trainer training loss (answer-only CE, training task)",
-                "eval_loss": "Trainer eval loss (answer-only CE, training task val split)",
+                "train_loss": "most recent `loss` logged by the Trainer at or before this "
+                              "step: answer-only CE on the fine-tuning task, averaged over "
+                              "the optimizer steps of the last logging window. Per optimizer "
+                              "step the library Trainer logs the token-weighted mean over "
+                              "the G = grad_accum micro-batches; the regularized trainers "
+                              "log the sum of the G micro-batch means (about G times as "
+                              "large); the penalty is not included",
+                "eval_loss": ("Trainer eval loss: answer-only CE on the held-out slice of the "
+                              "fine-tuning task, as aggregated by the library; without the "
+                              "anchor rows by default, on the whole slice with "
+                              "--eval_keep_anchor_rows (experiment.eval_keep_anchor_rows, "
+                              "experiment.n_eval_rows)"),
             },
             "base_model": base_summary,
             "checkpoints": self.all_checkpoints,
@@ -852,7 +1003,7 @@ def pre_compute_base_features(
         base_features:    {task: {Z, H, loss_full, loss_answer, Z_shape}}
         eval_dataloaders: {task: (DataLoader, z_mode)}  — reused in callback
         K_theory:         {K_feat, K_pred, K_feat_naive, ...} from
-                          UnifiedBound.theoretical_K (paper Eq. 8 constants)
+                          UnifiedBound.theoretical_K (constants of Theorem 1 / Eq. 4)
     """
     print(f"\n{'─' * 78}")
     print(f"  Pre-computing base model features on {len(eval_tasks)} eval tasks")
@@ -881,7 +1032,7 @@ def pre_compute_base_features(
         )
         H_T = extractor.extract_head(model)
 
-        # Compute K_feat/K_pred once on GPU (paper Eq. 8, Appendix A).
+        # Compute K_feat/K_pred once on GPU (Theorem 1 / Eq. 4, Appendix A).
         # H_T is the same frozen base head for every task, so the tight
         # bound K_feat = max_{j,k} ||h_j - h_k||_2 is task-independent.
         if K_theory is None:
@@ -923,7 +1074,7 @@ def pre_compute_base_features(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Stage 1: LoRA fine-tune on a single task for PRISM forgetting",
+        description="LoRA fine-tune on a single task with online PRISM forgetting metrics",
     )
     # Required
     p.add_argument("--model", required=True,
@@ -937,11 +1088,16 @@ def parse_args() -> argparse.Namespace:
 
     # Training
     p.add_argument("--max_steps", type=int, default=None,
-                   help="Max training steps (default: task-specific)")
+                   help="Max training steps (default: task-specific, 700 for "
+                        "truthfulqa and bbq; the paper's runs use 300)")
     p.add_argument("--save_steps", type=int, default=None,
                    help="Save checkpoint every N steps (default: task-specific)")
+    p.add_argument("--save_total_limit", type=int, default=None,
+                   help="Keep only the last N checkpoints on disk "
+                        "(default: keep all)")
     p.add_argument("--lr", type=float, default=None,
-                   help="Learning rate (default: 2e-4 for LLaMA, 1e-4 for Qwen)")
+                   help="Learning rate (default: 1e-4 if the model id contains "
+                        "'qwen', else 2e-4; the paper's runs use 1e-5)")
     p.add_argument("--batch_size", type=int, default=2,
                    help="Per-device train batch size")
     p.add_argument("--grad_accum", type=int, default=8,
@@ -960,7 +1116,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max_train_samples", type=int, default=None,
                    help="Override max training samples (default: task-specific)")
     p.add_argument("--max_eval_samples", type=int, default=None,
-                   help="Override max eval samples for Trainer validation (default: 256)")
+                   help="Override max eval samples for Trainer validation "
+                        "(default: task-specific, see TASK_CONFIGS). When the "
+                        "eval slice is subsampled, the anchor rows are not "
+                        "removed from it.")
+    p.add_argument("--eval_keep_anchor_rows", action="store_true",
+                   help="Evaluation only: keep the anchor rows in the Trainer's "
+                        "eval set, so eval_loss is computed on the whole held-out "
+                        "slice of the fine-tuning task (as in the λ sweeps of the "
+                        "submission; run_forgetting.sh passes this flag). Default: "
+                        "the --reg_samples rows of the anchor draw (seed + 1000) "
+                        "are removed from the eval set (unified protocol). Does "
+                        "not affect training, the anchor draw or the PRISM "
+                        "records.")
 
     # PRISM eval
     p.add_argument("--prism_eval_samples", type=int, default=256,
@@ -969,30 +1137,63 @@ def parse_args() -> argparse.Namespace:
                    help="Batch size for PRISM feature extraction")
 
     # Shape regularization (W=I trace form). Mutually exclusive with replay.
+    #
+    # Two unregularized references can be run; they use different training
+    # loops and are NOT interchangeable (see the trainer selection in main()):
+    #   --lambda_shape 0 --lambda_replay 0   stock transformers Trainer
+    #   --lambda_shape 1e-9                  regularized training loop with a
+    #                                        numerically negligible penalty
     p.add_argument("--lambda_shape", type=float, default=0.0,
-                   help="Weight for shape regularizer 1-Ω_I (0 = disabled). "
-                        "Mutually exclusive with --lambda_replay.")
+                   help="Weight for shape regularizer 1-Ω_I. Mutually "
+                        "exclusive with --lambda_replay. Any value > 0 selects "
+                        "the regularized training loop. With both λ at 0 the "
+                        "stock transformers Trainer is used (the unregularized "
+                        "run of the λ sweeps in run_forgetting.sh). The "
+                        "same-loop unregularized reference of the unified "
+                        "protocol is --lambda_shape 1e-9: the regularized loop "
+                        "runs, including the anchor-set forward/backward, and "
+                        "1 − Ω_I lies in [0, 2], so the weighted penalty "
+                        "contributes at most 2e-9 nats. Negative values are "
+                        "rejected.")
     p.add_argument("--lambda_replay", type=float, default=0.0,
-                   help="Weight for data-replay CE regularizer on the reference "
-                        "set (0 = disabled). Apples-to-apples baseline for "
-                        "--lambda_shape: same 32 instances, same scheduling, "
-                        "only the loss form (CE vs 1-Ω_I) differs. "
-                        "Mutually exclusive with --lambda_shape.")
+                   help="Weight for the replay-CE penalty: cross-entropy on a "
+                        "fixed set of --reg_samples sequences chosen by "
+                        "--replay_source (0 = disabled). Same scheduling and "
+                        "loss scaling as --lambda_shape; only the penalty "
+                        "differs. Mutually exclusive with --lambda_shape. "
+                        "Negative values are rejected.")
+    p.add_argument("--replay_source", default="task",
+                   choices=["task", "generic"],
+                   help="Sequences rehearsed by --lambda_replay: "
+                        "'task' = the anchor set, i.e. the held-out sequences of "
+                        "the fine-tuning task that the shape regularizer reads "
+                        "(default; anchor-CE); "
+                        "'generic' = the same number of sequences of a "
+                        "pre-training-like corpus (WikiText train; generic "
+                        "replay). Ignored by the shape regularizer, which "
+                        "always reads the anchor set.")
     p.add_argument("--reg_every_k", type=int, default=8,
-                   help="Compute regularizer (shape or replay) every K "
-                        "micro-steps (default: match grad_accum)")
+                   help="Compute the penalty (shape or replay) every K "
+                        "micro-batches (default: 8, a constant; it is not "
+                        "derived from --grad_accum. The reported runs use "
+                        "8 = --grad_accum, i.e. one penalty evaluation per "
+                        "optimizer step)")
     p.add_argument("--reg_samples", type=int, default=32,
-                   help="Number of reference samples for the regularizer")
+                   help="Number of sequences in the anchor / replay set")
     p.add_argument("--reg_batch_size", type=int, default=8,
                    help="Batch size for reference forward pass")
     p.add_argument("--reg_max_length", type=int, default=512,
                    help="Max sequence length for the reference forward pass. "
-                        "Kept separate from --max_length so long-form tasks "
-                        "don't OOM the grad-retained hidden-state concat "
-                        "inside _compute_shape_loss.")
+                        "Kept separate from --max_length so that a larger "
+                        "--max_length does not enlarge the grad-retained "
+                        "hidden-state concat inside _compute_shape_loss.")
 
     # Misc
-    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--seed", type=int, default=42,
+                   help="Sets the initial LoRA weights, the Trainer seed "
+                        "(order of the training data, dropout), the anchor "
+                        "draw (seed + 1000) and the benchmark subsets of the "
+                        "PRISM evaluation.")
     p.add_argument("--logging_steps", type=int, default=10)
     return p.parse_args()
 
@@ -1081,6 +1282,12 @@ def main() -> None:
               "set at most one to a positive value.", file=sys.stderr)
         sys.exit(2)
 
+    if args.lambda_shape < 0 or args.lambda_replay < 0:
+        print("ERROR: --lambda_shape and --lambda_replay must be >= 0 "
+              f"(got {args.lambda_shape} and {args.lambda_replay}).",
+              file=sys.stderr)
+        sys.exit(2)
+
     task_cfg = TASK_CONFIGS[args.task]
 
     # ── Resolve defaults ─────────────────────────────────────────────
@@ -1098,13 +1305,6 @@ def main() -> None:
         else task_cfg["max_eval_samples"]
     )
 
-    # Per-task max_length override (e.g. instruction-tuning datasets need longer).
-    # Only applied when the user did not pass --max_length explicitly (i.e. it
-    # still equals the argparse default of 512).
-    task_max_length = task_cfg.get("max_length")
-    if task_max_length is not None and args.max_length == 512:
-        args.max_length = task_max_length
-
     model_short = args.model.split("/")[-1].lower()
     output_dir = args.output_dir or os.path.join(
         "checkpoints", "forgetting", model_short, args.task,
@@ -1115,6 +1315,10 @@ def main() -> None:
 
     # ── Eval tasks: 5 downstream benchmarks (disjoint from trained task) ─
     eval_tasks = get_eval_tasks(args.task)
+
+    # Revision the model repository is loaded at (configs/model_revisions.yaml);
+    # None = not pinned, the repository head is loaded.
+    revision = pinned_revision(args.model)
 
     experiment_config = {
         "model": args.model,
@@ -1137,6 +1341,7 @@ def main() -> None:
         "prism_eval_samples": args.prism_eval_samples,
         "train_loss_mode": "answer_only",
         "seed": args.seed,
+        "adapter_init_seeded": True,
         "lambda_shape": args.lambda_shape,
         "lambda_replay": args.lambda_replay,
         "reg_every_k": (args.reg_every_k
@@ -1145,10 +1350,15 @@ def main() -> None:
         "reg_samples": (args.reg_samples
                         if (args.lambda_shape > 0 or args.lambda_replay > 0)
                         else None),
+        "replay_source": (args.replay_source if args.lambda_replay > 0 else None),
+        "revision": revision,
+        "eval_keep_anchor_rows": args.eval_keep_anchor_rows,
+        # Added below, once known: n_eval_rows, eval_anchor_rows_removed,
+        # optim, weight_decay, lr_scheduler, max_grad_norm, K_feat, K_pred.
     }
 
     print(f"{'=' * 78}")
-    print(f"  PRISM Forgetting — Stage 1: LoRA Fine-Tuning + Online Monitoring")
+    print(f"  PRISM Forgetting: LoRA Fine-Tuning + Online Monitoring")
     print(f"{'=' * 78}")
     for k, v in experiment_config.items():
         print(f"  {k:<25s}: {v}")
@@ -1159,7 +1369,7 @@ def main() -> None:
     print(f"\nLoading tokenizer: {args.model}")
     tokenizer = AutoTokenizer.from_pretrained(
         args.model, trust_remote_code=_TRUST_REMOTE_CODE,
-        revision=pinned_revision(args.model))
+        revision=revision)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
@@ -1171,7 +1381,7 @@ def main() -> None:
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
         trust_remote_code=_TRUST_REMOTE_CODE,
-        revision=pinned_revision(args.model),
+        revision=revision,
     )
     model.config.use_cache = False
 
@@ -1195,22 +1405,16 @@ def main() -> None:
     experiment_config["K_pred"] = K_theory["K_pred"]
     experiment_config["K_feat_naive"] = K_theory.get("K_feat_naive")
 
-    # ── Pre-compute reference data + (for shape only) Z_T_ref ────────
-    # Both regularizers share the same fixed reference set; only the shape
-    # regularizer needs Z_T (base-model features) pre-extracted, since the
-    # replay baseline uses the current model's CE on the same inputs.
+    # ── Pre-compute anchor / replay data + (for shape only) Z_T_ref ──
+    # The shape regularizer and replay-CE with --replay_source task read the
+    # same anchor set (see build_ref_dataloader); only the shape regularizer
+    # needs Z_T (base-model features) pre-extracted, since replay-CE uses the
+    # current model's CE on its inputs.
     Z_T_ref = None
     ref_dataloader = None
     use_reg = args.lambda_shape > 0 or args.lambda_replay > 0
     if use_reg:
-        ref_dataloader = load_task_data(
-            args.task, split="test",
-            num_samples=args.reg_samples,
-            batch_size=args.reg_batch_size,
-            tokenizer=tokenizer,
-            max_length=min(args.max_length, args.reg_max_length),
-            seed=args.seed + 1000,
-        )
+        ref_dataloader = build_ref_dataloader(args, tokenizer)
 
     if args.lambda_shape > 0:
         reg_meta = get_task_metadata(args.task)
@@ -1240,6 +1444,11 @@ def main() -> None:
         bias="none",
         task_type=TaskType.CAUSAL_LM,
     )
+    # --seed determines the adapter initialisation: the random generators are
+    # seeded here, immediately before the adapter is created. The Trainer seeds
+    # them again with the same value when it is constructed, so the order of
+    # the training data and dropout are as without this call.
+    set_seed(args.seed)
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
@@ -1261,20 +1470,51 @@ def main() -> None:
         seed=args.seed,
     )
     print(f"  Eval size:  {len(eval_dataset):,} examples")
-    # The reference set used by the shape and held-out-CE arms is drawn from this
-    # same held-out slice (prism.data.loaders split_map "test", shuffled with seed
-    # args.seed + 1000, first --reg_samples rows). Remove those rows from the
-    # target-task eval set for every arm, so the reported target-task loss is on
-    # sequences that no arm sees during training.
-    if max_eval_samples is None:
+    # Target-task evaluation rows. The anchor set (build_ref_dataloader, source
+    # "task") is drawn from this same held-out slice: prism.data.loaders split
+    # "test" is the slice TASK_CONFIGS calls eval_split, shuffled with seed
+    # args.seed + 1000, first --reg_samples rows. The slice is disjoint from
+    # train_split, so the anchor rows are never fine-tuning data.
+    #
+    # Default (unified protocol): the rows of that draw are removed from the
+    # eval set, so eval_loss is computed on held-out rows outside the anchor
+    # set. The selection below replays the loader's draw (same shuffle seed over
+    # the same number of rows), so it depends only on (task, seed, reg_samples):
+    # identical across methods at a given seed, redrawn for each seed. The
+    # removal does not depend on the method:
+    #   * shape regularizer, replay with --replay_source task: the removed rows
+    #     are the rows the penalty is computed on;
+    #   * replay with --replay_source generic: the penalty reads WikiText; the
+    #     removed rows are the rows the task source would draw at this seed;
+    #   * both λ = 0 (library Trainer): no anchor set is built and no row of the
+    #     slice is read during training; the removed rows are the rows a
+    #     regularized run at this seed would use as anchors, so that eval_loss
+    #     is on the same rows for every method.
+    #
+    # --eval_keep_anchor_rows: nothing is removed and eval_loss is computed on
+    # the whole slice (163 rows for TruthfulQA), as in the λ sweeps of the
+    # submission. The flag only selects the rows of eval_loss; training, the
+    # anchor draw and the PRISM records are the same with and without it.
+    #
+    # The removal applies when the eval slice is used whole (max_eval_samples is
+    # None: TruthfulQA and BBQ, the paper's fine-tuning tasks, unless
+    # --max_eval_samples is passed); a subsampled eval set is left as drawn.
+    n_removed = 0
+    if max_eval_samples is None and not args.eval_keep_anchor_rows:
         _n = len(eval_dataset)
         _ref = set(
             eval_dataset.add_column("_row", list(range(_n)))
             .shuffle(seed=args.seed + 1000).select(range(args.reg_samples))["_row"]
         )
         eval_dataset = eval_dataset.select([i for i in range(_n) if i not in _ref])
-        print(f"  Eval size after removing the {len(_ref)} reference rows: "
+        n_removed = len(_ref)
+        print(f"  Eval size after removing the {len(_ref)} anchor rows: "
               f"{len(eval_dataset):,} examples")
+    else:
+        print(f"  Eval set as built, anchor rows not removed: "
+              f"{len(eval_dataset):,} examples")
+    experiment_config["n_eval_rows"] = len(eval_dataset)
+    experiment_config["eval_anchor_rows_removed"] = n_removed
 
     # ── PRISM callback ───────────────────────────────────────────────
     prism_callback = PRISMCheckpointCallback(
@@ -1299,6 +1539,8 @@ def main() -> None:
     except ImportError:
         optim = "adamw_torch"
         print("  [bitsandbytes not found] Using standard AdamW optimizer.")
+    # The optimizer depends on whether bitsandbytes can be imported.
+    print(f"  Optimizer: {optim}")
 
     training_args = TrainingArguments(
         output_dir=output_dir,
@@ -1312,7 +1554,7 @@ def main() -> None:
         max_grad_norm=1.0,
         optim=optim,
         save_steps=save_steps,
-        save_total_limit=None,
+        save_total_limit=args.save_total_limit,
         logging_steps=args.logging_steps,
         eval_strategy="steps",
         eval_steps=save_steps,
@@ -1322,6 +1564,13 @@ def main() -> None:
         remove_unused_columns=False,   # keep prompt_length for AnswerOnlyDataCollator
         seed=args.seed,
     )
+    # Recorded for the metrics JSON (the dict is shared with the callback).
+    experiment_config["optim"] = optim
+    experiment_config["weight_decay"] = training_args.weight_decay
+    experiment_config["lr_scheduler"] = str(
+        getattr(training_args.lr_scheduler_type, "value",
+                training_args.lr_scheduler_type))
+    experiment_config["max_grad_norm"] = training_args.max_grad_norm
 
     trainer_kwargs = dict(
         model=model,
@@ -1331,6 +1580,26 @@ def main() -> None:
         data_collator=collator,
         callbacks=[prism_callback],
     )
+    # ── Trainer selection ────────────────────────────────────────────
+    #   --lambda_shape  > 0                 ShapeRegularizedTrainer
+    #   --lambda_replay > 0                 ReplayCETrainer (same loop, CE penalty)
+    #   both 0                              stock transformers Trainer
+    #
+    # The two loops scale the cross-entropy differently under gradient
+    # accumulation (ShapeRegularizedTrainer docstring), so there are two
+    # distinct unregularized references:
+    #
+    #   (a) stock-Trainer reference: `--lambda_shape 0 --lambda_replay 0`.
+    #       This is the unregularized run of the λ sweeps launched by
+    #       run_forgetting.sh. It does not build the anchor set and runs no
+    #       anchor forward pass.
+    #
+    #   (b) same-loop reference: `--lambda_shape 1e-9`. The run goes through
+    #       ShapeRegularizedTrainer exactly like a regularized run (anchor-set
+    #       forward and backward every reg_every_k micro-steps); 1 − Ω_I lies
+    #       in [0, 2], so the weighted penalty contributes at most 2e-9 nats.
+    #       This is the "no regularization" reference of the unified protocol, in which
+    #       every method and the reference share one training loop.
     if args.lambda_shape > 0:
         print(f"\n  Shape regularizer: λ={args.lambda_shape}, "
               f"every_k={args.reg_every_k}, samples={args.reg_samples}")

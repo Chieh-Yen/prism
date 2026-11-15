@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================
-# PRISM — environment installer
+# PRISM: environment installer
+#
+# Installs the environment of the paper's experiments (requirements.txt:
+# run_quantization.sh and run_forgetting.sh). The experiments under
+# scripts/response/ were run in the environment listed in
+# requirements-response.txt, which this script does not install.
 #
 # Installs all dependencies in the correct order:
 #   1. torch with CUDA 12.8 wheel
@@ -65,5 +70,5 @@ echo "      GPTQModel installed."
 echo ""
 echo "============================================"
 echo "  Installation complete."
-echo "  Verify with: python -c \"import GPTQModel; print(GPTQModel.__version__)\""
+echo "  Verify with: python -c \"import gptqmodel; print(gptqmodel.__version__)\""
 echo "============================================"

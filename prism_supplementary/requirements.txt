@@ -1,5 +1,7 @@
 # ============================================================
-# PRISM — pinned dependencies (from conda env solver311)
+# PRISM: pinned dependencies of the paper's experiments
+# (run_quantization.sh, run_forgetting.sh). The experiments under
+# scripts/response/ used the versions in requirements-response.txt.
 #
 # ⚠️  GPTQModel MUST be installed separately (two known issues):
 #

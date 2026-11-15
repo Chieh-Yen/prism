@@ -1,0 +1,24 @@
+family,target_model,proxy_model,Label
+llama,meta-llama/Meta-Llama-3.1-8B,meta-llama/Meta-Llama-3.1-8B [FP16],BF16 vs FP16
+llama,meta-llama/Meta-Llama-3.1-8B,QuantFactory/Meta-Llama-3.1-8B-GGUF/Meta-Llama-3.1-8B.Q8_0.gguf,BF16 vs Q8_0
+llama,meta-llama/Meta-Llama-3.1-8B,QuantFactory/Meta-Llama-3.1-8B-GGUF/Meta-Llama-3.1-8B.Q6_K.gguf,BF16 vs Q6_K
+llama,meta-llama/Meta-Llama-3.1-8B,QuantFactory/Meta-Llama-3.1-8B-GGUF/Meta-Llama-3.1-8B.Q5_K_M.gguf,BF16 vs Q5_K_M
+llama,meta-llama/Meta-Llama-3.1-8B,QuantFactory/Meta-Llama-3.1-8B-GGUF/Meta-Llama-3.1-8B.Q4_K_M.gguf,BF16 vs Q4_K_M
+llama,meta-llama/Meta-Llama-3.1-8B,QuantFactory/Meta-Llama-3.1-8B-GGUF/Meta-Llama-3.1-8B.Q3_K_M.gguf,BF16 vs Q3_K_M
+llama,meta-llama/Meta-Llama-3.1-8B,QuantFactory/Meta-Llama-3.1-8B-GGUF/Meta-Llama-3.1-8B.Q2_K.gguf,BF16 vs Q2_K
+llama,meta-llama/Meta-Llama-3.1-8B,meta-llama/Meta-Llama-3.1-8B [bnb:int8],BF16 vs INT8
+llama,meta-llama/Meta-Llama-3.1-8B,meta-llama/Meta-Llama-3.1-8B [bnb:nf4],BF16 vs NF4
+llama,meta-llama/Meta-Llama-3.1-8B,meta-llama/Meta-Llama-3.1-8B [bnb:fp4],BF16 vs FP4
+llama,meta-llama/Meta-Llama-3.1-8B,ModelCloud/Meta-Llama-3.1-8B-gptq-4bit [GPTQ],BF16 vs GPTQ(Meta-Llama-3.1-8B-gptq-4bit)
+llama,meta-llama/Meta-Llama-3.1-8B,shuyuej/Meta-Llama-3.1-8B-GPTQ [GPTQ],BF16 vs GPTQ(Meta-Llama-3.1-8B-GPTQ)
+qwen,Qwen/Qwen3-8B-Base,Qwen/Qwen3-8B-Base [FP16],BF16 vs FP16
+qwen,Qwen/Qwen3-8B-Base,mradermacher/Qwen3-8B-Base-GGUF/Qwen3-8B-Base.Q8_0.gguf,BF16 vs Q8_0
+qwen,Qwen/Qwen3-8B-Base,mradermacher/Qwen3-8B-Base-GGUF/Qwen3-8B-Base.Q6_K.gguf,BF16 vs Q6_K
+qwen,Qwen/Qwen3-8B-Base,mradermacher/Qwen3-8B-Base-GGUF/Qwen3-8B-Base.Q5_K_M.gguf,BF16 vs Q5_K_M
+qwen,Qwen/Qwen3-8B-Base,mradermacher/Qwen3-8B-Base-GGUF/Qwen3-8B-Base.Q4_K_M.gguf,BF16 vs Q4_K_M
+qwen,Qwen/Qwen3-8B-Base,mradermacher/Qwen3-8B-Base-GGUF/Qwen3-8B-Base.Q3_K_M.gguf,BF16 vs Q3_K_M
+qwen,Qwen/Qwen3-8B-Base,mradermacher/Qwen3-8B-Base-GGUF/Qwen3-8B-Base.Q2_K.gguf,BF16 vs Q2_K
+qwen,Qwen/Qwen3-8B-Base,Qwen/Qwen3-8B-Base [bnb:int8],BF16 vs INT8
+qwen,Qwen/Qwen3-8B-Base,Qwen/Qwen3-8B-Base [bnb:nf4],BF16 vs NF4
+qwen,Qwen/Qwen3-8B-Base,Qwen/Qwen3-8B-Base [bnb:fp4],BF16 vs FP4
+qwen,Qwen/Qwen3-8B-Base,AlphaGaO/Qwen3-8B-GPTQ [GPTQ],BF16 vs GPTQ(Qwen3-8B-GPTQ)

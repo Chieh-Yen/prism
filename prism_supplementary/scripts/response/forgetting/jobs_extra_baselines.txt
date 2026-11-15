@@ -1,0 +1,42 @@
+# Runs behind the LwF / representation-KD table (Llama-3.1-8B, TruthfulQA), in addition to
+# the reference and shape-regularizer runs of jobs_main_table.txt.
+# Format: method model task lambda seed   (input of run_unified.py --jobs)
+lwf llama truthfulqa 0.1 42
+lwf llama truthfulqa 0.1 43
+lwf llama truthfulqa 0.1 44
+lwf llama truthfulqa 1 42
+lwf llama truthfulqa 1 43
+lwf llama truthfulqa 1 44
+lwf llama truthfulqa 5 42
+lwf llama truthfulqa 10 42
+lwf llama truthfulqa 10 43
+lwf llama truthfulqa 10 44
+lwf llama truthfulqa 50 42
+lwf llama truthfulqa 50 43
+lwf llama truthfulqa 50 44
+lwf llama truthfulqa 100 42
+lwf llama truthfulqa 100 43
+lwf llama truthfulqa 100 44
+lwf llama truthfulqa 500 42
+lwf llama truthfulqa 500 43
+lwf llama truthfulqa 500 44
+lwf llama truthfulqa 1000 42
+hint_mse llama truthfulqa 0.1 42
+hint_mse llama truthfulqa 0.1 43
+hint_mse llama truthfulqa 0.1 44
+hint_mse llama truthfulqa 1 42
+hint_mse llama truthfulqa 1 43
+hint_mse llama truthfulqa 1 44
+hint_mse llama truthfulqa 5 42
+hint_mse llama truthfulqa 5 43
+hint_mse llama truthfulqa 5 44
+hint_mse llama truthfulqa 10 42
+hint_mse llama truthfulqa 10 43
+hint_mse llama truthfulqa 10 44
+hint_mse llama truthfulqa 50 42
+hint_mse llama truthfulqa 50 43
+hint_mse llama truthfulqa 50 44
+hint_mse llama truthfulqa 100 42
+hint_mse llama truthfulqa 100 43
+hint_mse llama truthfulqa 100 44
+hint_mse llama truthfulqa 500 42

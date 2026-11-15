@@ -1,11 +1,11 @@
 """
-Unified Risk Discrepancy Bound (Theorem 2) and Lipschitz estimation.
+Unified risk bound (Theorem 1) and its Lipschitz constants.
 
 Tight Lipschitz constants (Appendix A)
 =======================================
-K_feat  --  via Simplex Polarization (Lemma 1):
-    The gradient of CE loss w.r.t. features z decomposes as a convex
-    combination of pairwise class-prototype differences:
+K_feat  --  via simplex polarization:
+    The gradient of CE loss w.r.t. features z decomposes as a non-negative
+    linear combination of pairwise class-prototype differences:
 
         nabla_z g_T = sum_{i!=k}  p_hat_i (h_i - h_k)
 
@@ -18,11 +18,11 @@ K_feat  --  via Simplex Polarization (Lemma 1):
     <= sigma_1(H) * sqrt(2).  Equality is rare; the tight bound depends
     on relative prototype distances, not absolute magnitude.
 
-K_pred  --  from logit-space gradient (Proposition 1):
+K_pred  --  from the logit-space gradient:
     nabla_v ell = p_hat - y   =>   K_pred <= sqrt(2).
 
-For the scale-absorbed variant H_bar_T = rho_T * H_T, columns scale by
-rho_T and K_feat^{abs} = rho_T * K_feat^{orig}.
+The scale-absorbed variant (PRISMMetrics.compute_all_absorbed) rescales only
+the proxy; H_T, and therefore K_feat, is the same as in the original mode.
 """
 
 from __future__ import annotations
@@ -49,9 +49,9 @@ def _max_pairwise_column_distance(H: Tensor, *, exact: bool = True) -> float:
             O(restarts * iters * C * d) — not guaranteed exact but
             very reliable in practice.
 
-    For d=4096, C=32000, CHUNK=2048 the exact path needs ~136 matmuls
-    of shape (2048, 2048) and takes roughly 15-40 s on a modern GPU
-    (one-time cost per experiment).
+    The exact path (``_diameter_exact``) visits every pair of column chunks
+    with CHUNK = 4096 columns per chunk, i.e. ceil(C / 4096) *
+    (ceil(C / 4096) + 1) / 2 Gram blocks; it is computed once per target head.
     """
     H = H.float()
     C = H.shape[1]
@@ -145,21 +145,20 @@ class UnifiedBound:
     ) -> Dict[str, float]:
         """Compute tight Lipschitz constants for cross-entropy.
 
-        K_feat uses the simplex-polarization bound (Lemma 1):
+        K_feat uses the simplex-polarization bound:
             K_feat = max_{j,k} ||h_j - h_k||_2
 
-        K_pred uses the logit-gradient bound (Proposition 1):
+        K_pred uses the logit-gradient bound:
             K_pred = sqrt(2)
 
-        These constants are intrinsic properties of the target head and
-        do not depend on the scale-absorbed reparameterisation (the
-        Corollary leaves H_T untouched, so K_feat is invariant).
+        These constants are properties of the target head and do not depend
+        on the scale-absorbed reparameterisation, which leaves H_T untouched.
 
         Args:
             H_T: (d, C) target head weights.
 
         Returns:
-            Dict with K_feat, K_pred, K_feat_naive, max_pw_dist,
+            Dict with K_feat, K_pred, K_feat_naive, max_pairwise_dist,
             H_T_spectral, L_loss.
         """
         H_T = H_T.float()
@@ -222,58 +221,3 @@ class UnifiedBound:
         result.risk_bound_head = rb_head
         result.risk_bound_total = rb_feat + rb_head
         return result
-
-    # ------------------------------------------------------------------
-    # Empirical Lipschitz estimation -- LLM  (per-sample losses)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def estimate_lipschitz_lm(
-        features: Tensor,
-        per_sample_losses: Tensor,
-        *,
-        num_pairs: int = 2000,
-        percentile: float = 95.0,
-    ) -> Dict[str, float]:
-        """Estimate K_feat empirically from target-model features and losses.
-
-        Samples random pairs (i, j) from the *same model* and computes::
-
-            K_hat = percentile_p( |l_i - l_j| / ||z_i - z_j||_2 )
-
-        Under the Corollary reparameterisation the target features Z_T are
-        untouched, so K_feat is the same regardless of absorbed/original mode.
-
-        Args:
-            features:          (n, d) feature matrix (CPU, float).
-            per_sample_losses: (n,) per-sample losses (CPU, float).
-            num_pairs:         Number of random pairs.
-            percentile:        Percentile of the ratio distribution to use.
-
-        Returns:
-            Dict with ``K_feat_empirical``, ``median``, ``p95``, ``max``.
-        """
-        features = features.to(per_sample_losses.device)
-        n = features.shape[0]
-        num_pairs = min(num_pairs, n * (n - 1) // 2)
-
-        device = features.device
-        idx_a = torch.randint(0, n, (num_pairs,), device=device)
-        idx_b = torch.randint(0, n, (num_pairs,), device=device)
-        mask = idx_a != idx_b
-        idx_a, idx_b = idx_a[mask], idx_b[mask]
-
-        feat_dists = (features[idx_a] - features[idx_b]).norm(dim=1).clamp(min=1e-10)
-        loss_diffs = (per_sample_losses[idx_a] - per_sample_losses[idx_b]).abs()
-
-        ratios = loss_diffs / feat_dists
-        p50 = torch.quantile(ratios, 0.50).item()
-        p95 = torch.quantile(ratios, percentile / 100.0).item()
-        p_max = ratios.max().item()
-
-        return {
-            "K_feat_empirical": p95,
-            "median": p50,
-            "p95": p95,
-            "max": p_max,
-        }
-

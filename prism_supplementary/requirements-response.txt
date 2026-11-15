@@ -1,0 +1,30 @@
+# ============================================================
+# Environment of the experiments under scripts/response/
+# (Python 3.12.3). Versions are those of the environment the runs used;
+# only packages that this package imports are listed, plus accelerate,
+# which transformers' Trainer and device_map use.
+#
+#   pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements-response.txt
+#
+# The GPTQ variants of the eight-sequence screen
+# (scripts/response/screen_n8/) were scored in a separate environment that
+# has a GPTQ loader; no GPTQ loader is listed here.
+#
+# requirements.txt is the environment of the paper's experiments
+# (run_quantization.sh, run_forgetting.sh).
+# ============================================================
+
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch==2.11.0
+transformers==5.2.0
+accelerate==1.12.0
+peft==0.18.1
+datasets==4.5.0
+bitsandbytes==0.50.2
+gguf==0.17.1
+numpy==2.2.6
+scipy==1.17.0
+PyYAML==6.0.3
+tqdm==4.70.1
