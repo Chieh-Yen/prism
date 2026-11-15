@@ -97,9 +97,10 @@ definitions.
 | Main forgetting table (Table 3) and the selection rule (four cells, three seeds) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_main_table.sh out/unified` |
 | LwF and representation KD (four cells, three seeds) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_extra_baselines.sh out/unified` |
 | Layer freezing (four cells, three seeds) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_layer_freezing.sh out/unified` |
+| Trajectories of Figs. 4 and 8: four methods at their selected λ, four cells, seeds 42, 43, 44 | `scripts/response/forgetting/` | `python scripts/response/forgetting/run_unified.py --out_root out/unified_traj --jobs scripts/response/forgetting/jobs_trajectories.txt --save_steps 25` |
 | Sensitivity to the anchor draw (Appendix I): Llama-3.1-8B/TruthfulQA, seeds 42, 43, 44, n = 32, 16, 8 | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_anchor_draw.sh out/anchor_draw` |
-| LoRA checkpoint ranking over three seeds (Sec. 4.2, Appendix F.3, Table 21) | `scripts/response/lora_similarity/` | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
-| Eight-sequence screen (Sec. 4.3, Table 2; Appendix F.2, Table 20) | `scripts/response/screen_n8/` | `bash scripts/response/screen_n8/run_screen.sh run`, then `... run_screen.sh gptq` in an environment with a GPTQ loader, then `... run_screen.sh analyze` |
+| LoRA checkpoint ranking over three seeds (Sec. 4.2, Appendix F.3, Table 20) | `scripts/response/lora_similarity/` | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
+| Eight-sequence screen (Sec. 4.3, Table 2; Appendix F.2, Table 19) | `scripts/response/screen_n8/` | `bash scripts/response/screen_n8/run_screen.sh run`, then `... run_screen.sh gptq` in an environment with a GPTQ loader, then `... run_screen.sh analyze` |
 | Single-seed λ sweep (Llama-3.1-8B/TruthfulQA, shape regularizer) | top level | `bash run_forgetting.sh` (this cell only: `MODELS_ORDER=llama TASKS_ORDER=truthfulqa REPLAY_LAMBDAS="" bash run_forgetting.sh`), then `python scripts/sweep_table.py --root checkpoints` |
 | Layer-wise and q/k/v profile (Appendix K.3) | `scripts/response/layer_profile/` | `bash scripts/response/layer_profile/run_layer_profile.sh` |
 | Head experiment 1 (hybrids, 20 cells) | `scripts/response/head/` | `STAGE=swap bash scripts/response/head/run_head.sh`, then `STAGE=analyze` (prints both analyses and needs the outputs of experiments 1 and 2) |
@@ -185,8 +186,8 @@ summary. `run_quantization.sh` needs bash 4 or later.
 |---|---|
 | Appendix F.2, reference-set size: seeds 43, 44, 45; sizes 8, 32, 128, 512; both families | `bash scripts/rounds/run_three_seed_round.sh run` (GPU), `bash scripts/rounds/run_three_seed_round.sh table` (no GPU) |
 | Fixed-weight regularizer comparison (not the Appendix I table): Llama-3.1-8B/TruthfulQA, seeds 42, 43, 44 | `STAGE=sweep bash scripts/rounds/run_regularizer_baselines.sh`, then `STAGE=seeds`, then `STAGE=table` |
-| LoRA checkpoint ranking (Sec. 4.2, Appendix F.3, Table 21): Llama-3.1-8B on TruthfulQA and BBQ, seeds 42, 43, 44 | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
-| Appendix I (Table 30) under the unified protocol: four cells, seeds 42, 43, 44 | `bash scripts/response/forgetting/launch_main_table.sh out/unified`, then `launch_appendix_baselines.sh` (L2-SP, EWC), `launch_extra_baselines.sh` (LwF, representation KD) and `launch_layer_freezing.sh` in the same folder, each with `out/unified` |
+| LoRA checkpoint ranking (Sec. 4.2, Appendix F.3, Table 20): Llama-3.1-8B on TruthfulQA and BBQ, seeds 42, 43, 44 | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
+| Appendix I (Table 29) under the unified protocol: four cells, seeds 42, 43, 44 | `bash scripts/response/forgetting/launch_main_table.sh out/unified`, then `launch_appendix_baselines.sh` (L2-SP, EWC), `launch_extra_baselines.sh` (LwF, representation KD) and `launch_layer_freezing.sh` in the same folder, each with `out/unified` |
 
 Notes on the rounds of `scripts/rounds/`:
 

@@ -8,7 +8,7 @@ Metrics use `W = I`. Five benchmarks (ARC, MMLU, SQuAD, TriviaQA, GSM8K),
 **Gap.** Gaps are `|R_target - R|` in nats, where `R` is the mean
 cross-entropy over all answer tokens of the 512 sequences, i.e. over the rows
 the features and the bound are computed on (for Qwen3-8B-Base in the reported
-runs: 527 rows for ARC, 512 for MMLU, 2,519 for SQuAD, 1,556 for TriviaQA and
+runs, seed 42: 527 rows for ARC, 512 for MMLU, 2,519 for SQuAD, 1,556 for TriviaQA and
 63,067 for GSM8K).
 
 **Noise floor.** Gaps and differences of gaps below 0.02 nats are treated as

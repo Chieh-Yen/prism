@@ -66,6 +66,13 @@ REF_METHOD = "trace"            # the shape regularizer: reference of the matche
 SWEEP_SEED = "seed42"           # seed of the sweep; the matched block uses it only
 # (method, configuration) of the six configurations of the `seeds` stage of
 # run_regularizer_baselines.sh.
+SHOW = {"replay": "anchor-CE"}   # printed name of a method directory
+
+
+def show(m):
+    return SHOW.get(m, m)
+
+
 PRINTED = [
     ("none", "lam0"),
     ("replay", "lam0.01"),
@@ -171,12 +178,12 @@ def main():
         configs = defaultdict(list)   # method -> [(dR, eval_loss, omega, lam, seed)]
         for m, l, sd, s in entries:
             if s == "BAD":
-                print(f"{m:<14}{l:<12}{sd:<8}(JSON empty or truncated)")
+                print(f"{show(m):<14}{l:<12}{sd:<8}(JSON empty or truncated)")
                 continue
             if s is None:
-                print(f"{m:<14}{l:<12}{sd:<8}(no step-{args.step} checkpoint)")
+                print(f"{show(m):<14}{l:<12}{sd:<8}(no step-{args.step} checkpoint)")
                 continue
-            print(f"{m:<14}{l:<12}{sd:<8}{s['dR']:<12.3f}"
+            print(f"{show(m):<14}{l:<12}{sd:<8}{s['dR']:<12.3f}"
                   f"{(s['eval_loss'] or float('nan')):<13.3f}{s['omega']:<10.3f}")
             configs[m].append((s["dR"], s["eval_loss"], s["omega"], l, sd))
 
@@ -193,7 +200,7 @@ def main():
                       if len(dr) >= 2 else f"{dr[0]:.3f} (one seed)")
             ev_txt = (f"{statistics.mean(ev):.3f} ± {statistics.stdev(ev):.3f}"
                       if len(ev) >= 2 else "-")
-            print(f"    {m:<14}{l:<12}{len(vals):<7}{dr_txt:<18}{ev_txt}")
+            print(f"    {show(m):<14}{l:<12}{len(vals):<7}{dr_txt:<18}{ev_txt}")
 
         hdr = f"    {'method':<14}{'config':<12}{'seeds':<7}{'forgetting':<18}{'target loss':<18}"
         print("\n  configurations of the seeds stage: "
@@ -203,7 +210,7 @@ def main():
             if (m, l) in per_cfg:
                 seed_line(m, l)
             else:
-                print(f"    {m:<14}{l:<12}(no run found)")
+                print(f"    {show(m):<14}{l:<12}(no run found)")
         others = sorted(k for k in per_cfg if k not in PRINTED and len(per_cfg[k]) >= 2)
         if others:
             print("\n  other configurations with at least two seeds: "
@@ -225,7 +232,7 @@ def main():
                 if not sweep[m]:
                     continue
                 dr, ev, om, l, sd = min(sweep[m], key=lambda c: abs(c[1] - ref))
-                print(f"    {m+' '+l:<24} {sd:<8} target loss {ev:.3f} ({ev - ref:+.3f})   "
+                print(f"    {show(m)+' '+l:<24} {sd:<8} target loss {ev:.3f} ({ev - ref:+.3f})   "
                       f"forgetting {dr:.3f}")
         elif not refs:
             print(f"\n  (no {SWEEP_SEED} run of {REF_METHOD}: no matched block)")

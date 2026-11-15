@@ -1,0 +1,53 @@
+# Trajectory runs of Figs. 4 and 8: every method of the figures at its selected lambda
+# (Table 29), four cells, three seeds, run with --save_steps 25 so that every
+# 25 steps is recorded. Use an output root of its own (a finished step-300 run of
+# the tables would otherwise be skipped).
+# Format: method model task lambda seed   (input of run_unified.py --jobs)
+noreg_sameloop llama truthfulqa 1e-09 42
+shape llama truthfulqa 1000 42
+anchor_ce llama truthfulqa 1 42
+generic_replay llama truthfulqa 100 42
+noreg_sameloop llama truthfulqa 1e-09 43
+shape llama truthfulqa 1000 43
+anchor_ce llama truthfulqa 1 43
+generic_replay llama truthfulqa 100 43
+noreg_sameloop llama truthfulqa 1e-09 44
+shape llama truthfulqa 1000 44
+anchor_ce llama truthfulqa 1 44
+generic_replay llama truthfulqa 100 44
+noreg_sameloop llama bbq 1e-09 42
+shape llama bbq 1 42
+anchor_ce llama bbq 1 42
+generic_replay llama bbq 100 42
+noreg_sameloop llama bbq 1e-09 43
+shape llama bbq 1 43
+anchor_ce llama bbq 1 43
+generic_replay llama bbq 100 43
+noreg_sameloop llama bbq 1e-09 44
+shape llama bbq 1 44
+anchor_ce llama bbq 1 44
+generic_replay llama bbq 100 44
+noreg_sameloop qwen truthfulqa 1e-09 42
+shape qwen truthfulqa 50 42
+anchor_ce qwen truthfulqa 1 42
+generic_replay qwen truthfulqa 5 42
+noreg_sameloop qwen truthfulqa 1e-09 43
+shape qwen truthfulqa 50 43
+anchor_ce qwen truthfulqa 1 43
+generic_replay qwen truthfulqa 5 43
+noreg_sameloop qwen truthfulqa 1e-09 44
+shape qwen truthfulqa 50 44
+anchor_ce qwen truthfulqa 1 44
+generic_replay qwen truthfulqa 5 44
+noreg_sameloop qwen bbq 1e-09 42
+shape qwen bbq 10000 42
+anchor_ce qwen bbq 10000 42
+generic_replay qwen bbq 1000 42
+noreg_sameloop qwen bbq 1e-09 43
+shape qwen bbq 10000 43
+anchor_ce qwen bbq 10000 43
+generic_replay qwen bbq 1000 43
+noreg_sameloop qwen bbq 1e-09 44
+shape qwen bbq 10000 44
+anchor_ce qwen bbq 10000 44
+generic_replay qwen bbq 1000 44

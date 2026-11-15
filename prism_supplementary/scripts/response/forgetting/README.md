@@ -1,7 +1,7 @@
 # Unified forgetting protocol
 
 The protocol of the paper's forgetting experiments (Sec. 4.5 and Appendices H.2, H.3,
-I, J; Table 3, Table 30, Figs. 4 and 8). It compares the shape regularizer with no
+I, J; Table 3, Table 29, Figs. 4 and 8). It compares the shape regularizer with no
 regularization, anchor-CE, generic replay, LwF and representation KD when
 every method is tuned by one rule that reads only the target-task loss. The
 same rule is applied to L2-SP and EWC, the weight-space baselines of
@@ -20,6 +20,7 @@ selected methods.
 | `launch_main_table.sh` | main table: trains `jobs_main_table.txt`, evaluates, prints |
 | `launch_extra_baselines.sh` | LwF and representation KD on the four cells, with lambda · P; needs the reference and shape-regularizer runs of the main table in the same directory |
 | `launch_appendix_baselines.sh` | L2-SP and EWC (Appendix I baselines) on the four cells, with lambda · P; needs the reference and shape-regularizer runs of the main table in the same directory |
+| `jobs_trajectories.txt` | the trajectory runs of Figs. 4 and 8: no regularization, anchor-CE, generic replay and the shape regularizer at their selected lambda, four cells, three seeds (48 runs; run with `--save_steps 25`, see Commands) |
 | `launch_anchor_draw.sh`, `anchor_draw_table.py` | sensitivity to the anchor draw (Appendix I): the shape regularizer on Llama-3.1-8B/TruthfulQA at λ = 1e3 with the anchor set redrawn as four disjoint windows at n = 32, 16, 8 (36 runs), and the table of their forgetting |
 | `launch_layer_freezing.sh` | layer freezing on the four cells: trains `jobs_layer_freezing.txt` and evaluates the target-task loss |
 | `search_lambda.sh` | the lambda search as a loop, from a list of starting runs |
@@ -150,9 +151,9 @@ python scripts/response/forgetting/run_unified.py --out_root out/unified \
 python scripts/response/forgetting/run_unified.py --out_root out/unified \
     --jobs scripts/response/forgetting/jobs_main_table.txt --dry_run
 
-# a run with its trajectory (figures of Sec. 4.5 and Appendix H), in an output root of its own
+# the trajectory runs of Figs. 4 and 8 (48 runs), in an output root of their own
 python scripts/response/forgetting/run_unified.py --out_root out/unified_traj \
-    --methods shape --models llama --tasks truthfulqa --lambdas 1000 --seeds 42 43 44 \
+    --jobs scripts/response/forgetting/jobs_trajectories.txt \
     --save_steps 25 --save_total_limit 2
 ```
 
