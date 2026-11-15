@@ -69,10 +69,7 @@ which uses it, and `head_precision.py` also uses it for its start-up check of
 the quantizers. The analysis scripts use the
 Python standard library only.
 
-Runtime: the recorded per-cell times add up to about 45 GPU-minutes for
-experiment 1 and about 50 GPU-minutes for experiment 2 (model loading and, in
-experiment 1, the target's pass on each benchmark are not included). The
-analyses need no GPU.
+The analyses need no GPU.
 
 ## What is measured
 

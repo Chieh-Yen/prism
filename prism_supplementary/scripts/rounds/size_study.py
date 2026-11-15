@@ -25,9 +25,11 @@ out/rounds/size_study/{family}_size_study.md.
                            the largest size it is the target, so r_s = 1
         1-CKA              1 - cka
         1-SVCCA            1 - svcca
-        delta (W = I)      feature term under the identity alignment,
+        delta (W = I)      feature term under the identity alignment without the
+                           factor K_feat,
                            sqrt((rho_T - rho_P)^2 + 2 rho_T rho_P (1 - omega_I))
-        delta_N            feature term under the Procrustes alignment (delta_W)
+        delta_N            feature term under the Procrustes alignment (delta_W),
+                           without the factor K_feat
         B_N                the bound under the Procrustes alignment (bound_W)
 
 The script refuses an incomplete grid: every (seed, size, benchmark) cell must

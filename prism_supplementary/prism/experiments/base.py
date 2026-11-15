@@ -151,6 +151,11 @@ class BaseExperiment:
         Full-text loss columns (|dR|, Loss_T/P, PPL_T/P) are always
         included.  Answer-only columns (|AdR|, ALoss_T/P, APPL_T/P) are
         appended automatically when any result has answer loss data.
+
+        Suffix _I: W = I; suffix _W: Procrustes alignment W_N (Omega_W is
+        Omega_N, Bound_W is B_N).  Bound is the smaller of Bound_I and
+        Bound_W.  delta_* and gamma_* are the two norms without K_f and K_p.
+        |AdR| is the risk gap of the paper's tables; |dR| is the full-text gap.
         """
         path = os.path.join(self.output_dir, filename)
 

@@ -18,9 +18,7 @@ saved at step 300, rebuilds the run's 32 anchor rows, and records
 
 ``target_loss``  the answer-only cross-entropy (next-token loss on the answer
                  tokens, prompt tokens masked) of the fine-tuned model on the
-                 rows of the evaluation split outside the run's anchor set,
-                 token-weighted: the summed loss of the answer tokens of
-                 those rows divided by their number;
+                 rows of the evaluation split outside the run's anchor set;
 ``n_rows``       number of rows of the evaluation split;
 ``n_anchor``     number of anchor rows (32);
 ``n_eval_rows``  number of rows ``target_loss`` is computed on

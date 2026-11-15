@@ -104,8 +104,7 @@ def risk_gaps_from_csv(family: str, results_csv) -> Dict[tuple, float]:
     The gap of a row is read from the first of these columns that is present
     and not empty:
 
-      `|AdR|`  answer-only gap: |mean_T - mean_P| of the mean over sequences
-               of each sequence's mean answer-token loss. Written by
+      `|AdR|`  answer-only gap. Written by
                save_csv for the question-answering benchmarks (all five
                benchmarks used here).
       `|dR|`   full-sequence gap (all tokens); the only gap column for tasks
@@ -209,7 +208,7 @@ def load_proxy(spec: Dict, device: str = "cuda:0"):
 # Feature extraction
 # ----------------------------------------------------------------------
 def extract_Z(model, dataloader, device: str = "cuda:0") -> torch.Tensor:
-    """Token-level (concat) features, float32 on the CPU."""
+    """Token-level (concat) features on the CPU."""
     return LLMExtractor().extract_features(
         model, dataloader, device, z_mode="concat",
     )

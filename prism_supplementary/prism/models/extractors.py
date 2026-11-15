@@ -248,8 +248,7 @@ class LLMExtractor(FeatureExtractor):
                     bb_out = backbone(**batch_on_device)
                     hidden = bb_out.last_hidden_state
 
-                # Free all intermediate hidden states (layers 0..N-2); saves
-                # ~2 GB for 32-layer models with bsz=8, seq=1024.
+                # Free the intermediate hidden states.
                 del out
 
                 for zm in z_modes:
@@ -321,9 +320,8 @@ class LLMExtractor(FeatureExtractor):
         """Return (d, vocab_size) in model dtype.
 
         Returns a contiguous copy so it does NOT keep the model alive
-        after the caller deletes the model.  Stays in model dtype (e.g.
-        BF16) to avoid a large float32 allocation on GPU; callers (metrics,
-        bounds) cast it themselves.
+        after the caller deletes the model.  Stays in model dtype; callers
+        cast it.
         """
         if hasattr(model, "lm_head"):
             w = model.lm_head.weight.data  # (vocab, d)

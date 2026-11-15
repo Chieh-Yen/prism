@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 import os
-import warnings
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -46,14 +45,11 @@ class PRISMResult:
 class PRISMMetrics:
     """Pure-function collection of all PRISM geometric metrics."""
 
-    _UNIT_TOL = 1e-6
-
     @staticmethod
     def _metric_dtype_cast(*tensors: Tensor):
         """Cast the inputs of the metric path.
 
-        float32 by default; ``PRISM_METRIC_DTYPE=float64`` selects double
-        precision.
+        dtype from ``PRISM_METRIC_DTYPE`` (float32 by default, or float64).
         """
         name = os.environ.get("PRISM_METRIC_DTYPE", "float32").strip().lower()
         if name in ("float32", "float", "single"):
@@ -70,20 +66,15 @@ class PRISMMetrics:
 
     @staticmethod
     def _fro(Z: Tensor) -> float:
-        """Frobenius norm via the row-wise accumulation above."""
+        """Frobenius norm, sqrt(sum_i <Z_i, Z_i>)."""
         return math.sqrt(PRISMMetrics._rowdot_sum(Z, Z))
 
     @staticmethod
     def _unit_clip(x: float) -> float:
-        """Clip a normalised inner product to [-1, 1]; the unclipped value is kept in extra["omega_raw"]."""
+        """Restrict Omega to [-1, 1] (Eq. 3)."""
         if x > 1.0:
-            if x - 1.0 > PRISMMetrics._UNIT_TOL:
-                warnings.warn(f"Omega = {x:.6f} exceeds 1 by more than "
-                              f"{PRISMMetrics._UNIT_TOL}")
             return 1.0
         if x < -1.0:
-            if -1.0 - x > PRISMMetrics._UNIT_TOL:
-                warnings.warn(f"Omega = {x:.6f} below -1")
             return -1.0
         return x
 

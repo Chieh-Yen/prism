@@ -174,8 +174,8 @@ def main():
     print(f"\n1. Summary at n = 8 ({len(cells)} cells x {SETS_PER_CELL} reference sets)\n")
     print("| | " + " | ".join(NAMES) + " |")
     print("|---|" + "--:|" * len(NAMES))
-    print("| mean r_s (mean of the cell means) | " + " | ".join(f"{cell_mean[n].mean():.3f}" for n in NAMES) + " |")
     print("| worst single reference set | " + " | ".join(f"{min(per_cell[c][n].min() for c in cells):.3f}" for n in NAMES) + " |")
+    print("| mean r_s (mean of the cell means) | " + " | ".join(f"{cell_mean[n].mean():.3f}" for n in NAMES) + " |")
     line = "| cells where the mean r_s of B_N is higher (exact two-sided paired Wilcoxon p) | "
     for n in NAMES[:-1]:
         higher = int((cell_mean["B_N"] > cell_mean[n]).sum())

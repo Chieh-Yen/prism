@@ -161,11 +161,9 @@ class ShapeRegularizedTrainer(Trainer):
         (G).
 
     For comparison, the stock ``Trainer`` passes ``num_items_in_batch`` to
-    the model, so its CE is the token-level mean over all G micro-batches,
-    CE_tok, and its accumulated gradient is (1/G) · ∇CE_tok.  The CE term of
-    this class is therefore about G times that of the stock ``Trainer``
-    (exactly G times when every micro-batch has the same number of answer
-    tokens).
+    the model, so its CE is the mean over all G micro-batches together,
+    CE_all, and its accumulated gradient is (1/G) · ∇CE_all.  The CE term of
+    this class is therefore about G times that of the stock ``Trainer``.
 
     Every subclass (``ReplayCETrainer`` here, and the baseline trainers in
     train_forgetting_baselines.py) overrides only the penalty P, so all
@@ -183,7 +181,7 @@ class ShapeRegularizedTrainer(Trainer):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.Z_T_ref = Z_T_ref          # (n_tokens, d) CPU float32 detached, or None
+        self.Z_T_ref = Z_T_ref          # (n_tokens, d) on CPU, detached, or None
         self._ref_dl = ref_dataloader
         self._lambda = lambda_shape
         self._reg_k = reg_every_k
@@ -270,12 +268,7 @@ class ShapeRegularizedTrainer(Trainer):
 
     # ------------------------------------------------------------------
     def log(self, logs: Dict[str, float], *args, **kwargs) -> None:
-        """Inject shape regularizer metrics into log entries.
-
-        HF Trainer.log() added ``start_time`` as a second positional arg
-        in newer versions; accept *args/**kwargs and pass them through so
-        this override stays compatible across transformers releases.
-        """
+        """Inject shape regularizer metrics into log entries."""
         if self._count > 0:
             logs["shape_loss"] = round(self._shape_sum / self._count, 6)
             logs["omega_ref"] = round(self._omega_sum / self._count, 6)
@@ -581,8 +574,8 @@ class PRISMCheckpointCallback(TrainerCallback):
 
         print(f"  train_loss={tl_s}  eval_loss({self.trained_task})={el_s}  "
               f"prism_eval={elapsed:.1f}s")
-        print(f"  (All losses are answer-only CE. eval_loss is Trainer validation on")
-        print(f"   training-task data; PRISM metrics below use separate eval data.)")
+        print(f"  (All losses are answer-only CE. eval_loss is on the fine-tuning task's")
+        print(f"   held-out rows; PRISM metrics below use the benchmarks.)")
 
         # ── Table A: Geometry ────────────────────────────────────────
         print()
@@ -683,7 +676,7 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "train_loss": "most recent `loss` logged by the Trainer at or before this "
                               "step: answer-only CE on the fine-tuning task, averaged over "
                               "the optimizer steps of the last logging window. Per optimizer "
-                              "step the library Trainer logs the token-weighted mean over "
+                              "step the library Trainer logs the mean over "
                               "the G = grad_accum micro-batches; the regularized trainers "
                               "log the sum of the G micro-batch means (about G times as "
                               "large); the penalty is not included",
@@ -728,9 +721,7 @@ def pre_compute_base_features(
 
     Also computes the tight Lipschitz constants K_feat, K_pred from the
     base model's lm_head once (identical across tasks since H_T is the
-    same frozen base head). These are required for the paper's bound
-    |R_T - R_P| <= K_feat * delta + K_pred * gamma to hold; K = 1 is
-    not a valid assumption for cross-entropy loss.
+    same frozen base head), the constants of the paper's bound.
 
     Returns:
         base_features:    {task: {Z, H, loss_full, loss_answer, Z_shape}}

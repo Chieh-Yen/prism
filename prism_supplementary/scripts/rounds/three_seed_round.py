@@ -11,16 +11,14 @@ benchmark, seed, size), one CSV row with
     omega_I               trace similarity under the identity alignment
     omega_W               nuclear-norm similarity (Procrustes alignment W_N)
     rho_T, rho_P          RMS feature scales
-    delta_W               feature term under W_N
-    gamma_W               head term under W_N
+    delta_W               feature term under W_N, without the factor K_feat
+    gamma_W               head term under W_N, without the factor K_pred
     K_feat, K_pred        constants of the bound (UnifiedBound.theoretical_K)
     bound_W               B_N = K_feat * delta_W + K_pred * gamma_W
     loss_T, loss_P, |MdR| answer-token losses of target and variant, and the
                           risk gap |loss_T - loss_P|
 
 Every column of a row comes from the same forward pass on the same sequences.
-The risk gap is the absolute difference of the two models' means, over
-sequences, of each sequence's mean answer-token cross-entropy.
 
 Seeds and sizes
     Seeds 43, 44, 45 (the main quantization grid uses seed 42).  A seed fixes
@@ -152,9 +150,7 @@ def loader_fingerprint(loader):
 
     ds = loader.dataset
     ids = ds.encodings["input_ids"]
-    # Hash only the non-pad tokens: the loader pads to the longest text of the
-    # set it is given, so the same example has a different padded width at
-    # n = 8 and at n = 512.
+    # Hash only the non-pad tokens, so an example has the same hash at every size.
     mask = ds.encodings.get("attention_mask")
     h = set()
     for i, row in enumerate(ids):
@@ -287,8 +283,7 @@ def run(args) -> None:
     def feats_and_loss(model, loader):
         """One forward pass -> (answer-token features, mean answer loss).
 
-        Features and loss come from the same answer tokens.  The loss is the
-        mean over sequences of each sequence's mean answer-token cross-entropy.
+        Features and loss come from the same answer tokens.
         """
         Z, stats = ex.extract_features_and_loss_per_sample(
             model, loader, args.device, z_mode="concat")
@@ -487,7 +482,7 @@ def main() -> None:
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--chunk", type=int, default=8192,
-                    help="token rows per accumulation chunk (memory setting)")
+                    help="token rows per chunk (memory setting)")
     ap.add_argument("--force", action="store_true",
                     help="move existing seed files aside and recompute everything")
     ap.add_argument("--check", action="store_true",

@@ -93,11 +93,7 @@ def fold(x):
 
 def verdict(change, floor):
     """change = gap(all quantized) - gap(outliers kept)."""
-    if change > floor:
-        return "keeping outliers lowers the gap"
-    if change < -floor:
-        return "keeping outliers raises the gap"
-    return "within noise"
+    return "beyond noise" if abs(change) > floor else "within noise"
 
 
 def report(m, floor):
@@ -140,7 +136,6 @@ def report(m, floor):
     summary = dict(
         target=m["target"],
         head_zero=sum(v["gamma"] == 0.0 for v in c.values()),
-        shape_larger=sum(v["shape"] > v["scale"] for v in c.values()),
         bound_holds=sum(v["bound"] >= v["gap"] for v in c.values()),
         bound_lower_kept=sum(c[(t, KEPT)]["bound"] < c[(t, ALLQ)]["bound"] for t in tasks),
         n_cells=n_cells, n_tasks=len(tasks),
@@ -154,7 +149,6 @@ def report(m, floor):
     print("\nSummary")
     print(f"  head term exactly zero                      : {s['head_zero']} / {n_cells} cells")
     print(f"  bound >= gap                                : {s['bound_holds']} / {n_cells} cells")
-    print(f"  shape term larger than scale term           : {s['shape_larger']} / {n_cells} cells")
     print(f"  bound lower with outliers kept              : "
           f"{s['bound_lower_kept']} / {s['n_tasks']} benchmarks")
     print(f"  scale term ratio, min to max                : "

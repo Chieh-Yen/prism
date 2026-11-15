@@ -7,7 +7,7 @@
 # trainer at λ=0. Cross-entropy on the anchor set (anchor-CE; the anchor set
 # is 32 held-out sequences of the fine-tuning task) is run first; the shape
 # regularizer (1−Ω_I) follows. The λ=0 runs are the unregularized LoRA
-# checkpoint series of Sec. 4.2; the sweep is tabulated by
+# checkpoint series of Sec. 4.2 and Appendix H.1; the sweep is tabulated by
 # scripts/sweep_table.py. The forgetting comparison of Sec. 4.5 and
 # Appendices H.2, H.3, I, J is not run here but by scripts/response/forgetting/.
 #

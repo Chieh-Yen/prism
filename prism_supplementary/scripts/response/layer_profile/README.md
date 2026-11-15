@@ -25,8 +25,7 @@ and v projections.
   `configs/model_revisions.yaml`.
 - Sequences: MMLU test split, the first 128 sequences after a shuffle with
   seed 42; `max_length` 1024; batch size 4. All non-pad tokens are used,
-  prompt included (14,100 tokens with the Qwen tokenizer, 13,962 with the
-  Llama tokenizer).
+  prompt included (about 14k tokens).
 - Read-out points:
   - residual stream: every entry of `hidden_states`. Index 0 is the embedding
     output, index i (1 to L-1) is the stream after block i, and index L is the
@@ -116,5 +115,4 @@ needed for these models), `PRISM_UNPINNED=1` ignores the pinned revisions.
 
 `layer_profile.py` keeps the target and one variant on the GPU together (two
 8B models in BF16, about 16 GB of weights each, plus activations). This does
-not fit in 32 GB; the reported runs used one 96 GB GPU per job and took 100 to
-112 seconds per variant (the `secs` fields). `make_table.py` needs no GPU.
+not fit in 32 GB; use a 96 GB GPU. `make_table.py` needs no GPU.

@@ -34,9 +34,7 @@ how the measured gap and each term of the bound respond.
 - Settings: the reported thresholds are 6.0 and 1e9. `scale_toggle.py` labels
   a threshold in (0, 1e6) as "outliers kept" and any other value as "all
   quantized"; other thresholds were not run.
-- Features and loss follow the paper's protocol for these benchmarks: the final
-  hidden states at the answer positions of all sequences are stacked into Z,
-  and the loss is the mean token cross-entropy at the same positions. The gap
+- Features and loss follow the paper's protocol for these benchmarks. The gap
   is `|loss_T - loss_P|` in nats.
 - Decomposition under identity alignment: scale term `(rho_T - rho_P)^2`, shape
   term `2 rho_T rho_P (1 - Omega)`, feature term `delta = sqrt(scale + shape)`,

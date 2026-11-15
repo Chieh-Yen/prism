@@ -17,8 +17,6 @@ Exactly what is computed (inputs have shape (n, d)):
 
         CKA = ||X^T Y||_F^2 / ( ||X^T X||_F * ||Y^T Y||_F ),
 
-    with the denominator clamped at 1e-12.
-
 ``svcca(X, Y)``
     SVCCA (Raghu et al., 2017).  X and Y are centred column-wise.  For each
     matrix separately, the leading principal directions are kept: the

@@ -10,9 +10,7 @@ cell    one (fine-tuning task, downstream benchmark) pair; two tasks x five
         benchmarks = ten cells, each trained with three seeds.
 gap     |delta_risk|: the absolute difference between the fine-tuned
         checkpoint's and the base model's answer-only cross-entropy on the
-        256 evaluation sequences of the benchmark.  The answer-only
-        cross-entropy is the mean over the 256 sequences of each sequence's
-        mean answer-token loss.
+        256 evaluation sequences of the benchmark.
 bound   the PRISM bound under the identity alignment W = I
         (``bound_total``), computed on those 256 sequences.  LoRA leaves the
         output head frozen, so the head term is zero and the bound equals the

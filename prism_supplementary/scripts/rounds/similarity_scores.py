@@ -25,9 +25,7 @@ writes one CSV per model and dataset
 (prism_<model>_<dataset>_n<N>_concat.csv).  --results-csv takes those files, a
 directory that holds them, or a glob pattern; only the rows of the family's
 target model with z_mode "concat" are read.  The risk gap is the column
-`|AdR|` of those files: the answer-only gap, i.e. the absolute difference
-between target and variant of the mean over sequences of each sequence's mean
-answer-token loss; where a row has no `|AdR|` value, the full-sequence `|dR|`
+`|AdR|` of those files (the answer-only gap); where a row has no `|AdR|` value, the full-sequence `|dR|`
 is used (common_quant.risk_gaps_from_csv).  In this script's own output CSV
 the joined gap is stored in a column named `|MdR|`.
 
@@ -81,7 +79,7 @@ OUT_DIR = REPO / "out" / "rounds" / "similarity"
 
 
 # ----------------------------------------------------------------------
-# Similarity metrics on paired token features (n, d), float32 on the GPU
+# Similarity metrics on paired token features (n, d)
 # ----------------------------------------------------------------------
 def linear_cka(X: torch.Tensor, Y: torch.Tensor) -> float:
     X = X - X.mean(0, keepdim=True)

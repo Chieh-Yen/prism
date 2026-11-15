@@ -19,9 +19,8 @@ Per set and variant: CKA (the score is 1-CKA), delta_N, gamma_N,
 B_N = K_feat*delta_N + K_pred*gamma_N under the Procrustes alignment, and gap8; per pool and
 variant: gap512.
 
-Risk gap.  gap8 and gap512 are |mean_i l_T(i) - mean_i l_P(i)|, where l(i) is the mean
-answer-token cross-entropy of sequence i and i runs over the eight sequences of the set
-(gap8) or the 512 of the pool (gap512), as in the three-seed round.
+Risk gap.  gap8 and gap512 are the risk gap on the eight sequences of the set (gap8) and
+on the 512 of the pool (gap512), as in the three-seed round.
 
 Arithmetic.  The omega / Procrustes / gamma arithmetic is that of fresh_metrics in the
 three-seed round's script (scripts/rounds/three_seed_round.py), rewritten in the n x n (thin) form, which is

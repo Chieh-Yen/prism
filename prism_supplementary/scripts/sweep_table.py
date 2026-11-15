@@ -21,11 +21,9 @@ the record of the final step (the run's `max_steps`, 300 in the sweeps; or
                     When the sweep is run through run_forgetting.sh, the
                     trainer is started with --eval_keep_anchor_rows and this
                     is the loss on the whole held-out slice (the last 20% of
-                    the task's data; 163 rows for TruthfulQA), which includes
-                    the 32 anchor rows the regularizers read. A run started
-                    without that flag evaluates the slice without the anchor
-                    rows; the column "eval rows" shows the number of rows
-                    each run was evaluated on when the file records it.
+                    the task's data), which includes the 32 anchor rows the
+                    regularizers read; the column "eval rows" shows the number
+                    of rows each run was evaluated on when the file records it.
 
   downstream |dR|   unweighted mean, over the five downstream benchmarks
                     (ARC, MMLU, SQuAD, TriviaQA, GSM8K), of `delta_risk` in

@@ -57,8 +57,7 @@ def _max_pairwise_column_distance(H: Tensor) -> float:
 def _spectral_norm_power_iter(H: Tensor, n_iter: int = 32) -> float:
     """Largest singular value via power iteration.
 
-    O(d * C * n_iter) vs O(d² * C) for full SVD; ~100× faster for
-    large-vocab heads (Qwen3 151K).
+    O(d * C * n_iter) instead of O(d² * C) for a full SVD.
     """
     v = torch.randn(H.shape[1], dtype=H.dtype, device=H.device)
     v = v / v.norm()
@@ -97,11 +96,14 @@ def _diameter_exact(H: Tensor, col_norms_sq: Tensor) -> float:
 class UnifiedBound:
     """Compute the PRISM Unified Risk Discrepancy Bound.
 
-    |R_T - R_P| <= K_feat * delta  +  K_pred * gamma
+    |R_T - R_P| <= B = delta + gamma   (Eq. 4)
 
     where
-        delta = sqrt[ (rho_T - rho_P)^2 + 2 rho_T rho_P (1 - Omega) ]
-        gamma = ||Sigma_P^{1/2}(W H_T - H_P)||_F
+        delta = K_feat * sqrt[ (rho_T - rho_P)^2 + 2 rho_T rho_P (1 - Omega) ]
+        gamma = K_pred * ||Sigma_P^{1/2}(W H_T - H_P)||_F
+
+    The fields feature_error and head_discrepancy hold the two norms
+    without K_feat and K_pred.
     """
 
     # ------------------------------------------------------------------

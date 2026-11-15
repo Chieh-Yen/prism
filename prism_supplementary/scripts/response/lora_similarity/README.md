@@ -38,8 +38,7 @@ and the GPU is the one `CUDA_VISIBLE_DEVICES` exposes.
   sequences of each benchmark, so the three seeds of a cell differ in both.
 - **Gap**: |ΔR|, the absolute difference between a checkpoint's and the base
   model's answer-only cross-entropy on 256 evaluation sequences of the
-  benchmark. The answer-only cross-entropy is the mean over the 256 sequences
-  of each sequence's mean answer-token loss.
+  benchmark.
 - **Feature rows**: the features are one row per answer token of the 256
   sequences (field `Z_shape` of `base_model` in the metrics file); the
   feature dimension is 4,096.

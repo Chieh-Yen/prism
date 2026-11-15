@@ -1,14 +1,6 @@
 # Hugging Face commit hashes at which the model repositories of this package
 # are loaded. Loaders pass them as `revision=`; set PRISM_UNPINNED=1 to ignore
 # this file and track the head of each repository.
-#
-# For the repositories that the scripts under scripts/response/ load
-# (meta-llama/Llama-3.1-8B, Qwen/Qwen3-8B-Base,
-# QuantFactory/Meta-Llama-3.1-8B-GGUF, mradermacher/Qwen3-8B-Base-GGUF,
-# AlphaGaO/Qwen3-8B-GPTQ, ModelCloud/Meta-Llama-3.1-8B-gptq-4bit,
-# shuyuej/Meta-Llama-3.1-8B-GPTQ) the hashes are the snapshots those
-# experiments loaded. The remaining entries are the revisions that were
-# current when this file was written.
 
 AlphaGaO/Qwen3-8B-GPTQ: 8b2766864e2cca9555fd8945a2d1481305f7cda2
 JunHowie/Qwen3-8B-GPTQ-Int8: e131f54dea2ba1f99bbee218f75548ed00646cb9

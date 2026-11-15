@@ -193,10 +193,9 @@ class ShapeRegularizedTrainer(Trainer):
 
     For comparison, the stock ``Trainer`` (selected in ``main`` only when
     both λ are 0) passes ``num_items_in_batch`` to the model, so its CE is
-    the token-level mean over all G micro-batches, CE_tok, and its
-    accumulated gradient is (1/G) · ∇CE_tok.  The CE term of this class is
-    therefore about G times that of the stock ``Trainer`` (exactly G times
-    when every micro-batch has the same number of answer tokens).
+    the mean over all G micro-batches together, CE_all, and its accumulated
+    gradient is (1/G) · ∇CE_all.  The CE term of this class is therefore
+    about G times that of the stock ``Trainer``.
 
     Every subclass (``ReplayCETrainer`` here, and the baseline trainers in
     scripts/rounds/train_forgetting_baselines.py) overrides only the penalty
@@ -215,7 +214,7 @@ class ShapeRegularizedTrainer(Trainer):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.Z_T_ref = Z_T_ref          # (n_tokens, d) CPU float32 detached, or None
+        self.Z_T_ref = Z_T_ref          # (n_tokens, d) on CPU, detached, or None
         self._ref_dl = ref_dataloader
         self._lambda = lambda_shape
         self._reg_k = reg_every_k
@@ -809,7 +808,7 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "train_loss": "most recent `loss` logged by the Trainer at or before this "
                               "step: answer-only CE on the fine-tuning task, averaged over "
                               "the optimizer steps of the last logging window. Per optimizer "
-                              "step the library Trainer logs the token-weighted mean over "
+                              "step the library Trainer logs the mean over "
                               "the G = grad_accum micro-batches; the regularized trainers "
                               "log the sum of the G micro-batch means (about G times as "
                               "large); the penalty is not included",
@@ -1036,10 +1035,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--reg_batch_size", type=int, default=8,
                    help="Batch size for the anchor-set forward pass")
     p.add_argument("--reg_max_length", type=int, default=512,
-                   help="Max sequence length for the anchor-set forward pass. "
-                        "Kept separate from --max_length so that a larger "
-                        "--max_length does not enlarge the grad-retained "
-                        "hidden-state concat inside _compute_shape_loss.")
+                   help="Max sequence length for the anchor-set forward pass.")
 
     # Misc
     p.add_argument("--seed", type=int, default=42,

@@ -117,8 +117,9 @@ benchmarks; one seed per value.
 
 | experiment | command | output |
 |---|---|---|
-| Quantization grid (Sec. 4.2): 7 models × 5 benchmarks × the variants in `configs/quantization_matrix.yaml`, 512 sequences, seed 42 | `bash run_quantization.sh` (subset: `MODELS="llama31_8b_base,qwen3_8b_base" DATASETS="mmlu,arc" bash run_quantization.sh`; `DRY_RUN=1` prints the commands) | `results/quantization/` |
-| LoRA checkpoint series, single run (Sec. 4.2): unregularized LoRA with the library's default trainer, two models × two tasks, 300 steps, a checkpoint every 25 steps | `REPLAY_LAMBDAS="0" SHAPE_LAMBDAS="" bash run_forgetting.sh` | `checkpoints/forgetting_replay_lam0/` |
+| Quantization grid (Sec. 4.2, Table 1, Figs. 2, 5, 6; Appendices E, F.1): 7 models × 5 benchmarks × the variants in `configs/quantization_matrix.yaml`, 512 sequences, seed 42 | `bash run_quantization.sh` (subset: `MODELS="llama31_8b_base,qwen3_8b_base" DATASETS="mmlu,arc" bash run_quantization.sh`; `DRY_RUN=1` prints the commands) | `results/quantization/` |
+| Similarity baselines (Appendix F.1, Table 17): CKA, SVCCA and the Procrustes distance at seed 42, joined with the risk gaps and bounds of the quantization grid | `python scripts/rounds/similarity_scores.py --family llama --results-csv results/quantization` (then `--family qwen`), after `run_quantization.sh` | `out/rounds/similarity/` |
+| LoRA checkpoint series, single run (Sec. 4.2, Fig. 3; Appendix H.1, Fig. 7): unregularized LoRA with the library's default trainer, two models × two tasks, 300 steps, a checkpoint every 25 steps | `REPLAY_LAMBDAS="0" SHAPE_LAMBDAS="" bash run_forgetting.sh` | `checkpoints/forgetting_replay_lam0/` |
 | Forgetting experiments (Sec. 4.5, Appendices H.2, H.3, I, J; Table 3, Figs. 4 and 8): unified protocol, four cells, seeds 42, 43, 44 | the commands below | `out/unified/` |
 
 **Forgetting experiments.** The forgetting results of Sec. 4.5 and Appendices
@@ -221,8 +222,7 @@ the regularized trainer at `--lambda_shape 1e-9`, so that it shares the
 training loop of the other methods. Results of the two references are not
 interchangeable.
 
-**(c) Loss scaling.** Under the library versions of
-`requirements-response.txt`, with G = 8 gradient-accumulation steps, the
+**(c) Loss scaling.** With G = 8 gradient-accumulation steps, the
 gradient accumulated by the regularized trainer for one optimizer step is
 (1/G) · [sum of the G micro-batch cross-entropy gradients + λ · penalty
 gradient]. This holds for every regularized method and for the same-loop
@@ -256,10 +256,7 @@ unless `PRISM_TRUST_REMOTE_CODE=1` is set. A repository listed in
 `configs/model_revisions.yaml` is loaded at the revision given there, and the
 loader prints that revision. A repository that is not listed is loaded at its
 head, with a warning on stderr; `PRISM_UNPINNED=1` ignores the file for every
-repository. For the repositories the response experiments load, the pinned
-hashes are the snapshots those runs loaded (listed in the header of the
-file). The remaining entries are the revisions that were current when the
-file was written. The trainers record the revision in the `experiment` block
+repository. The trainers record the revision in the `experiment` block
 of their output.
 
 **(h) Hardware.** Every experiment of the paper runs on a single

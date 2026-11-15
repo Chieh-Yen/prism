@@ -1,7 +1,9 @@
 # Unified forgetting protocol
 
 The protocol of the paper's forgetting experiments (Sec. 4.5 and Appendices H.2, H.3,
-I, J; Table 3, Table 29, Figs. 4 and 8). It compares the shape regularizer with no
+I, J). `select_lambda.py` and `penalty_report.py` print Tables 3 and 29; the
+per-benchmark values of Tables 21-28, the mean Ω of Appendix J and the curves of
+Figs. 4 and 8 are the records in each run's `prism_forgetting_metrics.json`. It compares the shape regularizer with no
 regularization, anchor-CE, generic replay, LwF and representation KD when
 every method is tuned by one rule that reads only the target-task loss. The
 same rule is applied to L2-SP and EWC, the weight-space baselines of
@@ -101,7 +103,7 @@ selected methods.
   change of the answer-only cross-entropy from the base model to the
   fine-tuned model, at step 300.
 - **Target-task loss**: answer-only cross-entropy on the fine-tuning task's
-  evaluation rows outside the run's anchor set, token-weighted
+  evaluation rows outside the run's anchor set
   (`eval_target_disjoint.py`, field `target_loss`). It is computed on these
   rows for every method, generic replay and layer freezing included. The
   trainer's own `eval_loss` is not used.

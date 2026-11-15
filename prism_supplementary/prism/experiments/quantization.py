@@ -344,7 +344,7 @@ class QuantizationExperiment(BaseExperiment):
     """Compare full-precision target with quantised variants (proxy).
 
     Both W = I (identity alignment) and W = W_opt (Procrustes alignment)
-    are computed; the tighter bound is selected.
+    are computed; Bound is the smaller of Bound_I and Bound_W.
     """
 
     # ------------------------------------------------------------------
@@ -462,18 +462,14 @@ class QuantizationExperiment(BaseExperiment):
 
     @staticmethod
     def _check_token_rows(Z_dict, stats, who: str) -> None:
-        """The token-level gap pairs row t of Z (``concat`` mode) with entry t
-        of ``token_losses``; raise if the two counts differ."""
+        """Check that Z and ``token_losses`` have the same number of rows."""
         tok = stats.get("token_losses")
         if "concat" not in Z_dict or tok is None:
             return
         n_z, n_tok = Z_dict["concat"].shape[0], tok.numel()
         if n_z != n_tok:
             raise RuntimeError(
-                f"{who}: {n_z} feature rows but {n_tok} token losses. The "
-                f"token-level features and losses must cover the same "
-                f"positions; this happens when the batches are not padded "
-                f"on the right.")
+                f"{who}: {n_z} feature rows but {n_tok} token losses.")
 
     def run(self) -> list:
         """Cache target features/loss, free VRAM, then load proxies one at a time."""
@@ -590,7 +586,6 @@ class QuantizationExperiment(BaseExperiment):
             sample_loss_target = answer_loss_target
         else:
             sample_loss_target = full_loss_target
-        # Token-level loss for concat z_mode.
         _tok_T = loss_stats["token_losses"]
         token_loss_target = (_tok_T.mean().item()
                              if _tok_T is not None and _tok_T.numel() > 0
@@ -733,12 +728,10 @@ class QuantizationExperiment(BaseExperiment):
                     bound_W_th = result_W.risk_bound_total
                     bound_th = min(bound_I_th, bound_W_th)
 
-                    # Primary result; whichever W gives tighter theoretical bound
+                    # Primary result: the W with the smaller bound
                     result = result_I if bound_I_th <= bound_W_th else result_W
                     result.risk_bound_total = bound_th
 
-                    # Token-level loss (concat rows); the sample-level loss is
-                    # used only when no token losses were recorded.
                     if zm == "concat" and loss_stats["token_losses"] is not None:
                         zm_loss_t, zm_loss_p = token_loss_target, token_loss_proxy
                     else:
@@ -782,7 +775,6 @@ class QuantizationExperiment(BaseExperiment):
                     # Console output; dual-W format
                     rho_P = result_I.rho_proxy
                     dr = abs(zm_loss_t - zm_loss_p)
-                    status = "PASS" if bound_th >= dr else "VIOLATED"
                     print(f"  [{zm:<20s}] ρ_T={rho_T:.8f} ρ_P={rho_P:.8f}")
                     print(f"    W=I:   Ω={result_I.omega:.8f} δ={result_I.feature_error:.8f} "
                           f"γ={result_I.head_discrepancy:.8f}  "
@@ -791,7 +783,7 @@ class QuantizationExperiment(BaseExperiment):
                           f"γ={result_W.head_discrepancy:.8f}  "
                           f"Bnd={bound_W_th:.8f}")
                     print(f"    → min  Bnd={bound_th:.8f} "
-                          f"|dR|={dr:.8f} {status}"
+                          f"|dR|={dr:.8f}"
                           + (f"  ({elapsed:.1f}s)" if zm == z_modes[0] else ""))
 
             except Exception as e:
@@ -902,16 +894,5 @@ class QuantizationExperiment(BaseExperiment):
                 f"{dr_s:>12s} "
                 f"{lt:>12s} {lp:>12s}"
             )
-
-        # Bound validation
-        valid = [(r, abs(r.loss_target - r.loss_proxy))
-                 for r in results
-                 if r.loss_target is not None and r.loss_proxy is not None and r.risk_bound_total is not None]
-        if valid:
-            print(sep)
-            loss_mode = r0.extra.get("loss_mode", "full")
-            holds_th = sum(1 for r, dr in valid if r.risk_bound_total >= dr)
-            print(f"  Bound holds (loss_mode={loss_mode}): {holds_th}/{len(valid)}  "
-                  f"({'ALL PASS' if holds_th == len(valid) else 'SOME VIOLATED'})")
 
         print(f"{'=' * len(header)}\n")

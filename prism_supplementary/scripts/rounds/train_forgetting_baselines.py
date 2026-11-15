@@ -159,15 +159,11 @@ class LwFTrainer(ShapeRegularizedTrainer):
 
     Penalty: forward KL(p_base || p_current) between next-token distributions
     at temperature 1 (no temperature scaling), computed on the anchor
-    sequences only (32 by default), and averaged over their non-padding
-    positions t >= prompt_length, pooled over all anchor sequences.
-
-    Positions: the non-padding positions t >= prompt_length of each anchor
-    sequence.
+    sequences only (32 by default), and averaged over the non-padding
+    positions t >= prompt_length of the anchor sequences.
 
     The base logits are produced on the fly by the same network with the
-    LoRA adapters disabled, under no_grad; logits are cast to float32 before
-    the softmax.
+    LoRA adapters disabled, under no_grad.
     """
 
     def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
@@ -223,7 +219,7 @@ class HintMSETrainer(ShapeRegularizedTrainer):
     Penalty: torch.nn.MSELoss (mean over all elements) between Z_P, the
     fine-tuned model's final-layer hidden states at the answer-token
     positions of the anchor set, and Z_T, the base model's features at the
-    same positions (pre-computed, float32). These are the features the shape
+    same positions (pre-computed). These are the features the shape
     regularizer reads (LLMExtractor._extract_z, "concat" mode); only the
     penalty differs from the trace term.
     """
@@ -294,9 +290,7 @@ def estimate_fisher(model, ref_dl, device: str) -> Dict[str, Tensor]:
         return {n: torch.ones_like(f) for n, f in fisher.items()}
     for f in fisher.values():
         f /= mean
-    nz = sum((f > 0).sum().item() for f in fisher.values())
-    print(f"  Fisher: {n_batches} batches, unit-mean normalised, "
-          f"{nz}/{numel} nonzero entries")
+    print(f"  Fisher: {n_batches} batches, unit-mean normalised")
     return fisher
 
 
@@ -405,10 +399,9 @@ def parse_args() -> argparse.Namespace:
                    help="penalty weight; must be > 0 for the regularized "
                         "methods, ignored by none and layer_freeze; negative "
                         "values are rejected")
-    p.add_argument("--lora_top_layers", type=int, default=8,
+    p.add_argument("--lora_top_layers", type=int, default=16,
                    help="layer_freeze only: apply LoRA to the top-K layers "
-                        "and freeze the rest (a low-cost continual-learning "
-                        "baseline)")
+                        "and freeze the rest")
     p.add_argument("--same_loop", action="store_true",
                    help="none and layer_freeze only: train in the regularized "
                         "loop (the L2-SP trainer with weight 1e-9, numerically "

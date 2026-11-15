@@ -13,18 +13,18 @@
 #
 # Supported bnb: tags: int8, nf4, fp4
 #
-# Usage (Llama-3.1-8B, default; the quantization grid of Sec. 4.2):
+# Usage (Llama-3.1-8B, FP16 and the six GGUF variants; run_quantization.sh
+# runs the Sec. 4.2 grid from quantization_matrix.yaml):
 #   python run_quantization.py --config configs/quantization.yaml
 #
 # Usage (mixed GGUF + bitsandbytes + GPTQ):
 #   python run_quantization.py --config configs/quantization.yaml \
 #       'proxy.quantization_bits=[Q8_0,Q4_K_M,bnb:nf4,gptq:ModelCloud/Meta-Llama-3.1-8B-gptq-4bit]'
 #
-# Usage (Qwen3-8B with NF4 only; no GGUF repo needed):
+# Usage (Qwen3-8B, the three bitsandbytes variants; no GGUF repo needed):
 #   python run_quantization.py --config configs/quantization.yaml \
 #       target.model=Qwen/Qwen3-8B \
-#       'proxy.quantization_bits=[bnb:int8,bnb:nf4,bnb:fp4]' \
-#       data.max_length=512
+#       'proxy.quantization_bits=[bnb:int8,bnb:nf4,bnb:fp4]'
 #
 # GGUF filename template (auto-derived from proxy.model):
 #   Org/{Stem}-GGUF → {Stem}-{quant}.gguf   (original case, dash separator)

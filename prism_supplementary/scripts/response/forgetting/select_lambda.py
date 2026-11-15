@@ -8,7 +8,7 @@ forgetting    mean over the five downstream benchmarks of |delta_risk|, the
               model to the fine-tuned model on 256 evaluation sequences per
               benchmark (``prism_forgetting_metrics.json``).
 target loss   answer-only cross-entropy on the fine-tuning task's evaluation
-              rows outside the run's 32 anchor rows, token-weighted
+              rows outside the run's 32 anchor rows
               (``target_loss`` of ``eval_target_disjoint.py``).  A run without
               this record is not used.
 

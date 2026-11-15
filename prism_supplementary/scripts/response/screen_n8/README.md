@@ -90,20 +90,16 @@ computations. The analysis needs no GPU.
 
 ## Definitions and notes
 
-- **Risk gap.** `gap8` and `gap512` are `|mean_i l_T(i) − mean_i l_P(i)|`, where `l(i)`
-  is the mean answer-token cross-entropy of sequence i, as in the three-seed round.
-- **Truncated sequences.** Inputs are truncated at 512 tokens. A sequence whose answer
-  is cut off contributes no feature row and a loss of zero for both models.
+- **Risk gap.** `gap8` and `gap512` are the risk gap on the set's eight sequences and on
+  the pool's 512, as in the three-seed round.
 - **Small sets.** A set with no more token rows than feature dimensions (4,096) is
   computed in the n × n form; a larger set uses the three-seed round's `fresh_metrics`.
 - **Set 0 and the pools.** Set 0 holds the same sequences as the n = 8 slice of the
   three-seed round, and the pools are that round's pools. The scores of set 0 and the
   pool's `gap512` are recomputed here in a separate run and are not copied from that
   round.
-- **Pools and sets are not disjoint.** The three pools of a benchmark are draws from the
-  same test split and overlap (the three-seed round prints the overlap; it is largest on
-  the small ARC and GSM8K splits). The 100 sets of a pool are drawn independently of one
-  another from that pool. The within-cell tests take the set as the unit.
+- **Pools.** The three pools of a benchmark are drawn from the same test split and
+  overlap. The 100 sets of a pool are drawn independently of one another from that pool. The within-cell tests take the set as the unit.
 - **Standard deviation.** The ± values are the population standard deviation (ddof = 0)
   of r_s over the 300 sets: the spread across sets, not a standard error of the mean.
 - **Tests.** Across cells: exact two-sided Wilcoxon signed-rank test on the ten cell
@@ -111,8 +107,6 @@ computations. The analysis needs no GPU.
   (normal approximation with tie correction, zero differences dropped), Holm-corrected
   over the ten cells, with the paired t-test as a check. r_s is rounded to six decimals
   before testing.
-- **The Qwen3-8B-Base GPTQ variant.** `AlphaGaO/Qwen3-8B-GPTQ` is the eleventh
-  Qwen3-8B-Base variant of the manifest.
 - **1-SVCCA is not scored by the screen.** `run_screen.py` does not compute SVCCA and
   `analyze_screen.py` prints nothing about it. The CSVs of the three-seed round
   (`scripts/rounds/three_seed_round.py`) contain SVCCA at n = 8, 32, 128 and 512

@@ -21,9 +21,9 @@ Blocks are numbered from 1.
                     reported block is j + 1. The peak is taken over all blocks.
 
 Besides the table the script prints the token counts, the ratio between the
-v_proj and q_proj peaks, and, for every target with several variants, how
-often the ordering "fewer bits, more drift" is violated over the read-out
-points of the table (every block of the residual stream and of q, k, v).
+v_proj and q_proj peaks, and, for every target with several variants, at how
+many read-out points of the table (every block of the residual stream and of
+q, k, v) the ordering "fewer bits, more drift" holds.
 
 Usage:
     python make_table.py --results QWEN.json LLAMA.json [--profiles]
@@ -140,8 +140,8 @@ def main():
             total_points += n_points
             total_viol += viol
             label = "residual stream (after block 1 .. L)" if point == "residual" else point
-            print(f"  {target}: {order} violated at {viol} of {n_points} points, {label}")
-        print(f"  {target}: {total_viol} violations over {total_points} read-out points")
+            print(f"  {target}: {order} holds at {n_points - viol} of {n_points} points, {label}")
+        print(f"  {target}: {total_points - total_viol} of {total_points} read-out points in order")
 
     if not a.profiles:
         return

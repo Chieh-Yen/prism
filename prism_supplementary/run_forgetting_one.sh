@@ -12,7 +12,7 @@
 # Called by run_forgetting.sh to sweep regularizer × λ; can also be
 # invoked directly for a single configuration. With no regularizer and
 # MAX_STEPS=300 it runs the setting of the unregularized LoRA checkpoint
-# series of Sec. 4.2 (library's default trainer). The forgetting comparison of Sec. 4.5 and Appendices H.2, H.3, I, J is
+# series of Sec. 4.2 and Appendix H.1 (library's default trainer). The forgetting comparison of Sec. 4.5 and Appendices H.2, H.3, I, J is
 # run by scripts/response/forgetting/, not by this script.
 #
 # Terminology (paper Sec. 3.1):
@@ -56,8 +56,7 @@ set -euo pipefail
 # ── GPU ───────────────────────────────────────────────────────────────────
 GPUID="${CUDA_GPU:-0}"
 
-# ── CUDA allocator: expandable segments reduce fragmentation with varying
-#    sequence lengths (dynamic padding).  Numerics unchanged.
+# ── CUDA allocator setting
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 # ── Model definitions ─────────────────────────────────────────────────────
