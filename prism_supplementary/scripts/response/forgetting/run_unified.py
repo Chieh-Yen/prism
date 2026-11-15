@@ -5,8 +5,10 @@ One training run per (method, model, task, lambda, seed).  Every run is LoRA
 fine-tuning (r = 32, alpha = 64, dropout 0.05) for 300 optimizer steps at
 learning rate 1e-5 with batch size 2 x 8 accumulation steps, a 32-sequence
 anchor set revisited every 8 micro-steps, one checkpoint and one evaluation at
-step 300; the full argument list is ``protocol.COMMON_ARGS``.  Runs differ only
-in the method, its weight lambda and the seed.
+step 300 (``--save_steps 25`` evaluates and checkpoints every 25 steps instead,
+which gives the trajectory of a run); the full argument list is
+``protocol.COMMON_ARGS``.  Runs differ only in the method, its weight lambda
+and the seed.
 
 Methods
 -------
@@ -26,6 +28,11 @@ trace            the shape regularizer as implemented in the baselines script:
                  ``train_forgetting_baselines.py --method trace --lambda_reg L``
 l2sp             L2-SP: ``train_forgetting_baselines.py --method l2sp --lambda_reg L``
 ewc              EWC: ``train_forgetting_baselines.py --method ewc --lambda_reg L``
+layer_freeze     layer freezing, LoRA adapters on the top 16 layers only, no
+                 penalty, trained in the same loop: ``train_forgetting_baselines.py
+                 --method layer_freeze --lora_top_layers 16 --same_loop``.  It
+                 has no weight; lambda need not be given and the runs are
+                 stored under the reference weight 1e-9.
 
 Jobs are given either as a product (``--methods --models --tasks --lambdas
 --seeds``) or as a job file (``--jobs``; ``-`` reads standard input) with one

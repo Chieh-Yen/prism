@@ -1,4 +1,4 @@
-# LoRA checkpoint series: PRISM bound against 1-CKA and 1-SVCCA
+# LoRA checkpoint ranking: PRISM bound against 1-CKA and 1-SVCCA
 
 Ranks the checkpoints of unregularized LoRA fine-tuning runs by how much each
 has forgotten, and compares three scores computed from one forward pass: the

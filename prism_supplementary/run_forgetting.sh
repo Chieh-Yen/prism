@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # ============================================================
-# PRISM forgetting: regularization sweep (replay and shape regularizer)
+# PRISM forgetting: single-seed λ sweep (anchor-CE and shape regularizer)
 #
-# The λ sweeps of the submission (Sec. 4.5). Wraps run_forgetting_one.sh
-# to sweep λ for two regularizers across {truthfulqa, bbq} on Llama, then
-# on Qwen. Replay (cross-entropy on the 32 anchor sequences, which are
-# held-out sequences of the fine-tuning task; "anchor-CE" elsewhere in
-# this package) is run first; the shape regularizer (1−Ω_I) follows.
+# Wraps run_forgetting_one.sh to sweep λ for two penalties across
+# {truthfulqa, bbq} on Llama, then on Qwen, with the library's default
+# trainer at λ=0. Cross-entropy on the anchor set (anchor-CE; the anchor set
+# is 32 held-out sequences of the fine-tuning task) is run first; the shape
+# regularizer (1−Ω_I) follows. The λ=0 runs are the unregularized LoRA
+# checkpoint series of Sec. 4.2; the sweep is tabulated by
+# scripts/sweep_table.py. The forgetting comparison of Sec. 4.5 and
+# Appendices H.2, H.3, I, J is not run here but by scripts/response/forgetting/.
 #
 # Run order (sequential):
 #   for MODEL in llama, qwen:
-#     Phase 1 — REPLAY:  for TASK in {truthfulqa, bbq}, for λ in REPLAY_LAMBDAS
-#     Phase 2 — SHAPE :  for TASK in {truthfulqa, bbq}, for λ in SHAPE_LAMBDAS
+#     Phase 1: ANCHOR-CE: for TASK in {truthfulqa, bbq}, for λ in REPLAY_LAMBDAS
+#     Phase 2: SHAPE    : for TASK in {truthfulqa, bbq}, for λ in SHAPE_LAMBDAS
 #
 # Per-run output dirs are auto-disambiguated by (method, λ) via
 # run_forgetting_one.sh's CKPT_ROOT logic, so re-running this
@@ -19,38 +22,36 @@
 # whose prism_forgetting_metrics.json holds the record of the final step, and
 # starts an interrupted run again from step 0.
 #
-# Default λ grids (override via env vars). These are the ranges of
-# Sec. 4.1 of the paper, with λ=0 added to the replay grid as the
+# Default λ grids (override via env vars); λ=0 in the anchor-CE grid is the
 # unregularized run.
 #
-#   REPLAY: {0, 0.001, 0.005, 0.01, 0.05, 0.1}
-#   SHAPE : {0.01, 0.05, 0.1, 0.5, 1.0}
+#   ANCHOR-CE (REPLAY_LAMBDAS): {0, 0.001, 0.005, 0.01, 0.05, 0.1}
+#   SHAPE     (SHAPE_LAMBDAS) : {0.01, 0.05, 0.1, 0.5, 1.0}
 #
 # The λ=0 entry passes `--lambda_replay 0` (with `--lambda_shape` at its
 # default 0) to train_forgetting.py, which then uses the library's default
 # Trainer: no anchor set is built, no penalty is computed and no anchor
-# forward pass is run. This is the unregularized run of the submission. It
-# is not the unregularized reference of the unified protocol
-# (scripts/response/forgetting/), which runs the regularized training loop
+# forward pass is run. It is not the unregularized reference of the unified
+# protocol (scripts/response/forgetting/), which runs the regularized training loop
 # at `--lambda_shape 1e-9`; the two loops scale the loss differently under
 # gradient accumulation (see the trainer selection in train_forgetting.py).
 #
 # A single invocation of this wrapper covers the unregularized run, the
-# replay sweep and the shape-regularizer sweep for both models and both
+# anchor-CE sweep and the shape-regularizer sweep for both models and both
 # fine-tuning tasks.
 #
 # Environment knobs:
 #   CUDA_GPU=0                                       GPU index
 #   REPLAY_LAMBDAS="0 0.001 0.005 0.01 0.05 0.1"     space-separated; an
-#       empty value (REPLAY_LAMBDAS="") runs no replay run
+#       empty value (REPLAY_LAMBDAS="") runs no anchor-CE run
 #   SHAPE_LAMBDAS="0.01 0.05 0.1 0.5 1.0"            space-separated; an
 #       empty value (SHAPE_LAMBDAS="") runs no shape-regularizer run
 #   MODELS_ORDER="llama qwen"                        space-separated
 #   TASKS_ORDER="truthfulqa bbq"                     space-separated
 #   EVAL_KEEP_ANCHOR_ROWS=1                          1 (default): the trainer's
 #       eval_loss is computed on the whole held-out slice of the fine-tuning
-#       task (--eval_keep_anchor_rows), which is what the submission's sweeps
-#       report as target loss. 0: the 32 anchor rows are removed from the eval
+#       task (--eval_keep_anchor_rows), which is what scripts/sweep_table.py
+#       reports as target loss. 0: the 32 anchor rows are removed from the eval
 #       set, as in the unified protocol. Evaluation only.
 #
 # Table of the sweep (target loss and downstream |ΔR| per λ), no GPU:
@@ -62,6 +63,8 @@
 #   MODELS_ORDER=llama TASKS_ORDER=truthfulqa bash run_forgetting.sh   # one cell
 #   MODELS_ORDER=llama TASKS_ORDER=truthfulqa REPLAY_LAMBDAS="" bash run_forgetting.sh
 #                                             # one cell, shape regularizer only
+#   REPLAY_LAMBDAS="0" SHAPE_LAMBDAS="" bash run_forgetting.sh
+#                                             # unregularized checkpoint series only
 # ============================================================
 set -uo pipefail
 
@@ -94,7 +97,7 @@ log "============================================================"
 log "  Forgetting regularization sweep"
 log "  Models  : $MODELS_ORDER"
 log "  Tasks   : $TASKS_ORDER"
-log "  Replay λ: $REPLAY_LAMBDAS  (${n_replay} values)"
+log "  Anchor-CE λ: $REPLAY_LAMBDAS  (${n_replay} values)"
 log "  Shape  λ: $SHAPE_LAMBDAS   (${n_shape} values)"
 log "  Total runs : $TOTAL_RUNS"
 log "  Max steps  : $MAX_STEPS"
@@ -141,7 +144,7 @@ for MODEL in $MODELS_ORDER; do
     log "════════════════════════════════════════════════════════════"
 
     log ""
-    log "── Phase 1 — REPLAY baseline ──"
+    log "── Phase 1: ANCHOR-CE (cross-entropy on the anchor set) ──"
     for TASK in $TASKS_ORDER; do
         for L in $REPLAY_LAMBDAS; do
             run_one "$MODEL" "$TASK" "replay" "$L"
@@ -149,7 +152,7 @@ for MODEL in $MODELS_ORDER; do
     done
 
     log ""
-    log "── Phase 2 — SHAPE (shape regularizer) ──"
+    log "── Phase 2: SHAPE (shape regularizer) ──"
     for TASK in $TASKS_ORDER; do
         for L in $SHAPE_LAMBDAS; do
             run_one "$MODEL" "$TASK" "shape" "$L"

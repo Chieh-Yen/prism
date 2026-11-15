@@ -1,0 +1,16 @@
+# Runs behind the layer-freezing rows of the Appendix I table (LoRA adapters on the top 16
+# layers only, no penalty; four cells, three seeds). Layer freezing has no weight: the
+# lambda column is the reference weight 1e-9 the runs are stored under.
+# Format: method model task lambda seed   (input of run_unified.py --jobs)
+layer_freeze llama truthfulqa 1e-09 42
+layer_freeze llama truthfulqa 1e-09 43
+layer_freeze llama truthfulqa 1e-09 44
+layer_freeze llama bbq 1e-09 42
+layer_freeze llama bbq 1e-09 43
+layer_freeze llama bbq 1e-09 44
+layer_freeze qwen truthfulqa 1e-09 42
+layer_freeze qwen truthfulqa 1e-09 43
+layer_freeze qwen truthfulqa 1e-09 44
+layer_freeze qwen bbq 1e-09 42
+layer_freeze qwen bbq 1e-09 43
+layer_freeze qwen bbq 1e-09 44

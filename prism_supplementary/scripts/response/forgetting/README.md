@@ -1,10 +1,13 @@
 # Unified forgetting protocol
 
-Compares the shape regularizer with no regularization, anchor-CE, generic
-replay, LwF and representation KD when every method is tuned by one rule that
-reads only the target-task loss. The same rule is applied to L2-SP and EWC,
-the weight-space baselines of Appendix I; the revised Appendix I reports them
-under this protocol.
+The protocol of the paper's forgetting experiments (Sec. 4.5 and Appendices H.2, H.3,
+I, J; Table 3, Figs. 4 and 8). It compares the shape regularizer with no
+regularization, anchor-CE, generic replay, LwF and representation KD when
+every method is tuned by one rule that reads only the target-task loss. The
+same rule is applied to L2-SP and EWC, the weight-space baselines of
+Appendix I. Layer freezing (LoRA adapters on the top 16 layers only) is
+trained in the same loop; it has no weight to select and is listed beside the
+selected methods.
 
 | file | purpose |
 |---|---|
@@ -13,10 +16,11 @@ under this protocol.
 | `eval_target_disjoint.py` | target-task loss of each run on the evaluation rows outside its 32 anchor rows (field `target_loss`, with the row counts) |
 | `select_lambda.py` | the selection rule, the tables, and `--emit` (the next runs of the lambda search) |
 | `penalty_report.py` | weighted penalty lambda · P at the selected lambda |
-| `jobs_main_table.txt`, `jobs_extra_baselines.txt`, `jobs_appendix_baselines.txt` | the runs behind the tables, one `method model task lambda seed` per line |
+| `jobs_main_table.txt`, `jobs_extra_baselines.txt`, `jobs_appendix_baselines.txt`, `jobs_layer_freezing.txt` | the runs behind the tables, one `method model task lambda seed` per line |
 | `launch_main_table.sh` | main table: trains `jobs_main_table.txt`, evaluates, prints |
 | `launch_extra_baselines.sh` | LwF and representation KD on Llama-3.1-8B/TruthfulQA, with lambda · P; needs the Llama-3.1-8B/TruthfulQA reference and shape-regularizer runs of the main table in the same directory |
 | `launch_appendix_baselines.sh` | L2-SP and EWC (Appendix I baselines) on the four cells, with lambda · P; needs the reference and shape-regularizer runs of the main table in the same directory |
+| `launch_layer_freezing.sh` | layer freezing on the four cells: trains `jobs_layer_freezing.txt` and evaluates the target-task loss |
 | `search_lambda.sh` | the lambda search as a loop, from a list of starting runs |
 
 ## Protocol
@@ -48,6 +52,10 @@ under this protocol.
   | `trace` | the shape regularizer as implemented in the baselines script | `train_forgetting_baselines.py --method trace --lambda_reg λ` |
   | `l2sp` | λ · Σ (θ − θ₀)² over the adapter weights, θ₀ their initial values | `train_forgetting_baselines.py --method l2sp --lambda_reg λ` |
   | `ewc` | λ · Σ F · (θ − θ₀)², F the diagonal Fisher estimate | `train_forgetting_baselines.py --method ewc --lambda_reg λ` |
+  | `layer_freeze` | nothing: LoRA adapters on the top 16 layers only, the other layers frozen | `train_forgetting_baselines.py --method layer_freeze --lora_top_layers 16 --same_loop` |
+
+  `--lambda_replay` is the weight of the cross-entropy penalty: anchor-CE with
+  `--replay_source task`, generic replay with `--replay_source generic`.
 
   The reference uses the regularized trainer class with a penalty weight of
   1e-9. The penalty 1 − Ω_I is at most 2, so the weighted penalty is at most
@@ -67,6 +75,14 @@ under this protocol.
   kept, truncated at 512 tokens. The rows have no prompt, so the penalty is
   the next-token cross-entropy over all their non-padding tokens; anchor-CE
   scores the answer tokens only. Generic replay does not read the anchor set.
+- **Layer freezing**: LoRA adapters are placed on the top 16 layers only
+  (`--lora_top_layers 16`); every other hyper-parameter is that of the other
+  runs. With `--same_loop` the run goes through the regularized loop (the
+  L2-SP trainer at weight 1e-9), so it shares the training loop of the other
+  methods. It does not read the anchor set. There is no weight to select:
+  the runs are stored under the reference weight (`layer_freeze/lam1e-09/`),
+  the rule below is not applied to them, and the method is listed beside the
+  selected methods.
 - **Logged quantities**: the trainers evaluate the penalty once per optimizer
   step and log its unweighted mean over each window of 10 optimizer steps, as
   `shape_loss` (shape regularizer and reference),
@@ -84,8 +100,8 @@ under this protocol.
 - **Target-task loss**: answer-only cross-entropy on the fine-tuning task's
   evaluation rows outside the run's anchor set, token-weighted
   (`eval_target_disjoint.py`, field `target_loss`). It is computed on these
-  rows for every method, generic replay included. The trainer's own
-  `eval_loss` is not used.
+  rows for every method, generic replay and layer freezing included. The
+  trainer's own `eval_loss` is not used.
 - **Rule**: budget = mean target-task loss of the reference over its three
   seeds + 0.01 nats. Each method is reported at the largest grid value of λ
   at which it has three seeds and its three-seed mean target-task loss is
@@ -100,7 +116,7 @@ All commands are run from the supplementary root. Training needs one GPU that
 holds an 8B model in bf16; runs are executed one after another, finished runs
 are skipped, and several launchers with disjoint job lists can run on
 different GPUs. The analysis scripts read JSON only and take seconds on a CPU.
-Knobs of the four `.sh` launchers: the output root is their first argument,
+Knobs of the five `.sh` launchers: the output root is their first argument,
 `PYTHON` selects the interpreter (default `python`), and the GPU is the one
 `CUDA_VISIBLE_DEVICES` exposes.
 
@@ -119,6 +135,9 @@ bash scripts/response/forgetting/launch_extra_baselines.sh out/unified
 # (12 runs) and for shape and trace (74 runs), with their target-task loss.
 bash scripts/response/forgetting/launch_appendix_baselines.sh out/unified
 
+# layer freezing on the four cells (12 more runs) and its target-task loss
+bash scripts/response/forgetting/launch_layer_freezing.sh out/unified
+
 # analysis only, on existing runs
 python scripts/response/forgetting/select_lambda.py  --out_root out/unified
 python scripts/response/forgetting/penalty_report.py --out_root out/unified
@@ -128,7 +147,22 @@ python scripts/response/forgetting/run_unified.py --out_root out/unified \
     --methods shape --models llama --tasks truthfulqa --lambdas 1000 --seeds 42
 python scripts/response/forgetting/run_unified.py --out_root out/unified \
     --jobs scripts/response/forgetting/jobs_main_table.txt --dry_run
+
+# a run with its trajectory (figures of Sec. 4.5 and Appendix H), in an output root of its own
+python scripts/response/forgetting/run_unified.py --out_root out/unified_traj \
+    --methods shape --models llama --tasks truthfulqa --lambdas 1000 --seeds 42 43 44 \
+    --save_steps 25 --save_total_limit 2
 ```
+
+`--save_steps N` sets the number of optimizer steps between evaluations and
+checkpoints (default 300: one evaluation at the last step). With
+`--save_steps 25` a run is evaluated at steps 25, 50, ..., 300, and its
+`prism_forgetting_metrics.json` holds one record per evaluation with the
+PRISM quantities and the risk change on every benchmark; the figures plot
+these records (12 per run). `--save_total_limit N` keeps
+only the last N checkpoints of a `train_forgetting.py` run on disk (default:
+all); the baselines script always keeps the last two. A run whose metrics
+file exists is skipped, so trajectory runs go to an output root of their own.
 
 ## How the lambda search was carried out
 
@@ -195,3 +229,13 @@ starting runs of your choice.
   and EWC in a second table. The cross-entropy penalties of anchor-CE and
   generic replay are not listed by it; they are logged under the key
   `replay_ce` in `checkpoint-300/trainer_state.json` of each run.
+- Layer freezing: `launch_layer_freezing.sh` writes one record per run
+  (`method` = `layer_freeze`, field `target_loss`) to
+  `target_loss_disjoint_<model>.json`, computed by `eval_target_disjoint.py`
+  as for every other method. The forgetting of a run is the mean of
+  |`delta_risk`| over the five downstream benchmarks in the step-300 record
+  of its `prism_forgetting_metrics.json` (`protocol.read_forgetting`). The
+  layer-freezing rows are the mean and population sd of these values over
+  the three seeds; `select_lambda.py` prints them in the table "Layer
+  freezing", next to the difference between its mean target-task loss and
+  the reference's. `penalty_report.py` has no row for layer freezing.

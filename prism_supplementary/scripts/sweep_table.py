@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Table of the regularization sweeps of run_forgetting.sh. No GPU.
+"""Table of the single-seed lambda sweeps of run_forgetting.sh (anchor-CE and
+shape regularizer). No GPU.
 
 Reads the prism_forgetting_metrics.json files that run_forgetting.sh (through
 run_forgetting_one.sh and train_forgetting.py) writes,
@@ -38,7 +39,9 @@ the record of the final step (the run's `max_steps`, 300 in the sweeps; or
 The method and lambda of a run are read from the `experiment` block of its
 file (`lambda_shape`, `lambda_replay`), not from the directory name:
 "none" is a run with both at 0 (the library's default Trainer), "replay" a
-run with lambda_replay > 0, "shape" a run with lambda_shape > 0. The values
+run with lambda_replay > 0 (cross-entropy on the anchor set, anchor-CE;
+"replay[generic]" when the run's `replay_source` is generic, i.e. generic
+replay), "shape" a run with lambda_shape > 0. The values
 are single runs (one seed per configuration).
 
 Usage (from the supplementary root):

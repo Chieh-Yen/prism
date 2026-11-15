@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# PRISM: single-configuration LoRA forgetting experiment (paper Sec. 4.5)
+# PRISM: single-configuration LoRA forgetting run
 #
 # LoRA fine-tune 2 base models × 2 fine-tuning tasks (TruthfulQA, BBQ).
 # PRISM forgetting metrics (Ω, δ, γ, Bound, |ΔR|) are computed online at
@@ -10,7 +10,10 @@
 # disjoint from the fine-tuning task.
 #
 # Called by run_forgetting.sh to sweep regularizer × λ; can also be
-# invoked directly for a single configuration.
+# invoked directly for a single configuration. With no regularizer and
+# MAX_STEPS=300 it runs the setting of the unregularized LoRA checkpoint
+# series of Sec. 4.2 (library's default trainer). The forgetting comparison of Sec. 4.5 and Appendices H.2, H.3, I, J is
+# run by scripts/response/forgetting/, not by this script.
 #
 # Terminology (paper Sec. 3.1):
 #   Target = base model θ₀  (frozen reference)
@@ -23,15 +26,15 @@
 #   SHAPE_REG=1          Enable shape regularizer 1−Ω (default: off)
 #   LAMBDA_SHAPE=0.1     Shape reg weight (default: 0.1). Setting it without
 #                        SHAPE_REG=1 is an error.
-#   REPLAY_REG=1         Enable replay-CE baseline (default: off,
-#                        mutually exclusive with SHAPE_REG)
-#   LAMBDA_REPLAY=0.1    Replay reg weight (default: 0.1). Setting it without
+#   REPLAY_REG=1         Enable anchor-CE, cross-entropy on the anchor set
+#                        (default: off, mutually exclusive with SHAPE_REG)
+#   LAMBDA_REPLAY=0.1    Anchor-CE weight (default: 0.1). Setting it without
 #                        REPLAY_REG=1 is an error.
 #   EVAL_KEEP_ANCHOR_ROWS=1  (default 1) pass --eval_keep_anchor_rows to
 #                        train_forgetting.py: the trainer's eval_loss is
 #                        computed on the whole held-out slice of the
-#                        fine-tuning task, as in the λ sweeps of the
-#                        submission. With 0 the 32 anchor rows are removed
+#                        fine-tuning task, as in the λ sweeps of
+#                        run_forgetting.sh. With 0 the 32 anchor rows are removed
 #                        from the eval set (unified protocol). Evaluation
 #                        only; training is the same either way.
 #   MAX_STEPS=300        Number of training steps. Unset when this script is
@@ -53,7 +56,7 @@
 # Examples:
 #   bash run_forgetting_one.sh                                  # no-reg baseline
 #   SHAPE_REG=1 LAMBDA_SHAPE=1.0 bash run_forgetting_one.sh     # shape regularizer
-#   REPLAY_REG=1 LAMBDA_REPLAY=0.01 bash run_forgetting_one.sh  # replay
+#   REPLAY_REG=1 LAMBDA_REPLAY=0.01 bash run_forgetting_one.sh  # anchor-CE
 # ============================================================
 set -euo pipefail
 
@@ -76,7 +79,7 @@ TASKS="${TASKS:-truthfulqa bbq}"
 # ── Regularizer selection (mutually exclusive) ───────────────────────────
 # Set at most one of:
 #   SHAPE_REG=1   + LAMBDA_SHAPE=...   → 1−Ω_I shape regularizer (PRISM)
-#   REPLAY_REG=1  + LAMBDA_REPLAY=...  → CE on the same 32 anchor sequences (baseline)
+#   REPLAY_REG=1  + LAMBDA_REPLAY=...  → anchor-CE: CE on the same 32 anchor sequences
 SHAPE_REG="${SHAPE_REG:-0}"
 REPLAY_REG="${REPLAY_REG:-0}"
 
@@ -113,7 +116,7 @@ if [ -n "${MAX_STEPS:-}" ]; then
 fi
 
 # Evaluation rows of the trainer's eval_loss (see header). Default: the whole
-# held-out slice, as in the submission's sweeps.
+# held-out slice, as in the sweeps of run_forgetting.sh.
 EVAL_KEEP_ANCHOR_ROWS="${EVAL_KEEP_ANCHOR_ROWS:-1}"
 if [ "$EVAL_KEEP_ANCHOR_ROWS" = "1" ]; then
     REG_ARGS="$REG_ARGS --eval_keep_anchor_rows"
@@ -163,7 +166,7 @@ log "  Alloc  : PYTORCH_CUDA_ALLOC_CONF=$PYTORCH_CUDA_ALLOC_CONF"
 if [ "$SHAPE_REG" = "1" ]; then
 log "  Reg    : SHAPE   (λ=$LAMBDA_SHAPE)"
 elif [ "$REPLAY_REG" = "1" ]; then
-log "  Reg    : REPLAY  (λ=$LAMBDA_REPLAY)"
+log "  Reg    : ANCHOR-CE  (λ=$LAMBDA_REPLAY)"
 else
 log "  Reg    : OFF"
 fi

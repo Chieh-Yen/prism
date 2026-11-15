@@ -24,8 +24,9 @@ counts only if it exceeds the noise floor (NOISE_FLOOR, fixed at 0.02 nats).
 
 The same tables are printed for every results file: the per-benchmark gaps and
 term ratios, the absolute terms and the bound, and the summary. With more than
-one file an across-models table follows.  The comparison with Table 10 of the
-paper is printed for the model that table covers (Qwen3-8B-Base).
+one file an across-models table follows.  The comparison with the BnB INT8
+rows of the Qwen3-8B-Base decomposition table of the paper (Appendix E.3) is
+printed for that model.
 
 Usage:
     python analyze.py --results QWEN.json LLAMA.json --constants QWEN_K.json LLAMA_K.json
@@ -36,9 +37,9 @@ import argparse, json, math
 DISPLAY = {"squad": "SQuAD", "triviaqa": "TriviaQA", "mmlu": "MMLU",
            "arc": "ARC", "gsm8k": "GSM8K"}
 
-# |Delta R| of the BnB INT8 rows of Table 10 in the paper (Qwen3-8B-Base,
-# identity alignment), as printed there.
-PAPER_TABLE10_INT8_GAP = {
+# |Delta R| of the BnB INT8 rows of the Qwen3-8B-Base decomposition table of
+# the paper (Appendix E.3; identity alignment), as printed there.
+PAPER_INT8_GAP = {
     "Qwen/Qwen3-8B-Base": {"mmlu": 0.0104, "arc": 0.0626, "triviaqa": 0.0145,
                            "squad": 0.0119, "gsm8k": 0.0017},
 }
@@ -175,10 +176,11 @@ def report(m, floor):
     print(f"  benchmarks whose gap change exceeds {floor:g} nats: "
           f"{s['beyond_floor']} / {s['n_tasks']}")
 
-    paper = PAPER_TABLE10_INT8_GAP.get(m["target"])
+    paper = PAPER_INT8_GAP.get(m["target"])
     if paper is not None:
-        print("\nOutliers-kept gap against the BnB INT8 rows of Table 10 of the paper")
-        print(f"{'benchmark':10s} {'this run':>9s} {'Table 10':>9s} {'|difference|':>13s}")
+        print("\nOutliers-kept gap against the BnB INT8 rows of the Qwen3-8B-Base "
+              "decomposition table of the paper (Appendix E.3)")
+        print(f"{'benchmark':10s} {'this run':>9s} {'paper':>9s} {'|difference|':>13s}")
         diffs = []
         for t in tasks:
             d = abs(c[(t, KEPT)]["gap"] - paper[t])

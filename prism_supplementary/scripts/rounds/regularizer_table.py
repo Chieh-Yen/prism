@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Table of the regularizer baselines (Appendix I) from the run JSONs. No GPU.
+"""Table of the fixed-weight regularizer comparison of
+run_regularizer_baselines.sh, from the run JSONs. No GPU.
+
+The table of Appendix I of the paper is not printed by this script; it comes
+from the unified protocol (scripts/response/forgetting/).
 
 Reads the runs written by train_forgetting_baselines.py,
 
@@ -15,23 +19,23 @@ fine-tuning task, at the checkpoint --step (default 300):
                 target loss  the trainer's eval_loss on the fine-tuning task.
                              Its rows depend on how the run was started: the
                              whole held-out slice with --eval_keep_anchor_rows
-                             (run_regularizer_baselines.sh passes it; this is
-                             the column of the printed Appendix I table), the
+                             (run_regularizer_baselines.sh passes it), the
                              slice without the anchor rows otherwise
                 mean Omega   mean of Omega over the same benchmarks
   seeds       mean and SAMPLE standard deviation (``statistics.stdev``,
               divisor n - 1) of forgetting and of target loss over the seeds,
               computed from the unrounded per-seed values, in two blocks:
-                * the configurations of the printed Appendix I table
-                  (PRINTED below): no regularization, replay-CE lambda 0.01,
-                  L2-SP lambda 0.01, EWC lambda 0.1, shape regularizer
-                  lambda 1, layer freezing top 16;
+                * the six configurations of the `seeds` stage of
+                  run_regularizer_baselines.sh (PRINTED below): no
+                  regularization, anchor-CE lambda 0.01, L2-SP lambda 0.01,
+                  EWC lambda 0.1, shape regularizer lambda 1, layer freezing
+                  top 16;
                 * every other configuration with at least two seeds.
   matched     among the runs of the sweep seed (42), for every method, the
               configuration whose target loss is closest to the target loss
-              of the shape regularizer (`trace`) at that seed. This is the
-              selection rule Appendix I describes, applied to every
-              configuration found, the whole sweep grid included.
+              of the shape regularizer (`trace`) at that seed. The
+              selection is applied to every configuration found, the whole
+              sweep grid included.
 
 Runs without a checkpoint at --step are listed as such.  When the same run
 exists under two model directory names (meta-llama-3.1-8b and llama-3.1-8b
@@ -60,7 +64,8 @@ ROOT = os.path.dirname(os.path.dirname(HERE))   # supplementary root
 DEFAULT_ROOT = os.path.join(ROOT, "out", "rounds", "regularizers")
 REF_METHOD = "trace"            # the shape regularizer: reference of the matched block
 SWEEP_SEED = "seed42"           # seed of the sweep; the matched block uses it only
-# (method, configuration) of the six rows of the printed Appendix I table.
+# (method, configuration) of the six configurations of the `seeds` stage of
+# run_regularizer_baselines.sh.
 PRINTED = [
     ("none", "lam0"),
     ("replay", "lam0.01"),
@@ -191,7 +196,7 @@ def main():
             print(f"    {m:<14}{l:<12}{len(vals):<7}{dr_txt:<18}{ev_txt}")
 
         hdr = f"    {'method':<14}{'config':<12}{'seeds':<7}{'forgetting':<18}{'target loss':<18}"
-        print("\n  configurations of the printed Appendix I table: "
+        print("\n  configurations of the seeds stage: "
               "mean ± sample sd (divisor n - 1) over seeds")
         print(hdr)
         for m, l in PRINTED:

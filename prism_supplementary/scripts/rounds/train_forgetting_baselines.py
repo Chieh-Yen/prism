@@ -20,13 +20,16 @@ regularized ones add lambda * P, where P is evaluated on the anchor set
     layer_freeze  no penalty; LoRA on the top --lora_top_layers layers only
 
 --seed, --ref_task, --ref_seed and --ref_offset expose the training seed and
-the anchor draw, so multi-seed runs and reference-set ablations go through
+the anchor draw, so multi-seed runs and anchor-set ablations go through
 this script as well. --seed also sets the initial LoRA weights (see its help
 text).
 
 Which trainer runs. trace, replay, l2sp, ewc, lwf and hint_mse run the
 regularized training loop (subclasses of ShapeRegularizedTrainer). `none` and
-`layer_freeze` have no penalty and run the library's default Trainer.
+`layer_freeze` have no penalty and run the library's default Trainer; with
+--same_loop they run the regularized loop instead (the L2-SP trainer at
+weight 1e-9), which is how the unified protocol
+(scripts/response/forgetting/) runs layer freezing.
 
 LoRA config, data, collator, PRISM checkpoint callback and the regularized
 training loop are imported unchanged from train_forgetting_multitask.py.
@@ -41,9 +44,8 @@ Target-task evaluation rows. By default the rows of the anchor draw are
 removed from the Trainer's eval set, for every method, so `eval_loss` is on
 held-out rows outside the anchor set. With --eval_keep_anchor_rows the whole
 held-out slice is evaluated; scripts/rounds/run_regularizer_baselines.sh
-passes the flag, because the target-task loss column of the printed
-Appendix I table was computed on the whole slice. The flag changes
-`eval_loss` only.
+passes the flag, so the target-task loss column of regularizer_table.py is
+computed on the whole slice. The flag changes `eval_loss` only.
 
 Resume. `--resume auto` continues an interrupted run from its last covered
 checkpoint, except for l2sp and ewc: their reference point (the initial
@@ -466,8 +468,8 @@ def parse_args() -> argparse.Namespace:
                    help="Evaluation only: keep the rows of the anchor draw in "
                         "the Trainer's eval set, so eval_loss is computed on "
                         "the whole held-out slice of the fine-tuning task (the "
-                        "target-task loss column of the printed Appendix I "
-                        "table; run_regularizer_baselines.sh passes this "
+                        "target-task loss column of regularizer_table.py; "
+                        "run_regularizer_baselines.sh passes this "
                         "flag). Default: those rows are removed (unified "
                         "protocol). Does not affect training, the anchor draw "
                         "or the PRISM records.")
@@ -610,7 +612,7 @@ def main() -> None:
             seed=ref_seed, offset=args.ref_offset,
         )
         n_kept = len(ref_dataloader.dataset)
-        print(f"\nReference draw: task={ref_task} seed={ref_seed} "
+        print(f"\nAnchor draw: task={ref_task} seed={ref_seed} "
               f"offset={args.ref_offset} requested={args.reg_samples} "
               f"kept={n_kept}")
         if n_kept < args.reg_samples:
@@ -655,7 +657,7 @@ def main() -> None:
 
     fisher = None
     if args.method == "ewc":
-        print("\nEstimating diagonal Fisher on the reference set ...")
+        print("\nEstimating diagonal Fisher on the anchor set ...")
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
         fisher = estimate_fisher(model, ref_dataloader, device)
@@ -687,7 +689,7 @@ def main() -> None:
     #
     # --eval_keep_anchor_rows: nothing is removed and eval_loss is computed on
     # the whole slice (163 rows for TruthfulQA), as for the target-task loss
-    # column of the printed Appendix I table. The flag only selects the rows
+    # column of regularizer_table.py. The flag only selects the rows
     # of eval_loss; training, the anchor draw and the PRISM records are the
     # same with and without it.
     #

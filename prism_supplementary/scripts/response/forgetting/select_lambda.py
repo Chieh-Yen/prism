@@ -26,7 +26,8 @@ The main table, the least-forgetting table and the budget-sensitivity table
 cover no regularization, anchor-CE, generic replay and the shape regularizer.
 LwF and representation KD have a table of their own, and so have L2-SP and
 EWC, the weight-space baselines of Appendix I ("Appendix I baselines" below),
-which are selected by the same rule on the same grid.
+which are selected by the same rule on the same grid.  Layer freezing has no
+weight to select; its runs are listed in a last table next to the reference.
 
 Only lambda values on the grid {1, 5} x 10^k (1e-4 .. 1e4) are considered.
 Runs of the baselines script's ``trace`` method are the shape regularizer and
@@ -100,8 +101,8 @@ def load_points(out_root: Path) -> Tuple[Points, Dict[str, int]]:
     skipped = dict(off_grid=0, no_target_loss=0, no_last_step=0, duplicate_shape=0)
     runs = sorted(P.iter_runs(out_root), key=lambda r: P.METHODS[r.method].trainer != "main")
     for run in runs:
-        is_reference = run.method == P.REFERENCE
-        if not is_reference and not P.on_grid(run.lam):
+        no_weight = run.method in P.NO_WEIGHT
+        if not no_weight and not P.on_grid(run.lam):
             skipped["off_grid"] += 1
             continue
         key = (run.method, run.lam, run.seed, run.model, run.task)
@@ -113,7 +114,7 @@ def load_points(out_root: Path) -> Tuple[Points, Dict[str, int]]:
             skipped["no_last_step"] += 1
             continue
         method = P.METHODS[run.method].report_as
-        seeds = points[(run.model, run.task, method)][0.0 if is_reference else run.lam]
+        seeds = points[(run.model, run.task, method)][0.0 if no_weight else run.lam]
         if run.seed in seeds:
             skipped["duplicate_shape"] += 1
             continue
@@ -393,6 +394,27 @@ def print_appendix_baselines(points: Points, tol: float, seeds: Sequence[int]) -
     print()
 
 
+def print_layer_freezing(points: Points, seeds: Sequence[int]) -> None:
+    """Layer freezing (no weight to select) next to the reference."""
+    if not any(points.get(cell + ("layer_freeze",)) for cell in P.CELLS):
+        return
+    print("## Layer freezing (no weight to select)")
+    print("Forgetting: mean ± population sd over the seeds; last column: mean target loss "
+          "minus that of the reference.\n")
+    print("| model | task | forgetting | target loss | target loss minus reference | seeds |")
+    print("|---|---|--:|--:|--:|--:|")
+    for cell in P.CELLS:
+        ref = reference(points, cell, seeds)
+        values = points.get(cell + ("layer_freeze",), {}).get(0.0)
+        if ref is None or not values:
+            continue
+        forgetting = [v[1] for v in values.values()]
+        print(f"| {cell_name(cell)} | {st.mean(forgetting):.3f} ± {st.pstdev(forgetting):.3f} | "
+              f"{mean_target(values):.3f} | {mean_target(values) - mean_target(ref):+.3f} | "
+              f"{len(values)} |")
+    print()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -435,6 +457,7 @@ def main() -> None:
     print_sensitivity(points, [args.budget] + list(args.sensitivity), args.seeds)
     print_extra_baselines(points, args.budget, args.seeds)
     print_appendix_baselines(points, args.budget, args.seeds)
+    print_layer_freezing(points, args.seeds)
     if pending:
         sys.exit("search not finished: the tables above are provisional")
 

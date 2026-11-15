@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================
-# Regularizer baselines (Appendix I): layer freezing, EWC and L2-SP next to
-# the unregularized run, anchor-CE (`replay`) and the shape regularizer
-# (`trace`), on Llama-3.1-8B / TruthfulQA, 300 steps.
+# Fixed-weight regularizer comparison on one cell: layer freezing, EWC and
+# L2-SP next to the unregularized run, anchor-CE (`replay`) and the shape
+# regularizer (`trace`), on Llama-3.1-8B / TruthfulQA, 300 steps. The weights
+# are set in advance (stages below); `none` and `layer_freeze` use the
+# library's default Trainer. The table of Appendix I of the paper is not produced here but by
+# the unified protocol (scripts/response/forgetting/).
 #
 # Stages, run in order. A re-launched stage skips the runs whose metrics JSON
 # holds the checkpoint at step MAX_STEPS (SKIP_DONE). An interrupted run of
@@ -15,8 +18,8 @@
 #
 #   STAGE=sweep   seed 42: layer_freeze top-K in {4, 8, 16}; EWC and L2-SP at
 #                 lambda in {1e-4, 1e-3, 1e-2, 1e-1}                (11 runs)
-#   STAGE=seeds   seeds 43 and 44 at the configuration of each baseline that
-#                 the Appendix I table reports (layer_freeze top 16, EWC
+#   STAGE=seeds   seeds 43 and 44 at one fixed configuration of each
+#                 baseline (layer_freeze top 16, EWC
 #                 lambda 0.1, L2-SP lambda 0.01)                    ( 6 runs)
 #                 and seeds 42, 43, 44 of `none`, `trace` at lambda TRACE_LAM
 #                 and `replay` at lambda 0.01                       ( 9 runs)
@@ -24,8 +27,7 @@
 #
 # Every run is started with --eval_keep_anchor_rows: the trainer's eval_loss
 # (the "target loss" column of regularizer_table.py) is computed on the whole
-# held-out slice of the fine-tuning task, anchor rows included, which is how
-# the target-task loss column of the printed Appendix I table was computed.
+# held-out slice of the fine-tuning task, anchor rows included.
 # EVAL_KEEP_ANCHOR_ROWS=0 removes the anchor rows from the eval set instead
 # (unified protocol). Evaluation only; training is the same either way.
 #
@@ -39,7 +41,7 @@ STAGE="${STAGE:-sweep}"
 MODEL="${MODEL:-meta-llama/Meta-Llama-3.1-8B}"
 TASKS="${TASKS:-truthfulqa}"
 MAX_STEPS="${MAX_STEPS:-300}"
-# lambda of the shape regularizer in the `seeds` stage (Appendix I: 1.0).
+# lambda of the shape regularizer in the `seeds` stage (default 1.0).
 TRACE_LAM="${TRACE_LAM:-1.0}"
 # SKIP_DONE=1: a re-launched stage skips the runs whose metrics JSON already
 # holds the checkpoint at step MAX_STEPS. SKIP_DONE=0 disables the check and
@@ -133,7 +135,7 @@ case "$STAGE" in
   seeds)
     for task in $TASKS; do
         case "$task" in
-            # The configurations of the Appendix I table (TruthfulQA).
+            # The fixed configurations of the `seeds` stage (TruthfulQA).
             truthfulqa) FREEZE_TOP=16; EWC_LAM=1e-1; L2SP_LAM=1e-2 ;;
             *) echo "!! seeds: no configuration recorded for task=$task" | tee -a "$LOG"; exit 1 ;;
         esac

@@ -154,8 +154,8 @@ TASK_REGISTRY: Dict[str, Dict] = {
                       "z_mode": "concat", "loss_mode": "answer"},
     "bbq":           {"hf_id": "lighteval/bbq_helm",   "hf_subset": "all",           "formatter": "bbq",      "split_map": {"test": "test[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
-    # Raw-text corpus used only as a reference/replay source by the LoRA
-    # trainers (--replay_source generic, --ref_task wikitext).  No formatter,
+    # Raw-text corpus used only by the LoRA trainers, as the generic-replay
+    # source (--replay_source generic) or as an anchor source (--ref_task wikitext).  No formatter,
     # hence no prompt/answer split: Z covers every next-token position and
     # the loss is the full-text loss.
     "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1",

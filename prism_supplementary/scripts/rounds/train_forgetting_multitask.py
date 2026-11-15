@@ -338,9 +338,9 @@ class ShapeRegularizedTrainer(Trainer):
 
     # ------------------------------------------------------------------
     def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
-        """Differentiable shape loss: 1 − Ω_I on reference data.
+        """Differentiable shape loss: 1 − Ω_I on the anchor set.
 
-        Forward-passes the reference DataLoader (with gradients enabled)
+        Forward-passes the anchor-set DataLoader (with gradients enabled)
         to build Z_P, then computes the trace-based Ω_I against the
         frozen Z_T_ref.
 
@@ -389,7 +389,7 @@ class ShapeRegularizedTrainer(Trainer):
         super().log(logs, *args, **kwargs)
 
 
-# ── Replay-CE Trainer (data-replay baseline) ──────────────────────────────
+# ── Anchor-CE trainer (cross-entropy on the anchor set) ───────────────────
 
 class ReplayCETrainer(ShapeRegularizedTrainer):
     """Anchor-CE: L = L_CE + λ · CE_ref.
@@ -1018,7 +1018,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--prism_eval_batch_size", type=int, default=4,
                    help="Batch size for PRISM feature extraction")
 
-    # Shape regularization (W=I trace form). Mutually exclusive with replay.
+    # Shape regularization (W=I trace form). Mutually exclusive with anchor-CE.
     p.add_argument("--lambda_shape", type=float, default=0.0,
                    help="Weight for shape regularizer 1-Ω_I (0 = disabled). "
                         "Mutually exclusive with --lambda_replay. Negative "
@@ -1031,17 +1031,17 @@ def parse_args() -> argparse.Namespace:
                         "Mutually exclusive with --lambda_shape. Negative "
                         "values are rejected.")
     p.add_argument("--reg_every_k", type=int, default=8,
-                   help="Compute the penalty (shape or replay) every K "
+                   help="Compute the penalty (shape or anchor-CE) every K "
                         "micro-batches (default: 8, a constant; it is not "
                         "derived from --grad_accum. The reported runs use "
                         "8 = --grad_accum, i.e. one penalty evaluation per "
                         "optimizer step)")
     p.add_argument("--reg_samples", type=int, default=32,
-                   help="Number of reference samples for the regularizer")
+                   help="Number of sequences in the anchor set")
     p.add_argument("--reg_batch_size", type=int, default=8,
-                   help="Batch size for reference forward pass")
+                   help="Batch size for the anchor-set forward pass")
     p.add_argument("--reg_max_length", type=int, default=512,
-                   help="Max sequence length for the reference forward pass. "
+                   help="Max sequence length for the anchor-set forward pass. "
                         "Kept separate from --max_length so that a larger "
                         "--max_length does not enlarge the grad-retained "
                         "hidden-state concat inside _compute_shape_loss.")
@@ -1135,7 +1135,7 @@ def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
 def main() -> None:
     args = parse_args()
 
-    # ── Mutual exclusion: shape reg and replay reg cannot both be on ──
+    # ── Mutual exclusion: shape penalty and anchor-CE cannot both be on ──
     if args.lambda_shape > 0 and args.lambda_replay > 0:
         print("ERROR: --lambda_shape and --lambda_replay are mutually exclusive; "
               "set at most one to a positive value.", file=sys.stderr)
@@ -1432,11 +1432,11 @@ def main() -> None:
             device_str=tensor_device,
         )
     elif args.lambda_replay > 0:
-        print(f"\n  Replay-CE regularizer: λ={args.lambda_replay}, "
+        print(f"\n  Anchor-CE: λ={args.lambda_replay}, "
               f"every_k={args.reg_every_k}, samples={args.reg_samples}")
         trainer = ReplayCETrainer(
             **trainer_kwargs,
-            Z_T_ref=None,                        # unused by replay baseline
+            Z_T_ref=None,                        # unused by anchor-CE
             ref_dataloader=ref_dataloader,
             lambda_shape=args.lambda_replay,     # parent's slot for the weight
             reg_every_k=args.reg_every_k,

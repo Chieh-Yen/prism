@@ -37,7 +37,7 @@ Target-task evaluation rows.  The Trainer's eval set is the held-out slice of
 the fine-tuning task (TASK_CONFIGS eval_split).  By default the 32 rows of the
 anchor draw are removed from it (unified protocol, scripts/response/forgetting/);
 with --eval_keep_anchor_rows the whole slice is evaluated, as in the λ sweeps of
-the submission (run_forgetting.sh passes the flag).  The flag changes `eval_loss`
+run_forgetting.sh (which passes the flag).  The flag changes `eval_loss`
 only; see the comment at the eval-set construction in main().
 
 Set PRISM_EVAL_SIMILARITY=1 to add linear CKA and SVCCA (similarity_baselines.py)
@@ -348,9 +348,9 @@ class ShapeRegularizedTrainer(Trainer):
 
     # ------------------------------------------------------------------
     def _compute_shape_loss(self, model) -> Tuple[Tensor, float]:
-        """Differentiable shape loss: 1 − Ω_I on reference data.
+        """Differentiable shape loss: 1 − Ω_I on the anchor set.
 
-        Forward-passes the reference DataLoader (with gradients enabled)
+        Forward-passes the anchor-set DataLoader (with gradients enabled)
         to build Z_P, then computes the trace-based Ω_I against the
         frozen Z_T_ref.
 
@@ -399,7 +399,7 @@ class ShapeRegularizedTrainer(Trainer):
         super().log(logs, *args, **kwargs)
 
 
-# ── Replay-CE Trainer (data-replay baseline) ──────────────────────────────
+# ── Cross-entropy penalty trainer (anchor-CE, generic replay) ─────────────
 
 class ReplayCETrainer(ShapeRegularizedTrainer):
     """Cross-entropy rehearsal on a fixed set: L = L_CE + λ · CE_ref.
@@ -462,7 +462,7 @@ class ReplayCETrainer(ShapeRegularizedTrainer):
         Trainer.log(self, logs, *args, **kwargs)
 
 
-# ── Anchor / replay set construction ──────────────────────────────────────
+# ── Anchor set / generic-replay set construction ──────────────────────────
 
 def build_ref_dataloader(args, tokenizer):
     """Build the fixed set of sequences the penalty is computed on.
@@ -475,7 +475,7 @@ def build_ref_dataloader(args, tokenizer):
     reg_samples), so every method sees the same rows at a given seed, and
     the rows are redrawn for each seed.
 
-    ``--replay_source generic`` (replay-CE only): ``args.reg_samples``
+    ``--replay_source generic`` (generic replay): ``args.reg_samples``
     WikiText sequences (wikitext-2-raw-v1, train split).
 
     Both sources yield the same number of sequences, truncated at the same
@@ -491,7 +491,7 @@ def build_ref_dataloader(args, tokenizer):
         # slice: its anchor set defines the geometry being preserved.
         if args.lambda_shape > 0 and src != "task":
             print(f"[ref] shape regularizer active: forcing replay_source=task "
-                  f"(requested '{src}' applies to the replay-CE trainer only)")
+                  f"(requested '{src}' applies to the cross-entropy penalty only)")
         return load_task_data(
             args.task, split="test",
             num_samples=args.reg_samples,
@@ -1123,8 +1123,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval_keep_anchor_rows", action="store_true",
                    help="Evaluation only: keep the anchor rows in the Trainer's "
                         "eval set, so eval_loss is computed on the whole held-out "
-                        "slice of the fine-tuning task (as in the λ sweeps of the "
-                        "submission; run_forgetting.sh passes this flag). Default: "
+                        "slice of the fine-tuning task (as in the λ sweeps of "
+                        "run_forgetting.sh, which passes this flag). Default: "
                         "the --reg_samples rows of the anchor draw (seed + 1000) "
                         "are removed from the eval set (unified protocol). Does "
                         "not affect training, the anchor draw or the PRISM "
@@ -1136,7 +1136,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--prism_eval_batch_size", type=int, default=4,
                    help="Batch size for PRISM feature extraction")
 
-    # Shape regularization (W=I trace form). Mutually exclusive with replay.
+    # Shape regularization (W=I trace form). Mutually exclusive with
+    # --lambda_replay.
     #
     # Two unregularized references can be run; they use different training
     # loops and are NOT interchangeable (see the trainer selection in main()):
@@ -1156,15 +1157,16 @@ def parse_args() -> argparse.Namespace:
                         "contributes at most 2e-9 nats. Negative values are "
                         "rejected.")
     p.add_argument("--lambda_replay", type=float, default=0.0,
-                   help="Weight for the replay-CE penalty: cross-entropy on a "
+                   help="Weight of the cross-entropy penalty on a "
                         "fixed set of --reg_samples sequences chosen by "
-                        "--replay_source (0 = disabled). Same scheduling and "
+                        "--replay_source: anchor-CE with 'task', generic replay "
+                        "with 'generic' (0 = disabled). Same scheduling and "
                         "loss scaling as --lambda_shape; only the penalty "
                         "differs. Mutually exclusive with --lambda_shape. "
                         "Negative values are rejected.")
     p.add_argument("--replay_source", default="task",
                    choices=["task", "generic"],
-                   help="Sequences rehearsed by --lambda_replay: "
+                   help="Sequences the --lambda_replay penalty is computed on: "
                         "'task' = the anchor set, i.e. the held-out sequences of "
                         "the fine-tuning task that the shape regularizer reads "
                         "(default; anchor-CE); "
@@ -1173,17 +1175,18 @@ def parse_args() -> argparse.Namespace:
                         "replay). Ignored by the shape regularizer, which "
                         "always reads the anchor set.")
     p.add_argument("--reg_every_k", type=int, default=8,
-                   help="Compute the penalty (shape or replay) every K "
+                   help="Compute the penalty (shape or cross-entropy) every K "
                         "micro-batches (default: 8, a constant; it is not "
                         "derived from --grad_accum. The reported runs use "
                         "8 = --grad_accum, i.e. one penalty evaluation per "
                         "optimizer step)")
     p.add_argument("--reg_samples", type=int, default=32,
-                   help="Number of sequences in the anchor / replay set")
+                   help="Number of sequences in the anchor set (and in the "
+                        "generic-replay set)")
     p.add_argument("--reg_batch_size", type=int, default=8,
-                   help="Batch size for reference forward pass")
+                   help="Batch size for the anchor-set forward pass")
     p.add_argument("--reg_max_length", type=int, default=512,
-                   help="Max sequence length for the reference forward pass. "
+                   help="Max sequence length for the anchor-set forward pass. "
                         "Kept separate from --max_length so that a larger "
                         "--max_length does not enlarge the grad-retained "
                         "hidden-state concat inside _compute_shape_loss.")
@@ -1276,7 +1279,7 @@ def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
 def main() -> None:
     args = parse_args()
 
-    # ── Mutual exclusion: shape reg and replay reg cannot both be on ──
+    # ── Mutual exclusion: shape penalty and CE penalty cannot both be on ──
     if args.lambda_shape > 0 and args.lambda_replay > 0:
         print("ERROR: --lambda_shape and --lambda_replay are mutually exclusive; "
               "set at most one to a positive value.", file=sys.stderr)
@@ -1405,11 +1408,11 @@ def main() -> None:
     experiment_config["K_pred"] = K_theory["K_pred"]
     experiment_config["K_feat_naive"] = K_theory.get("K_feat_naive")
 
-    # ── Pre-compute anchor / replay data + (for shape only) Z_T_ref ──
-    # The shape regularizer and replay-CE with --replay_source task read the
+    # ── Pre-compute anchor / generic-replay data + (for shape only) Z_T_ref ──
+    # The shape regularizer and anchor-CE (--replay_source task) read the
     # same anchor set (see build_ref_dataloader); only the shape regularizer
-    # needs Z_T (base-model features) pre-extracted, since replay-CE uses the
-    # current model's CE on its inputs.
+    # needs Z_T (base-model features) pre-extracted, since the cross-entropy
+    # penalty uses the current model's CE on its inputs.
     Z_T_ref = None
     ref_dataloader = None
     use_reg = args.lambda_shape > 0 or args.lambda_replay > 0
@@ -1482,9 +1485,9 @@ def main() -> None:
     # the same number of rows), so it depends only on (task, seed, reg_samples):
     # identical across methods at a given seed, redrawn for each seed. The
     # removal does not depend on the method:
-    #   * shape regularizer, replay with --replay_source task: the removed rows
+    #   * shape regularizer, anchor-CE (--replay_source task): the removed rows
     #     are the rows the penalty is computed on;
-    #   * replay with --replay_source generic: the penalty reads WikiText; the
+    #   * generic replay (--replay_source generic): the penalty reads WikiText; the
     #     removed rows are the rows the task source would draw at this seed;
     #   * both λ = 0 (library Trainer): no anchor set is built and no row of the
     #     slice is read during training; the removed rows are the rows a
@@ -1492,8 +1495,8 @@ def main() -> None:
     #     is on the same rows for every method.
     #
     # --eval_keep_anchor_rows: nothing is removed and eval_loss is computed on
-    # the whole slice (163 rows for TruthfulQA), as in the λ sweeps of the
-    # submission. The flag only selects the rows of eval_loss; training, the
+    # the whole slice (163 rows for TruthfulQA), as in the λ sweeps of
+    # run_forgetting.sh. The flag only selects the rows of eval_loss; training, the
     # anchor draw and the PRISM records are the same with and without it.
     #
     # The removal applies when the eval slice is used whole (max_eval_samples is
@@ -1612,11 +1615,12 @@ def main() -> None:
             device_str=tensor_device,
         )
     elif args.lambda_replay > 0:
-        print(f"\n  Replay-CE regularizer: λ={args.lambda_replay}, "
+        print(f"\n  Cross-entropy penalty (source: {args.replay_source}): "
+              f"λ={args.lambda_replay}, "
               f"every_k={args.reg_every_k}, samples={args.reg_samples}")
         trainer = ReplayCETrainer(
             **trainer_kwargs,
-            Z_T_ref=None,                        # unused by replay baseline
+            Z_T_ref=None,                        # unused by the CE penalty
             ref_dataloader=ref_dataloader,
             lambda_shape=args.lambda_replay,     # parent's slot for the weight
             reg_every_k=args.reg_every_k,
