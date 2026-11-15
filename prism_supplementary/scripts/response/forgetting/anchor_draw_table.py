@@ -29,7 +29,7 @@ def main() -> None:
     rows = []
     for metrics in sorted(args.out_root.glob(
             "n*_off*/trace/lam1000/seed*/llama-3.1-8b/truthfulqa/" + P.METRICS_FILE)):
-        m = re.match(r"n(\d+)_off(\d+)", metrics.parts[len(args.out_root.parts)])
+        m = re.fullmatch(r"n(\d+)_off(\d+)", metrics.parts[len(args.out_root.parts)])
         seed = int(metrics.parent.parent.parent.name[len("seed"):])
         forgetting = P.read_forgetting(metrics.parent)
         if m and forgetting is not None:

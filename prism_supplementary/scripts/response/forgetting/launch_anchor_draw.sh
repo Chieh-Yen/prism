@@ -19,7 +19,7 @@ OUT_ROOT=${1:?usage: launch_anchor_draw.sh OUT_ROOT}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PYTHON=${PYTHON:-python}
 TRAINER="$HERE/../../rounds/train_forgetting_baselines.py"
-COMMON=$("$PYTHON" -c "import sys; sys.path.insert(0, '$HERE'); import protocol as P; print(' '.join(P.COMMON_ARGS))")
+COMMON=$("$PYTHON" -c 'import sys; sys.path.insert(0, sys.argv[1]); import protocol as P; print(" ".join(P.COMMON_ARGS))' "$HERE")
 
 for n in 32 16 8; do
   for k in 0 1 2 3; do
@@ -33,7 +33,8 @@ for n in 32 16 8; do
       # shellcheck disable=SC2086
       "$PYTHON" "$TRAINER" --model meta-llama/Llama-3.1-8B --task truthfulqa \
         --seed "$seed" --method trace --lambda_reg 1000 --output_root "$out" \
-        --save_steps 300 $COMMON --reg_samples "$n" --ref_offset "$off"
+        --save_steps 300 $COMMON --reg_samples "$n" --ref_offset "$off" \
+        || echo "FAILED: n=$n offset=$off seed=$seed"
     done
   done
 done

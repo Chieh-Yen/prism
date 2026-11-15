@@ -118,7 +118,7 @@ All commands are run from the supplementary root. Training needs one GPU that
 holds an 8B model in bf16; runs are executed one after another, finished runs
 are skipped, and several launchers with disjoint job lists can run on
 different GPUs. The analysis scripts read JSON only and take seconds on a CPU.
-Knobs of the five `.sh` launchers: the output root is their first argument,
+Knobs of the six `.sh` launchers: the output root is their first argument,
 `PYTHON` selects the interpreter (default `python`), and the GPU is the one
 `CUDA_VISIBLE_DEVICES` exposes.
 
