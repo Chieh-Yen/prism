@@ -167,7 +167,7 @@ class LLMExtractor(FeatureExtractor):
         z_mode: str = "concat",
         z_modes: Optional[List[str]] = None,
     ):
-        """Single forward pass that returns both features AND per-sample loss stats.
+        """Single forward pass that returns both features AND loss stats.
 
         Calls ``model(..., output_hidden_states=True)`` once per batch, obtaining
         the last hidden state (for features) **and** logits (for loss) in the same
@@ -194,7 +194,7 @@ class LLMExtractor(FeatureExtractor):
         model.eval()
         all_features: Dict[str, List[Tensor]] = {zm: [] for zm in z_modes}
         sample_losses: List[float] = []
-        token_losses: List[Tensor] = []       # per-token CE for concat mode
+        token_losses: List[Tensor] = []       # CE at the feature rows (concat mode)
         answer_losses: List[float] = []
         has_prompt = False
         is_concat = ("concat" in z_modes)
