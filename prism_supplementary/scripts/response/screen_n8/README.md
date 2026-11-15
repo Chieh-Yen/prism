@@ -11,7 +11,7 @@ answer depend on which eight sequences are used?
   `scripts/rounds/data/variant_manifest.csv`. The manifest is the variant list of the
   three-seed round of Appendix F.2 (12 and 11 variants); the screen uses it unchanged.
   It includes three GPTQ repositories, two for Llama-3.1-8B and one for Qwen3-8B-Base.
-- **Pools.** For each benchmark, three pools of 512 test sequences, seeds 43, 44 and 45:
+- **Pools.** For each benchmark, three pools of 512 evaluation sequences, seeds 43, 44 and 45:
   the pools of the three-seed round (`shuffle(seed)`, then the first 512). The risk gap of
   a variant on all 512 sequences of a pool (`gap512`) gives the ordering to be recovered.
 - **Reference sets.** 100 sets of eight sequences per pool. Set 0 is the first eight
@@ -32,7 +32,7 @@ answer depend on which eight sequences are used?
 
 | file | what it does | needs |
 |---|---|---|
-| `run_screen.py` | GPU pass for one family: loads the target once and each variant once, extracts answer-token features and per-sequence answer losses on the three pools of every benchmark, and writes one row per (variant, seed, benchmark, set) to `{family}_screen.csv`, plus `{family}_sets.json` (the index sets) and `{family}_K.json` (K_feat, K_pred) | GPU |
+| `run_screen.py` | GPU pass for one family: loads the target once and each variant once, extracts answer-token features and answer losses on the three pools of every benchmark, and writes one row per (variant, seed, benchmark, set) to `{family}_screen.csv`, plus `{family}_sets.json` (the index sets) and `{family}_K.json` (K_feat, K_pred) | GPU |
 | `analyze_screen.py` | tables and tests from the CSVs: summary over the ten cells, per-cell mean ± sd and worst set (the lowest r_s among the cell's 300 sets, for each score), across-cell and within-cell paired tests, bound coverage; with `--size-round`, the coverage at n = 8, 32, 128, 512 from the three-seed round's CSVs | numpy, scipy |
 | `run_screen.sh` | launcher: stages `run`, `gptq`, `analyze` | |
 
@@ -70,7 +70,8 @@ SIZE_ROUND=out/rounds/three_seed \
 `transformers`, which needs a GPTQ loader: the GPTQModel package (`gptqmodel`) together
 with `optimum`. `requirements-response.txt` lists neither, so the screen is run in two
 passes that write to the same CSVs: `run` for the variants that need no GPTQ loader, and
-`gptq` for the three GPTQ variants in an environment that has one.
+`gptq` for the three GPTQ variants in the environment of `requirements-response.txt`
+with `gptqmodel==6.0.3` and `optimum==2.2.0` added (see the header of that file).
 Knobs of `run_screen.sh`: `OUT` (output directory, default
 `out/response/screen_n8`), `CUDA_GPU` (GPU index, default 0), `FAMILIES`
 (default `"llama qwen"`), `SIZE_ROUND` (see above) and `PYTHON` (interpreter
@@ -92,8 +93,6 @@ computations. The analysis needs no GPU.
 
 - **Risk gap.** `gap8` and `gap512` are the risk gap on the set's eight sequences and on
   the pool's 512, as in the three-seed round.
-- **Small sets.** A set with no more token rows than feature dimensions (4,096) is
-  computed in the n × n form; a larger set uses the three-seed round's `fresh_metrics`.
 - **Set 0 and the pools.** Set 0 holds the same sequences as the n = 8 slice of the
   three-seed round, and the pools are that round's pools. The scores of set 0 and the
   pool's `gap512` are recomputed here in a separate run and are not copied from that

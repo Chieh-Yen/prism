@@ -8,8 +8,10 @@
 #   pip install -r requirements-response.txt
 #
 # The GPTQ variants of the eight-sequence screen
-# (scripts/response/screen_n8/) were scored in a separate environment that
-# has a GPTQ loader; no GPTQ loader is listed here.
+# (scripts/response/screen_n8/, `run_screen.sh gptq`) were scored in this
+# environment with a GPTQ loader added:
+#
+#   pip install --no-build-isolation gptqmodel==6.0.3 optimum==2.2.0
 #
 # requirements.txt is the environment of the paper's experiments
 # (run_quantization.sh, run_forgetting.sh).

@@ -45,7 +45,7 @@ No result files are shipped. Every table listed below is produced by running the
     │   ├── run_three_seed_round.sh, three_seed_round.py, size_study.py   (Appendix F.2)
     │   ├── similarity_scores.py          CKA, SVCCA, Procrustes distance (Appendix F.1)
     │   ├── common_quant.py               variant manifest and model loading
-    │   ├── data/variant_manifest.csv     the 12 + 11 quantized variants (no result columns)
+    │   ├── data/variant_manifest.csv     the 12 + 11 quantized variants
     │   ├── run_regularizer_baselines.sh, regularizer_table.py           (fixed-weight comparison)
     │   ├── train_forgetting_baselines.py trainers: none, trace, replay, l2sp, ewc,
     │   │                                 layer_freeze, lwf, hint_mse
@@ -69,12 +69,13 @@ Two environment files are provided.
 |---|---|---|
 | `requirements.txt` | `run_quantization.sh`, `run_forgetting.sh` (the environment those runs used) | `bash install.sh` |
 | `requirements-response.txt` | everything under `scripts/response/` (the environment those runs used: Python 3.12.3, torch 2.11.0, transformers 5.2.0, accelerate 1.12.0, peft 0.18.1, datasets 4.5.0, bitsandbytes 0.50.2, gguf 0.17.1), except the GPTQ pass of the eight-sequence screen | see the header of the file |
-| `requirements.txt`, with the GPTQ loader that `install.sh` adds | `scripts/rounds/` is to be run in this environment: three of the 23 variants of `scripts/rounds/data/variant_manifest.csv` are GPTQ repositories and need a GPTQ loader; the trainers under `scripts/rounds/` need none | `bash install.sh` |
+| `requirements.txt`, with the GPTQ loader that `install.sh` adds | `run_three_seed_round.sh` and `similarity_scores.py`: three of the 23 variants of `scripts/rounds/data/variant_manifest.csv` are GPTQ repositories and need a GPTQ loader | `bash install.sh` |
 
 `install.sh` installs torch, `requirements.txt`, then GPTQModel without
 build isolation. `requirements-response.txt` has no GPTQ loader, so the three
 GPTQ variants of the eight-sequence screen are scored in a separate pass
-(`run_screen.sh gptq`) in an environment that has one.
+(`run_screen.sh gptq`) in the environment of `requirements-response.txt` with
+`gptqmodel==6.0.3` and `optimum==2.2.0` added (see the header of that file).
 
 Gated repositories (for example the Llama family) need an accepted licence
 and a Hugging Face login.
@@ -121,6 +122,13 @@ benchmarks; one seed per value.
 | Similarity baselines (Appendix F.1, Table 17): CKA, SVCCA and the Procrustes distance at seed 42, joined with the risk gaps and bounds of the quantization grid | `python scripts/rounds/similarity_scores.py --family llama --results-csv results/quantization` (then `--family qwen`), after `run_quantization.sh` | `out/rounds/similarity/` |
 | LoRA checkpoint series, single run (Sec. 4.2, Fig. 3; Appendix H.1, Fig. 7): unregularized LoRA with the library's default trainer, two models × two tasks, 300 steps, a checkpoint every 25 steps | `REPLAY_LAMBDAS="0" SHAPE_LAMBDAS="" bash run_forgetting.sh` | `checkpoints/forgetting_replay_lam0/` |
 | Forgetting experiments (Sec. 4.5, Appendices H.2, H.3, I, J; Table 3, Figs. 4 and 8): unified protocol, four cells, seeds 42, 43, 44 | the commands below | `out/unified/` |
+
+**Result columns of the quantization grid.** In the CSVs of
+`run_quantization.sh`, suffix `_I` is the identity alignment W = I and suffix
+`_W` the Procrustes alignment W_N. The paper's B under W = I is `Bound_I`, with
+δ = `K_f` · `delta_I`, γ = `K_p` · `gamma_I` and Ω = `Omega_I`; B_N is
+`Bound_W`; |ΔR| is `|AdR|`. `Bound` is the smaller of `Bound_I` and `Bound_W`.
+The console summary prints `delta_*` and `gamma_*` without `K_f` and `K_p`.
 
 **Forgetting experiments.** The forgetting results of Sec. 4.5 and Appendices
 H, I, J are produced by `scripts/response/forgetting/` (protocol and
@@ -219,8 +227,7 @@ penalty. This is the unregularized run of `run_forgetting.sh`
 checkpoint ranking (`scripts/response/lora_similarity/`). The unregularized reference of the
 unified protocol (`scripts/response/forgetting/`, method `noreg_sameloop`) is
 the regularized trainer at `--lambda_shape 1e-9`, so that it shares the
-training loop of the other methods. Results of the two references are not
-interchangeable.
+training loop of the other methods.
 
 **(c) Loss scaling.** With G = 8 gradient-accumulation steps, the
 gradient accumulated by the regularized trainer for one optimizer step is
@@ -271,8 +278,7 @@ dropout), the anchor draw (`seed + 1000`) and the draw of the benchmark
 sequences of the PRISM evaluation.
 
 **(j) Optimizer.** The trainers use the paged 8-bit AdamW of bitsandbytes
-(`paged_adamw_8bit`) when bitsandbytes can be imported, and torch AdamW
-otherwise; weight decay 0.01, cosine schedule with 5% warm-up, gradient
+(`paged_adamw_8bit`); weight decay 0.01, cosine schedule with 5% warm-up, gradient
 clipping at 1.0. The trainers print the
 optimizer and record it, with these settings, the revision, `replay_source`,
 `eval_keep_anchor_rows` and the number of evaluation rows, in the

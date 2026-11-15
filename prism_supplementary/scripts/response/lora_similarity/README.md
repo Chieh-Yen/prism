@@ -21,8 +21,8 @@ python scripts/response/lora_similarity/analyze.py   --out_root out/lora_series
 ```
 
 `run_series.py --dry_run` prints the six training commands. Training needs one
-GPU that holds an 8B model in bf16; `analyze.py` reads JSON only and finishes
-in about a second on a CPU. Knobs of `launch_lora_table.sh`: the output root
+GPU that holds an 8B model in bf16; `analyze.py` reads JSON only and needs no
+GPU. Knobs of `launch_lora_table.sh`: the output root
 is its first argument, `PYTHON` selects the interpreter (default `python`),
 and the GPU is the one `CUDA_VISIBLE_DEVICES` exposes.
 

@@ -37,11 +37,6 @@ from prism.core.metrics import PRISMMetrics                             # noqa: 
 from prism.data.loaders import get_task_metadata, load_task_data        # noqa: E402
 from prism.models.extractors import LLMExtractor                        # noqa: E402
 
-# Remote code is opt-in (PRISM_TRUST_REMOTE_CODE=1). Every model family used in
-# the paper is native to the pinned transformers release, so the default is off.
-# Model revisions are pinned through configs/model_revisions.yaml.
-_TRUST_REMOTE_CODE = os.environ.get("PRISM_TRUST_REMOTE_CODE", "0") == "1"
-
 
 # ── Formatters; identical to prism/data/loaders.py for consistency ───────
 
@@ -159,11 +154,6 @@ class ShapeRegularizedTrainer(Trainer):
       * Both backward calls go through ``accelerator.backward``, which
         divides by the accumulation steps registered with the Accelerator
         (G).
-
-    For comparison, the stock ``Trainer`` passes ``num_items_in_batch`` to
-    the model, so its CE is the mean over all G micro-batches together,
-    CE_all, and its accumulated gradient is (1/G) · ∇CE_all.  The CE term of
-    this class is therefore about G times that of the stock ``Trainer``.
 
     Every subclass (``ReplayCETrainer`` here, and the baseline trainers in
     train_forgetting_baselines.py) overrides only the penalty P, so all
@@ -675,13 +665,11 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "loss_P_full": "full-sequence CE loss (supplementary)",
                 "train_loss": "most recent `loss` logged by the Trainer at or before this "
                               "step: answer-only CE on the fine-tuning task, averaged over "
-                              "the optimizer steps of the last logging window. Per optimizer "
-                              "step the library Trainer logs the mean over "
-                              "the G = grad_accum micro-batches; the regularized trainers "
-                              "log the sum of the G micro-batch means (about G times as "
-                              "large); the penalty is not included",
+                              "the optimizer steps of the last logging window; the regularized trainers "
+                              "log the sum of the G = grad_accum micro-batch mean CEs "
+                              "(README note (c)); the penalty is not included",
                 "eval_loss": ("Trainer eval loss: answer-only CE on the held-out slice of the "
-                              "fine-tuning task, as aggregated by the library. Rows: "
+                              "fine-tuning task. Rows: "
                               "experiment.n_eval_rows; the whole slice when "
                               "experiment.eval_keep_anchor_rows is true, without the "
                               "anchor rows otherwise"),

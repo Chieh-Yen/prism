@@ -31,7 +31,7 @@ dimensions fall back to fresh_metrics itself.
 Output (under --out):
   {family}_sets.json     the 100 index sets of every (seed, benchmark) pool
   {family}_K.json        K_feat, K_pred of the target head
-  {family}_ZT/           cached target features, per-sequence losses and token counts
+  {family}_ZT/           cached target features and losses
   {family}_screen.csv    one row per (variant, seed, benchmark, set)
 
 A variant whose model cannot be loaded (for example a GPTQ variant in an environment
@@ -75,7 +75,7 @@ def _rec(hidden, masks, zm, prompt_lens):
 ex._extract_z = _rec
 
 def feats(model, loader, dev):
-    """One forward pass: answer-token features, per-sequence answer loss, rows per sequence."""
+    """One forward pass: answer-token features, answer losses, and the rows of each sequence."""
     _counts.clear()
     Z, st = ex.extract_features_and_loss_per_sample(model, loader, dev, z_mode="concat")
     al = st["answer_losses"]; al = (al if al is not None else st["losses"]).double().numpy()

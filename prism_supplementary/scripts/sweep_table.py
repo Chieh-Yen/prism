@@ -17,12 +17,11 @@ the record of the final step (the run's `max_steps`, 300 in the sweeps; or
   target loss       `eval_loss` of the checkpoint record at the final step:
                     the Trainer's evaluation loss, i.e. the answer-only
                     cross-entropy of the fine-tuned model on held-out rows of
-                    the fine-tuning task, as aggregated by the library.
+                    the fine-tuning task.
                     When the sweep is run through run_forgetting.sh, the
                     trainer is started with --eval_keep_anchor_rows and this
                     is the loss on the whole held-out slice (the last 20% of
-                    the task's data), which includes the 32 anchor rows the
-                    regularizers read; the column "eval rows" shows the number
+                    the task's data); the column "eval rows" shows the number
                     of rows each run was evaluated on when the file records it.
 
   downstream |dR|   unweighted mean, over the five downstream benchmarks

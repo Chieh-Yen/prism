@@ -181,10 +181,10 @@ class LLMExtractor(FeatureExtractor):
                      ``(Tensor, Dict)``.
 
         The returned ``loss_stats`` dict contains:
-            ``losses``              ; (n,) per-sample average CE loss (full text)
-            ``token_losses``        ; (N_tokens,) per-token CE, or None
+            ``losses``              ; full-text CE loss
+            ``token_losses``        ; CE at the feature rows, or None
                                        (present when ``"concat"`` is among z_modes)
-            ``answer_losses``       ; (n,) answer-only loss, or None
+            ``answer_losses``       ; answer-only loss, or None
             ``has_answer_loss``
         """
         _return_dict = z_modes is not None
@@ -256,7 +256,7 @@ class LLMExtractor(FeatureExtractor):
                     all_features[zm].append(feats.float().cpu())
                 del hidden
 
-                # ── Per-sample loss (vectorized) ──────────────────────────
+                # ── Losses (vectorized) ───────────────────────────────────
                 V = all_logits.shape[-1]
                 shift_labels = batch_on_device["input_ids"][:, 1:].clone()       # (bsz, T-1)
                 if masks is not None:
@@ -273,11 +273,11 @@ class LLMExtractor(FeatureExtractor):
                 valid_mask = (shift_labels != -100).float()           # (bsz, T-1)
                 valid_counts = valid_mask.sum(dim=1).clamp(min=1)     # (bsz,)
 
-                # Full-text per-sample loss
+                # Full-text loss
                 batch_losses = (ce_per_token * valid_mask).sum(dim=1) / valid_counts
                 sample_losses.extend(batch_losses.tolist())
 
-                # Per-token losses (concat mode)
+                # Losses at the feature rows (concat mode)
                 if is_concat:
                     positions = torch.arange(T_m1, device=ce_per_token.device)
                     for j in range(bsz):

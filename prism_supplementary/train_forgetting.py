@@ -191,12 +191,6 @@ class ShapeRegularizedTrainer(Trainer):
         divides by the accumulation steps registered with the Accelerator
         (G).
 
-    For comparison, the stock ``Trainer`` (selected in ``main`` only when
-    both λ are 0) passes ``num_items_in_batch`` to the model, so its CE is
-    the mean over all G micro-batches together, CE_all, and its accumulated
-    gradient is (1/G) · ∇CE_all.  The CE term of this class is therefore
-    about G times that of the stock ``Trainer``.
-
     Every subclass (``ReplayCETrainer`` here, and the baseline trainers in
     scripts/rounds/train_forgetting_baselines.py) overrides only the penalty
     P, so all regularized methods, and the same-loop unregularized reference
@@ -807,13 +801,11 @@ class PRISMCheckpointCallback(TrainerCallback):
                 "loss_P_full": "full-sequence CE loss (supplementary)",
                 "train_loss": "most recent `loss` logged by the Trainer at or before this "
                               "step: answer-only CE on the fine-tuning task, averaged over "
-                              "the optimizer steps of the last logging window. Per optimizer "
-                              "step the library Trainer logs the mean over "
-                              "the G = grad_accum micro-batches; the regularized trainers "
-                              "log the sum of the G micro-batch means (about G times as "
-                              "large); the penalty is not included",
+                              "the optimizer steps of the last logging window; the regularized trainers "
+                              "log the sum of the G = grad_accum micro-batch mean CEs "
+                              "(README note (c)); the penalty is not included",
                 "eval_loss": ("Trainer eval loss: answer-only CE on the held-out slice of the "
-                              "fine-tuning task, as aggregated by the library; without the "
+                              "fine-tuning task; without the "
                               "anchor rows by default, on the whole slice with "
                               "--eval_keep_anchor_rows (experiment.eval_keep_anchor_rows, "
                               "experiment.n_eval_rows)"),
@@ -988,8 +980,7 @@ def parse_args() -> argparse.Namespace:
     # Shape regularization (W=I trace form). Mutually exclusive with
     # --lambda_replay.
     #
-    # Two unregularized references can be run; they use different training
-    # loops and are NOT interchangeable (see the trainer selection in main()):
+    # Two unregularized references (see the trainer selection in main()):
     #   --lambda_shape 0 --lambda_replay 0   stock transformers Trainer
     #   --lambda_shape 1e-9                  regularized training loop with a
     #                                        numerically negligible penalty
@@ -1422,9 +1413,7 @@ def main() -> None:
     #   --lambda_replay > 0                 ReplayCETrainer (same loop, CE penalty)
     #   both 0                              stock transformers Trainer
     #
-    # The two loops scale the cross-entropy differently under gradient
-    # accumulation (ShapeRegularizedTrainer docstring), so there are two
-    # distinct unregularized references:
+    # There are two unregularized references:
     #
     #   (a) stock-Trainer reference: `--lambda_shape 0 --lambda_replay 0`.
     #       This is the unregularized run of the λ sweeps launched by

@@ -255,7 +255,7 @@ class TextDataset(Dataset):
                         while f_start < len(f_ids) and f_ids[f_start] == pad_id:
                             f_start += 1
                     # First token whose start char >= prompt boundary
-                    pl = len(offsets)  # default: answer truncated
+                    pl = len(offsets)  # no token starts at or after the prompt end
                     for j, (sc, ec) in enumerate(offsets):
                         if sc >= prompt_end_char:
                             pl = j

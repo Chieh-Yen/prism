@@ -3,7 +3,7 @@
 #
 #   two targets (Qwen3-8B-Base, Llama-3.1-8B) x five benchmarks x two settings
 #   of llm_int8_threshold (6.0 = outlier channels kept in FP16, 1e9 = every
-#   channel quantized), n = 512 test sequences per benchmark.
+#   channel quantized), n = 512 sequences per benchmark.
 #
 # Knobs: OUT_DIR (default out/response/scale), PYTHON (default python),
 #        CUDA_VISIBLE_DEVICES (the scripts use cuda:0 of the visible devices).

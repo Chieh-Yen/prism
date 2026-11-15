@@ -65,7 +65,8 @@ Usage (from the supplementary root, GPU required):
 Outputs: {output_root}/{method}/{tag}/seed{seed}/{model_short}/{task}/
              prism_forgetting_metrics.json   (same schema as train_forgetting.py)
          {tag} is lam{lambda_reg:g} (e.g. lam0.01, lam1, lam0 for `none`), or
-         top{K} for layer_freeze with --lora_top_layers K (e.g. top16).
+         top{K} for layer_freeze with --lora_top_layers K (e.g. top16), and
+         lam1e-09 for none and layer_freeze with --same_loop.
 """
 
 from __future__ import annotations

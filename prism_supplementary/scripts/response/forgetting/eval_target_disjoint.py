@@ -25,8 +25,7 @@ saved at step 300, rebuilds the run's 32 anchor rows, and records
                  (``n_rows - n_anchor``).
 
 ``select_lambda.py`` reads ``target_loss``.  It is not the trainer's
-``eval_loss``, which is aggregated by the library and covers the anchor rows
-when the trainer is started with ``--eval_keep_anchor_rows``.
+``eval_loss``.
 
 The result is a JSON list, one record per run, written to
 ``<out_root>/target_loss_disjoint_<model>.json``.  Runs already in that file

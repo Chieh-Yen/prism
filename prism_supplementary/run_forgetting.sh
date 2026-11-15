@@ -33,8 +33,7 @@
 # Trainer: no anchor set is built, no penalty is computed and no anchor
 # forward pass is run. It is not the unregularized reference of the unified
 # protocol (scripts/response/forgetting/), which runs the regularized training loop
-# at `--lambda_shape 1e-9`; the two loops scale the loss differently under
-# gradient accumulation (see the trainer selection in train_forgetting.py).
+# at `--lambda_shape 1e-9`.
 #
 # Environment knobs:
 #   CUDA_GPU=0                                       GPU index

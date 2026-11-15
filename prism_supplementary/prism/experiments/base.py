@@ -84,7 +84,7 @@ class BaseExperiment:
 
         Args:
             W:       Alignment matrix.  ``torch.eye(d)`` for identity regime,
-                     ``None`` to compute the optimal Procrustes W_opt.
+                     ``None`` to compute the optimal Procrustes W_N.
         """
         result = PRISMMetrics.compute_all(
             Z_T, H_T, Z_P, H_P,

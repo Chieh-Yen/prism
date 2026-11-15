@@ -140,11 +140,7 @@ def loader_fingerprint(loader):
     The seed's only effect in this script is which examples are drawn:
     prism/data/loaders.py does `shuffle(seed)` then `select(range(num_samples))`
     (subsample_tokens is a no-op because TOKEN_CAP lies above every token
-    count).  The hashes are used for two checks:
-      * if num_samples >= len(split), every seed selects the same examples and
-        the metrics, which are invariant to row order, coincide across seeds;
-      * on a small split, two draws share part of their examples, so the seeds
-        are overlapping draws.
+    count).  The hashes give the overlap between the seeds' draws.
     """
     import hashlib
 
@@ -254,7 +250,6 @@ def run(args) -> None:
                   f"per draw", "",
                   "| benchmark | selected | pairwise example overlap |",
                   "|---|--:|--:|"]
-    degenerate = []
     for b in benches:
         nsel = fp[(seeds[0], b)]["n_selected"]
         ovs = []
@@ -264,17 +259,8 @@ def run(args) -> None:
                 ovs.append(len(a & c) / max(len(a), 1))
         lo, hi = (min(ovs), max(ovs)) if ovs else (float("nan"),) * 2
         draw_lines.append(f"| {b} | {nsel} | {100*lo:.0f}-{100*hi:.0f}% |")
-        if ovs and min(ovs) > 0.999:
-            degenerate.append(b)
         print(f"  [draw] {b}: {nsel} examples, seed-pair overlap "
               f"{100*lo:.0f}-{100*hi:.0f}%")
-    if degenerate:
-        msg = ("!! the selected example set is identical across seeds for "
-               + ", ".join(degenerate) + " (num_samples >= split size). The "
-               "metrics are invariant to row order, so these benchmarks have "
-               "sd = 0 across seeds; they are a single draw.")
-        print(msg)
-        draw_lines += ["", msg]
     draw_lines += ["", "On a small test split two draws of the same size share "
                    "part of their examples, so the seeds are overlapping draws."]
     OUT_DIR.mkdir(parents=True, exist_ok=True)

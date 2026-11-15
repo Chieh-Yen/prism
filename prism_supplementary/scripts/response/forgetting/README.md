@@ -37,8 +37,8 @@ selected methods.
   maximum length 512; one checkpoint and one evaluation at step 300. The
   argument list is `protocol.COMMON_ARGS`. Fixed in the trainers and not
   exposed as flags: weight decay 0.01, gradient clipping at 1.0, bf16, and
-  the optimizer, which is the paged 8-bit AdamW of bitsandbytes when that
-  package can be imported and torch AdamW otherwise.
+  the optimizer, which is the paged 8-bit AdamW of bitsandbytes
+  (`paged_adamw_8bit`).
 - **Anchor set**: 32 sequences of the fine-tuning task, drawn from its
   evaluation split with seed `run seed + 1000` (so each seed has its own
   anchor set, shared by all methods of that seed), visited once per optimizer
@@ -64,7 +64,7 @@ selected methods.
   The reference uses the regularized trainer class with a penalty weight of
   1e-9. The penalty 1 − Ω_I is at most 2, so the weighted penalty is at most
   2e-9 nats; `--lambda_shape 0` would instead select the library's default
-  trainer, whose loop differs. How λ weights the penalty against the
+  trainer. How λ weights the penalty against the
   cross-entropy in this loop is given in note (c) of the top-level README.
 - **L2-SP and EWC**: both penalties are computed on the trainable adapter
   weights, once per optimizer step like the other penalties, and do not read
@@ -96,8 +96,7 @@ selected methods.
   `checkpoint-300/trainer_state.json`. The `loss` the regularized trainers
   log there (`train_loss` in `prism_forgetting_metrics.json`) is the sum over
   the 8 micro-batches of an optimizer step of the micro-batch mean
-  cross-entropy, averaged over the logging window, without the penalty; it is
-  not on the scale of the loss the library's default trainer logs.
+  cross-entropy, averaged over the logging window, without the penalty.
 - **Forgetting**: mean over five downstream benchmarks (ARC, GSM8K, MMLU,
   SQuAD, TriviaQA; 256 evaluation sequences each) of |ΔR|, the absolute
   change of the answer-only cross-entropy from the base model to the
@@ -171,8 +170,9 @@ file exists is skipped, so trajectory runs go to an output root of their own.
 
 ## Lambda search
 
-The job lists hold the runs of a search, not a full sweep of the grid. From a
-few starting values per cell and method, `select_lambda.py --emit` requests
+The job lists hold every run the tables read, not a full sweep of the grid:
+starting runs per cell and method (one or three seeds at several grid values)
+and the runs the search requested. From the starting runs, `select_lambda.py --emit` requests
 seed 42 at the grid value just above the largest value within budget; once
 that value is out of budget, it requests seeds 43 and 44 at the largest value
 within budget (`search_lambda.sh` runs this loop until nothing is requested).

@@ -343,7 +343,7 @@ def _load_model(model_id: str, **kwargs) -> torch.nn.Module:
 class QuantizationExperiment(BaseExperiment):
     """Compare full-precision target with quantised variants (proxy).
 
-    Both W = I (identity alignment) and W = W_opt (Procrustes alignment)
+    Both W = I (identity alignment) and W = W_N (Procrustes alignment)
     are computed; Bound is the smaller of Bound_I and Bound_W.
     """
 
@@ -581,7 +581,6 @@ class QuantizationExperiment(BaseExperiment):
         else:
             answer_loss_target = answer_ppl_target = None
 
-        # Primary sample-level loss follows loss_mode
         if loss_mode == "answer" and has_answer:
             sample_loss_target = answer_loss_target
         else:
@@ -696,7 +695,6 @@ class QuantizationExperiment(BaseExperiment):
                 token_loss_proxy = (_tok_P.mean().item()
                                     if _tok_P is not None and _tok_P.numel() > 0
                                     else sample_loss_proxy)
-                ppl_proxy = math.exp(sample_loss_proxy)
 
                 # Proxy model label (shared across z_modes)
                 proxy_model_name = _proxy_model_name(

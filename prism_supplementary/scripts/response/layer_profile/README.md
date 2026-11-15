@@ -11,7 +11,7 @@ and v projections.
 
 | file | what it does | needs |
 |---|---|---|
-| `layer_profile.py` | Loads the target and one GGUF variant at a time, runs both on the same batches, and accumulates the per-point statistics | GPU that holds two 8B models in BF16 at once (the reported runs used one 96 GB GPU per job) |
+| `layer_profile.py` | Loads the target and one GGUF variant at a time, runs both on the same batches, and accumulates the per-point statistics | GPU that holds two 8B models in BF16 at once |
 | `make_table.py` | Peak table, token counts, the v_proj / q_proj peak ratio and the bit-width ordering check | CPU, Python standard library only |
 | `run_layer_profile.sh` | Runs the reported configurations, then `make_table.py` | GPU |
 

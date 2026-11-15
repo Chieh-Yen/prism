@@ -124,8 +124,7 @@ METHODS: Dict[str, Method] = {
 # evaluation at the last step).  Not exposed as flags by the trainers and
 # therefore fixed in their code: LoRA target modules (q/k/v/o/gate/up/down
 # projections), cosine schedule, weight decay 0.01, gradient clipping 1.0,
-# bf16, optimizer (paged 8-bit AdamW of bitsandbytes when that package can be
-# imported; torch AdamW otherwise).
+# bf16, optimizer (paged 8-bit AdamW of bitsandbytes).
 COMMON_ARGS: Tuple[str, ...] = (
     "--max_steps", str(MAX_STEPS),
     "--lr", "1e-5",

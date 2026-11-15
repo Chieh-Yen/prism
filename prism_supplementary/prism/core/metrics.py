@@ -20,7 +20,7 @@ from torch import Tensor
 class PRISMResult:
     """Standardised output of a single PRISM comparison."""
 
-    omega: float                    # Ω(W) ∈ [-1, 1]; ≥ 0 for W = W_opt
+    omega: float                    # Ω(W) ∈ [-1, 1]; ≥ 0 for W = W_N
     rho_target: float               # RMS scale of target features
     rho_proxy: float                # RMS scale of proxy features
     scale_mismatch: float           # (ρ_T − ρ_P)²
@@ -131,7 +131,7 @@ class PRISMMetrics:
         return projected.norm("fro").item()
 
     # ------------------------------------------------------------------
-    # Head discrepancy  (spectral-norm fallback)
+    # Head discrepancy (spectral norm)
     # ------------------------------------------------------------------
     @staticmethod
     def head_discrepancy_spectral(
@@ -165,7 +165,7 @@ class PRISMMetrics:
             H_P: (d_P, C) proxy head weights.
             W:   Alignment matrix.  Pass ``torch.eye(d)`` for the
                  identity regime (quantization) or ``None`` to compute
-                 the optimal Procrustes alignment W_opt.
+                 the optimal Procrustes alignment W_N.
             label: Human-readable label for this comparison.
         """
         Z_T, Z_P, H_T, H_P = PRISMMetrics._metric_dtype_cast(Z_T, Z_P, H_T, H_P)

@@ -7,9 +7,7 @@ whose activation magnitude exceeds ``llm_int8_threshold`` are kept in FP16 and
 the rest are quantized. The default threshold is 6.0; a very large threshold
 (1e9) quantizes every channel and changes nothing else. The reported settings
 are 6.0 and 1e9. The output field ``outliers_preserved`` is true for a
-threshold in (0, 1e6) and false otherwise; a threshold of 0 switches the
-outlier path of bitsandbytes off, and thresholds other than 6.0 and 1e9 were
-not run.
+threshold in (0, 1e6) and false otherwise.
 
 For each benchmark the BF16 target is evaluated once and the 8-bit variant
 once per threshold, on the same sequences. Each (benchmark, threshold) cell
@@ -58,7 +56,7 @@ def main():
                     help="llm_int8_threshold values; 6.0 = bitsandbytes default "
                          "(outlier channels kept in FP16), 1e9 = every channel quantized")
     ap.add_argument("--n", type=int, default=512,
-                    help="number of test sequences per benchmark")
+                    help="number of sequences per benchmark")
     ap.add_argument("--batch_size", type=int, default=8)
     ap.add_argument("--max_length", type=int, default=2048)
     ap.add_argument("--seed", type=int, default=42,

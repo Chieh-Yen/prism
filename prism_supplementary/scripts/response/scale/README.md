@@ -33,7 +33,7 @@ how the measured gap and each term of the bound respond.
   paper's quantization experiments.
 - Settings: the reported thresholds are 6.0 and 1e9. `scale_toggle.py` labels
   a threshold in (0, 1e6) as "outliers kept" and any other value as "all
-  quantized"; other thresholds were not run.
+  quantized".
 - Features and loss follow the paper's protocol for these benchmarks. The gap
   is `|loss_T - loss_P|` in nats.
 - Decomposition under identity alignment: scale term `(rho_T - rho_P)^2`, shape
@@ -95,8 +95,7 @@ constants file is paired with.
 
 - `scale_toggle.py`: one GPU. Each model needs five BF16 target passes and
   ten passes of the 8-bit variant; the `secs` field of each cell records the
-  time of the variant side. The PRISM contractions run on the GPU and fall
-  back to the CPU when the GPU runs out of memory.
+  time of the variant side.
 - `head_constants.py`: dominated by loading the model; the constant itself is
   computed from the output head alone.
 - `analyze.py`: no GPU.
