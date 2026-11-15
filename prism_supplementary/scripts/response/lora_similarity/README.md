@@ -32,14 +32,10 @@ and the GPU is the one `CUDA_VISIBLE_DEVICES` exposes.
   five benchmarks (ARC, GSM8K, MMLU, SQuAD, TriviaQA) give ten cells.
 - **Training**: `train_forgetting.py --lambda_shape 0 --lambda_replay 0`,
   i.e. the library's default trainer, with no penalty and no anchor set. The
-  trainer selects the paged 8-bit AdamW of bitsandbytes when that package can
-  be imported, and torch AdamW otherwise. The launcher passes `--eval_keep_anchor_rows`, so the trainer's
-  `eval_loss` is computed on the whole held-out slice of the fine-tuning
-  task, as in the reported series; `analyze.py` does not read `eval_loss`.
-- **Seeds**: `--seed` sets the adapter initialisation, the data order of
-  training and the draw of the 256 evaluation sequences of each benchmark, so
-  the three seeds of a cell differ in the training run and in the evaluation
-  sequences.
+  launcher passes `--eval_keep_anchor_rows` (`eval_loss` on the whole held-out
+  slice; not read by `analyze.py`).
+- **Seeds**: `--seed` sets the training run and the draw of the 256 evaluation
+  sequences of each benchmark, so the three seeds of a cell differ in both.
 - **Gap**: |ΔR|, the absolute difference between a checkpoint's and the base
   model's answer-only cross-entropy on 256 evaluation sequences of the
   benchmark. The answer-only cross-entropy is the mean over the 256 sequences
@@ -53,8 +49,7 @@ and the GPU is the one `CUDA_VISIBLE_DEVICES` exposes.
 - **1-CKA, 1-SVCCA**: computed by the trainer on the features the bound uses
   (final layer, base model against checkpoint), with the functions of
   `similarity_baselines.py`. SVCCA keeps, for each model, the principal
-  directions that reach 99% of the variance, at most 256. Both scores are
-  computed in float32.
+  directions that reach 99% of the variance, at most 256.
 - **r_s**: within one run and one benchmark, the Spearman correlation between
   a score and the gap over the 12 checkpoints.
 - **mean ± sd**: over the three seeds of a cell; the sd is the sample standard

@@ -1,5 +1,5 @@
 """
-PRISM Core Metrics — Procrustes Similarity, Scale/Shape/Head Discrepancy.
+PRISM Core Metrics; Procrustes Similarity, Scale/Shape/Head Discrepancy.
 
 All functions operate on raw PyTorch tensors with no model-loading logic,
 making this module testable and reusable across experiment types.
@@ -46,8 +46,6 @@ class PRISMResult:
 class PRISMMetrics:
     """Pure-function collection of all PRISM geometric metrics."""
 
-    # Reductions used for the Frobenius norms: each row is reduced in the dtype
-    # of the inputs and the n row sums are accumulated in float64.
     _UNIT_TOL = 1e-6
 
     @staticmethod
@@ -67,7 +65,7 @@ class PRISMMetrics:
 
     @staticmethod
     def _rowdot_sum(A: Tensor, B: Tensor) -> float:
-        """sum_i <A_i, B_i>: per-row dot in the input dtype, float64 accumulation over rows."""
+        """sum_i <A_i, B_i>."""
         return (A * B).sum(dim=1).double().sum().item()
 
     @staticmethod
@@ -77,53 +75,17 @@ class PRISMMetrics:
 
     @staticmethod
     def _unit_clip(x: float) -> float:
-        """Clip a normalised inner product to [-1, 1].
-
-        Rounding can push the ratio marginally past 1.  The clip is applied in
-        every case (the returned value is the same as a plain clamp); an
-        overshoot larger than ``_UNIT_TOL`` additionally raises a warning, and
-        callers keep the unclipped value in ``PRISMResult.extra["omega_raw"]``.
-        """
+        """Clip a normalised inner product to [-1, 1]; the unclipped value is kept in extra["omega_raw"]."""
         if x > 1.0:
             if x - 1.0 > PRISMMetrics._UNIT_TOL:
                 warnings.warn(f"Omega = {x:.6f} exceeds 1 by more than "
-                              f"{PRISMMetrics._UNIT_TOL}; check reductions")
+                              f"{PRISMMetrics._UNIT_TOL}")
             return 1.0
         if x < -1.0:
             if -1.0 - x > PRISMMetrics._UNIT_TOL:
-                warnings.warn(f"Omega = {x:.6f} below -1; check reductions")
+                warnings.warn(f"Omega = {x:.6f} below -1")
             return -1.0
         return x
-
-    # ------------------------------------------------------------------
-    # Procrustes similarity
-    # ------------------------------------------------------------------
-    @staticmethod
-    def procrustes_omega(Z_T: Tensor, Z_P: Tensor) -> float:
-        """Ω(Z_T, Z_P) = ‖Z_T^T Z_P‖_* / (‖Z_T‖_F ‖Z_P‖_F), clipped at 1 (it is ≥ 0).
-
-        Corresponds to optimal Procrustes alignment W = W_opt.
-        """
-        cross = Z_T.T @ Z_P  # (d_T, d_P)
-        nuclear_norm = torch.linalg.svdvals(cross).sum().item()
-        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
-        if denom < 1e-12:
-            return 0.0
-        return PRISMMetrics._unit_clip(nuclear_norm / denom)
-
-    # ------------------------------------------------------------------
-    # Optimal alignment W  (Orthogonal Procrustes)
-    # ------------------------------------------------------------------
-    @staticmethod
-    def orthogonal_procrustes(Z_T: Tensor, Z_P: Tensor) -> Tensor:
-        """Solve  min_{W: W W^T = I}  ‖Z_T − Z_P W‖_F  via SVD.
-
-        Returns W ∈ R^{d_P × d_T}  (semi-orthogonal).
-        """
-        cross = Z_P.T @ Z_T  # (d_P, d_T)
-        U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
-        W = U @ Vt  # (d_P, d_T)
-        return W
 
     # ------------------------------------------------------------------
     # RMS scale  ρ = (1/√n) ‖Z‖_F
@@ -191,34 +153,8 @@ class PRISMMetrics:
         return torch.linalg.svdvals(delta_H)[0].item()
 
     # ------------------------------------------------------------------
-    # General Ω for any orthogonal W
-    # ------------------------------------------------------------------
-    @staticmethod
-    def omega_for_W(Z_T: Tensor, Z_P: Tensor, W: Tensor) -> float:
-        """Ω(W) = tr(W^T · Z_P^T Z_T) / (‖Z_T‖_F ‖Z_P‖_F).
-
-        Unified formula that subsumes the W = W_opt and W = I special cases.
-        Uses O(d²) element-wise product instead of O(d³) matrix multiply.
-        """
-        cross = Z_P.T @ Z_T                         # (d_P, d_T)
-        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
-        if denom < 1e-12:
-            return 0.0
-        omega = (W * cross).sum().item() / denom
-        return PRISMMetrics._unit_clip(omega)
-
-    # ------------------------------------------------------------------
     # Convenience: compute everything at once
     # ------------------------------------------------------------------
-    @staticmethod
-    def _resolve_W(
-        Z_T: Tensor, Z_P: Tensor, W: Optional[Tensor],
-    ) -> Tensor:
-        """Return W for alignment. If None, solve Orthogonal Procrustes."""
-        if W is not None:
-            return W.to(dtype=Z_T.dtype, device=Z_T.device)
-        return PRISMMetrics.orthogonal_procrustes(Z_T, Z_P)
-
     @staticmethod
     def compute_all(
         Z_T: Tensor,
@@ -246,7 +182,7 @@ class PRISMMetrics:
         rho_T = PRISMMetrics.rms_scale(Z_T)
         rho_P = PRISMMetrics.rms_scale(Z_P)
 
-        # Cross-product — reused for Procrustes solve and Ω computation.
+        # Cross-product; reused for Procrustes solve and Ω computation.
         cross = Z_P.T @ Z_T  # (d_P, d_T)
 
         if W is None:
@@ -287,80 +223,4 @@ class PRISMMetrics:
             head_discrepancy_spectral=hd_spec,
             label=label,
             extra={"omega_raw": omega_raw},
-        )
-
-    # ------------------------------------------------------------------
-    # Scale-absorbed variant
-    # ------------------------------------------------------------------
-    @staticmethod
-    def compute_all_absorbed(
-        Z_T: Tensor,
-        H_T: Tensor,
-        Z_P: Tensor,
-        H_P: Tensor,
-        *,
-        W: Optional[Tensor] = None,
-        label: str = "",
-    ) -> PRISMResult:
-        """Scale-absorbed PRISM analysis.
-
-        Rescales only the proxy:  Z_P' = c Z_P,  H_P' = H_P / c  with
-        c = ρ_T / ρ_P, forcing ρ_P' = ρ_T and (Δρ)² = 0.  The target
-        is left untouched, so K_feat is the same as in the original mode.
-
-        The scale mismatch is perfectly conserved and transferred into the
-        head discrepancy:  ‖Σ_P^{1/2}(c W H_T − H_P)‖_F.
-
-        Feature error becomes  ρ_T √(2(1−Ω)).
-        Predictions are unchanged:  Z_P' H_P' = Z_P H_P.
-        """
-        Z_T, Z_P, H_T, H_P = PRISMMetrics._metric_dtype_cast(Z_T, Z_P, H_T, H_P)
-
-        rho_T = PRISMMetrics.rms_scale(Z_T)
-        rho_P = PRISMMetrics.rms_scale(Z_P)
-        c = rho_T / max(rho_P, 1e-12)
-
-        cross = Z_P.T @ Z_T  # (d_P, d_T)
-
-        if W is None:
-            U, _, Vt = torch.linalg.svd(cross, full_matrices=False)
-            W_use = (U @ Vt).to(dtype=Z_T.dtype)
-        else:
-            W_use = W.to(dtype=Z_T.dtype, device=Z_T.device)
-
-        denom = PRISMMetrics._fro(Z_T) * PRISMMetrics._fro(Z_P)
-        omega = (W_use * cross).sum().item() / max(denom, 1e-12)
-        omega_raw = omega
-        omega = PRISMMetrics._unit_clip(omega)
-
-        n = Z_P.shape[0]
-        Sigma_P = (Z_P.T @ Z_P) / n
-
-        shape = 2.0 * rho_T * rho_T * (1.0 - omega)
-        feat_err = math.sqrt(max(shape, 0.0))
-
-        hd_cov = PRISMMetrics.head_discrepancy_covariance(
-            c * H_T, H_P, W_use, Sigma_P,
-        )
-        hd_spec = PRISMMetrics.head_discrepancy_spectral(
-            c * H_T, H_P, W_use,
-        )
-
-        return PRISMResult(
-            omega=omega,
-            rho_target=rho_T,
-            rho_proxy=rho_T,
-            scale_mismatch=0.0,
-            shape_mismatch=shape,
-            feature_error=feat_err,
-            head_discrepancy=hd_cov,
-            head_discrepancy_spectral=hd_spec,
-            label=label,
-            extra={
-                "omega_raw": omega_raw,
-                "mode": "scale_absorbed",
-                "rho_target_original": rho_T,
-                "rho_proxy_original": rho_P,
-                "c": c,
-            },
         )

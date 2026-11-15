@@ -37,12 +37,12 @@ and v projections.
     output, one vector per token over all heads, taken before it is split
     into heads; for Qwen3-8B-Base it is therefore taken before the per-head
     `q_norm` / `k_norm` of its attention.
-- Normalisation: each token vector is cast to float32 and divided by its own
-  L2 norm before accumulation. In the residual stream a few tokens carry very
+- Normalisation: each token vector is divided by its own L2 norm before
+  accumulation. In the residual stream a few tokens carry very
   large activations and would otherwise dominate the inner product. The
   RMSNorm in front of every block applies the same per-token rescaling.
 - Statistic: `Omega = <Z_T, Z_P> / (||Z_T||_F ||Z_P||_F)` under identity
-  alignment, accumulated over batches in float64. With unit-length token
+  alignment. With unit-length token
   vectors this is the mean per-token cosine between target and variant, so
   `1 - Omega = 0` means no drift. The profile carries the shape term only: the
   normalisation sets scale aside (the stored `rho_T` and `rho_P` are 1 by

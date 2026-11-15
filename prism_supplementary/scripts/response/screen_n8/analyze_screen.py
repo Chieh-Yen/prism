@@ -32,14 +32,9 @@ Printed:
 The screen does not compute or score 1-SVCCA; the CSVs of the three-seed round hold an
 ``svcca`` column.
 
---exclude-label LABEL (repeatable) drops every row of the variant with that ``label``
-before anything is computed, and all sections are then printed for the remaining variants.
-The default excludes nothing.
-
 Usage:
     python scripts/response/screen_n8/analyze_screen.py
     python scripts/response/screen_n8/analyze_screen.py --csv A/llama_screen.csv A/qwen_screen.csv
-    python scripts/response/screen_n8/analyze_screen.py --exclude-label "<label>"
 """
 import argparse
 import csv
@@ -106,7 +101,7 @@ def per_set_rs(rows):
 def check_grid(rows, rs, labels, expected=VARIANTS):
     """Refuse an incomplete grid: every cell must hold the full set of sets and variants.
 
-    ``expected`` is the number of variants per family (VARIANTS minus the excluded ones)."""
+    ``expected`` is the number of variants per family."""
     problems = []
     for cell in sorted(rs):
         if len(rs[cell]) != SETS_PER_CELL:
@@ -159,23 +154,10 @@ def main():
     ap.add_argument("--size-round", default=None,
                     help="directory with the three-seed round's *_seed*.csv files; adds section 5")
     ap.add_argument("--allow-incomplete", action="store_true", help="print the tables even if the grid is incomplete")
-    ap.add_argument("--exclude-label", action="append", default=[], metavar="LABEL",
-                    help="drop the variant with this value in the CSV column 'label' before the analysis; "
-                         "repeatable (default: no variant is dropped)")
     a = ap.parse_args()
     paths = a.csv or [DEFAULT_DIR / f"{fam}_screen.csv" for fam in ("llama", "qwen")]
     rows = load_rows(paths)
     expected = dict(VARIANTS)
-    if a.exclude_label:
-        for lab in a.exclude_label:
-            families = sorted({r["family"] for r in rows if r["label"] == lab})
-            if not families:
-                raise SystemExit(f"--exclude-label: no row has label {lab!r}")
-            for fam in families:
-                if fam in expected:
-                    expected[fam] -= 1
-            print(f"excluded variant: {lab} ({', '.join(FAMILY_NAME.get(f, f) for f in families)})")
-        rows = [r for r in rows if r["label"] not in a.exclude_label]
     rs, labels = per_set_rs(rows)
     cells = sorted(rs)
 

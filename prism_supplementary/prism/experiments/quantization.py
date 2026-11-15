@@ -2,9 +2,7 @@
 Quantization experiment: target against quantized proxies of the same
 architecture.
 
-Target = the model loaded at ``computing.model_dtype``.  The code default of
-that key is ``float16`` (BaseExperiment); ``configs/quantization.yaml`` sets
-``bfloat16``, which is the target precision of the paper's runs.
+Target = the model loaded at computing.model_dtype (bfloat16 in configs/quantization.yaml).
 Proxy  = one quantized variant per entry of ``proxy.quantization_bits``.
 
 Every comparison is evaluated under the identity alignment W = I and under
@@ -23,13 +21,10 @@ The kind of a proxy is selected by the **prefix** of its quant tag:
   → a pre-quantised GPTQ repository, loaded at the revision pinned in
   ``configs/model_revisions.yaml``.  ``gptq:REPO@REVISION`` loads the given
   commit instead of the pinned one.
-* **``awq:``** prefix → a pre-quantised AWQ repository, same ``@`` syntax.
-  No AWQ variant is part of the paper's grid.
 * **``dtype:``** prefix (e.g. ``dtype:float16``) → the target checkpoint
   loaded at another native dtype.
 
-Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``, ``nf4-dq``
-(NF4 with double quantisation, aka QLoRA-style).
+Supported ``bnb:`` tags: ``int8``, ``nf4``, ``fp4``.
 """
 
 from __future__ import annotations
@@ -46,7 +41,6 @@ from transformers import (
     AutoModelForCausalLM,
     AutoModelForImageTextToText,
     AutoTokenizer,
-    AwqConfig,
     BitsAndBytesConfig,
 )
 
@@ -137,12 +131,6 @@ _BNB_CONFIGS: Dict[str, Any] = {
         bnb_4bit_quant_type="fp4",
         bnb_4bit_compute_dtype=torch.float16,
     ),
-    "nf4-dq": lambda: BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_compute_dtype=torch.float16,
-    ),
 }
 
 
@@ -155,7 +143,7 @@ def _bnb_type(quant_tag: str) -> str:
 
 
 # ======================================================================
-# dtype helpers — same model weights, different native precision
+# dtype helpers; same model weights, different native precision
 # ======================================================================
 _DTYPE_LABELS: Dict[str, str] = {
     "float16":  "FP16",
@@ -182,22 +170,6 @@ def _is_gptq(quant_tag: str) -> bool:
 def _parse_gptq(quant_tag: str) -> tuple:
     """Parse ``gptq:REPO`` or ``gptq:REPO@REVISION`` → (repo, revision|None)."""
     body = quant_tag[5:]
-    if "@" in body:
-        repo, rev = body.rsplit("@", 1)
-        return repo, rev
-    return body, None
-
-
-# ======================================================================
-# AWQ helpers
-# ======================================================================
-def _is_awq(quant_tag: str) -> bool:
-    return quant_tag.startswith("awq:")
-
-
-def _parse_awq(quant_tag: str) -> tuple:
-    """Parse ``awq:REPO`` or ``awq:REPO@REVISION`` → (repo, revision|None)."""
-    body = quant_tag[4:]
     if "@" in body:
         repo, rev = body.rsplit("@", 1)
         return repo, rev
@@ -237,9 +209,6 @@ def _proxy_model_name(
     if _is_gptq(quant_tag):
         repo, rev = _parse_gptq(quant_tag)
         return f"{repo}@{rev} [GPTQ]" if rev else f"{repo} [GPTQ]"
-    if _is_awq(quant_tag):
-        repo, rev = _parse_awq(quant_tag)
-        return f"{repo}@{rev} [AWQ]" if rev else f"{repo} [AWQ]"
     if _is_bnb(quant_tag):
         return f"{target_model_id} [bnb:{_bnb_type(quant_tag)}]"
     return f"{quant_repo}/{_gguf_filename(gguf_tpl, quant_tag)}"
@@ -253,10 +222,6 @@ def _display_label(quant_tag: str) -> str:
         repo, rev = _parse_gptq(quant_tag)
         short = repo.split("/")[-1]
         return f"GPTQ({rev})" if rev else f"GPTQ({short})"
-    if _is_awq(quant_tag):
-        repo, rev = _parse_awq(quant_tag)
-        short = repo.split("/")[-1]
-        return f"AWQ({rev})" if rev else f"AWQ({short})"
     if _is_dtype(quant_tag):
         dt = _parse_dtype(quant_tag)
         return _DTYPE_LABELS.get(dt, dt.upper())
@@ -383,7 +348,7 @@ class QuantizationExperiment(BaseExperiment):
     """
 
     # ------------------------------------------------------------------
-    # Proxy loading — dispatches between GGUF and bitsandbytes
+    # Proxy loading; dispatches between GGUF and bitsandbytes
     # ------------------------------------------------------------------
     def _load_proxy_gguf(
         self, quant_repo: str, filename: str,
@@ -436,7 +401,7 @@ class QuantizationExperiment(BaseExperiment):
     def _load_proxy_hf(
         self, repo: str, revision: str | None, backend: str,
     ) -> torch.nn.Module:
-        """Load a pre-quantised GPTQ or AWQ model from HuggingFace."""
+        """Load a pre-quantised GPTQ model from HuggingFace."""
         revision = revision or pinned_revision(repo)
         rev_tag = f" @{revision}" if revision else ""
         print(f"  Loading proxy: {repo}{rev_tag} [{backend}] ...")
@@ -447,10 +412,6 @@ class QuantizationExperiment(BaseExperiment):
         )
         if revision:
             kwargs["revision"] = revision
-        if backend == "AWQ":
-            kwargs["quantization_config"] = AwqConfig(
-                do_fuse=False, version="gemm",
-            )
         return _load_model(repo, **kwargs)
 
     def _load_proxy_dtype(
@@ -491,9 +452,6 @@ class QuantizationExperiment(BaseExperiment):
         elif _is_gptq(quant_tag):
             repo, rev = _parse_gptq(quant_tag)
             proxy = self._load_proxy_hf(repo, rev, "GPTQ")
-        elif _is_awq(quant_tag):
-            repo, rev = _parse_awq(quant_tag)
-            proxy = self._load_proxy_hf(repo, rev, "AWQ")
         elif _is_bnb(quant_tag):
             proxy = self._load_proxy_bnb(_bnb_type(quant_tag), target_model_id)
         else:
@@ -522,7 +480,6 @@ class QuantizationExperiment(BaseExperiment):
         cfg_target = self.config.get("target", {})
         cfg_proxy = self.config.get("proxy", {})
         cfg_data = self.config.get("data", {})
-        cfg_align = self.config.get("alignment", {})
 
         target_model_id = cfg_target.get("model")
         if not target_model_id:
@@ -534,14 +491,13 @@ class QuantizationExperiment(BaseExperiment):
         # (a tag without prefix) is requested.
         quant_repo = cfg_proxy.get("model")
         if not quant_repo:
-            if any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q)
+            if any(not _is_bnb(q) and not _is_gptq(q)
                    and not _is_dtype(q) for q in quant_bits):
                 raise ValueError(
                     "configuration key 'proxy.model' (the GGUF repository) is "
                     "missing, and proxy.quantization_bits lists GGUF variants")
             quant_repo = ""
         gguf_tpl: str = cfg_proxy.get("gguf_template") or _derive_gguf_template(quant_repo)
-        absorbed: bool = cfg_align.get("scale_absorbed", False)
 
         task_name = cfg_data.get("task", "mmlu")
         num_samples = cfg_data.get("num_samples", 256)
@@ -553,23 +509,16 @@ class QuantizationExperiment(BaseExperiment):
         task_meta = get_task_metadata(task_name)
         loss_mode = task_meta["loss_mode"]
 
-        # z_modes resolution: explicit list > single override > task default
-        if cfg_data.get("z_modes"):
-            z_modes = list(cfg_data["z_modes"])
-        elif cfg_data.get("z_mode"):
-            z_modes = [cfg_data["z_mode"]]
-        else:
-            z_modes = [task_meta["z_mode"]]
+        # Feature mode of the task (TASK_REGISTRY: "concat" for every task).
+        z_modes = [task_meta["z_mode"]]
 
-        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_awq(q) and not _is_dtype(q) for q in quant_bits)
-        has_awq = any(_is_awq(q) for q in quant_bits)
+        has_gguf = any(not _is_bnb(q) and not _is_gptq(q) and not _is_dtype(q) for q in quant_bits)
         has_bnb = any(_is_bnb(q) for q in quant_bits)
         has_gptq = any(_is_gptq(q) for q in quant_bits)
         has_dtype = any(_is_dtype(q) for q in quant_bits)
 
-        mode_tag = " (scale-absorbed)" if absorbed else ""
         print(f"{'=' * 72}")
-        print(f"  PRISM Experiment: Quantization Quality Estimation{mode_tag}")
+        print("  PRISM Experiment: Quantization Quality Estimation")
         print(f"{'=' * 72}")
         print(f"  Target : {target_model_id}  [{_DTYPE_LABELS.get(str(self.model_dtype).split('.')[-1], str(self.model_dtype))}]")
         if has_dtype:
@@ -587,13 +536,6 @@ class QuantizationExperiment(BaseExperiment):
                     repo, _ = _parse_gptq(q)
                     gptq_repos.add(repo)
             print(f"  GPTQ   : {', '.join(sorted(gptq_repos))}")
-        if has_awq:
-            awq_repos = set()
-            for q in quant_bits:
-                if _is_awq(q):
-                    repo, _ = _parse_awq(q)
-                    awq_repos.add(repo)
-            print(f"  AWQ    : {', '.join(sorted(awq_repos))}")
         print(f"  Quants : {', '.join(_display_label(q) for q in quant_bits)}")
         print(f"  Data   : {task_name}  z_modes={z_modes}  loss_mode={loss_mode}")
 
@@ -670,7 +612,7 @@ class QuantizationExperiment(BaseExperiment):
         K_feat = K_theory["K_feat"]
         K_pred = K_theory["K_pred"]
 
-        # Move everything to CPU — full GPU is now free for proxy models.
+        # Move everything to CPU; full GPU is now free for proxy models.
         # Z_dict_T is already CPU (features moved in extractor).
         H_T = H_T.cpu()
         for k, v in loss_stats.items():
@@ -731,7 +673,7 @@ class QuantizationExperiment(BaseExperiment):
 
                 H_P = extractor.extract_head(proxy_model)
 
-                # Free proxy model immediately — H_P is a detached copy.
+                # Free proxy model immediately; H_P is a detached copy.
                 H_P = H_P.cpu()
                 for k, v in proxy_stats.items():
                     if isinstance(v, torch.Tensor) and v.is_cuda:
@@ -742,7 +684,7 @@ class QuantizationExperiment(BaseExperiment):
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                # Proxy loss — both full-text and answer-only
+                # Proxy loss; both full-text and answer-only
                 full_loss_proxy = proxy_stats["losses"].mean().item()
                 full_ppl_proxy = math.exp(full_loss_proxy)
                 if has_answer:
@@ -777,12 +719,12 @@ class QuantizationExperiment(BaseExperiment):
                     # Compute metrics under both alignment choices
                     result_I = self.compute_metrics(
                         Z_T_zm, H_T, Z_P_zm, H_P,
-                        W=W_I, label=base_label, absorbed=absorbed,
+                        W=W_I, label=base_label,
                         K_feat=K_feat, K_pred=K_pred,
                     )
                     result_W = self.compute_metrics(
                         Z_T_zm, H_T, Z_P_zm, H_P,
-                        W=None, label=base_label, absorbed=absorbed,
+                        W=None, label=base_label,
                         K_feat=K_feat, K_pred=K_pred,
                     )
 
@@ -791,11 +733,12 @@ class QuantizationExperiment(BaseExperiment):
                     bound_W_th = result_W.risk_bound_total
                     bound_th = min(bound_I_th, bound_W_th)
 
-                    # Primary result — whichever W gives tighter theoretical bound
+                    # Primary result; whichever W gives tighter theoretical bound
                     result = result_I if bound_I_th <= bound_W_th else result_W
                     result.risk_bound_total = bound_th
 
-                    # Token-level loss for concat; sample-level for other z_modes.
+                    # Token-level loss (concat rows); the sample-level loss is
+                    # used only when no token losses were recorded.
                     if zm == "concat" and loss_stats["token_losses"] is not None:
                         zm_loss_t, zm_loss_p = token_loss_target, token_loss_proxy
                     else:
@@ -836,7 +779,7 @@ class QuantizationExperiment(BaseExperiment):
                     result.extra["proxy_model"] = proxy_model_name
                     results.append(result)
 
-                    # Console output — dual-W format
+                    # Console output; dual-W format
                     rho_P = result_I.rho_proxy
                     dr = abs(zm_loss_t - zm_loss_p)
                     status = "PASS" if bound_th >= dr else "VIOLATED"
@@ -867,7 +810,6 @@ class QuantizationExperiment(BaseExperiment):
 
         # --- Report and save per z_mode ---
         model_slug = target_model_id.split("/")[-1].lower()
-        abs_tag = "_absorbed" if absorbed else ""
         for zm in z_modes:
             zm_results = [r for r in results if r.extra.get("z_mode") == zm]
             if not zm_results:
@@ -876,7 +818,7 @@ class QuantizationExperiment(BaseExperiment):
             print(f"  z_mode: {zm}")
             print(f"{'=' * 72}")
             self.report(zm_results)
-            stem = f"prism_{model_slug}_{task_name}_n{num_samples}_{zm}{abs_tag}"
+            stem = f"prism_{model_slug}_{task_name}_n{num_samples}_{zm}"
             self.save(zm_results, filename=f"{stem}.json")
             self.save_csv(zm_results, filename=f"{stem}.csv", loss_mode=loss_mode)
 
@@ -895,7 +837,6 @@ class QuantizationExperiment(BaseExperiment):
             print("(no results)")
             return
 
-        absorbed = results[0].extra.get("mode") == "scale_absorbed"
         r0 = results[0]
 
         header = (
@@ -908,7 +849,6 @@ class QuantizationExperiment(BaseExperiment):
             f"{'Loss_T':>12s} {'Loss_P':>12s}"
         )
 
-        mode_tag = " (scale-absorbed)" if absorbed else ""
         ds_tag = ""
         if "dataset" in r0.extra:
             z_m = r0.extra.get("z_mode", "?")
@@ -917,7 +857,7 @@ class QuantizationExperiment(BaseExperiment):
                       f"z_mode={z_m}, loss_mode={l_m}]")
         sep = "-" * len(header)
         print(f"\n{'=' * len(header)}")
-        print(f"  PRISM Quantization Results{mode_tag}{ds_tag}")
+        print(f"  PRISM Quantization Results{ds_tag}")
         print(f"{'=' * len(header)}")
 
         rho_T_val = r0.extra.get("rho_T")

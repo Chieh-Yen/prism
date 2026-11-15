@@ -33,7 +33,7 @@ answer depend on which eight sequences are used?
 | file | what it does | needs |
 |---|---|---|
 | `run_screen.py` | GPU pass for one family: loads the target once and each variant once, extracts answer-token features and per-sequence answer losses on the three pools of every benchmark, and writes one row per (variant, seed, benchmark, set) to `{family}_screen.csv`, plus `{family}_sets.json` (the index sets) and `{family}_K.json` (K_feat, K_pred) | GPU |
-| `analyze_screen.py` | tables and tests from the CSVs: summary over the ten cells, per-cell mean ± sd and worst set (the lowest r_s among the cell's 300 sets, for each score), across-cell and within-cell paired tests, bound coverage; with `--size-round`, the coverage at n = 8, 32, 128, 512 from the three-seed round's CSVs; `--exclude-label` drops a variant | numpy, scipy |
+| `analyze_screen.py` | tables and tests from the CSVs: summary over the ten cells, per-cell mean ± sd and worst set (the lowest r_s among the cell's 300 sets, for each score), across-cell and within-cell paired tests, bound coverage; with `--size-round`, the coverage at n = 8, 32, 128, 512 from the three-seed round's CSVs | numpy, scipy |
 | `run_screen.sh` | launcher: stages `run`, `gptq`, `analyze` | |
 
 Shared code: `scripts/rounds/common_quant.py` (variant manifest and model loading) and
@@ -84,10 +84,6 @@ A subset of variants can be run with `--only "<label>" ...`; rows are appended t
 same CSV, and finished (variant, seed, benchmark) blocks are skipped on a re-run. A label
 that is not in the manifest of the family is an error.
 
-`analyze_screen.py --exclude-label "<label>"` (repeatable) drops every row of a variant
-before anything is computed and prints all sections for the remaining variants. The
-default excludes nothing.
-
 Cost: per family, the GPU pass does one target load and 12 or 11 variant loads, each
 followed by a forward pass over 15 pools of 512 sequences and 1,500 set-level
 computations. The analysis needs no GPU.
@@ -98,15 +94,12 @@ computations. The analysis needs no GPU.
   is the mean answer-token cross-entropy of sequence i, as in the three-seed round.
 - **Truncated sequences.** Inputs are truncated at 512 tokens. A sequence whose answer
   is cut off contributes no feature row and a loss of zero for both models.
-- **Precision.** CKA, the Procrustes similarity and `delta_N` are computed in float64;
-  `gamma_N` is evaluated in float32 from the float64 polar factor. Per-sequence losses are
-  float32 and are averaged in float64. A set with no more token rows than feature
-  dimensions (4,096) is computed in the n × n form; a larger set falls back to the
-  three-seed round's `fresh_metrics`.
+- **Small sets.** A set with no more token rows than feature dimensions (4,096) is
+  computed in the n × n form; a larger set uses the three-seed round's `fresh_metrics`.
 - **Set 0 and the pools.** Set 0 holds the same sequences as the n = 8 slice of the
   three-seed round, and the pools are that round's pools. The scores of set 0 and the
-  pool's `gap512` are recomputed here in a separate run (CKA in float64, n × n form) and
-  are not copied from that round.
+  pool's `gap512` are recomputed here in a separate run and are not copied from that
+  round.
 - **Pools and sets are not disjoint.** The three pools of a benchmark are draws from the
   same test split and overlap (the three-seed round prints the overlap; it is largest on
   the small ARC and GSM8K splits). The 100 sets of a pool are drawn independently of one
@@ -118,9 +111,6 @@ computations. The analysis needs no GPU.
   (normal approximation with tie correction, zero differences dropped), Holm-corrected
   over the ten cells, with the paired t-test as a check. r_s is rounded to six decimals
   before testing.
-- **GPTQ variants.** In the reported run the three GPTQ variants were scored with `--only`
-  in a separate environment with a GPTQ loader, after the other variants; the other
-  variants do not need a GPTQ loader.
 - **The Qwen3-8B-Base GPTQ variant.** `AlphaGaO/Qwen3-8B-GPTQ` is the eleventh
   Qwen3-8B-Base variant of the manifest.
 - **1-SVCCA is not scored by the screen.** `run_screen.py` does not compute SVCCA and

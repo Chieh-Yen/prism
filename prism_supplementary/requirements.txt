@@ -1,38 +1,6 @@
-# ============================================================
-# PRISM: pinned dependencies of the paper's experiments
-# (run_quantization.sh, run_forgetting.sh). The experiments under
-# scripts/response/ used the versions in requirements-response.txt.
-#
-# ⚠️  GPTQModel MUST be installed separately (two known issues):
-#
-#   Issue A — torch detection:
-#     pip's isolated build sandbox has no torch, so GPTQModel's setup.py
-#     fails with "Unable to detect torch version".
-#     Fix: use --no-build-isolation.
-#
-#   Issue B — pyproject.toml license field:
-#     GPTQModel uses `license = "Apache-2.0"` (PEP 639 SPDX string).
-#     setuptools < 71.0 rejects this format (only accepts {file/text: ...}).
-#     Fix: upgrade setuptools >= 71 before installing GPTQModel.
-#
-# Recommended: use install.sh (handles all of this automatically)
-#
-#   bash install.sh
-#
-# Or manually:
-#   Step 1 — torch (CUDA 12.8 wheel, must come first):
-#     pip install torch==2.10.0 torchaudio==2.10.0 torchvision==0.25.0 \
-#         --index-url https://download.pytorch.org/whl/cu128
-#
-#   Step 2 — upgrade setuptools (required by GPTQModel pyproject.toml):
-#     pip install "setuptools>=71"
-#
-#   Step 3 — everything else:
-#     pip install -r requirements.txt
-#
-#   Step 4 — GPTQModel (after torch + setuptools>=71 are present):
-#     pip install GPTQModel==5.7.0 --no-build-isolation
-# ============================================================
+# PRISM: pinned dependencies of run_quantization.sh and run_forgetting.sh.
+# Install with `bash install.sh` (torch, setuptools>=71, this file, then
+# GPTQModel==5.7.0 with --no-build-isolation).
 
 --extra-index-url https://download.pytorch.org/whl/cu128
 
@@ -61,9 +29,6 @@ evaluate==0.4.6
 bitsandbytes==0.49.2
 gguf==0.17.1
 auto-gptq==0.5.1
-# GPTQModel==5.7.0 is NOT listed here intentionally.
-# Install it separately AFTER torch:
-#   pip install GPTQModel==5.7.0 --no-build-isolation
 
 # ── Numerics / data ───────────────────────────────────────────
 numpy==2.2.6

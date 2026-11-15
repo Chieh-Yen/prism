@@ -9,8 +9,7 @@ final-layer hidden dimensions).  The functions are the same as in
 kinds of cells use one estimator.  Both scores are similarities; rankings use
 1 - score.
 
-Exactly what is computed (inputs are float32, shape (n, d), on CPU in the
-training hook; no other dtype conversion happens here):
+Exactly what is computed (inputs have shape (n, d)):
 
 ``linear_cka(X, Y)``
     Linear CKA in feature space (Kornblith et al., 2019).  Each column of X
@@ -30,12 +29,8 @@ training hook; no other dtype conversion happens here):
     canonical correlations between the two subspaces; the score is their
     unweighted mean over all min(k_X, k_Y) of them.
 
-    The basis is taken from a thin SVD of the centred matrix when
-    n <= 32768, and from the eigendecomposition of the d x d matrix X^T X
-    when n > 32768; the two routes span the same subspace and differ only in
-    floating-point rounding.
-
-Both scores are computed in float32, the dtype of the inputs.
+    For n > 32768 the basis is taken from the eigendecomposition of X^T X
+    instead of a thin SVD; both span the same subspace.
 """
 import torch
 

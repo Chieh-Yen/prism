@@ -1,38 +1,16 @@
 #!/usr/bin/env python3
 """
-LoRA fine-tune a base model on one task (see TASK_CONFIGS).
-
-At every checkpoint, computes PRISM forgetting metrics on the fine-tuning
-task and on the five benchmarks (see get_eval_tasks) and saves the full
-results to JSON, so no separate inference pass is needed.
-
-Models: meta-llama/Llama-3.1-8B, Qwen/Qwen3-8B-Base (or any causal LM)
-
-This module supplies the trainer classes, data pipeline and checkpoint
-callback imported by train_forgetting_baselines.py.  It differs from the
-top-level train_forgetting.py in three places: the fine-tuning task is also
-evaluated at every checkpoint, Ω_I in the shape penalty is accumulated in
-float32 (float64 there), and main() here always evaluates eval_loss on the
-whole held-out slice (train_forgetting.py and train_forgetting_baselines.py
-remove the anchor rows unless --eval_keep_anchor_rows is passed).
-
-Under LoRA the lm_head is frozen (H_t = H_0), so PRISM's head divergence
-term vanishes under identity alignment and the bound of Theorem 1 (Eq. 4 in
-the paper) reduces to its feature term (Sec. 3.4).
-
-Usage (the defaults of this script are learning rate 2e-4, or 1e-4 for Qwen
-models, and a task-specific number of steps; the paper's forgetting runs use
---lr 1e-5 --max_steps 300, which must be passed explicitly):
-    python scripts/rounds/train_forgetting_multitask.py \\
-        --model meta-llama/Llama-3.1-8B --task truthfulqa --lr 1e-5 --max_steps 300
-
-    python scripts/rounds/train_forgetting_multitask.py \\
-        --model Qwen/Qwen3-8B-Base --task bbq --lr 1e-5 --max_steps 300
+Trainer classes, data pipeline and PRISM checkpoint callback imported by
+train_forgetting_baselines.py. At every checkpoint the callback computes the
+PRISM forgetting metrics on the fine-tuning task and the five benchmarks (see
+get_eval_tasks) and writes them to prism_forgetting_metrics.json.
+Under LoRA the lm_head is frozen (H_t = H_0), so PRISM's head divergence term
+vanishes under identity alignment and the bound of Theorem 1 (Eq. 4 in the
+paper) reduces to its feature term (Sec. 3.4).
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import sys
@@ -44,14 +22,10 @@ import torch
 from torch import Tensor
 from datasets import load_dataset
 from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
     Trainer,
     TrainerCallback,
     TrainerControl,
     TrainerState,
-    TrainingArguments,
-    set_seed,
 )
 
 _ROOT = Path(__file__).resolve().parents[2]      # supplementary root (holds prism/)
@@ -61,7 +35,6 @@ if str(_ROOT) not in sys.path:
 from prism.core.bounds import UnifiedBound                              # noqa: E402
 from prism.core.metrics import PRISMMetrics                             # noqa: E402
 from prism.data.loaders import get_task_metadata, load_task_data        # noqa: E402
-from prism.experiments.quantization import pinned_revision              # noqa: E402
 from prism.models.extractors import LLMExtractor                        # noqa: E402
 
 # Remote code is opt-in (PRISM_TRUST_REMOTE_CODE=1). Every model family used in
@@ -70,46 +43,7 @@ from prism.models.extractors import LLMExtractor                        # noqa: 
 _TRUST_REMOTE_CODE = os.environ.get("PRISM_TRUST_REMOTE_CODE", "0") == "1"
 
 
-# ── Formatters — identical to prism/data/loaders.py for consistency ───────
-
-def _format_arc(row: dict) -> str:
-    q = row["question"]
-    labels = row["choices"]["label"]
-    texts = row["choices"]["text"]
-    opts = "\n".join(f"{labels[i]}. {texts[i]}" for i in range(len(labels)))
-    key = row["answerKey"]
-    return f"Question: {q}\n{opts}\nAnswer: {key}"
-
-
-def _format_mmlu(row: dict) -> str:
-    q = row["question"]
-    choices = row["choices"]
-    ans = row["answer"]
-    if isinstance(ans, int):
-        ans_label = ["A", "B", "C", "D"][ans]
-    else:
-        ans_label = ans
-    labels = ["A", "B", "C", "D"]
-    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
-    return f"Question: {q}\n{opts}\nAnswer: {ans_label}"
-
-
-def _format_squad(row: dict) -> str:
-    context = row["context"]
-    q = row["question"]
-    ans = row["answers"]["text"][0]
-    return f"Context: {context}\nQuestion: {q}\nAnswer: {ans}"
-
-
-def _format_triviaqa(row: dict) -> str:
-    q = row["question"]
-    ans = row["answer"]["value"]
-    return f"Question: {q}\nAnswer: {ans}"
-
-
-def _format_gsm8k(row: dict) -> str:
-    return f"Question: {row['question']}\nAnswer: {row['answer']}"
-
+# ── Formatters; identical to prism/data/loaders.py for consistency ───────
 
 def _format_truthfulqa(row: dict) -> str:
     return f"Question: {row['question']}\nAnswer: {row['best_answer']}"
@@ -124,11 +58,6 @@ def _format_bbq(row: dict) -> str:
 
 
 FORMATTERS = {
-    "arc": _format_arc,
-    "mmlu": _format_mmlu,
-    "squad": _format_squad,
-    "triviaqa": _format_triviaqa,
-    "gsm8k": _format_gsm8k,
     "truthfulqa": _format_truthfulqa,
     "bbq": _format_bbq,
 }
@@ -137,34 +66,6 @@ FORMATTERS = {
 # ── Prompt-only formatters (question prefix, no answer) ──────────────────
 # Used to compute prompt_length so that loss is only on answer tokens.
 # Must be a strict prefix of the corresponding FORMATTER output.
-
-def _prompt_arc(row: dict) -> str:
-    q = row["question"]
-    labels = row["choices"]["label"]
-    texts = row["choices"]["text"]
-    opts = "\n".join(f"{labels[i]}. {texts[i]}" for i in range(len(labels)))
-    return f"Question: {q}\n{opts}\nAnswer:"
-
-
-def _prompt_mmlu(row: dict) -> str:
-    q = row["question"]
-    choices = row["choices"]
-    labels = ["A", "B", "C", "D"]
-    opts = "\n".join(f"{labels[i]}. {choices[i]}" for i in range(len(choices)))
-    return f"Question: {q}\n{opts}\nAnswer:"
-
-
-def _prompt_squad(row: dict) -> str:
-    return f"Context: {row['context']}\nQuestion: {row['question']}\nAnswer:"
-
-
-def _prompt_triviaqa(row: dict) -> str:
-    return f"Question: {row['question']}\nAnswer:"
-
-
-def _prompt_gsm8k(row: dict) -> str:
-    return f"Question: {row['question']}\nAnswer:"
-
 
 def _prompt_truthfulqa(row: dict) -> str:
     return f"Question: {row['question']}\nAnswer:"
@@ -178,11 +79,6 @@ def _prompt_bbq(row: dict) -> str:
 
 
 PROMPT_FORMATTERS = {
-    "arc": _prompt_arc,
-    "mmlu": _prompt_mmlu,
-    "squad": _prompt_squad,
-    "triviaqa": _prompt_triviaqa,
-    "gsm8k": _prompt_gsm8k,
     "truthfulqa": _prompt_truthfulqa,
     "bbq": _prompt_bbq,
 }
@@ -453,8 +349,6 @@ TASK_CONFIGS = {
         "eval_split": "validation[80%:]",    # last 20% for eval (163 rows)
         "max_train_samples": None,
         "max_eval_samples": None,
-        "default_max_steps": 700,
-        "default_save_steps": 25,
     },
     "bbq": {
         "hf_id": "lighteval/bbq_helm",
@@ -463,59 +357,6 @@ TASK_CONFIGS = {
         "eval_split": "test[80%:]",          # last 20% for eval (~200)
         "max_train_samples": None,
         "max_eval_samples": None,
-        "default_max_steps": 700,
-        "default_save_steps": 25,
-    },
-    # ── Downstream benchmarks (also usable as fine-tuning tasks) ─────
-    "arc": {
-        "hf_id": "allenai/ai2_arc",
-        "hf_subset": "ARC-Challenge",
-        "train_split": "train",
-        "eval_split": "test",
-        "max_train_samples": None,   # use all 1,119
-        "max_eval_samples": 256,
-        "default_max_steps": 700,
-        "default_save_steps": 25,
-    },
-    "mmlu": {
-        "hf_id": "cais/mmlu",
-        "hf_subset": "all",
-        "train_split": "auxiliary_train",
-        "eval_split": "validation",
-        "max_train_samples": 8000,
-        "max_eval_samples": 256,
-        "default_max_steps": 1500,
-        "default_save_steps": 25,
-    },
-    "squad": {
-        "hf_id": "rajpurkar/squad",
-        "hf_subset": None,
-        "train_split": "train",
-        "eval_split": "validation",
-        "max_train_samples": 8000,
-        "max_eval_samples": 256,
-        "default_max_steps": 1500,
-        "default_save_steps": 25,
-    },
-    "triviaqa": {
-        "hf_id": "mandarjoshi/trivia_qa",
-        "hf_subset": "rc.nocontext",
-        "train_split": "train",
-        "eval_split": "validation",
-        "max_train_samples": 8000,
-        "max_eval_samples": 256,
-        "default_max_steps": 1500,
-        "default_save_steps": 25,
-    },
-    "gsm8k": {
-        "hf_id": "openai/gsm8k",
-        "hf_subset": "main",
-        "train_split": "train",
-        "eval_split": "test",
-        "max_train_samples": None,   # use all 7,473
-        "max_eval_samples": 256,
-        "default_max_steps": 1400,
-        "default_save_steps": 25,
     },
 }
 
@@ -523,13 +364,7 @@ BASE_EVAL_TASKS = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
 
 
 def get_eval_tasks(trained_task: str) -> list:
-    """Return eval task list: trained task (first) + base tasks.
-
-    If the trained task is already in BASE_EVAL_TASKS, just return the base
-    list with the trained task moved to front.  Otherwise prepend it (6 total).
-    """
-    if trained_task in BASE_EVAL_TASKS:
-        return [trained_task] + [t for t in BASE_EVAL_TASKS if t != trained_task]
+    """Return eval task list: trained task (first) + the five base tasks."""
     return [trained_task] + BASE_EVAL_TASKS
 
 LORA_TARGET_MODULES = [
@@ -622,7 +457,7 @@ class PRISMCheckpointCallback(TrainerCallback):
         # Print table
         self._print_table(step, train_loss, eval_loss, task_results, elapsed)
 
-        # Save JSON (overwrite — survives crashes)
+        # Save JSON (overwrite; survives crashes)
         self._save_json()
 
     # ------------------------------------------------------------------
@@ -713,11 +548,11 @@ class PRISMCheckpointCallback(TrainerCallback):
                     "bound_feature": prism.risk_bound_feature,  # K_feat × δ
                     "bound_head": prism.risk_bound_head,        # K_pred × γ
                     "bound_total": prism.risk_bound_total,      # K_feat·δ + K_pred·γ
-                    # Empirical risk — answer-only (primary)
+                    # Empirical risk; answer-only (primary)
                     "loss_T": loss_T_answer,                    # R(θ₀) on answer tokens
                     "loss_P": loss_P_answer,                    # R(θ_t) on answer tokens
                     "delta_risk": primary_dr,                   # |R(θ_t) − R(θ₀)|
-                    # Empirical risk — full-sequence (supplementary)
+                    # Empirical risk; full-sequence (supplementary)
                     "loss_T_full": loss_T_full,
                     "loss_P_full": loss_P_full,
                     "delta_risk_full": delta_risk_full,
@@ -899,7 +734,7 @@ def pre_compute_base_features(
 
     Returns:
         base_features:    {task: {Z, H, loss_full, loss_answer, Z_shape}}
-        eval_dataloaders: {task: (DataLoader, z_mode)}  — reused in callback
+        eval_dataloaders: {task: (DataLoader, z_mode)} ; reused in callback
         K_theory:         {K_feat, K_pred, K_feat_naive, ...} from
                           UnifiedBound.theoretical_K (constants of Theorem 1 / Eq. 4)
     """
@@ -967,97 +802,7 @@ def pre_compute_base_features(
 
 
 # ======================================================================
-# CLI
-# ======================================================================
-
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="LoRA fine-tune on a single task with online PRISM forgetting metrics",
-    )
-    # Required
-    p.add_argument("--model", required=True,
-                   help="HuggingFace model ID (e.g. meta-llama/Llama-3.1-8B)")
-    p.add_argument("--task", required=True, choices=list(TASK_CONFIGS.keys()),
-                   help="Fine-tuning task")
-
-    # Output
-    p.add_argument("--output_dir", default=None,
-                   help="Override checkpoint output directory")
-
-    # Training
-    p.add_argument("--max_steps", type=int, default=None,
-                   help="Max training steps (default: task-specific)")
-    p.add_argument("--save_steps", type=int, default=None,
-                   help="Save checkpoint every N steps (default: task-specific)")
-    p.add_argument("--lr", type=float, default=None,
-                   help="Learning rate (default: 2e-4 for LLaMA, 1e-4 for Qwen)")
-    p.add_argument("--batch_size", type=int, default=2,
-                   help="Per-device train batch size")
-    p.add_argument("--grad_accum", type=int, default=8,
-                   help="Gradient accumulation steps (effective batch = batch_size * grad_accum)")
-    p.add_argument("--max_length", type=int, default=512,
-                   help="Maximum sequence length")
-    p.add_argument("--warmup_ratio", type=float, default=0.05,
-                   help="Warmup ratio (fraction of max_steps)")
-
-    # LoRA
-    p.add_argument("--lora_r", type=int, default=32, help="LoRA rank")
-    p.add_argument("--lora_alpha", type=int, default=64, help="LoRA alpha")
-    p.add_argument("--lora_dropout", type=float, default=0.05, help="LoRA dropout")
-
-    # Data
-    p.add_argument("--max_train_samples", type=int, default=None,
-                   help="Override max training samples (default: task-specific)")
-    p.add_argument("--max_eval_samples", type=int, default=None,
-                   help="Override max eval samples for Trainer validation "
-                        "(default: task-specific, see TASK_CONFIGS)")
-
-    # PRISM eval
-    p.add_argument("--prism_eval_samples", type=int, default=256,
-                   help="Number of samples per task for PRISM evaluation")
-    p.add_argument("--prism_eval_batch_size", type=int, default=4,
-                   help="Batch size for PRISM feature extraction")
-
-    # Shape regularization (W=I trace form). Mutually exclusive with anchor-CE.
-    p.add_argument("--lambda_shape", type=float, default=0.0,
-                   help="Weight for shape regularizer 1-Ω_I (0 = disabled). "
-                        "Mutually exclusive with --lambda_replay. Negative "
-                        "values are rejected.")
-    p.add_argument("--lambda_replay", type=float, default=0.0,
-                   help="Weight for the anchor-CE penalty: cross-entropy on "
-                        "the anchor set (0 = disabled). Same sequences, "
-                        "scheduling and loss scaling as --lambda_shape; only "
-                        "the penalty (CE vs 1-Ω_I) differs. "
-                        "Mutually exclusive with --lambda_shape. Negative "
-                        "values are rejected.")
-    p.add_argument("--reg_every_k", type=int, default=8,
-                   help="Compute the penalty (shape or anchor-CE) every K "
-                        "micro-batches (default: 8, a constant; it is not "
-                        "derived from --grad_accum. The reported runs use "
-                        "8 = --grad_accum, i.e. one penalty evaluation per "
-                        "optimizer step)")
-    p.add_argument("--reg_samples", type=int, default=32,
-                   help="Number of sequences in the anchor set")
-    p.add_argument("--reg_batch_size", type=int, default=8,
-                   help="Batch size for the anchor-set forward pass")
-    p.add_argument("--reg_max_length", type=int, default=512,
-                   help="Max sequence length for the anchor-set forward pass. "
-                        "Kept separate from --max_length so that a larger "
-                        "--max_length does not enlarge the grad-retained "
-                        "hidden-state concat inside _compute_shape_loss.")
-
-    # Misc
-    p.add_argument("--seed", type=int, default=42,
-                   help="Sets the initial LoRA weights, the Trainer seed "
-                        "(order of the training data, dropout), the anchor "
-                        "draw (seed + 1000) and the benchmark subsets of the "
-                        "PRISM evaluation.")
-    p.add_argument("--logging_steps", type=int, default=10)
-    return p.parse_args()
-
-
-# ======================================================================
-# Data loading  (for training only — PRISM eval uses prism.data.loaders)
+# Data loading  (for training only; PRISM eval uses prism.data.loaders)
 # ======================================================================
 
 def _load_hf_dataset(task_name: str, split: str):
@@ -1126,343 +871,3 @@ def build_dataset(task_name, split, tokenizer, max_length, max_samples, seed):
         tokenize_fn, batched=True, remove_columns=original_columns,
         desc=f"Tokenizing {task_name} ({split})",
     )
-
-
-# ======================================================================
-# Main
-# ======================================================================
-
-def main() -> None:
-    args = parse_args()
-
-    # ── Mutual exclusion: shape penalty and anchor-CE cannot both be on ──
-    if args.lambda_shape > 0 and args.lambda_replay > 0:
-        print("ERROR: --lambda_shape and --lambda_replay are mutually exclusive; "
-              "set at most one to a positive value.", file=sys.stderr)
-        sys.exit(2)
-
-    if args.lambda_shape < 0 or args.lambda_replay < 0:
-        print("ERROR: --lambda_shape and --lambda_replay must be >= 0 "
-              f"(got {args.lambda_shape} and {args.lambda_replay}).",
-              file=sys.stderr)
-        sys.exit(2)
-
-    task_cfg = TASK_CONFIGS[args.task]
-
-    # ── Resolve defaults ─────────────────────────────────────────────
-    max_steps = args.max_steps or task_cfg["default_max_steps"]
-    save_steps = args.save_steps or task_cfg["default_save_steps"]
-    lr = args.lr if args.lr is not None else (1e-4 if "qwen" in args.model.lower() else 2e-4)
-    max_train_samples = (
-        args.max_train_samples
-        if args.max_train_samples is not None
-        else task_cfg["max_train_samples"]
-    )
-    max_eval_samples = (
-        args.max_eval_samples
-        if args.max_eval_samples is not None
-        else task_cfg["max_eval_samples"]
-    )
-
-    model_short = args.model.split("/")[-1].lower()
-    output_dir = args.output_dir or os.path.join(
-        "checkpoints", "forgetting_multitask", model_short, args.task,
-    )
-    os.makedirs(output_dir, exist_ok=True)
-
-    warmup_steps = int(args.warmup_ratio * max_steps)
-
-    # ── Eval tasks: trained task + 5 base tasks ────────────────────
-    eval_tasks = get_eval_tasks(args.task)
-
-    # Revision the model repository is loaded at (configs/model_revisions.yaml);
-    # None = not pinned, the repository head is loaded.
-    revision = pinned_revision(args.model)
-
-    experiment_config = {
-        "model": args.model,
-        "trained_task": args.task,
-        "eval_tasks": eval_tasks,
-        "lora_r": args.lora_r,
-        "lora_alpha": args.lora_alpha,
-        "lora_dropout": args.lora_dropout,
-        "lora_target_modules": LORA_TARGET_MODULES,
-        "lr": lr,
-        "batch_size": args.batch_size,
-        "grad_accum": args.grad_accum,
-        "effective_batch_size": args.batch_size * args.grad_accum,
-        "max_steps": max_steps,
-        "save_steps": save_steps,
-        "max_length": args.max_length,
-        "warmup_ratio": args.warmup_ratio,
-        "warmup_steps": warmup_steps,
-        "max_train_samples": max_train_samples,
-        "prism_eval_samples": args.prism_eval_samples,
-        "train_loss_mode": "answer_only",
-        "seed": args.seed,
-        "adapter_init_seeded": True,
-        "lambda_shape": args.lambda_shape,
-        "lambda_replay": args.lambda_replay,
-        "reg_every_k": (args.reg_every_k
-                        if (args.lambda_shape > 0 or args.lambda_replay > 0)
-                        else None),
-        "reg_samples": (args.reg_samples
-                        if (args.lambda_shape > 0 or args.lambda_replay > 0)
-                        else None),
-        # This script has one replay source, the anchor set ("task").
-        "replay_source": ("task" if args.lambda_replay > 0 else None),
-        "revision": revision,
-        # Added below, once known: n_eval_rows, eval_anchor_rows_removed,
-        # optim, weight_decay, lr_scheduler, max_grad_norm, K_feat, K_pred.
-    }
-
-    print(f"{'=' * 78}")
-    print(f"  PRISM Forgetting — LoRA Fine-Tuning + Online Monitoring")
-    print(f"{'=' * 78}")
-    for k, v in experiment_config.items():
-        print(f"  {k:<25s}: {v}")
-    print(f"  output_dir              : {output_dir}")
-    print(f"{'=' * 78}")
-
-    # ── Tokenizer ────────────────────────────────────────────────────
-    print(f"\nLoading tokenizer: {args.model}")
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.model, trust_remote_code=_TRUST_REMOTE_CODE,
-        revision=revision)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"
-
-    # ── Model (before LoRA — used for base feature extraction) ───────
-    print(f"Loading model: {args.model}")
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model,
-        torch_dtype=torch.bfloat16,
-        device_map={"": 0},
-        trust_remote_code=_TRUST_REMOTE_CODE,
-        revision=revision,
-    )
-    model.config.use_cache = False
-
-    # ── Pre-compute base model features ──────────────────────────────
-    extractor = LLMExtractor()
-    tensor_device = "cuda"
-
-    base_features, eval_dataloaders, K_theory = pre_compute_base_features(
-        model, tokenizer, extractor,
-        eval_tasks=eval_tasks,
-        num_samples=args.prism_eval_samples,
-        batch_size=args.prism_eval_batch_size,
-        max_length=args.max_length,
-        seed=args.seed,
-        device=tensor_device,
-    )
-
-    # Record tight Lipschitz constants in the experiment config so they're
-    # written to prism_forgetting_metrics.json for reproducibility.
-    experiment_config["K_feat"] = K_theory["K_feat"]
-    experiment_config["K_pred"] = K_theory["K_pred"]
-    experiment_config["K_feat_naive"] = K_theory.get("K_feat_naive")
-
-    # ── Pre-compute anchor data + (for shape only) Z_T_ref ───────────
-    # Both regularizers read the same anchor set: --reg_samples sequences of
-    # the fine-tuning task's held-out slice (prism.data.loaders split "test"),
-    # the first rows after shuffling that slice with seed args.seed + 1000.
-    # The draw depends only on (task, seed, reg_samples): identical for both
-    # regularizers at a given seed, redrawn for each seed. Only the shape
-    # regularizer needs Z_T (base-model features) pre-extracted, since
-    # anchor-CE uses the current model's CE on the same inputs.
-    Z_T_ref = None
-    ref_dataloader = None
-    use_reg = args.lambda_shape > 0 or args.lambda_replay > 0
-    if use_reg:
-        ref_dataloader = load_task_data(
-            args.task, split="test",
-            num_samples=args.reg_samples,
-            batch_size=args.reg_batch_size,
-            tokenizer=tokenizer,
-            max_length=min(args.max_length, args.reg_max_length),
-            seed=args.seed + 1000,
-        )
-
-    if args.lambda_shape > 0:
-        reg_meta = get_task_metadata(args.task)
-        z_mode_ref = reg_meta["z_mode"]
-
-        print(f"\nPre-computing Z_T_ref for shape regularizer ...")
-        print(f"  task={args.task}, n={args.reg_samples}, z_mode={z_mode_ref}")
-        Z_T_ref = extractor.extract_features(
-            model, ref_dataloader, tensor_device, z_mode=z_mode_ref,
-        )
-        Z_T_ref = Z_T_ref.float().cpu()
-        print(f"  Z_T_ref shape: {list(Z_T_ref.shape)}")
-
-    # ── Apply LoRA ───────────────────────────────────────────────────
-    model.gradient_checkpointing_enable()
-    try:
-        from peft import LoraConfig, get_peft_model, TaskType
-    except ImportError:
-        print("ERROR: peft is required. Install with: pip install peft", file=sys.stderr)
-        sys.exit(1)
-
-    lora_config = LoraConfig(
-        r=args.lora_r,
-        lora_alpha=args.lora_alpha,
-        target_modules=LORA_TARGET_MODULES,
-        lora_dropout=args.lora_dropout,
-        bias="none",
-        task_type=TaskType.CAUSAL_LM,
-    )
-    # --seed determines the adapter initialisation: the random generators are
-    # seeded here, immediately before the adapter is created. The Trainer seeds
-    # them again with the same value when it is constructed, so the order of
-    # the training data and dropout are as without this call.
-    set_seed(args.seed)
-    model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
-
-    # ── Training datasets ────────────────────────────────────────────
-    print(f"\nBuilding training dataset: {args.task} ...")
-    train_dataset = build_dataset(
-        args.task, "train", tokenizer,
-        max_length=args.max_length,
-        max_samples=max_train_samples,
-        seed=args.seed,
-    )
-    print(f"  Train size: {len(train_dataset):,} examples")
-
-    print(f"Building eval dataset: {args.task} ...")
-    eval_dataset = build_dataset(
-        args.task, "eval", tokenizer,
-        max_length=args.max_length,
-        max_samples=max_eval_samples,
-        seed=args.seed,
-    )
-    print(f"  Eval size:  {len(eval_dataset):,} examples")
-    # This eval set is the held-out slice as built above. For tasks whose
-    # held-out slice is also the slice the anchor set is drawn from (TruthfulQA,
-    # BBQ), it contains the anchor rows, so eval_loss here is not restricted to
-    # rows outside the anchor set. train_forgetting.py and
-    # train_forgetting_baselines.py remove those rows before evaluation unless
-    # --eval_keep_anchor_rows is passed.
-    experiment_config["eval_keep_anchor_rows"] = True
-    experiment_config["n_eval_rows"] = len(eval_dataset)
-    experiment_config["eval_anchor_rows_removed"] = 0
-
-    # ── PRISM callback ───────────────────────────────────────────────
-    prism_callback = PRISMCheckpointCallback(
-        model=model,
-        base_features=base_features,
-        eval_dataloaders=eval_dataloaders,
-        extractor=extractor,
-        trained_task=args.task,
-        eval_tasks=eval_tasks,
-        model_id=args.model,
-        output_dir=output_dir,
-        device=tensor_device,
-        experiment_config=experiment_config,
-        K_theory=K_theory,
-    )
-
-    # ── Trainer ──────────────────────────────────────────────────────
-    collator = AnswerOnlyDataCollator(tokenizer=tokenizer)
-    try:
-        import bitsandbytes  # noqa: F401
-        optim = "paged_adamw_8bit"
-    except ImportError:
-        optim = "adamw_torch"
-        print("  [bitsandbytes not found] Using standard AdamW optimizer.")
-    # The optimizer depends on whether bitsandbytes can be imported.
-    print(f"  Optimizer: {optim}")
-
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        max_steps=max_steps,
-        per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=args.grad_accum,
-        learning_rate=lr,
-        lr_scheduler_type="cosine",
-        warmup_steps=warmup_steps,
-        weight_decay=0.01,
-        max_grad_norm=1.0,
-        optim=optim,
-        save_steps=save_steps,
-        save_total_limit=None,
-        logging_steps=args.logging_steps,
-        eval_strategy="steps",
-        eval_steps=save_steps,
-        bf16=True,
-        dataloader_num_workers=0,
-        report_to="none",
-        remove_unused_columns=False,   # keep prompt_length for AnswerOnlyDataCollator
-        seed=args.seed,
-    )
-    # Recorded for the metrics JSON (the dict is shared with the callback).
-    experiment_config["optim"] = optim
-    experiment_config["weight_decay"] = training_args.weight_decay
-    experiment_config["lr_scheduler"] = str(
-        getattr(training_args.lr_scheduler_type, "value",
-                training_args.lr_scheduler_type))
-    experiment_config["max_grad_norm"] = training_args.max_grad_norm
-
-    trainer_kwargs = dict(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        data_collator=collator,
-        callbacks=[prism_callback],
-    )
-    # Trainer selection: a positive λ selects the regularized loop; with both
-    # λ at 0 the stock transformers Trainer is used. The two loops scale the
-    # cross-entropy differently under gradient accumulation (see the
-    # ShapeRegularizedTrainer docstring), so an unregularized run from the
-    # stock Trainer is not in the same loop as the regularized runs; the
-    # same-loop unregularized reference is --lambda_shape 1e-9 (1 − Ω_I lies in
-    # [0, 2], so the weighted penalty contributes at most 2e-9 nats).
-    if args.lambda_shape > 0:
-        print(f"\n  Shape regularizer: λ={args.lambda_shape}, "
-              f"every_k={args.reg_every_k}, samples={args.reg_samples}")
-        trainer = ShapeRegularizedTrainer(
-            **trainer_kwargs,
-            Z_T_ref=Z_T_ref,
-            ref_dataloader=ref_dataloader,
-            lambda_shape=args.lambda_shape,
-            reg_every_k=args.reg_every_k,
-            device_str=tensor_device,
-        )
-    elif args.lambda_replay > 0:
-        print(f"\n  Anchor-CE: λ={args.lambda_replay}, "
-              f"every_k={args.reg_every_k}, samples={args.reg_samples}")
-        trainer = ReplayCETrainer(
-            **trainer_kwargs,
-            Z_T_ref=None,                        # unused by anchor-CE
-            ref_dataloader=ref_dataloader,
-            lambda_shape=args.lambda_replay,     # parent's slot for the weight
-            reg_every_k=args.reg_every_k,
-            device_str=tensor_device,
-        )
-    else:
-        trainer = Trainer(**trainer_kwargs)
-
-    # ── Train ────────────────────────────────────────────────────────
-    print(f"\nStarting training ...")
-    trainer.train()
-
-    # ── Final summary ────────────────────────────────────────────────
-    saved_steps = sorted(
-        int(d.name.split("-")[-1])
-        for d in Path(output_dir).glob("checkpoint-*")
-        if d.name.split("-")[-1].isdigit()
-    )
-    print(f"\n{'=' * 78}")
-    print(f"  Training complete.")
-    print(f"  Checkpoints : {output_dir}")
-    print(f"  Saved steps : {saved_steps}")
-    print(f"  PRISM log   : {prism_callback.json_path}")
-    print(f"  Total ckpts : {len(saved_steps)}")
-    print(f"{'=' * 78}")
-
-
-if __name__ == "__main__":
-    main()

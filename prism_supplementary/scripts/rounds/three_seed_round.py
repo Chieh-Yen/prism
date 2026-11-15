@@ -30,21 +30,6 @@ Seeds and sizes
     pairwise overlap between the seeds' 512-sequence draws
     ({family}_seed_draws.md); on small test splits the draws overlap.
 
-Precision
-    The norms, the inner product and the cross-covariance are accumulated in
-    float64, in chunks of --chunk token rows (a memory setting; it does not
-    change the result).  Both feature matrices are normalised by their
-    Frobenius norms before the SVD, so omega_W is the nuclear norm of an O(1)
-    matrix.  omega_W_raw is the value before clipping to 1, and
-    clamp_would_fire is 1 when omega_W_raw exceeds 1.  TF32 matmuls are
-    switched off during the computation.
-
-Head term at small sizes
-    gamma_W = ||Sigma_P^{1/2} (W_N H_T - H_P)||_F with Sigma_P = Z_P^T Z_P / n,
-    whose rank is at most the number of token rows.  With fewer token rows
-    than feature dimensions (d = 4096) the head term is measured inside the
-    span of the sampled features; the bound is the bound for that slice.
-
 Usage (from the supplementary root)
     python3 scripts/rounds/three_seed_round.py --dry-run
     python3 scripts/rounds/three_seed_round.py --family llama --seeds 43 44 45
@@ -74,27 +59,14 @@ sys.path.insert(0, str(HERE))
 OUT_DIR = ROOT / "out" / "rounds" / "three_seed"
 PAPER5 = ["arc", "mmlu", "squad", "triviaqa", "gsm8k"]
 
-# Upper limit on token rows per feature pair.  It lies above the largest count
-# of the grid (GSM8K at 512 sequences: 52,184 rows for Llama-3.1-8B and 63,056
-# for Qwen3-8B-Base), so no feature matrix is subsampled.
+# Above every token count of the grid, so no feature matrix is subsampled.
 TOKEN_CAP = 131072
 
 # ----------------------------------------------------------------------
-# metrics on one feature pair, accumulated in float64
+# metrics on one feature pair
 # ----------------------------------------------------------------------
 def fresh_metrics(Z_T, Z_P, H_T, H_P, chunk: int = 8192):
-    """CKA, SVCCA and the PRISM quantities under W_N on one feature pair.
-
-    * The norms, the inner product, the cross-covariance and Sigma_P are
-      accumulated in float64, chunk by chunk over the token rows, which keeps
-      the peak memory low without changing the arithmetic.
-    * Both sides are normalised by their Frobenius norm before the SVD, so
-      omega is read off as the nuclear norm of an O(1) matrix.
-    * TF32 is switched off for these matmuls and restored afterwards.
-
-    ``clamp_would_fire`` is 1 when the unclipped omega (``omega_W_raw``)
-    exceeds 1; ``omega_W`` is clipped to 1 for the delta formula.
-    """
+    """CKA, SVCCA and the PRISM quantities under W_N on one feature pair; sums run over chunks of `chunk` token rows."""
     import torch
 
     from similarity_scores import linear_cka, svcca
@@ -108,7 +80,6 @@ def fresh_metrics(Z_T, Z_P, H_T, H_P, chunk: int = 8192):
         cka = linear_cka(Z_T, Z_P)
         sv = svcca(Z_T, Z_P)
 
-        # --- chunked float64 accumulation ---
         n, d = Z_T.shape
         dev = Z_T.device
         nx2 = torch.zeros((), dtype=torch.float64, device=dev)
@@ -128,14 +99,12 @@ def fresh_metrics(Z_T, Z_P, H_T, H_P, chunk: int = 8192):
         nx = nx2.sqrt()
         ny = ny2.sqrt()
 
-        # normalise: omega is then the nuclear norm of an O(1) matrix
         cross_hat = cross / (nx * ny).clamp(min=1e-300)
         U, S, Vt = torch.linalg.svd(cross_hat, full_matrices=False)
         W_N = U @ Vt
-        omega_raw = S.sum().item()                 # = ||Z_T^T Z_P||_* / (nx*ny)
+        omega_raw = S.sum().item()
         omega_i = (dot / (nx * ny).clamp(min=1e-300)).item()
-        clamp_fire = int(omega_raw > 1.0)
-        omega_N = min(omega_raw, 1.0)              # only for the delta formula
+        omega_N = min(omega_raw, 1.0)
 
         rho_T = (nx / math.sqrt(n)).item()
         rho_P = (ny / math.sqrt(n)).item()
@@ -156,8 +125,7 @@ def fresh_metrics(Z_T, Z_P, H_T, H_P, chunk: int = 8192):
         "n_tokens": n,
         "cka": cka, "svcca": sv,
         "omega_I": omega_i,
-        "omega_W": omega_N, "omega_W_raw": omega_raw,
-        "clamp_would_fire": clamp_fire,
+        "omega_W": omega_N,
         "rho_T": rho_T, "rho_P": rho_P,
         "delta_W": delta_N, "gamma_W": float(gamma_N),
         "K_feat": K["K_feat"], "K_pred": K["K_pred"],
@@ -220,8 +188,8 @@ def run(args) -> None:
     ex = LLMExtractor()
 
     COLS = ["family", "seed", "n_samples", "label", "dataset", "n_tokens",
-            "cka", "svcca", "omega_I", "omega_W", "omega_W_raw",
-            "clamp_would_fire", "rho_T", "rho_P", "delta_W", "gamma_W",
+            "cka", "svcca", "omega_I", "omega_W",
+            "rho_T", "rho_P", "delta_W", "gamma_W",
             "K_feat", "K_pred", "bound_W", "loss_T", "loss_P", "|MdR|"]
 
     # ── resume: which (seed, label) pairs are already complete? ──
@@ -246,7 +214,7 @@ def run(args) -> None:
             if not p.exists():
                 continue
             for r in csv.DictReader(open(p)):
-                have.add((seed, int(r.get("n_samples", 512) or 512),
+                have.add((seed, int(r["n_samples"]),
                           r["label"], r["dataset"].lower()))
         if have:
             print(f"[resume] {len(have)} cells already on disk; they will be "
@@ -414,8 +382,7 @@ def run(args) -> None:
                 rows.append(m)
                 print(f"  seed{seed} n{n:<4} {b:<9} 1-Om_N={1-m['omega_W']:.6f} "
                       f"d_N={m['delta_W']:.3f} B_N={m['bound_W']:.2f} "
-                      f"|dR|={m['|MdR|']:.5f}"
-                      + ("  [clamp]" if m["clamp_would_fire"] else ""))
+                      f"|dR|={m['|MdR|']:.5f}")
                 del Z_P, Z_Tb, Xc, Yc
                 free_cuda()
             # append this (seed, variant) block immediately
@@ -520,8 +487,7 @@ def main() -> None:
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--chunk", type=int, default=8192,
-                    help="token rows per float64 accumulation chunk (memory setting; "
-                         "does not change the result)")
+                    help="token rows per accumulation chunk (memory setting)")
     ap.add_argument("--force", action="store_true",
                     help="move existing seed files aside and recompute everything")
     ap.add_argument("--check", action="store_true",

@@ -71,15 +71,10 @@ Two environment files are provided.
 | `requirements-response.txt` | everything under `scripts/response/` (the environment those runs used: Python 3.12.3, torch 2.11.0, transformers 5.2.0, accelerate 1.12.0, peft 0.18.1, datasets 4.5.0, bitsandbytes 0.50.2, gguf 0.17.1), except the GPTQ pass of the eight-sequence screen | see the header of the file |
 | `requirements.txt`, with the GPTQ loader that `install.sh` adds | `scripts/rounds/` is to be run in this environment: three of the 23 variants of `scripts/rounds/data/variant_manifest.csv` are GPTQ repositories and need a GPTQ loader; the trainers under `scripts/rounds/` need none | `bash install.sh` |
 
-`install.sh` installs torch first, then `requirements.txt`, then GPTQModel
-with build isolation switched off; the reasons are in the header of
-`requirements.txt`. `requirements-response.txt` lists no GPTQ loader. The
-eight-sequence screen is therefore run in two passes: the 20 variants that
-need no GPTQ loader in the `requirements-response.txt` environment, and the
-three GPTQ variants in a separate environment that has one
-(`run_screen.sh gptq`; details in `scripts/response/screen_n8/README.md`). In
-the reported run the three GPTQ variants were scored in such a separate
-environment.
+`install.sh` installs torch, `requirements.txt`, then GPTQModel without
+build isolation. `requirements-response.txt` has no GPTQ loader, so the three
+GPTQ variants of the eight-sequence screen are scored in a separate pass
+(`run_screen.sh gptq`) in an environment that has one.
 
 Gated repositories (for example the Llama family) need an accepted licence
 and a Hugging Face login.
@@ -113,18 +108,10 @@ the library's default trainer at λ = 0): `run_forgetting.sh`
 writes one `prism_forgetting_metrics.json` per (model, task, method, λ) under
 `checkpoints/forgetting_{shape,replay}_lam<λ>/<model>/<task>/`, with the PRISM
 quantities and \|ΔR\| on the five benchmarks at every checkpoint.
-`scripts/sweep_table.py` prints the table from these files at the final step
-(300):
-
-- target loss is the trainer's evaluation loss (`eval_loss`) on the whole
-  held-out slice of the fine-tuning task (163 rows for TruthfulQA). This slice contains the 32 rows the regularizers
-  read as their anchor set. `run_forgetting.sh` passes
-  `--eval_keep_anchor_rows` to obtain it. The unified protocol
-  (`scripts/response/forgetting/`) instead reports the loss on the rows
-  outside the anchor set, so target losses of the two are not comparable;
-- downstream \|ΔR\| is the unweighted mean of \|ΔR\| over the five
-  benchmarks;
-- each value is a single run (one seed).
+`scripts/sweep_table.py` prints, at step 300, the trainer's `eval_loss` on the
+whole held-out slice of the fine-tuning task (`run_forgetting.sh` passes
+`--eval_keep_anchor_rows`) and the unweighted mean \|ΔR\| over the five
+benchmarks; one seed per value.
 
 ### Paper experiments
 
@@ -165,17 +152,6 @@ protocol: cross-entropy on the anchor set (anchor-CE) at λ ∈ {0, 0.001,
 
 A variant that raises an exception during loading, extraction or the metric
 computation is skipped, and the runner continues with the next variant.
-Entries of `configs/quantization_matrix.yaml` that are skipped at run time
-because they cannot be loaded:
-
-- the eight `gptq:Efficient-ML/*` entries (four under `qwen3_8b_instruct`,
-  four under `qwen3_8b_base`): the repository is not recognised as a model by
-  `transformers`;
-- `Q3_K_M` and `Q2_K` under `qwen3_8b_instruct`: `Qwen/Qwen3-8B-GGUF` has no
-  file for these two tags;
-- `gptq:RedHatAI/Qwen3-8B-quantized.w4a16`: it needs the `compressed-tensors`
-  package, which `requirements.txt` does not install.
-
 `run_quantization.py` prints one `[skipped]` line per variant that produced
 no result, and `run_quantization.sh` lists these variants in its final
 summary. `run_quantization.sh` needs bash 4 or later.
@@ -200,30 +176,16 @@ Notes on the rounds of `scripts/rounds/`:
   CKA, SVCCA and the Procrustes distance at seed 42 and joins the risk gaps
   and the bounds from the result tables that `run_quantization.py` writes
   (one CSV per model and dataset). `--results-csv` takes those files, a
-  directory that holds them, or a glob. The risk gap it joins is the column
-  `|AdR|` (the difference of the means over sequences of each sequence's mean
-  answer-token loss), and `|dR|` where `|AdR|` is empty. Its functions
+  directory that holds them, or a glob. The risk gap it joins is the
+  answer-only gap \|ΔR\| of those files. Its functions
   `linear_cka` and `svcca` are the ones the three-seed round uses.
-- Fixed-weight comparison, table script. `regularizer_table.py` lists every run it finds,
-  so every configuration of the sweep is listed. It prints the mean ± sample
-  sd over seeds for the six configurations of the `seeds` stage
-  and for every other configuration with at least two seeds, and a "matched"
-  block that selects, per method, the configuration whose
-  target-task loss is closest to the shape regularizer's among the seed-42 runs
-  of the whole sweep. A table covers one model; `--model` selects it when the
-  output root holds runs of more than one.
-- Fixed-weight comparison, L2-SP. The sweep covers L2-SP at λ ∈ {10⁻⁴, 10⁻³, 10⁻², 10⁻¹};
-  the `seeds` stage runs L2-SP at λ = 0.01.
-  Appendix I reports L2-SP and EWC under the unified protocol of
-  `scripts/response/forgetting/` (last row of the table above; job list
-  `jobs_appendix_baselines.txt`, definitions in that folder's README).
+- `regularizer_table.py` prints mean ± sample sd over seeds per configuration
+  and a "matched" block (per method, the configuration whose target-task loss
+  is closest to the shape regularizer's); `--model` selects the model.
 - Fixed-weight comparison, target-task loss. The column is the trainer's `eval_loss`.
   `run_regularizer_baselines.sh` passes `--eval_keep_anchor_rows`, so it is
   computed on the whole held-out slice of the fine-tuning task, anchor rows
   included.
-- Fixed-weight comparison, resuming. An interrupted L2-SP or EWC run cannot be resumed
-  (its reference point, the adapter initialisation, is not stored); the
-  trainer stops with a message and the run has to be restarted.
 - Model id. `run_forgetting_one.sh` and `run_regularizer_baselines.sh` load
   `meta-llama/Meta-Llama-3.1-8B`, the launchers under `scripts/response/` load
   `meta-llama/Llama-3.1-8B`. `configs/model_revisions.yaml` pins both names
@@ -234,9 +196,6 @@ Notes on the rounds of `scripts/rounds/`:
 
 
 ## Protocol notes
-
-These notes state how the code behaves where a reader could otherwise assume
-something else.
 
 **(a) Anchor set.** The regularized methods read 32 sequences of the
 fine-tuning task. They are drawn from the task's held-out slice (the last 20%
@@ -273,13 +232,11 @@ weighted by λ / G. "λ · P" in the tables is λ times the logged penalty P. Th
 this trainer logs is the sum of the G micro-batch mean cross-entropies of an
 optimizer step, without the penalty.
 
-**(d) λ search.** The grid is {1, 5} × 10^k up to 10^4, the same for every
-method. Not every grid value was run. The search went upward from starting
-runs (single runs at seed 42, or three-seed runs at fixed values) along the grid until the target-loss budget was exceeded;
-three seeds were then run at the selected value and, for the baselines, at
-their least-forgetting value within budget. The job lists in
-`scripts/response/forgetting/` are the runs behind the tables, and the folder
-README describes the search step by step.
+**(d) λ search.** The grid is {1, 5} × 10^k from 10⁻⁴ to 10⁴, the same for
+every method. As in Appendix I, the search moves upward from a few starting
+values until the budget is exceeded; three seeds are run at the selected value
+and, for the baselines, at their least-forgetting value within budget. The job
+lists in `scripts/response/forgetting/` are the runs behind the tables.
 
 **(e) Standard deviations.** The forgetting tables of the unified protocol and
 the eight-sequence screen use the population standard deviation (divisor n).
@@ -305,19 +262,15 @@ file). The remaining entries are the revisions that were current when the
 file was written. The trainers record the revision in the `experiment` block
 of their output.
 
-**(h) Hardware and runtime.** Every experiment of the paper runs on a single
+**(h) Hardware.** Every experiment of the paper runs on a single
 GPU (NVIDIA RTX 5090, 32 GB, or RTX PRO 6000, 96 GB), with PyTorch 2.10 or
-2.11 and transformers 5.2 (the two requirements files). The layer profile of the response holds two
-8B models in BF16 on one GPU at the same time, which does not fit in 32 GB;
-its reported runs used one 96 GB GPU per job. Run times recorded in the output files
-of the response experiments: layer profile, 100 to 112 seconds per variant;
-head experiments, about 45 and 50 GPU-minutes of per-cell time. The analysis
+2.11 and transformers 5.2 (the two requirements files). The layer profile
+holds two 8B models in BF16 at once and needs the 96 GB GPU. The analysis
 scripts need no GPU.
 
 **(i) Seeds.** `--seed` of the trainers sets the initial weights of the LoRA
-adapter (recorded as `adapter_init_seeded` in the `experiment` block of the
-output), the seed of the library `Trainer` (order of the training
-data, dropout), the anchor draw (`seed + 1000`) and the draw of the benchmark
+adapter, the seed of the library `Trainer` (order of the training data,
+dropout), the anchor draw (`seed + 1000`) and the draw of the benchmark
 sequences of the PRISM evaluation.
 
 **(j) Optimizer.** The trainers use the paged 8-bit AdamW of bitsandbytes
@@ -326,8 +279,7 @@ otherwise; weight decay 0.01, cosine schedule with 5% warm-up, gradient
 clipping at 1.0. The trainers print the
 optimizer and record it, with these settings, the revision, `replay_source`,
 `eval_keep_anchor_rows` and the number of evaluation rows, in the
-`experiment` block of `prism_forgetting_metrics.json`. A negative λ is
-rejected.
+`experiment` block of `prism_forgetting_metrics.json`.
 
 **Other points.**
 

@@ -47,24 +47,17 @@ class LLMExtractor(FeatureExtractor):
     Model structures the probes recognise
     -------------------------------------
     The experiments of the paper use the Llama-3.1, Qwen3,
-    DeepSeek-R1-Distill-Llama and Ministral-3 families.  The GPT-2 and Gemma
-    layouts below are probed by the code and were not part of the
-    experiments.
+    DeepSeek-R1-Distill-Llama and Ministral-3 families.
 
-    Standard causal LM (Llama / Mistral / Gemma-2 / Qwen / OLMo …):
-        model.model.embed_tokens   — transformer backbone at model.model
-        model.lm_head              — language model head
+    Standard causal LM (Llama / Qwen / Mistral):
+        model.model.embed_tokens:   transformer backbone at model.model
+        model.lm_head:              language model head
 
-    GPT-2 / GPT-Neo style:
-        model.transformer          — transformer backbone
-
-    Multimodal conditional-generation (Gemma-3 4B/12B/27B …):
-        model.language_model.model — LM backbone nested under language_model
-        model.language_model.lm_head
-
-    Multimodal conditional-generation (Mistral3 / Ministral-3 2512 …):
-        model.model.language_model — text backbone inside Mistral3Model wrapper
-        model.lm_head              — LM head at the outer model level
+    Multimodal conditional-generation (Mistral3 / Ministral-3 2512):
+        model.language_model:       text backbone, when the class exposes
+                                    model.model.language_model at the top
+        model.model.language_model: text backbone inside Mistral3Model wrapper
+        model.lm_head:              LM head at the outer model level
     """
 
     def __init__(self):
@@ -75,30 +68,19 @@ class LLMExtractor(FeatureExtractor):
         """Return the transformer backbone (before lm_head).
 
         Probe order (most-specific first):
-          1. model.model.embed_tokens       — standard causal LM (Llama/Mistral/Gemma-2/Qwen)
-          2. model.transformer              — GPT-2 / GPT-Neo
-          3. model.language_model.model     — Gemma-3 4B/12B/27B multimodal
-          4. model.language_model           — multimodal with flat backbone (embed_tokens at top)
-          5. model.model.language_model     — Mistral3ForConditionalGeneration
+          1. model.model.embed_tokens:   standard causal LM (Llama/Qwen/Mistral)
+          2. model.language_model:       multimodal with flat backbone (embed_tokens at top)
+          3. model.model.language_model: Mistral3ForConditionalGeneration
              (Mistral3Model wrapper → MistralModel backbone)
         """
         # 1. Standard causal LM
         if hasattr(model, "model") and hasattr(model.model, "embed_tokens"):
             return model.model
-        # 2. GPT-2 / GPT-Neo style
-        if hasattr(model, "transformer"):
-            return model.transformer
-        # 3. Gemma-3 4B/12B/27B: Gemma3ForConditionalGeneration
-        #    backbone at model.language_model.model
-        if (hasattr(model, "language_model")
-                and hasattr(model.language_model, "model")
-                and hasattr(model.language_model.model, "embed_tokens")):
-            return model.language_model.model
-        # 4. Flat multimodal: backbone IS model.language_model (embed_tokens directly)
+        # 2. Flat multimodal: backbone IS model.language_model (embed_tokens directly)
         if (hasattr(model, "language_model")
                 and hasattr(model.language_model, "embed_tokens")):
             return model.language_model
-        # 5. Mistral3ForConditionalGeneration:
+        # 3. Mistral3ForConditionalGeneration:
         #    model.model = Mistral3Model (vision + language wrapper)
         #    model.model.language_model = MistralModel (text backbone, has embed_tokens)
         if (hasattr(model, "model")
@@ -107,8 +89,7 @@ class LLMExtractor(FeatureExtractor):
             return model.model.language_model
         raise AttributeError(
             f"Cannot locate backbone in {type(model).__name__}. "
-            "Tried: .model, .transformer, .language_model.model, "
-            ".language_model, .model.language_model."
+            "Tried: .model, .language_model, .model.language_model."
         )
 
     @staticmethod
@@ -118,66 +99,41 @@ class LLMExtractor(FeatureExtractor):
         z_mode: str,
         prompt_lens: Optional[Tensor] = None,
     ) -> Tensor:
-        """Extract per-sample Z from hidden states based on ``z_mode``.
+        """Extract Z from hidden states (``z_mode`` must be ``"concat"``).
 
         Args:
             hidden: (bsz, seq, d) last hidden states.
             masks:  (bsz, seq) attention mask (1 = real token).
-            z_mode: ``"last_token"`` | ``"mean_pool"`` | ``"last_context_token"``
-                    | ``"concat"``.
-            prompt_lens: (bsz,) token count of the prompt prefix (required
-                         for ``last_context_token``).
+            z_mode: ``"concat"``, the only implemented mode.
+            prompt_lens: (bsz,) token count of the prompt prefix, or None.
         Returns:
-            For most modes: (bsz, d) feature vectors.
-            For ``"concat"``: (total_valid_tokens, d) — per-token hidden
-            states whose logits predict the next token.  Corpus datasets
-            (no ``prompt_lens``): positions 0 … T−2.  Q&A datasets (with
-            ``prompt_lens``): answer-region positions prompt_len−1 … T−2
-            only, so each z_t is paired with an answer-token loss.
+            (total_valid_tokens, d): per-token hidden states whose logits
+            predict the next token.  Corpus datasets (no ``prompt_lens``):
+            positions 0 … T−2.  Q&A datasets (with ``prompt_lens``):
+            answer-region positions prompt_len−1 … T−2 only, so each z_t is
+            paired with an answer-token loss.
         """
+        if z_mode != "concat":
+            raise ValueError(f"unsupported z_mode {z_mode!r}; only 'concat' is implemented")
         bsz = hidden.shape[0]
-        device = hidden.device
-
-        if z_mode == "concat":
-            parts: List[Tensor] = []
-            for i in range(bsz):
-                length = masks[i].sum().long().item() if masks is not None else hidden.shape[1]
-                # Answer-region start: first z that predicts an answer token.
-                # Corpus (no prompt_lens): position 0.
-                # Q&A: position prompt_len - 1 (its logits predict y_{prompt_len}).
-                start = max(int(prompt_lens[i].item()) - 1, 0) if prompt_lens is not None else 0
-                end = length - 1  # exclude last valid token (no next-token label)
-                if end > start:
-                    parts.append(hidden[i, start:end])
-            return torch.cat(parts, dim=0) if parts else hidden.new_empty(0, hidden.shape[-1])
-
-        if z_mode == "mean_pool":
-            if masks is not None:
-                mask_f = masks.unsqueeze(-1).to(hidden.dtype)   # (bsz, seq, 1)
-                summed = (hidden * mask_f).sum(dim=1)           # (bsz, d)
-                counts = masks.sum(dim=1, keepdim=True).to(hidden.dtype).clamp(min=1)
-                return summed / counts
-            return hidden.mean(dim=1)
-
-        if z_mode == "last_context_token":
-            if prompt_lens is not None:
-                positions = (prompt_lens - 1).clamp(min=0).to(device)
-                return hidden[torch.arange(bsz, device=device), positions]
-            # Fallback: last valid token (same as last_token)
-
-        # Default: last_token
-        if masks is not None:
-            lengths = masks.sum(dim=1).long() - 1
-            lengths = lengths.to(device)
-            return hidden[torch.arange(bsz, device=device), lengths]
-        return hidden[:, -1, :]
+        parts: List[Tensor] = []
+        for i in range(bsz):
+            length = masks[i].sum().long().item() if masks is not None else hidden.shape[1]
+            # Answer-region start: first z that predicts an answer token.
+            # Corpus (no prompt_lens): position 0.
+            # Q&A: position prompt_len - 1 (its logits predict y_{prompt_len}).
+            start = max(int(prompt_lens[i].item()) - 1, 0) if prompt_lens is not None else 0
+            end = length - 1  # exclude last valid token (no next-token label)
+            if end > start:
+                parts.append(hidden[i, start:end])
+        return torch.cat(parts, dim=0) if parts else hidden.new_empty(0, hidden.shape[-1])
 
     def extract_features(
         self,
         model: torch.nn.Module,
         dataloader: DataLoader,
         device: str = "cuda",
-        z_mode: str = "last_token",
+        z_mode: str = "concat",
     ) -> Tensor:
         model.eval()
         backbone = self._get_backbone(model)
@@ -208,27 +164,27 @@ class LLMExtractor(FeatureExtractor):
         dataloader: DataLoader,
         device: str = "cuda",
         *,
-        z_mode: str = "last_token",
+        z_mode: str = "concat",
         z_modes: Optional[List[str]] = None,
     ):
         """Single forward pass that returns both features AND per-sample loss stats.
 
         Calls ``model(..., output_hidden_states=True)`` once per batch, obtaining
         the last hidden state (for features) **and** logits (for loss) in the same
-        pass — halving the number of forward passes versus extracting features and
+        pass; halving the number of forward passes versus extracting features and
         loss separately.
 
         Args:
-            z_mode:  Single feature extraction mode (legacy API).
-            z_modes: List of modes to extract simultaneously in one forward
-                     pass.  When provided, returns ``(Dict[str, Tensor], Dict)``
-                     instead of ``(Tensor, Dict)``.
+            z_mode:  Feature extraction mode (``"concat"``).
+            z_modes: List form of ``z_mode`` (``["concat"]``).  When provided,
+                     returns ``(Dict[str, Tensor], Dict)`` instead of
+                     ``(Tensor, Dict)``.
 
         The returned ``loss_stats`` dict contains:
-            ``losses``               — (n,) per-sample average CE loss (full text)
-            ``token_losses``         — (N_tokens,) per-token CE, or None
+            ``losses``              ; (n,) per-sample average CE loss (full text)
+            ``token_losses``        ; (N_tokens,) per-token CE, or None
                                        (present when ``"concat"`` is among z_modes)
-            ``answer_losses``        — (n,) answer-only loss, or None
+            ``answer_losses``       ; (n,) answer-only loss, or None
             ``has_answer_loss``
         """
         _return_dict = z_modes is not None
@@ -292,7 +248,7 @@ class LLMExtractor(FeatureExtractor):
                     bb_out = backbone(**batch_on_device)
                     hidden = bb_out.last_hidden_state
 
-                # Free all intermediate hidden states (layers 0..N-2) — saves
+                # Free all intermediate hidden states (layers 0..N-2); saves
                 # ~2 GB for 32-layer models with bsz=8, seq=1024.
                 del out
 
@@ -308,7 +264,7 @@ class LLMExtractor(FeatureExtractor):
                     shift_labels[masks[:, 1:] == 0] = -100
                 T_m1 = shift_labels.shape[1]
 
-                # Single batched CE — reduction='none' returns 0 at ignore positions
+                # Single batched CE; reduction='none' returns 0 at ignore positions
                 ce_per_token = torch.nn.functional.cross_entropy(
                     all_logits[:, :-1, :].reshape(-1, V),
                     shift_labels.reshape(-1),
@@ -333,7 +289,7 @@ class LLMExtractor(FeatureExtractor):
                             tok_valid = valid_mask[j].bool()
                         token_losses.append(ce_per_token[j][tok_valid].float())
 
-                # Answer-only loss — reuse ce_per_token with tighter mask
+                # Answer-only loss; reuse ce_per_token with tighter mask
                 if prompt_lens is not None:
                     pos_2d = torch.arange(T_m1, device=shift_labels.device).unsqueeze(0)
                     ans_valid = valid_mask.clone()
@@ -371,12 +327,9 @@ class LLMExtractor(FeatureExtractor):
         """
         if hasattr(model, "lm_head"):
             w = model.lm_head.weight.data  # (vocab, d)
-        elif (hasattr(model, "language_model")
-              and hasattr(model.language_model, "lm_head")):
-            w = model.language_model.lm_head.weight.data
         else:
             raise AttributeError(
                 f"Cannot locate lm_head in {type(model).__name__}. "
-                "Expected .lm_head or .language_model.lm_head."
+                "Expected .lm_head."
             )
-        return w.T.contiguous()  # (d, vocab) — detached copy, won't pin model
+        return w.T.contiguous()  # (d, vocab); detached copy, won't pin model

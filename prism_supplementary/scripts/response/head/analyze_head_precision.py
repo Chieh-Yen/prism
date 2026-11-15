@@ -9,8 +9,7 @@ Quantities printed
   cells       number of cells; cells whose features are identical, entry for
               entry, to those under the first head on the same backbone.
   bound       K_feat * delta + K_pred * gamma >= gap, recomputed here from the
-              stored delta and gamma. K_feat is read from info when present,
-              otherwise from K_FEAT below; K_pred = sqrt(2).
+              stored delta and gamma, with K_feat and K_pred read from info.
   pairs       pairs of head settings inside one group, both heads quantized
               (the BF16 head is left out: its head term and its outcome are 0
               by construction). A pair counts only if its two outcomes differ
@@ -43,15 +42,8 @@ usage:
   python analyze_head_precision.py FILE [FILE ...]
 """
 from __future__ import annotations
-import argparse, itertools, json, math, statistics
+import argparse, itertools, json, statistics
 
-# K_feat of the target head (UnifiedBound.theoretical_K: the largest distance
-# between two columns of H_T), as the quantization experiment reports it for
-# these targets. Used only when an input file does not store K_feat.
-K_FEAT = {"Qwen/Qwen3-8B-Base": 3.4582768324560638,
-          "meta-llama/Llama-3.1-8B": 2.613742029368554,
-          "meta-llama/Meta-Llama-3.1-8B": 2.613742029368554}
-K_PRED = math.sqrt(2.0)
 # Noise floor of the head experiments, in nats: gaps and differences of gaps
 # below it are treated as noise. It is a constant of the analysis, not an
 # option.
@@ -69,13 +61,10 @@ def load(paths):
         d = json.load(open(p))
         info = d["info"]
         model = info["target"].split("/")[-1]
-        if "K_feat" in info:
-            kf, kp, src = info["K_feat"], info["K_pred"], "stored"
-        elif info["target"] in K_FEAT:
-            kf, kp, src = K_FEAT[info["target"]], K_PRED, "tabulated"
-        else:
-            raise SystemExit(f"{p}: no K_feat stored and none tabulated for {info['target']}")
-        m = meta.setdefault(model, dict(K_feat=kf, K_pred=kp, K_source=src, n=info["n"],
+        if "K_feat" not in info:
+            raise SystemExit(f"{p}: incomplete run (no K_feat in info)")
+        kf, kp = info["K_feat"], info["K_pred"]
+        m = meta.setdefault(model, dict(K_feat=kf, K_pred=kp, n=info["n"],
                                         seed=info["seed"], files=[]))
         if (m["K_feat"], m["K_pred"]) != (kf, kp):
             raise SystemExit(f"{p}: constants differ between files of {model}")
@@ -126,7 +115,7 @@ def main():
     print(f"  backbones: original, {', '.join(backbones)};  heads: {', '.join(HEAD_NAME[h] for h in heads)}")
     for m in models:
         print(f"  {m}: n = {meta[m]['n']}, seed = {meta[m]['seed']}, K_feat = {meta[m]['K_feat']:.4f} "
-              f"({meta[m]['K_source']}), K_pred = {meta[m]['K_pred']:.4f}")
+              f"(stored), K_pred = {meta[m]['K_pred']:.4f}")
         notes = []
         for f in meta[m]["files"]:
             qc = f["quantizer_check"] or {}
@@ -157,18 +146,12 @@ def main():
         print(f"  {title}")
         for name, keep in subsets:
             tot = {m: [0, 0] for m in models}
-            wrong = []
             for m, t, b in groups:
                 items = [(h, G[(m, t, b, h)]["gamma"], outcome(m, t, b, h)) for h in qheads]
-                c, n, w = ranked_pairs(items, F, keep)
+                c, n, _ = ranked_pairs(items, F, keep)
                 tot[m][0] += c; tot[m][1] += n
-                wrong += [(m, t, b, x, y) for x, y in w]
             print(f"    {name:18s} {sum(v[0] for v in tot.values())} / {sum(v[1] for v in tot.values())}"
                   f"   (" + ", ".join(f"{m} {tot[m][0]} / {tot[m][1]}" for m in models) + ")")
-            for m, t, b, x, y in wrong:
-                print(f"      not ranked correctly: {m} / {t} / backbone {b}: "
-                      f"{HEAD_NAME[x[0]]} (head term {x[1]:.2f}, outcome {x[2]:+.4f}) vs "
-                      f"{HEAD_NAME[y[0]]} (head term {y[1]:.2f}, outcome {y[2]:+.4f})")
 
     rel = []
     for m, t, b, h in itertools.product(models, tasks, backbones, qheads):

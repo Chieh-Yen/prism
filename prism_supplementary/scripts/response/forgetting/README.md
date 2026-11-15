@@ -167,54 +167,20 @@ only the last N checkpoints of a `train_forgetting.py` run on disk (default:
 all); the baselines script always keeps the last two. A run whose metrics
 file exists is skipped, so trajectory runs go to an output root of their own.
 
-## How the lambda search was carried out
+## Lambda search
 
-The job lists are the result of a search, not a full sweep of the grid:
-
-1. The reference was trained with three seeds per cell.
-2. Each method started from a few grid values. Some were three-seed runs at
-   fixed values that existed before the search; others were single runs at
-   seed 42 placed by hand.
-3. The loop of `search_lambda.sh` was then iterated until it requested
-   nothing. In each round `select_lambda.py --emit` requests, per cell and
-   method, seed 42 at the grid value just above the largest value within
-   budget; once that value exists and is out of budget, it requests seeds 43
-   and 44 at the largest value within budget. Budget membership is always
-   judged on the mean over the seeds available, so a value can leave the
-   budget when its seeds 43 and 44 arrive, and the boundary then moves.
-4. For every method other than the shape regularizer, seeds 43 and 44 were
-   also run at the within-budget value with the least forgetting. These runs
-   do not enter the rule; they supply the "least-forgetting λ" comparison.
-
-All tables are computed from the runs in the job lists by the rule above,
-whatever order they were run in.
-
-L2-SP and EWC were searched by the same loop (steps 3 and 4), from three-seed
-runs at fixed values; `jobs_appendix_baselines.txt` holds these runs and the
-runs the loop added (95 in total). LwF and representation KD were searched by
-the same procedure on the four cells; `jobs_extra_baselines.txt` holds their
-runs (107 in total).
-
-Properties of the search:
-
-- The loop only adds the grid value adjacent to the current boundary. Grid
-  values below or between a method's starting values, and beyond the first
-  out-of-budget value above the boundary, were run only if they were among
-  the starting values (the starting values were mostly powers of ten).
-  `select_lambda.py` lists, for every cell and method, each λ with its number
-  of seeds, mean target-task loss and mean forgetting.
-- On Qwen3-8B-Base/BBQ the shape regularizer and anchor-CE are still within
-  budget at the top of the grid, λ = 10⁴, and are reported there.
-- The shape-regularizer points at λ = 0.1 and λ = 10 were trained with the
-  baselines script (`trace`), the others with `train_forgetting.py`. The two
-  entry points share the training loop. Every shape point selected at the
-  0.01-nat budget is a `train_forgetting.py` run; a `trace` point can be
-  selected in the check at another budget.
-- The budget is applied to the three-seed mean of the target-task loss, not
-  seed by seed.
-
-`search_lambda.sh OUT_ROOT START_JOBS` repeats the procedure from a list of
-starting runs of your choice.
+The job lists hold the runs of a search, not a full sweep of the grid. From a
+few starting values per cell and method, `select_lambda.py --emit` requests
+seed 42 at the grid value just above the largest value within budget; once
+that value is out of budget, it requests seeds 43 and 44 at the largest value
+within budget (`search_lambda.sh` runs this loop until nothing is requested).
+For every method other than the shape regularizer, seeds 43 and 44 are also
+run at the within-budget value with the least forgetting; these runs do not
+enter the rule and give the least-forgetting comparison. All tables are
+computed from the job lists by the rule above; `select_lambda.py` lists, per
+cell and method, each λ run with its number of seeds, mean target-task loss
+and mean forgetting. `search_lambda.sh OUT_ROOT START_JOBS` repeats the search
+from starting runs of your choice.
 
 ## Output
 

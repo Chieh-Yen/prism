@@ -30,21 +30,14 @@
 #                        (default: off, mutually exclusive with SHAPE_REG)
 #   LAMBDA_REPLAY=0.1    Anchor-CE weight (default: 0.1). Setting it without
 #                        REPLAY_REG=1 is an error.
-#   EVAL_KEEP_ANCHOR_ROWS=1  (default 1) pass --eval_keep_anchor_rows to
-#                        train_forgetting.py: the trainer's eval_loss is
-#                        computed on the whole held-out slice of the
-#                        fine-tuning task, as in the λ sweeps of
-#                        run_forgetting.sh. With 0 the 32 anchor rows are removed
-#                        from the eval set (unified protocol). Evaluation
-#                        only; training is the same either way.
-#   MAX_STEPS=300        Number of training steps. Unset when this script is
-#                        called directly: train_forgetting.py then uses its
-#                        task default (700 for truthfulqa and bbq).
-#                        run_forgetting.sh passes 300, the step at which the
-#                        paper reports results.
+#   MAX_STEPS=300        Number of training steps (default 300)
 #
 # With neither regularizer enabled, or with a weight of 0, train_forgetting.py
 # uses the library's default Trainer (no anchor set, no penalty).
+#
+# Every run is started with --eval_keep_anchor_rows: the trainer's eval_loss
+# is computed on the whole held-out slice of the fine-tuning task, as in the
+# λ sweeps of run_forgetting.sh. Evaluation only.
 #
 # A (model, task) run is skipped only when its prism_forgetting_metrics.json
 # holds the record of the final step: the max_steps recorded in that file,
@@ -110,17 +103,14 @@ elif [ "$REPLAY_REG" = "1" ]; then
 fi
 
 # Optional: cap training to MAX_STEPS (else use task-specific defaults
-# from train_forgetting.py, e.g. 700 for truthfulqa/bbq).
+# from train_forgetting.py, 300 for truthfulqa/bbq).
 if [ -n "${MAX_STEPS:-}" ]; then
     REG_ARGS="$REG_ARGS --max_steps $MAX_STEPS"
 fi
 
-# Evaluation rows of the trainer's eval_loss (see header). Default: the whole
-# held-out slice, as in the sweeps of run_forgetting.sh.
-EVAL_KEEP_ANCHOR_ROWS="${EVAL_KEEP_ANCHOR_ROWS:-1}"
-if [ "$EVAL_KEEP_ANCHOR_ROWS" = "1" ]; then
-    REG_ARGS="$REG_ARGS --eval_keep_anchor_rows"
-fi
+# Evaluation rows of the trainer's eval_loss: the whole held-out slice (see
+# header).
+REG_ARGS="$REG_ARGS --eval_keep_anchor_rows"
 
 CKPT_ROOT="./checkpoints/forgetting"
 if [ "$SHAPE_REG" = "1" ]; then
@@ -170,11 +160,7 @@ log "  Reg    : ANCHOR-CE  (λ=$LAMBDA_REPLAY)"
 else
 log "  Reg    : OFF"
 fi
-if [ "$EVAL_KEEP_ANCHOR_ROWS" = "1" ]; then
 log "  Eval   : whole held-out slice (--eval_keep_anchor_rows)"
-else
-log "  Eval   : held-out slice without the anchor rows"
-fi
 log "============================================================"
 
 for MODEL_KEY in $MODELS; do

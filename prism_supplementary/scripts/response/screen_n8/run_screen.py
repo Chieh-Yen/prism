@@ -26,9 +26,8 @@ answer-token cross-entropy of sequence i and i runs over the eight sequences of 
 Arithmetic.  The omega / Procrustes / gamma arithmetic is that of fresh_metrics in the
 three-seed round's script (scripts/rounds/three_seed_round.py), rewritten in the n x n (thin) form, which is
 exact when n_tokens <= d: ||Z_T^T Z_P||_* via QR + an n x n SVD, and
-||Sigma_P^{1/2} A||_F = ||Z_P A||_F / sqrt(n).  CKA, omega and delta are computed in
-float64; gamma is evaluated in float32 from the float64 polar factor.  Sets with more token
-rows than feature dimensions fall back to fresh_metrics itself.
+||Sigma_P^{1/2} A||_F = ||Z_P A||_F / sqrt(n).  Sets with more token rows than feature
+dimensions fall back to fresh_metrics itself.
 
 Output (under --out):
   {family}_sets.json     the 100 index sets of every (seed, benchmark) pool
@@ -86,7 +85,7 @@ def feats(model, loader, dev):
     return Z.float().cpu(), al, cnt
 
 def fast_metrics(X, Y, H_T, H_P, K_feat, K_pred):
-    """X = Z_T rows, Y = Z_P rows, float64 cuda, n <= d.  Same quantities as fresh_metrics."""
+    """X = Z_T rows, Y = Z_P rows, n <= d.  Same quantities as fresh_metrics."""
     n, d = X.shape
     nx, ny = X.norm(), Y.norm()
     Xc, Yc = X - X.mean(0, keepdim=True), Y - Y.mean(0, keepdim=True)

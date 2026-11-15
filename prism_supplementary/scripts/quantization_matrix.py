@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """
-Utilities for quantization runner matrix.
-
-This helper centralizes matrix parsing/validation so shell scripts and tests can
-share one source of truth for models and datasets.
+Prints the model rows and datasets of configs/quantization_matrix.yaml for run_quantization.sh.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
-import json
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import Dict, List, Sequence
 
 import yaml
 
@@ -106,23 +102,6 @@ def to_bits_override(bits: Sequence[str]) -> str:
     return f"proxy.quantization_bits=[{','.join(bits)}]"
 
 
-def iter_jobs(matrix: Dict, model_ids: Sequence[str], dataset_ids: Sequence[str], num_samples: int) -> Iterable[Dict[str, str]]:
-    models = filter_models(matrix, model_ids)
-    datasets = filter_datasets(matrix, dataset_ids)
-    for model in models:
-        for dataset in datasets:
-            yield {
-                "model_id": model["id"],
-                "dataset": dataset,
-                "target_override": f"target.model={model['target_model']}",
-                "proxy_override": f"proxy.model={model['proxy_model']}",
-                "template_override": f"proxy.gguf_template={model.get('gguf_template', '').strip()}",
-                "bits_override": to_bits_override(model["quantization_bits"]),
-                "samples_override": f"data.num_samples={num_samples}",
-                "task_override": f"data.task={dataset}",
-            }
-
-
 def command_models(args: argparse.Namespace) -> int:
     matrix = load_matrix(Path(args.matrix))
     validate_matrix(matrix)
@@ -148,50 +127,6 @@ def command_datasets(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_jobs(args: argparse.Namespace) -> int:
-    matrix = load_matrix(Path(args.matrix))
-    validate_matrix(matrix)
-    jobs = list(
-        iter_jobs(
-            matrix=matrix,
-            model_ids=_parse_csv_list(args.models),
-            dataset_ids=_parse_csv_list(args.datasets),
-            num_samples=args.num_samples,
-        )
-    )
-    if args.format == "json":
-        json.dump(jobs, sys.stdout, indent=2)
-        print()
-    elif args.format == "count":
-        print(len(jobs))
-    else:
-        writer = csv.writer(sys.stdout, delimiter="\t", lineterminator="\n")
-        writer.writerow(
-            [
-                "model_id",
-                "dataset",
-                "target_override",
-                "proxy_override",
-                "template_override",
-                "bits_override",
-                "samples_override",
-                "task_override",
-            ]
-        )
-        for row in jobs:
-            writer.writerow([row[k] for k in (
-                "model_id",
-                "dataset",
-                "target_override",
-                "proxy_override",
-                "template_override",
-                "bits_override",
-                "samples_override",
-                "task_override",
-            )])
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Quantization matrix utility")
     parser.add_argument(
@@ -209,13 +144,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_datasets = sub.add_parser("datasets", help="Emit datasets one per line")
     p_datasets.add_argument("--datasets", default="", help="Comma or space separated dataset ids")
     p_datasets.set_defaults(func=command_datasets)
-
-    p_jobs = sub.add_parser("jobs", help="Emit expanded jobs")
-    p_jobs.add_argument("--models", default="", help="Comma or space separated model ids")
-    p_jobs.add_argument("--datasets", default="", help="Comma or space separated dataset ids")
-    p_jobs.add_argument("--num-samples", type=int, default=512, help="Samples override value")
-    p_jobs.add_argument("--format", choices=("json", "tsv", "count"), default="json")
-    p_jobs.set_defaults(func=command_jobs)
 
     return parser
 

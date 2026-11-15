@@ -9,18 +9,14 @@ Grid, on identical inputs (same loader, n and seed as head_swap.py):
   q8_0/q5_0/q4_0  the block formats Q8_0, Q5_0 and Q4_0 (blocks of 32, FP16
             scale), applied to the target's lm_head by the torch functions
             below. The functions are compared with gguf-py's reference
-            quantizers at start-up on the first 2048 rows of the head, and the
-            result is stored in info["quantizer_check"]. On the two models
-            run here Q8_0 is identical in every entry of those rows; Q5_0 and
-            Q4_0 agree in 99.88% to 99.89% of the entries. Only the share of
-            differing entries and the largest absolute difference are
-            measured and stored.
+            quantizers at start-up on the first 2048 rows of the head; the
+            share of differing entries and the largest absolute difference
+            are stored in info["quantizer_check"].
   q6_k      the lm_head weight of the GGUF file of the first backbone in
             --backbones, as transformers dequantizes it. For every backbone
             file the script checks that the file's own lm_head equals this
             tensor entry for entry and stores the result in
-            info["native_head_is_q6k"]. The storage type of the tensor is not
-            read here.
+            info["native_head_is_q6k"].
   q3_0/q2_0 the Q4_0 scheme with 3 and 2 bits, i.e. fewer levels (stress
             range). These are not GGUF formats and have no gguf-py reference.
 

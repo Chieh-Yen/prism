@@ -15,10 +15,8 @@ the same features.  Two tasks x five benchmarks are the ten cells that
 "Unregularized" here means ``--lambda_shape 0 --lambda_replay 0``: no penalty
 and no anchor set, trained with the library's default trainer.
 
-The trainer is started with ``--eval_keep_anchor_rows``: its ``eval_loss`` is
-computed on the whole held-out slice of the fine-tuning task, as in the runs
-behind the reported table.  The flag selects evaluation rows only; the
-similarity comparison does not read ``eval_loss``.
+The launcher passes ``--eval_keep_anchor_rows`` (``eval_loss`` on the whole
+held-out slice; not read by ``analyze.py``).
 
 Runs are written to ``<out_root>/<task>_seed<seed>/`` and run one after
 another on the visible GPU.  A run is skipped only when the last checkpoint

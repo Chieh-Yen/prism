@@ -39,8 +39,8 @@ the record of the final step (the run's `max_steps`, 300 in the sweeps; or
 The method and lambda of a run are read from the `experiment` block of its
 file (`lambda_shape`, `lambda_replay`), not from the directory name:
 "none" is a run with both at 0 (the library's default Trainer), "anchor-CE" a
-run with lambda_replay > 0 (cross-entropy on the anchor set; "generic replay"
-when the run's `replay_source` is generic), "shape" a run with lambda_shape > 0. The values
+run with lambda_replay > 0 (cross-entropy on the anchor set), "shape" a run
+with lambda_shape > 0. The values
 are single runs (one seed per configuration).
 
 Usage (from the supplementary root):
@@ -58,7 +58,7 @@ import os
 from collections import defaultdict
 
 METRICS_FILE = "prism_forgetting_metrics.json"
-METHOD_ORDER = {"none": 0, "anchor-CE": 1, "generic replay": 1, "shape": 2}
+METHOD_ORDER = {"none": 0, "anchor-CE": 1, "shape": 2}
 
 
 def read_run(path, step):
@@ -74,8 +74,6 @@ def read_run(path, step):
         method, lam = "anchor-CE", lam_replay
     else:
         method, lam = "none", 0.0
-    if method == "anchor-CE" and exp.get("replay_source") not in (None, "task"):
-        method = "generic replay" if exp["replay_source"] == "generic" else f"replay[{exp['replay_source']}]"
     task = exp.get("trained_task", "?")
     row = {
         "model": exp.get("model", "?"), "task": task, "method": method,

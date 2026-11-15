@@ -70,7 +70,7 @@ def parse_proxy_spec(proxy_model: str, label: str, target_model: str) -> Dict:
                     "label": label}
         if tag.upper() == "GPTQ":
             return {"kind": "gptq", "repo": repo, "label": label}
-        if tag.upper() in ("FP16", "FLOAT16"):
+        if tag.upper() == "FP16":
             return {"kind": "dtype", "repo": repo, "dtype": "float16",
                     "label": label}
     raise ValueError(f"Unrecognised proxy_model format: {proxy_model!r}")
@@ -110,9 +110,6 @@ def risk_gaps_from_csv(family: str, results_csv) -> Dict[tuple, float]:
                benchmarks used here).
       `|dR|`   full-sequence gap (all tokens); the only gap column for tasks
                without an answer span.
-      `|MdR|`  a column holding `|AdR|` where it exists and `|dR|`
-               otherwise, i.e. the same rule as above. run_quantization.py
-               does not write it.
 
     A (Label, dataset) pair that occurs twice with different gaps (for
     example files of two sample sizes) is an error.
@@ -128,7 +125,7 @@ def risk_gaps_from_csv(family: str, results_csv) -> Dict[tuple, float]:
                     continue
                 if r.get("z_mode") not in (None, "", "concat"):
                     continue
-                raw = next((r[c] for c in ("|AdR|", "|dR|", "|MdR|")
+                raw = next((r[c] for c in ("|AdR|", "|dR|")
                             if r.get(c) not in (None, "")), None)
                 if raw is None:
                     continue
@@ -163,14 +160,7 @@ def load_target(model_id: str, device: str = "cuda:0"):
 
 
 def _load_gptq_with_fallback(repo: str, device: str):
-    """Load a pre-quantized GPTQ repository.
-
-    The first attempt loads the repository as it is.  If that fails with an
-    error that names the exllama backend (some loader versions no longer
-    provide the backend a checkpoint's config asks for), the load is retried
-    with the kernel overridden through GPTQConfig, which transformers merges
-    over the checkpoint's own config.  bits=4 matches every GPTQ repository
-    in the variant manifest."""
+    """Load a pre-quantized GPTQ repository; if its kernel backend is unavailable, retry with the exllama-v2 kernel, then without exllama."""
     from transformers import GPTQConfig                    # lazy import
     attempts = [
         ("as-is", None),

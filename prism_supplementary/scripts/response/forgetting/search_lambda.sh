@@ -16,7 +16,7 @@
 #    docstring) and train them;
 # 4. repeat 2-3 until nothing is requested, then print the tables.
 #
-# See "How the lambda search was carried out" in the README.
+# See "Lambda search" in the README.
 #
 # Knob: PYTHON (default python); the GPU is the one CUDA_VISIBLE_DEVICES exposes.
 set -euo pipefail

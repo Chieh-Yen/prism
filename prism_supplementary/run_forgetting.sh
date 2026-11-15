@@ -36,10 +36,6 @@
 # at `--lambda_shape 1e-9`; the two loops scale the loss differently under
 # gradient accumulation (see the trainer selection in train_forgetting.py).
 #
-# A single invocation of this wrapper covers the unregularized run, the
-# anchor-CE sweep and the shape-regularizer sweep for both models and both
-# fine-tuning tasks.
-#
 # Environment knobs:
 #   CUDA_GPU=0                                       GPU index
 #   REPLAY_LAMBDAS="0 0.001 0.005 0.01 0.05 0.1"     space-separated; an
@@ -48,11 +44,10 @@
 #       empty value (SHAPE_LAMBDAS="") runs no shape-regularizer run
 #   MODELS_ORDER="llama qwen"                        space-separated
 #   TASKS_ORDER="truthfulqa bbq"                     space-separated
-#   EVAL_KEEP_ANCHOR_ROWS=1                          1 (default): the trainer's
-#       eval_loss is computed on the whole held-out slice of the fine-tuning
-#       task (--eval_keep_anchor_rows), which is what scripts/sweep_table.py
-#       reports as target loss. 0: the 32 anchor rows are removed from the eval
-#       set, as in the unified protocol. Evaluation only.
+#
+# Every run is started with --eval_keep_anchor_rows: the trainer's eval_loss
+# is computed on the whole held-out slice of the fine-tuning task, which is
+# what scripts/sweep_table.py reports as target loss.
 #
 # Table of the sweep (target loss and downstream |ΔR| per λ), no GPU:
 #   python scripts/sweep_table.py --root checkpoints
@@ -75,7 +70,6 @@ REPLAY_LAMBDAS="${REPLAY_LAMBDAS-0 0.001 0.005 0.01 0.05 0.1}"
 SHAPE_LAMBDAS="${SHAPE_LAMBDAS-0.01 0.05 0.1 0.5 1.0}"
 MODELS_ORDER="${MODELS_ORDER:-llama qwen}"
 TASKS_ORDER="${TASKS_ORDER:-truthfulqa bbq}"
-EVAL_KEEP_ANCHOR_ROWS="${EVAL_KEEP_ANCHOR_ROWS:-1}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 LOG="screen_forgetting_${TIMESTAMP}.log"
@@ -101,7 +95,7 @@ log "  Anchor-CE λ: $REPLAY_LAMBDAS  (${n_replay} values)"
 log "  Shape  λ: $SHAPE_LAMBDAS   (${n_shape} values)"
 log "  Total runs : $TOTAL_RUNS"
 log "  Max steps  : $MAX_STEPS"
-log "  Eval rows  : $([ "$EVAL_KEEP_ANCHOR_ROWS" = "1" ] && echo "whole held-out slice (--eval_keep_anchor_rows)" || echo "held-out slice without the anchor rows")"
+log "  Eval rows  : whole held-out slice (--eval_keep_anchor_rows)"
 log "  GPU: $GPUID"
 log "  Log: $LOG"
 log "============================================================"
@@ -116,14 +110,12 @@ run_one() {
     local rc=0
     if [ "$method" = "replay" ]; then
         CUDA_GPU="$GPUID" MAX_STEPS="$MAX_STEPS" \
-            EVAL_KEEP_ANCHOR_ROWS="$EVAL_KEEP_ANCHOR_ROWS" \
             REPLAY_REG=1 LAMBDA_REPLAY="$lam" \
             MODELS="$model" TASKS="$task" \
             bash run_forgetting_one.sh 2>&1 | tee -a "$LOG"
         rc=${PIPESTATUS[0]}
     elif [ "$method" = "shape" ]; then
         CUDA_GPU="$GPUID" MAX_STEPS="$MAX_STEPS" \
-            EVAL_KEEP_ANCHOR_ROWS="$EVAL_KEEP_ANCHOR_ROWS" \
             SHAPE_REG=1 LAMBDA_SHAPE="$lam" \
             MODELS="$model" TASKS="$task" \
             bash run_forgetting_one.sh 2>&1 | tee -a "$LOG"

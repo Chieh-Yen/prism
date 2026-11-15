@@ -1,5 +1,5 @@
 """
-BaseExperiment — shared scaffolding for PRISM experiments.
+BaseExperiment; shared scaffolding for PRISM experiments.
 
 Provides config bootstrap, the PRISM metric/bound computation, and JSON/CSV
 result persistence.  Subclasses (e.g. ``QuantizationExperiment``) implement
@@ -56,7 +56,7 @@ class BaseExperiment:
         if not self.use_flash_attention:
             return {}
         try:
-            import flash_attn  # noqa: F401 — availability probe only
+            import flash_attn  # noqa: F401; availability probe only
         except ImportError:
             print("  [flash_attn] package not found — running without Flash Attention 2.")
             return {}
@@ -79,18 +79,14 @@ class BaseExperiment:
         label: str = "",
         K_feat: float = 1.0,
         K_pred: float = 1.0,
-        absorbed: bool = False,
     ) -> PRISMResult:
         """Run full PRISM metric suite and fill risk bound.
 
         Args:
             W:       Alignment matrix.  ``torch.eye(d)`` for identity regime,
                      ``None`` to compute the optimal Procrustes W_opt.
-            absorbed: If True, use scale-absorbed reparameterisation where
-                feature error = √(2(1−Ω)) and scale is folded into head.
         """
-        compute_fn = PRISMMetrics.compute_all_absorbed if absorbed else PRISMMetrics.compute_all
-        result = compute_fn(
+        result = PRISMMetrics.compute_all(
             Z_T, H_T, Z_P, H_P,
             W=W,
             label=label,
@@ -157,14 +153,9 @@ class BaseExperiment:
         appended automatically when any result has answer loss data.
         """
         path = os.path.join(self.output_dir, filename)
-        absorbed = results[0].extra.get("mode") == "scale_absorbed" if results else False
 
         geo_fields = ["target_model", "proxy_model", "dataset", "z_mode",
-                       "Label", "rho_T", "rho_P"]
-        if not absorbed:
-            geo_fields.append("Scale")
-        else:
-            geo_fields.append("absorbed")
+                       "Label", "rho_T", "rho_P", "Scale"]
 
         dual_w_fields = [
             "Omega_I", "Omega_W",
@@ -206,11 +197,8 @@ class BaseExperiment:
                     # Lipschitz constants
                     "K_f": r.extra.get("K_feat_tight", ""),
                     "K_p": r.extra.get("K_pred_theory", ""),
+                    "Scale": r.scale_mismatch,
                 }
-                if not absorbed:
-                    row["Scale"] = r.scale_mismatch
-                else:
-                    row["absorbed"] = "yes"
 
                 # Full-text loss (always present)
                 flt = r.extra.get("full_loss_target", r.loss_target)

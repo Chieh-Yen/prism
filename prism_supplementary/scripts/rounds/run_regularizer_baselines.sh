@@ -28,11 +28,9 @@
 # Every run is started with --eval_keep_anchor_rows: the trainer's eval_loss
 # (the "target loss" column of regularizer_table.py) is computed on the whole
 # held-out slice of the fine-tuning task, anchor rows included.
-# EVAL_KEEP_ANCHOR_ROWS=0 removes the anchor rows from the eval set instead
-# (unified protocol). Evaluation only; training is the same either way.
 #
 # Knobs: MODEL, TASKS, CUDA_GPU, MAX_STEPS (300), TRACE_LAM (1.0),
-#        SKIP_DONE (1), EVAL_KEEP_ANCHOR_ROWS (1).
+#        SKIP_DONE (1).
 # ============================================================
 set -uo pipefail
 cd "$(dirname "$0")/../.."        # supplementary root
@@ -49,10 +47,6 @@ TRACE_LAM="${TRACE_LAM:-1.0}"
 # or EWC run directory (see the header) and the run is listed under FAILED
 # RUNS.
 SKIP_DONE="${SKIP_DONE:-1}"
-EVAL_ARGS=()
-if [[ "${EVAL_KEEP_ANCHOR_ROWS:-1}" == "1" ]]; then
-    EVAL_ARGS=(--eval_keep_anchor_rows)
-fi
 export CUDA_VISIBLE_DEVICES="${CUDA_GPU:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
@@ -89,7 +83,7 @@ run_one () {  # method lambda seed task model
         --model "$model" --task "$task" \
         --method "$method" --lambda_reg "$lam" \
         --seed "$seed" --max_steps "$MAX_STEPS" --output_root "$OUT" \
-        ${EVAL_ARGS[@]+"${EVAL_ARGS[@]}"} \
+        --eval_keep_anchor_rows \
         2>&1 | tee -a "$LOG"
     if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
         FAILURES+=("$tag")
@@ -109,7 +103,7 @@ run_freeze () {  # topK seed task model
         --model "$model" --task "$task" \
         --method layer_freeze --lora_top_layers "$top" \
         --seed "$seed" --max_steps "$MAX_STEPS" --output_root "$OUT" \
-        ${EVAL_ARGS[@]+"${EVAL_ARGS[@]}"} \
+        --eval_keep_anchor_rows \
         2>&1 | tee -a "$LOG"
     if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
         FAILURES+=("$tag")

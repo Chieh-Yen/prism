@@ -55,13 +55,9 @@ three seeds, and every method that has at least one run on the grid:
    point with the least mean forgetting; these runs do not enter the selection
    and serve only the "least-forgetting lambda" comparison below.
 
-The search therefore only ever adds the grid value adjacent to the current
-boundary, and stops when that value is out of budget (or the boundary is the
-top of the grid).  Grid values below or between a method's starting points,
-and beyond the first out-of-budget value above the boundary, exist only if
-they were among the starting points.  Target loss need not be monotone in
-lambda, so the selected value is the largest within-budget value among the
-points run.  The per-lambda listing printed for every method shows which
+The search therefore only adds the grid value adjacent to the current
+boundary and stops when that value is out of budget (or the boundary is the
+top of the grid).  The per-lambda listing printed for every method shows which
 points exist and with how many seeds.
 
 Example

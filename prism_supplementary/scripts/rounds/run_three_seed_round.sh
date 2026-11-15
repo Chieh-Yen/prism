@@ -25,8 +25,7 @@
 #
 #   knobs: CUDA_GPU (0), FAMILIES ("llama qwen"), SEEDS ("43 44 45"),
 #          SIZES ("8 32 128 512") reference sizes in sequences,
-#          CHUNK (8192) token rows per float64 accumulation chunk (a memory
-#          setting; it does not change the result),
+#          CHUNK (8192) token rows per accumulation chunk (memory setting),
 #          FORCE=1 moves existing seed files aside and recomputes.
 # ============================================================
 set -uo pipefail

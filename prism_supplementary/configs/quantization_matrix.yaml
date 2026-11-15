@@ -15,17 +15,10 @@ models:
       - Q6_K
       - Q5_K_M
       - Q4_K_M
-      - Q3_K_M
-      - Q2_K
       - bnb:int8
       - bnb:nf4
       - bnb:fp4
-      - gptq:Efficient-ML/Qwen3-8B-gptq-w4-128
-      - gptq:Efficient-ML/Qwen3-8B-gptq-w8-128
-      - gptq:Efficient-ML/Qwen3-8B-gptq-w4-perchannel
-      - gptq:Efficient-ML/Qwen3-8B-gptq-w8-perchannel
       - gptq:JunHowie/Qwen3-8B-GPTQ-Int8
-      - gptq:RedHatAI/Qwen3-8B-quantized.w4a16
 
   - id: llama31_8b_instruct
     target_model: meta-llama/Meta-Llama-3.1-8B-Instruct
@@ -91,10 +84,6 @@ models:
       - bnb:int8
       - bnb:nf4
       - bnb:fp4
-      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-128
-      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-128
-      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel
-      - gptq:Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel
       - gptq:AlphaGaO/Qwen3-8B-GPTQ
 
   - id: llama31_8b_base

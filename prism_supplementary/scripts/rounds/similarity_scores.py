@@ -38,8 +38,6 @@ better ranking in every column.
 
 The functions linear_cka and svcca are also imported by three_seed_round.py.
 
-The similarity scores are computed in float32, the dtype of the inputs.
-
 Usage (from the supplementary root)
     python scripts/rounds/similarity_scores.py --family llama --results-csv RESULTS_DIR
     python scripts/rounds/similarity_scores.py --family qwen  --results-csv 'RESULTS_DIR/prism_qwen3-8b-base_*_n512_concat.csv'
@@ -209,9 +207,6 @@ def main():
                     help="upper limit on paired token rows; the default lies "
                          "above the largest count of the grid (GSM8K), so no "
                          "benchmark is subsampled")
-    ap.add_argument("--redo", nargs="*", default=[],
-                    help="benchmarks to recompute even if present in the "
-                         "output CSV (their rows are dropped on load)")
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
@@ -290,8 +285,6 @@ def main():
             tmp = zt_cache / f"{b}.pt.tmp"
             torch.save(Z.half(), tmp)
             tmp.rename(zt_cache / f"{b}.pt")
-            # The cache holds float16; the same round trip is applied in
-            # memory, so cached and freshly extracted features are identical.
             Z_T[b] = Z.half().float()
             print(f"  {b}: Z={list(Z.shape)}  ({time.time() - t0:.0f}s)")
         del target
@@ -302,11 +295,7 @@ def main():
     rows = []
     done: dict = {}
     if csv_path.exists():
-        dropped = 0
         for r in csv.DictReader(open(csv_path)):
-            if r["dataset"] in args.redo:
-                dropped += 1
-                continue
             for k in ("cka", "svcca", "procr_dist", "omega_I", "omega_W",
                       "bound_I", "bound_W", "|MdR|"):
                 r[k] = float(r[k])
@@ -314,7 +303,6 @@ def main():
             rows.append(r)
             done.setdefault(r["label"], set()).add(r["dataset"])
         print(f"[resume] {csv_path.name}: {len(rows)} rows kept, "
-              f"{dropped} dropped for --redo {args.redo}, "
               f"{len(done)} variants present")
 
     # ── Per-variant loop: load once, all benchmarks ─────────────────────

@@ -19,9 +19,9 @@ regularized ones add lambda * P, where P is evaluated on the anchor set
                   the same features the shape regularizer reads)
     layer_freeze  no penalty; LoRA on the top --lora_top_layers layers only
 
---seed, --ref_task, --ref_seed and --ref_offset expose the training seed and
-the anchor draw, so multi-seed runs and anchor-set ablations go through
-this script as well. --seed also sets the initial LoRA weights (see its help
+--seed and --ref_offset expose the training seed and the anchor draw, so
+multi-seed runs and anchor-set ablations go through this script as well.
+--seed also sets the initial LoRA weights and the anchor draw (see its help
 text).
 
 Which trainer runs. trace, replay, l2sp, ewc, lwf and hint_mse run the
@@ -162,13 +162,8 @@ class LwFTrainer(ShapeRegularizedTrainer):
     sequences only (32 by default), and averaged over their non-padding
     positions t >= prompt_length, pooled over all anchor sequences.
 
-    Positions: the logits at position t predict token t + 1. The answer-only
-    cross-entropy and the features of the other penalties use the positions
-    whose prediction target is an answer token, i.e. t >= prompt_length - 1.
-    The mask here starts one position later (t >= prompt_length): the
-    position that predicts the first answer token is not included, and the
-    last non-padding position, whose prediction has no target token in the
-    sequence, is.
+    Positions: the non-padding positions t >= prompt_length of each anchor
+    sequence.
 
     The base logits are produced on the fly by the same network with the
     LoRA adapters disabled, under no_grad; logits are cast to float32 before
@@ -260,9 +255,8 @@ def estimate_fisher(model, ref_dl, device: str) -> Dict[str, Tensor]:
 
     For each anchor batch (batch size --reg_batch_size, 8 by default) the
     gradient of the batch-mean answer-only CE is taken and squared
-    element-wise; the squares are averaged over the anchor batches. These are
-    squared mini-batch gradients, not an average of per-example squared
-    gradients. The estimate is taken at the current adapter state, which is
+    element-wise; the squares are averaged over the anchor batches. The
+    estimate is taken at the current adapter state, which is
     the adapter initialisation when called from main(), and is normalised to
     unit mean over all trainable entries."""
     fisher = {n: torch.zeros_like(p, dtype=torch.float32)
@@ -321,7 +315,7 @@ _NO_RESUME = ("l2sp", "ewc")
 SAME_LOOP_WEIGHT = 1e-9
 
 # Fields that must agree before we resume into an existing directory. A
-# mismatch means two different configs share an output_root — refuse, don't
+# mismatch means two different configs share an output_root; refuse, don't
 # merge.
 _RESUME_GUARD = ("method", "lambda_reg", "ref_task", "reg_samples",
                  "ref_seed", "ref_offset", "reg_every_k", "lr", "seed",
@@ -370,8 +364,7 @@ def plan_resume(output_dir: str, cfg: Dict[str, Any],
             sys.exit(f"resume: {jp} is unreadable ({e}) — move it aside or "
                      f"pass --resume no")
         old = prev.get("experiment", {})
-        # Keys absent from the old file are unknown, not different (older
-        # metrics files have no ref_seed / ref_offset field).
+        # Keys absent from the file on disk are not compared.
         bad = [k for k in _RESUME_GUARD
                if k in old and k in cfg and old[k] != cfg[k]]
         if bad:
@@ -424,7 +417,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=42,
                    help="Sets the initial LoRA weights, the Trainer seed "
                         "(order of the training data, dropout), the default "
-                        "anchor draw (seed + 1000, see --ref_seed) and the "
+                        "anchor draw (shuffle seed: seed + 1000) and the "
                         "benchmark subsets of the PRISM evaluation.")
     p.add_argument("--max_steps", type=int, default=300,
                    help="number of optimizer steps (reported runs: 300)")
@@ -439,18 +432,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lora_dropout", type=float, default=0.05)
     p.add_argument("--prism_eval_samples", type=int, default=256)
     p.add_argument("--prism_eval_batch_size", type=int, default=4)
-    p.add_argument("--ref_task", default=None,
-                   help="task whose held-out slice the anchor set is drawn "
-                        "from (default: --task)")
     p.add_argument("--reg_samples", type=int, default=32)
-    p.add_argument("--ref_seed", type=int, default=None,
-                   help="shuffle seed for the anchor draw (default: "
-                        "--seed + 1000). Setting it separately from --seed "
-                        "keeps the initial LoRA weights, the Trainer seed "
-                        "(data order, dropout) and the benchmark subsets "
-                        "fixed while the anchor sample moves. Unless "
-                        "--eval_keep_anchor_rows is passed, the rows removed "
-                        "from the eval set move with the anchor draw.")
     p.add_argument("--ref_offset", type=int, default=0,
                    help="row offset into the shuffled anchor pool; "
                         "distinct multiples of --reg_samples give disjoint "
@@ -493,12 +475,12 @@ def main() -> None:
         sys.exit("--lambda_reg must be > 0 for a regularized method")
     if args.same_loop and args.method not in ("none", "layer_freeze"):
         sys.exit("--same_loop applies to the methods none and layer_freeze")
-    ref_task = args.ref_task or args.task
-    ref_seed = args.ref_seed if args.ref_seed is not None else args.seed + 1000
+    # The anchor set is drawn from the fine-tuning task with shuffle seed
+    # --seed + 1000 (as in train_forgetting.py).
+    ref_task = args.task
+    ref_seed = args.seed + 1000
     task_cfg = TASK_CONFIGS[args.task]
-    # Every reported forgetting / regularization run used a learning rate of
-    # 1e-5, so that is the default here. The 2e-4 / 1e-4 default rule of
-    # train_forgetting_multitask.py is not inherited.
+    # Learning rate of the paper's forgetting runs.
     lr = args.lr if args.lr is not None else 1e-5
 
     model_short = args.model.split("/")[-1].lower()
@@ -524,7 +506,6 @@ def main() -> None:
         "reg_every_k": args.reg_every_k,
         "model": args.model, "trained_task": args.task,
         "eval_tasks": eval_tasks, "seed": args.seed,
-        "adapter_init_seeded": True,
         "lora_r": args.lora_r, "lora_alpha": args.lora_alpha,
         "lora_dropout": args.lora_dropout,
         "lora_target_modules": LORA_TARGET_MODULES,
@@ -593,10 +574,10 @@ def main() -> None:
     experiment_config["K_pred"] = K_theory["K_pred"]
 
     # ── Anchor set ──────────────────────────────────────────────────────
-    # --reg_samples sequences of the held-out slice of ref_task (default: the
-    # fine-tuning task; prism.data.loaders split "test"): rows
+    # --reg_samples sequences of the held-out slice of the fine-tuning task
+    # (ref_task; prism.data.loaders split "test"): rows
     # [ref_offset, ref_offset + reg_samples) after shuffling that slice with
-    # seed ref_seed (default: --seed + 1000, as in train_forgetting.py). The
+    # seed ref_seed (--seed + 1000, as in train_forgetting.py). The
     # draw depends only on (ref_task, ref_seed, ref_offset, reg_samples), so
     # every method reads the same rows at a given seed, and the rows are
     # redrawn for each seed.
@@ -646,10 +627,8 @@ def main() -> None:
         print(f"  layer_freeze: LoRA on layers {top[0]}..{top[-1]} "
               f"of {n_layers} (bottom {top[0]} layers frozen entirely)")
     lora_config = LoraConfig(**lora_kwargs)
-    # --seed determines the adapter initialisation: the random generators are
-    # seeded here, immediately before the adapter is created. The Trainer seeds
-    # them again with the same value when it is constructed, so the order of
-    # the training data and dropout are as without this call.
+    # --seed sets the adapter initialisation: the generators are seeded
+    # immediately before the adapter is created.
     set_seed(args.seed)
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
@@ -682,9 +661,7 @@ def main() -> None:
     # set. For `l2sp`, `none` and `layer_freeze`, which build no anchor set
     # and read no row of the slice during training, the removed rows are the
     # rows the anchor-based methods use at this seed, so that eval_loss is on
-    # the same rows for every method. (With --ref_task set to another task
-    # the removed rows are not anchors; the eval set is still the same for
-    # every method.)
+    # the same rows for every method.
     #
     # --eval_keep_anchor_rows: nothing is removed and eval_loss is computed on
     # the whole slice (163 rows for TruthfulQA), as for the target-task loss

@@ -11,14 +11,6 @@
 # current when this file was written.
 
 AlphaGaO/Qwen3-8B-GPTQ: 8b2766864e2cca9555fd8945a2d1481305f7cda2
-Efficient-ML/Qwen3-8B-base-gptq-w4-128: b314c411f137bf6fec5f8713cce7144a914fc75a
-Efficient-ML/Qwen3-8B-base-gptq-w4-perchannel: e6c1bef3a100770a7d24fcada476b9fef27eb500
-Efficient-ML/Qwen3-8B-base-gptq-w8-128: 11b8fc883ef9fbb9bf1508fd071ad7d7c4c37927
-Efficient-ML/Qwen3-8B-base-gptq-w8-perchannel: e53632a8949e9904a1e38cc74136e7553d64cdda
-Efficient-ML/Qwen3-8B-gptq-w4-128: c5ed06699fa277b5bced8ce2c5935ee3212ddb67
-Efficient-ML/Qwen3-8B-gptq-w4-perchannel: e7e9ca039ca8dea42b2e53abf0e3747dc803a499
-Efficient-ML/Qwen3-8B-gptq-w8-128: 025d2fed3767333a449bfd37074bb997267c9075
-Efficient-ML/Qwen3-8B-gptq-w8-perchannel: f81249a3aa2297087b64115d33b7147272b109cf
 JunHowie/Qwen3-8B-GPTQ-Int8: e131f54dea2ba1f99bbee218f75548ed00646cb9
 ModelCloud/Meta-Llama-3.1-8B-Instruct-gptq-4bit: 4ddfe5a0ea664324309d93a312654c920b5a2d52
 ModelCloud/Meta-Llama-3.1-8B-gptq-4bit: 29f5fac50a3c6cc7971b00e7b591d9294cd1f31b
@@ -26,7 +18,6 @@ QuantFactory/Meta-Llama-3.1-8B-GGUF: d0a93b5ad9c03e2e0f43b0814a36892638bfc856
 Qwen/Qwen3-8B: b968826d9c46dd6066d109eabc6255188de91218
 Qwen/Qwen3-8B-Base: 49e3418fbbbca6ecbdf9608b4d22e5a407081db4
 Qwen/Qwen3-8B-GGUF: 7c41481f57cb95916b40956ab2f0b139b296d974
-RedHatAI/Qwen3-8B-quantized.w4a16: 32527053243a382bc56e941c964fc516a5014d39
 bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF: 935d400c2ed1a29cc2a1045df25ec7998fb4dfe4
 bartowski/Meta-Llama-3.1-8B-Instruct-GGUF: bf5b95e96dac0462e2a09145ec66cae9a3f12067
 bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF: ad82bf81321f4b22de70014ecd5135730115f6a8

@@ -5,14 +5,11 @@ everything before the output head. The target is the original model in BF16.
 Metrics use `W = I`. Five benchmarks (ARC, MMLU, SQuAD, TriviaQA, GSM8K),
 `n = 512`, seed 42.
 
-**Gap.** Gaps are `|R_target - R|` in nats, where `R` is the mean
-cross-entropy over all answer tokens of the 512 sequences, i.e. over the rows
-the features and the bound are computed on (for Qwen3-8B-Base in the reported
-runs, seed 42: 527 rows for ARC, 512 for MMLU, 2,519 for SQuAD, 1,556 for TriviaQA and
-63,067 for GSM8K).
+**Gap.** Gaps are `|R_target - R|` in nats, where `R` is the answer-token
+cross-entropy on the 512 sequences.
 
 **Noise floor.** Gaps and differences of gaps below 0.02 nats are treated as
-noise. It applies to gaps (which cells enter a ratio) and to
+noise. It applies to gaps (which cells enter the interaction of experiment 2) and to
 differences of gaps (which pairs are counted, which changes are "beyond
 noise"). It is a constant in both analysis scripts (`NOISE_FLOOR`), not an
 option.
@@ -69,8 +66,7 @@ python scripts/response/head/analyze_head_precision.py out/response/head/head_pr
 Both GPU scripts need the `gguf` package (in `requirements-response.txt`):
 `head_swap.py` and `head_precision.py` load GGUF files through transformers,
 which uses it, and `head_precision.py` also uses it for its start-up check of
-the quantizers. `head_swap.py --skip_hybrid_b` evaluates the variant and
-hybrid A only; the analysis requires hybrid B. The analysis scripts use the
+the quantizers. The analysis scripts use the
 Python standard library only.
 
 Runtime: the recorded per-cell times add up to about 45 GPU-minutes for
@@ -85,16 +81,6 @@ variant, `A` for hybrid A, `B` for hybrid B. The script verifies on the
 extracted features that hybrid A has exactly the variant's features and hybrid B
 exactly the target's.
 
-* Additivity, over the cells with `V >= 0.02`. `V`, `A` and `B` are absolute
-  gaps. The script prints three quantities:
-  * the additivity ratio `r = ((V - A) + (V - B)) / V`, where `V - A` is what
-    restoring the original head removes from the variant's gap and `V - B` is
-    what restoring the original backbone removes; `r = 1` means the two
-    reductions add up to the variant's gap. The reported number is
-    the ordinary median of `r` over these cells;
-  * the sum-of-gaps form `(A + B) / V`, which equals `2 - r` cell by cell;
-  * on signed gaps `s = R - R_target`, the largest residual
-    `|s_A + s_B - s_V|` over all 20 cells, in nats.
 * Ranking: in hybrid A the head term is 0, so the bound is the feature term
   alone; the script checks whether it orders the variants of each benchmark as
   the gap of hybrid A does, and counts the correctly ordered pairs of variants
@@ -115,8 +101,7 @@ feature term and the head term.
 * The head called Q6_K is the `lm_head` weight of the Q4_K_M GGUF file as
   transformers dequantizes it. `head_precision.py` checks that the `lm_head`
   of the Q2_K file is the same tensor, entry for entry (`native_head_is_q6k`
-  in the output). Neither script reads the storage type of the tensor from the
-  file. All heads are run in BF16.
+  in the output). All heads are run in BF16.
 * Pairs: two quantized head settings in the same group whose outcomes differ by
   at least 0.02 nats (the noise floor); a pair is ranked correctly if the larger head term goes
   with the larger outcome (ties in the head term count as wrong). Pairs with the BF16 head are
@@ -132,6 +117,5 @@ feature term and the head term.
 
 **Bound.** Both analyses evaluate `K_feat * delta + K_pred * gamma >= gap` from
 the stored `delta` and `gamma`. `K_feat` (the largest distance between two
-columns of the target head, `UnifiedBound.theoretical_K`) is stored by the GPU
-scripts; for output files without it the analyses use 3.4583 (Qwen3-8B-Base) and
-2.6137 (Llama-3.1-8B). `K_pred = sqrt(2)`.
+columns of the target head, `UnifiedBound.theoretical_K`) and `K_pred = sqrt(2)`
+are stored by the GPU scripts.

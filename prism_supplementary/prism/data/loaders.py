@@ -79,7 +79,7 @@ _FORMATTERS: Dict[str, Callable] = {
 }
 
 
-# Prompt-only extractors (question prefix, no answer) — used to derive
+# Prompt-only extractors (question prefix, no answer); used to derive
 # ``prompt_length`` so that answer-only loss can be computed later.
 def _prompt_gsm8k(row: Dict[str, Any]) -> str:
     return f"Question: {row['question']}\nAnswer:"
@@ -132,13 +132,11 @@ _PROMPT_FORMATTERS: Dict[str, Callable] = {
 
 
 # ======================================================================
-# Task registry — maps short names to HuggingFace dataset identifiers
+# Task registry; maps short names to HuggingFace dataset identifiers
 # ======================================================================
 TASK_REGISTRY: Dict[str, Dict] = {
     # Structured Q&A benchmarks (PTQ + LoRA-forgetting evaluation, paper Sec. 4.1).
-    # All use concat z_mode so Z and loss are uniformly token-level; for
-    # single-token answers like MMLU/ARC this is mathematically equivalent to
-    # last_context_token.
+    # All use concat z_mode so Z and loss are uniformly token-level.
     "mmlu":          {"hf_id": "cais/mmlu",            "hf_subset": "all",           "formatter": "mmlu",     "split_map": {"test": "test"},
                       "z_mode": "concat", "loss_mode": "answer"},
     "arc":           {"hf_id": "allenai/ai2_arc",      "hf_subset": "ARC-Challenge", "formatter": "arc",      "split_map": {"test": "test"},
@@ -155,7 +153,7 @@ TASK_REGISTRY: Dict[str, Dict] = {
     "bbq":           {"hf_id": "lighteval/bbq_helm",   "hf_subset": "all",           "formatter": "bbq",      "split_map": {"test": "test[80%:]"},
                       "z_mode": "concat", "loss_mode": "answer"},
     # Raw-text corpus used only by the LoRA trainers, as the generic-replay
-    # source (--replay_source generic) or as an anchor source (--ref_task wikitext).  No formatter,
+    # source (--replay_source generic).  No formatter,
     # hence no prompt/answer split: Z covers every next-token position and
     # the loss is the full-text loss.
     "wikitext":      {"hf_id": "Salesforce/wikitext",  "hf_subset": "wikitext-2-raw-v1",
@@ -167,9 +165,8 @@ TASK_REGISTRY: Dict[str, Dict] = {
 def get_task_metadata(task_name: str) -> Dict:
     """Return z_mode and loss_mode metadata for a task."""
     meta = TASK_REGISTRY.get(task_name, {})
-    default_zm = meta.get("z_mode", "last_token")
     return {
-        "z_mode": default_zm,
+        "z_mode": meta.get("z_mode", "concat"),
         "loss_mode": meta.get("loss_mode", "full"),
     }
 
@@ -182,7 +179,7 @@ class TextDataset(Dataset):
 
     Supports two modes:
       1. ``text_key``: read a named column directly (WikiText).
-      2. ``formatter`` — apply a callable ``row → str`` for structured
+      2. ``formatter``; apply a callable ``row → str`` for structured
          datasets (GSM8K, MMLU, ARC, …).
 
     When ``prompt_formatter`` is supplied, the dataset additionally stores
@@ -225,7 +222,7 @@ class TextDataset(Dataset):
         )
         self.num_samples = len(texts)
 
-        # Prompt lengths (for answer-only loss and last_context_token Z).
+        # Prompt lengths (for answer-only loss and the answer-region Z rows).
         # Primary: use offset_mapping from the full-text tokenisation to
         # find the exact character→token boundary.  This avoids the BPE
         # divergence that occurs when prompt and full text are tokenised
@@ -360,8 +357,7 @@ def load_task_data(
         load_kwargs["name"] = meta["hf_subset"]
     hf_dataset = load_dataset(meta["hf_id"], **load_kwargs)
 
-    # Shuffle before selecting so the chosen N samples are random but
-    # reproducible. Skip when seed is None to preserve legacy behaviour.
+    # Shuffle with the seed before selecting, so the N samples are random but reproducible.
     if seed is not None:
         hf_dataset = hf_dataset.shuffle(seed=seed)
     if offset:

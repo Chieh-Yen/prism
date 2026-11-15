@@ -24,9 +24,7 @@ counts only if it exceeds the noise floor (NOISE_FLOOR, fixed at 0.02 nats).
 
 The same tables are printed for every results file: the per-benchmark gaps and
 term ratios, the absolute terms and the bound, and the summary. With more than
-one file an across-models table follows.  The comparison with the BnB INT8
-rows of the Qwen3-8B-Base decomposition table of the paper (Appendix E.3) is
-printed for that model.
+one file an across-models table follows.
 
 Usage:
     python analyze.py --results QWEN.json LLAMA.json --constants QWEN_K.json LLAMA_K.json
@@ -36,13 +34,6 @@ import argparse, json, math
 
 DISPLAY = {"squad": "SQuAD", "triviaqa": "TriviaQA", "mmlu": "MMLU",
            "arc": "ARC", "gsm8k": "GSM8K"}
-
-# |Delta R| of the BnB INT8 rows of the Qwen3-8B-Base decomposition table of
-# the paper (Appendix E.3; identity alignment), as printed there.
-PAPER_INT8_GAP = {
-    "Qwen/Qwen3-8B-Base": {"mmlu": 0.0104, "arc": 0.0626, "triviaqa": 0.0145,
-                           "squad": 0.0119, "gsm8k": 0.0017},
-}
 
 KEPT, ALLQ = "outliers kept", "all quantized"
 
@@ -175,19 +166,6 @@ def report(m, floor):
     print(f"  largest |gap change| from the switch        : {s['max_abs_change']:.4f} nats")
     print(f"  benchmarks whose gap change exceeds {floor:g} nats: "
           f"{s['beyond_floor']} / {s['n_tasks']}")
-
-    paper = PAPER_INT8_GAP.get(m["target"])
-    if paper is not None:
-        print("\nOutliers-kept gap against the BnB INT8 rows of the Qwen3-8B-Base "
-              "decomposition table of the paper (Appendix E.3)")
-        print(f"{'benchmark':10s} {'this run':>9s} {'paper':>9s} {'|difference|':>13s}")
-        diffs = []
-        for t in tasks:
-            d = abs(c[(t, KEPT)]["gap"] - paper[t])
-            diffs.append(d)
-            print(f"{name(t):10s} {c[(t, KEPT)]['gap']:9.4f} {paper[t]:9.4f} {d:13.4f}")
-        print(f"  largest |difference| = {max(diffs):.4f} nats; "
-              f"within 0.01 nats on {sum(d < 0.01 for d in diffs)} / {len(diffs)} benchmarks")
     print()
     return summary
 

@@ -19,7 +19,7 @@ All non-pad tokens are used, prompt included. Each token vector is divided by
 its own L2 norm before accumulation, so that a few tokens with very large
 activations cannot dominate the inner product. This is the per-token
 rescaling that the RMSNorm in front of every block also applies (up to the
-factor sqrt(d)); the learned gain of RMSNorm is not applied here. After this
+factor sqrt(d)). After this
 normalisation Omega is the mean per-token cosine
 between the target's and the variant's feature, the stored RMS scales are 1
 by construction, and the profile carries the shape term only.

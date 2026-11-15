@@ -64,8 +64,6 @@ def main():
     ap.add_argument("--seed", type=int, default=42,
                     help="seed of the dataset shuffle that selects the sequences")
     ap.add_argument("--device", default="cuda:0")
-    ap.add_argument("--metrics_device", default=None,
-                    help="where to run the PRISM contractions; defaults to --device")
     ap.add_argument("--out", required=True, help="output JSON path")
     a = ap.parse_args()
 
@@ -113,7 +111,7 @@ def main():
             loss_P = paired_losses(zm, lmode, st_P).float().mean().item()
             del px; gc.collect(); torch.cuda.empty_cache()
 
-            md = a.metrics_device or a.device
+            md = a.device
             try:
                 W_I = torch.eye(Z_T.shape[1], dtype=torch.float32, device=md)
                 r = PRISMMetrics.compute_all(
