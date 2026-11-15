@@ -1,7 +1,7 @@
 # Unified forgetting protocol
 
 The protocol of the paper's forgetting experiments (Sec. 4.5 and Appendices H.2, H.3,
-I, J; Table 3, Figs. 4 and 8). It compares the shape regularizer with no
+I, J; Table 3, Table 30, Figs. 4 and 8). It compares the shape regularizer with no
 regularization, anchor-CE, generic replay, LwF and representation KD when
 every method is tuned by one rule that reads only the target-task loss. The
 same rule is applied to L2-SP and EWC, the weight-space baselines of
@@ -18,8 +18,9 @@ selected methods.
 | `penalty_report.py` | weighted penalty lambda · P at the selected lambda |
 | `jobs_main_table.txt`, `jobs_extra_baselines.txt`, `jobs_appendix_baselines.txt`, `jobs_layer_freezing.txt` | the runs behind the tables, one `method model task lambda seed` per line |
 | `launch_main_table.sh` | main table: trains `jobs_main_table.txt`, evaluates, prints |
-| `launch_extra_baselines.sh` | LwF and representation KD on Llama-3.1-8B/TruthfulQA, with lambda · P; needs the Llama-3.1-8B/TruthfulQA reference and shape-regularizer runs of the main table in the same directory |
+| `launch_extra_baselines.sh` | LwF and representation KD on the four cells, with lambda · P; needs the reference and shape-regularizer runs of the main table in the same directory |
 | `launch_appendix_baselines.sh` | L2-SP and EWC (Appendix I baselines) on the four cells, with lambda · P; needs the reference and shape-regularizer runs of the main table in the same directory |
+| `launch_anchor_draw.sh`, `anchor_draw_table.py` | sensitivity to the anchor draw (Appendix I): the shape regularizer on Llama-3.1-8B/TruthfulQA at λ = 1e3 with the anchor set redrawn as four disjoint windows at n = 32, 16, 8 (36 runs), and the table of their forgetting |
 | `launch_layer_freezing.sh` | layer freezing on the four cells: trains `jobs_layer_freezing.txt` and evaluates the target-task loss |
 | `search_lambda.sh` | the lambda search as a loop, from a list of starting runs |
 
@@ -60,7 +61,8 @@ selected methods.
   The reference uses the regularized trainer class with a penalty weight of
   1e-9. The penalty 1 − Ω_I is at most 2, so the weighted penalty is at most
   2e-9 nats; `--lambda_shape 0` would instead select the library's default
-  trainer, whose loop differs.
+  trainer, whose loop differs. How λ weights the penalty against the
+  cross-entropy in this loop is given in note (c) of the top-level README.
 - **L2-SP and EWC**: both penalties are computed on the trainable adapter
   weights, once per optimizer step like the other penalties, and do not read
   the anchor set during training. For EWC the Fisher diagonal is estimated
@@ -124,9 +126,9 @@ Knobs of the five `.sh` launchers: the output root is their first argument,
 # main table (251 training runs), least-forgetting comparison, budget sensitivity
 bash scripts/response/forgetting/launch_main_table.sh out/unified
 
-# LwF and representation KD on Llama-3.1-8B/TruthfulQA (39 more runs), with lambda · P.
-# out/unified must already hold the Llama-3.1-8B/TruthfulQA runs of jobs_main_table.txt
-# for noreg_sameloop (3 runs) and shape (16 runs), with their target-task loss; the
+# LwF and representation KD on the four cells (107 more runs), with lambda · P.
+# out/unified must already hold the runs of jobs_main_table.txt for noreg_sameloop
+# (12 runs) and for shape and trace (74 runs), with their target-task loss; the
 # other runs of the main table are not needed for this table.
 bash scripts/response/forgetting/launch_extra_baselines.sh out/unified
 
@@ -188,7 +190,9 @@ whatever order they were run in.
 
 L2-SP and EWC were searched by the same loop (steps 3 and 4), from three-seed
 runs at fixed values; `jobs_appendix_baselines.txt` holds these runs and the
-runs the loop added (95 in total).
+runs the loop added (95 in total). LwF and representation KD were searched by
+the same procedure on the four cells; `jobs_extra_baselines.txt` holds their
+runs (107 in total).
 
 Properties of the search:
 
@@ -217,13 +221,13 @@ starting runs of your choice.
   `jobs_extra_baselines.txt` prints, per model and task, the forgetting (mean ±
   population sd over three seeds), the target-task loss and the selected λ of
   no regularization, anchor-CE, generic replay and the shape regularizer,
-  followed by the within-budget λ where each baseline forgets least and the
-  selections under budgets of 0.005 and 0.02 nats.
+  followed by the within-budget λ where each baseline forgets least, the
+  selections under budgets of 0.005 and 0.02 nats, and the LwF /
+  representation-KD table (four cells).
 - `select_lambda.py` on the runs of `jobs_main_table.txt` and
   `jobs_appendix_baselines.txt` prints the same quantities for L2-SP, EWC and
   the shape regularizer (same rule, grid, budget, seeds and spread).
-- `penalty_report.py` prints, per method, the selected λ, λ · P, the forgetting
-  and the target-task loss. P is the unweighted penalty averaged over optimizer
+- `penalty_report.py` prints, per method, the selected λ, P and λ · P. P is the unweighted penalty averaged over optimizer
   steps 291 to 300 (the last entry of the trainer's log) and over the three
   seeds. It lists the shape regularizer, LwF and representation KD, and L2-SP
   and EWC in a second table. The cross-entropy penalties of anchor-CE and

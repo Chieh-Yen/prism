@@ -95,15 +95,16 @@ definitions.
 | result | folder | command |
 |---|---|---|
 | Main forgetting table (Table 3) and the selection rule (four cells, three seeds) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_main_table.sh out/unified` |
-| LwF and representation KD (Llama-3.1-8B/TruthfulQA) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_extra_baselines.sh out/unified` |
+| LwF and representation KD (four cells, three seeds) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_extra_baselines.sh out/unified` |
 | Layer freezing (four cells, three seeds) | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_layer_freezing.sh out/unified` |
-| LoRA checkpoint ranking over three seeds (Sec. 4.2, Appendix F.3) | `scripts/response/lora_similarity/` | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
-| Eight-sequence screen | `scripts/response/screen_n8/` | `bash scripts/response/screen_n8/run_screen.sh run`, then `... run_screen.sh gptq` in an environment with a GPTQ loader, then `... run_screen.sh analyze` |
+| Sensitivity to the anchor draw (Appendix I): Llama-3.1-8B/TruthfulQA, seeds 42, 43, 44, n = 32, 16, 8 | `scripts/response/forgetting/` | `bash scripts/response/forgetting/launch_anchor_draw.sh out/anchor_draw` |
+| LoRA checkpoint ranking over three seeds (Sec. 4.2, Appendix F.3, Table 21) | `scripts/response/lora_similarity/` | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
+| Eight-sequence screen (Sec. 4.3, Table 2; Appendix F.2, Table 20) | `scripts/response/screen_n8/` | `bash scripts/response/screen_n8/run_screen.sh run`, then `... run_screen.sh gptq` in an environment with a GPTQ loader, then `... run_screen.sh analyze` |
 | Single-seed λ sweep (Llama-3.1-8B/TruthfulQA, shape regularizer) | top level | `bash run_forgetting.sh` (this cell only: `MODELS_ORDER=llama TASKS_ORDER=truthfulqa REPLAY_LAMBDAS="" bash run_forgetting.sh`), then `python scripts/sweep_table.py --root checkpoints` |
-| Layer-wise and q/k/v profile | `scripts/response/layer_profile/` | `bash scripts/response/layer_profile/run_layer_profile.sh` |
+| Layer-wise and q/k/v profile (Appendix K.3) | `scripts/response/layer_profile/` | `bash scripts/response/layer_profile/run_layer_profile.sh` |
 | Head experiment 1 (hybrids, 20 cells) | `scripts/response/head/` | `STAGE=swap bash scripts/response/head/run_head.sh`, then `STAGE=analyze` (prints both analyses and needs the outputs of experiments 1 and 2) |
-| Head experiment 2 (head precision, 210 cells) | `scripts/response/head/` | `STAGE=precision bash scripts/response/head/run_head.sh`, then `STAGE=analyze` (prints both analyses and needs the outputs of experiments 1 and 2) |
-| Scale intervention | `scripts/response/scale/` | `bash scripts/response/scale/run_scale.sh` |
+| Head experiment 2 (head precision, 210 cells; Appendix K.1) | `scripts/response/head/` | `STAGE=precision bash scripts/response/head/run_head.sh`, then `STAGE=analyze` (prints both analyses and needs the outputs of experiments 1 and 2) |
+| Scale intervention (Appendix K.2) | `scripts/response/scale/` | `bash scripts/response/scale/run_scale.sh` |
 
 The λ sweep row refers to single-seed runs outside the unified protocol
 (cross-entropy on the anchor set, i.e. anchor-CE, and the shape regularizer;
@@ -184,9 +185,10 @@ summary. `run_quantization.sh` needs bash 4 or later.
 |---|---|
 | Appendix F.2, reference-set size: seeds 43, 44, 45; sizes 8, 32, 128, 512; both families | `bash scripts/rounds/run_three_seed_round.sh run` (GPU), `bash scripts/rounds/run_three_seed_round.sh table` (no GPU) |
 | Fixed-weight regularizer comparison (not the Appendix I table): Llama-3.1-8B/TruthfulQA, seeds 42, 43, 44 | `STAGE=sweep bash scripts/rounds/run_regularizer_baselines.sh`, then `STAGE=seeds`, then `STAGE=table` |
-| Appendix I under the unified protocol: four cells, seeds 42, 43, 44 | `bash scripts/response/forgetting/launch_main_table.sh out/unified`, then `launch_appendix_baselines.sh` (L2-SP, EWC), `launch_extra_baselines.sh` (LwF, representation KD) and `launch_layer_freezing.sh` in the same folder, each with `out/unified` |
+| LoRA checkpoint ranking (Sec. 4.2, Appendix F.3, Table 21): Llama-3.1-8B on TruthfulQA and BBQ, seeds 42, 43, 44 | `bash scripts/response/lora_similarity/launch_lora_table.sh out/lora_series` |
+| Appendix I (Table 30) under the unified protocol: four cells, seeds 42, 43, 44 | `bash scripts/response/forgetting/launch_main_table.sh out/unified`, then `launch_appendix_baselines.sh` (L2-SP, EWC), `launch_extra_baselines.sh` (LwF, representation KD) and `launch_layer_freezing.sh` in the same folder, each with `out/unified` |
 
-Notes on the two rounds:
+Notes on the rounds of `scripts/rounds/`:
 
 - `size_study.py` prints the table of Appendix F.2 from the CSVs of
   `three_seed_round.py`; `scripts/response/screen_n8/analyze_screen.py
@@ -262,13 +264,15 @@ interchangeable.
 gradient accumulated by the regularized trainer for one optimizer step is
 (1/G) · [sum of the G micro-batch cross-entropy gradients + λ · penalty
 gradient]. This holds for every regularized method and for the same-loop
-reference. "λ · P" in the tables is λ times the logged penalty P. The `loss`
+reference. Relative to the mean micro-batch cross-entropy, as in the
+training objective of the paper (Sec. 3.4), the penalty is therefore
+weighted by λ / G. "λ · P" in the tables is λ times the logged penalty P. The `loss`
 this trainer logs is the sum of the G micro-batch mean cross-entropies of an
 optimizer step, without the penalty.
 
 **(d) λ search.** The grid is {1, 5} × 10^k up to 10^4, the same for every
-method. Not every grid value was run. The search went upward from scouting
-runs at seed 42 along the grid until the target-loss budget was exceeded;
+method. Not every grid value was run. The search went upward from starting
+runs (single runs at seed 42, or three-seed runs at fixed values) along the grid until the target-loss budget was exceeded;
 three seeds were then run at the selected value and, for the baselines, at
 their least-forgetting value within budget. The job lists in
 `scripts/response/forgetting/` are the runs behind the tables, and the folder
@@ -308,8 +312,8 @@ head experiments, about 45 and 50 GPU-minutes of per-cell time. The analysis
 scripts need no GPU.
 
 **(i) Seeds.** `--seed` of the trainers sets the initial weights of the LoRA
-adapter (as of this release; `adapter_init_seeded` in the `experiment` block
-of the output), the seed of the library `Trainer` (order of the training
+adapter (recorded as `adapter_init_seeded` in the `experiment` block of the
+output), the seed of the library `Trainer` (order of the training
 data, dropout), the anchor draw (`seed + 1000`) and the draw of the benchmark
 sequences of the PRISM evaluation.
 

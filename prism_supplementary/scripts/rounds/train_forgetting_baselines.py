@@ -313,8 +313,7 @@ def estimate_fisher(model, ref_dl, device: str) -> Dict[str, Tensor]:
 # parameters when it is constructed, and the EWC Fisher is estimated right
 # after the adapter is created. Neither is stored in the checkpoints. A
 # resumed process would rebuild both from a new adapter created with
-# --seed; whether they equal those of the interrupted run is not checked
-# (its checkpoints may come from a run without the seeded initialisation),
+# --seed; whether they equal those of the interrupted run is not checked,
 # so the run is refused.
 _NO_RESUME = ("l2sp", "ewc")
 # Weight of the L2-SP penalty in a --same_loop run (numerically no penalty);

@@ -33,7 +33,7 @@ answer depend on which eight sequences are used?
 | file | what it does | needs |
 |---|---|---|
 | `run_screen.py` | GPU pass for one family: loads the target once and each variant once, extracts answer-token features and per-sequence answer losses on the three pools of every benchmark, and writes one row per (variant, seed, benchmark, set) to `{family}_screen.csv`, plus `{family}_sets.json` (the index sets) and `{family}_K.json` (K_feat, K_pred) | GPU |
-| `analyze_screen.py` | tables and tests from the CSVs: summary over the ten cells, per-cell mean ± sd, across-cell and within-cell paired tests, bound coverage; with `--size-round`, the coverage at n = 8, 32, 128, 512 from the three-seed round's CSVs; `--exclude-label` drops a variant | numpy, scipy |
+| `analyze_screen.py` | tables and tests from the CSVs: summary over the ten cells, per-cell mean ± sd and worst set (the lowest r_s among the cell's 300 sets, for each score), across-cell and within-cell paired tests, bound coverage; with `--size-round`, the coverage at n = 8, 32, 128, 512 from the three-seed round's CSVs; `--exclude-label` drops a variant | numpy, scipy |
 | `run_screen.sh` | launcher: stages `run`, `gptq`, `analyze` | |
 
 Shared code: `scripts/rounds/common_quant.py` (variant manifest and model loading) and

@@ -18,7 +18,8 @@ Printed:
   1. summary over the ten cells: mean r_s (mean of the ten cell means), the worst single
      set, and an exact two-sided paired Wilcoxon signed-rank test across the ten cell means
      of B_N against each other score;
-  2. per cell: mean and standard deviation of r_s over the 300 sets.  The standard
+  2. per cell: mean and standard deviation of r_s over the 300 sets, and the worst set
+     of the cell (the lowest r_s among its 300 sets) for each score.  The standard
      deviation is the population one (ddof = 0);
   3. within each cell: paired two-sided Wilcoxon signed-rank test over the 300 sets of B_N
      against 1-CKA (normal approximation with tie correction, zero differences dropped),
@@ -127,6 +128,11 @@ def check_grid(rows, rs, labels, expected=VARIANTS):
     return problems
 
 
+def worst_sets(per_cell):
+    """{cell: {score: lowest r_s among the cell's reference sets}}."""
+    return {c: {n: float(np.min(v)) for n, v in scores.items()} for c, scores in per_cell.items()}
+
+
 def size_round_checks(directory):
     """Bound coverage per reference size, from the three-seed round's CSVs."""
     rows = load_rows(sorted(Path(directory).glob("*_seed*.csv")))
@@ -206,6 +212,13 @@ def main():
         for n in NAMES[:-1]:
             if f"{per_cell[c][n].mean():.3f}" == f"{per_cell[c]['B_N'].mean():.3f}":
                 print(f"   {cell_name(c)}: {n} {per_cell[c][n].mean():.4f}, B_N {per_cell[c]['B_N'].mean():.4f} (four decimals)")
+    worst = worst_sets(per_cell)
+    print(f"\n   Worst reference set per cell: lowest r_s among the {SETS_PER_CELL} sets\n")
+    print("| model | benchmark | " + " | ".join(NAMES) + " |")
+    print("|---|---|" + "--:|" * len(NAMES))
+    for c in cells:
+        print(f"| {FAMILY_NAME.get(c[0], c[0])} | {BENCH_NAME.get(c[1], c[1])} | "
+              + " | ".join(f"{worst[c][n]:.3f}" for n in NAMES) + " |")
 
     other = "1-CKA"
     diff = {c: per_cell[c]["B_N"] - per_cell[c][other] for c in cells}

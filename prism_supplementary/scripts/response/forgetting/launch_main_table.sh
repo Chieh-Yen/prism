@@ -17,4 +17,5 @@ PYTHON=${PYTHON:-python}
 for model in llama qwen; do
   "$PYTHON" "$HERE/eval_target_disjoint.py" --out_root "$OUT_ROOT" --model "$model"
 done
-"$PYTHON" "$HERE/select_lambda.py" --out_root "$OUT_ROOT"
+"$PYTHON" "$HERE/select_lambda.py" --out_root "$OUT_ROOT" \
+  || echo "select_lambda.py: search not finished; run it with --emit for the next runs"
