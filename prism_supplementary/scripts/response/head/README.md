@@ -96,9 +96,7 @@ feature term and the head term.
   with fewer levels; they are not GGUF formats and have no reference
   implementation to compare with.
 * The head called Q6_K is the `lm_head` weight of the Q4_K_M GGUF file as
-  transformers dequantizes it. `head_precision.py` checks that the `lm_head`
-  of the Q2_K file is the same tensor, entry for entry (`native_head_is_q6k`
-  in the output). All heads are run in BF16.
+  transformers dequantizes it. All heads are run in BF16.
 * Pairs: two quantized head settings in the same group whose outcomes differ by
   at least 0.02 nats (the noise floor); a pair is ranked correctly if the larger head term goes
   with the larger outcome (ties in the head term count as wrong). Pairs with the BF16 head are

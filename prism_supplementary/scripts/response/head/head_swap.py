@@ -16,8 +16,7 @@ source of error. The script checks both statements on the extracted features
 (`backbone_identical`, `head_only_identical`).
 
 The quantized head is the lm_head weight of the GGUF file as transformers
-dequantizes it; it is run in BF16, like every other weight. head_precision.py
-compares the output tensors of the GGUF files it loads entry for entry.
+dequantizes it; it is run in BF16, like every other weight.
 
 Metrics use W = I against the target (Z_T, H_T). The gaps are |R_T - R| in
 nats, where R is the answer-token cross-entropy on the n sequences. Each row

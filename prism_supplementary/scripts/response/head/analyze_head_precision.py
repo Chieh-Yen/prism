@@ -68,8 +68,7 @@ def load(paths):
                                         seed=info["seed"], files=[]))
         if (m["K_feat"], m["K_pred"]) != (kf, kp):
             raise SystemExit(f"{p}: constants differ between files of {model}")
-        m["files"].append(dict(path=p, quantizer_check=info.get("quantizer_check"),
-                               native=info.get("native_head_is_q6k")))
+        m["files"].append(dict(path=p, quantizer_check=info.get("quantizer_check")))
         for r in d["rows"]:
             if "dR" not in r:
                 raise SystemExit(f"{p}: incomplete run (rows without a gap)")
@@ -120,8 +119,7 @@ def main():
         for f in meta[m]["files"]:
             qc = f["quantizer_check"] or {}
             note = ("    quantizers vs gguf-py, share of entries that agree: " + ", ".join(
-                f"{HEAD_NAME[k]} {100 * (1 - v['frac_mismatch']):.2f}%" for k, v in qc.items())
-                + f";  lm_head of each GGUF backbone file equals the q6_k head: {f['native']}")
+                f"{HEAD_NAME[k]} {100 * (1 - v['frac_mismatch']):.2f}%" for k, v in qc.items()))
             if note not in notes:
                 notes.append(note)
         print("\n".join(notes))

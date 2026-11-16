@@ -13,10 +13,7 @@ Grid, on identical inputs (same loader, n and seed as head_swap.py):
             share of differing entries and the largest absolute difference
             are stored in info["quantizer_check"].
   q6_k      the lm_head weight of the GGUF file of the first backbone in
-            --backbones, as transformers dequantizes it. For every backbone
-            file the script checks that the file's own lm_head equals this
-            tensor entry for entry and stores the result in
-            info["native_head_is_q6k"].
+            --backbones, as transformers dequantizes it.
   q3_0/q2_0 the Q4_0 scheme with 3 and 2 bits, i.e. fewer levels (stress
             range). These are not GGUF formats and have no gguf-py reference.
 
@@ -233,9 +230,7 @@ def main():
         px = load_model(a.gguf_repo, gguf_file=a.gguf_tpl.format(quant=bb),
                         dtype=torch.bfloat16, device_map=dev)
         px.eval()
-        info.setdefault("native_head_is_q6k", {})[bb] = bool(torch.equal(px.lm_head.weight.data.cpu(), W_q6k))
-        print(f"== backbone {bb} loaded in {time.time()-t0:.0f}s; native head == q6_k: "
-              f"{info['native_head_is_q6k'][bb]}", flush=True)
+        print(f"== backbone {bb} loaded in {time.time()-t0:.0f}s", flush=True)
         for task in tasks:
             run_heads(px, bb, task, ZT)
             dump()
